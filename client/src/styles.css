@@ -1,0 +1,8 @@
+/* Tailwind layers and small app-level styles. */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: Inter, system-ui, sans-serif;
+}
