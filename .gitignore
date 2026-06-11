@@ -16,3 +16,5 @@ client/dist/
 
 # OS
 .DS_Store
+
+.agent

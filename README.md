@@ -17,33 +17,27 @@ Full-stack multiplayer **Exploding Kittens** style game scaffold with React + Vi
 
 ### 1) Install dependencies
 
-```bash
-cd /home/runner/work/Boom-Kitten/Boom-Kitten/Tom2404/Boom-Kitten/client
-npm install
+To install dependencies for root, client, and server all at once, run:
 
-cd /home/runner/work/Boom-Kitten/Boom-Kitten/Tom2404/Boom-Kitten/server
-npm install
+```bash
+npm run install:all
 ```
 
 ### 2) Configure environment
 
+Copy the backend environment template and customize your values:
+
 ```bash
-cd /home/runner/work/Boom-Kitten/Boom-Kitten/Tom2404/Boom-Kitten/server
+cd server
 cp .env.example .env
 # Then edit .env values
 ```
 
-### 3) Run backend
+### 3) Run Frontend & Backend together
+
+Start both frontend and backend development servers concurrently with a single command from the root directory:
 
 ```bash
-cd /home/runner/work/Boom-Kitten/Boom-Kitten/Tom2404/Boom-Kitten/server
-npm run dev
-```
-
-### 4) Run frontend
-
-```bash
-cd /home/runner/work/Boom-Kitten/Boom-Kitten/Tom2404/Boom-Kitten/client
 npm run dev
 ```
 

@@ -1,0 +1,17 @@
+{
+  "name": "boom-kitten-root",
+  "version": "1.0.0",
+  "description": "Root package for Boom-Kitten project",
+  "scripts": {
+    "install:client": "npm install --prefix client",
+    "install:server": "npm install --prefix server",
+    "install:all": "npm install && npm run install:client && npm run install:server",
+    "dev:client": "npm run dev --prefix client",
+    "dev:server": "npm run dev --prefix server",
+    "dev": "concurrently -n \"server,client\" -c \"magenta,cyan\" \"npm run dev:server\" \"npm run dev:client\"",
+    "start": "concurrently -n \"server,client\" -c \"magenta,cyan\" \"npm run start --prefix server\" \"npm run dev:client\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

@@ -3,6 +3,7 @@ const express = require('express');
 const User = require('../models/User');
 const GameHistory = require('../models/GameHistory');
 const Transaction = require('../models/Transaction');
+const Friendship = require('../models/Friendship');
 const authMiddleware = require('../middleware/authMiddleware');
 
 const router = express.Router();
@@ -68,8 +69,25 @@ router.get('/me/history', async (req, res, next) => {
 
 router.get('/me/friends', async (req, res, next) => {
   try {
-    const user = await User.findById(req.user.id).populate('friends', 'username avatar rank');
-    return res.json(user?.friends ?? []);
+    const friendships = await Friendship.find({
+      $or: [
+        { requester: req.user.id },
+        { recipient: req.user.id },
+      ],
+      status: 'accepted',
+    }).populate('requester recipient', 'username avatar rank');
+
+    const friendsList = friendships.map((f) => {
+      const friend = f.requester._id.toString() === req.user.id ? f.recipient : f.requester;
+      return {
+        _id: friend._id,
+        username: friend.username,
+        avatar: friend.avatar,
+        rank: friend.rank,
+      };
+    });
+
+    return res.json(friendsList);
   } catch (error) {
     return next(error);
   }
@@ -77,8 +95,58 @@ router.get('/me/friends', async (req, res, next) => {
 
 router.post('/friends/:id', async (req, res, next) => {
   try {
-    await User.findByIdAndUpdate(req.user.id, { $addToSet: { friends: req.params.id } });
-    await User.findByIdAndUpdate(req.params.id, { $addToSet: { friends: req.user.id } });
+    const targetId = req.params.id;
+    if (req.user.id === targetId) {
+      return res.status(400).json({ message: 'Cannot add yourself as friend' });
+    }
+
+    let friendship = await Friendship.findOne({
+      $or: [
+        { requester: req.user.id, recipient: targetId },
+        { requester: targetId, recipient: req.user.id },
+      ],
+    });
+
+    if (!friendship) {
+      // Create new pending friendship request
+      await Friendship.create({
+        requester: req.user.id,
+        recipient: targetId,
+        status: 'pending',
+        actionUser: req.user.id,
+      });
+      return res.json({ success: true, message: 'Friend request sent' });
+    }
+
+    if (friendship.status === 'accepted') {
+      return res.json({ success: true, message: 'Already friends' });
+    }
+
+    if (friendship.status === 'pending') {
+      if (friendship.actionUser.toString() === targetId) {
+        // We are accepting their request
+        friendship.status = 'accepted';
+        friendship.actionUser = req.user.id;
+        await friendship.save();
+        return res.json({ success: true, message: 'Friend request accepted' });
+      } else {
+        return res.json({ success: true, message: 'Friend request already pending' });
+      }
+    }
+
+    if (friendship.status === 'declined' || friendship.status === 'blocked') {
+      if (friendship.status === 'blocked' && friendship.actionUser.toString() === targetId) {
+        return res.status(403).json({ message: 'You have been blocked by this user' });
+      }
+      // Re-send request
+      friendship.status = 'pending';
+      friendship.requester = req.user.id;
+      friendship.recipient = targetId;
+      friendship.actionUser = req.user.id;
+      await friendship.save();
+      return res.json({ success: true, message: 'Friend request sent again' });
+    }
+
     return res.json({ success: true });
   } catch (error) {
     return next(error);
@@ -134,9 +202,14 @@ router.post('/me/tournament/enter', async (req, res, next) => {
 
 router.delete('/friends/:id', async (req, res, next) => {
   try {
-    await User.findByIdAndUpdate(req.user.id, { $pull: { friends: req.params.id } });
-    await User.findByIdAndUpdate(req.params.id, { $pull: { friends: req.user.id } });
-    return res.json({ success: true });
+    const targetId = req.params.id;
+    await Friendship.findOneAndDelete({
+      $or: [
+        { requester: req.user.id, recipient: targetId },
+        { requester: targetId, recipient: req.user.id },
+      ],
+    });
+    return res.json({ success: true, message: 'Friend removed' });
   } catch (error) {
     return next(error);
   }

@@ -45,7 +45,13 @@ router.post('/buy', async (req, res, next) => {
 
     user.coins -= coinPrice;
     user.gems -= gemPrice;
-    if (item.type === 'skin') user.ownedSkins.push(item.name);
+    if (item.type === 'skin') {
+      user.ownedSkins.push(item.name);
+    } else if (item.type === 'emote') {
+      user.ownedEmotes.push(item.name);
+    } else if (item.type === 'avatar_frame') {
+      user.ownedAvatarFrames.push(item.name);
+    }
     await user.save();
 
     if (coinPrice > 0) {
@@ -68,7 +74,13 @@ router.post('/buy', async (req, res, next) => {
       });
     }
 
-    return res.json({ success: true, coins: user.coins, gems: user.gems });
+    return res.json({
+      success: true,
+      coins: user.coins,
+      gems: user.gems,
+      activeSkin: user.activeSkin,
+      activeAvatarFrame: user.activeAvatarFrame,
+    });
   } catch (error) {
     return next(error);
   }
@@ -76,11 +88,16 @@ router.post('/buy', async (req, res, next) => {
 
 router.get('/owned', async (req, res, next) => {
   try {
-    const user = await User.findById(req.user.id).select('ownedSkins');
-    return res.json(user?.ownedSkins ?? []);
+    const user = await User.findById(req.user.id).select('ownedSkins ownedEmotes ownedAvatarFrames');
+    return res.json({
+      ownedSkins: user?.ownedSkins ?? [],
+      ownedEmotes: user?.ownedEmotes ?? [],
+      ownedAvatarFrames: user?.ownedAvatarFrames ?? [],
+    });
   } catch (error) {
     return next(error);
   }
 });
+
 
 module.exports = router;
