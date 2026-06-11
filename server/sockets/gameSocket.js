@@ -6,12 +6,15 @@ const {
   leaveRoom,
   startGame,
   getRoomState,
+  findRoomByUser,
 } = require('../game/roomManager');
 const {
   playCard,
   drawCard,
   handleNope,
   handleCombo,
+  resolveCombo5,
+  resolveAlterTheFuture,
   checkWinCondition,
 } = require('../game/gameLogic');
 const User = require('../models/User');
@@ -22,6 +25,8 @@ function sanitizePublicGameState(gameState) {
   if (!gameState) return null;
   return {
     ...gameState,
+    deckCount: gameState.deck.length,
+    deck: undefined,
     players: gameState.players.map((player) => ({
       userId: player.userId,
       alive: player.alive,
@@ -115,6 +120,22 @@ module.exports = function registerGameSocket(io) {
     const userId = socket.user?.id ?? socket.id;
     socket.join(`user:${userId}`);
 
+    // Auto re-join room if the user was already in one (supports tab switching and reconnection)
+    const activeRoom = findRoomByUser(userId);
+    if (activeRoom) {
+      socket.join(activeRoom.code);
+      setTimeout(() => {
+        io.to(activeRoom.code).emit('room:updated', { room: activeRoom });
+        if (activeRoom.gameState) {
+          socket.emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(activeRoom.gameState) });
+          const player = activeRoom.gameState.players.find((p) => p.userId === userId);
+          if (player) {
+            socket.emit('game:privateHand', { cards: player.hand });
+          }
+        }
+      }, 200);
+    }
+
     socket.on('room:create', ({ maxPlayers, isPublic }) => {
       try {
         const room = createRoom(userId, { maxPlayers, isPublic });
@@ -173,12 +194,31 @@ module.exports = function registerGameSocket(io) {
       setTimeout(async () => {
         if (room.gameState.pendingNope?.eventId !== eventId || room.gameState.pendingNope.resolved) return;
 
-        if (cardType === 'see_the_future') {
+        if (cardType.startsWith('see_the_future')) {
+          const count = cardType === 'see_the_future_1' ? 1 : cardType === 'see_the_future_5' ? 5 : 3;
           const player = room.gameState.players.find((p) => p.userId === userId);
           io.to(`user:${userId}`).emit('game:seeTheFuture', {
-            cards: room.gameState.deck.slice(-3).reverse(),
+            cards: room.gameState.deck.slice(-count).reverse(),
           });
           if (player) io.to(`user:${userId}`).emit('game:privateHand', { cards: player.hand });
+        }
+
+        if (cardType === 'alter_the_future_3') {
+          const topCards = room.gameState.deck.slice(-3).reverse();
+          io.to(`user:${userId}`).emit('game:alterFuture:request', {
+            cards: topCards,
+            timeoutMs: 15000,
+          });
+
+          setTimeout(() => {
+            const pending = room.gameState.pendingAlter;
+            if (!pending || pending.playerId !== userId) return;
+            resolveAlterTheFuture(room.gameState, []);
+            io.to(roomCode).emit('game:stateUpdate', {
+              publicGameState: sanitizePublicGameState(room.gameState),
+            });
+            sendHands(io, room);
+          }, 15000);
         }
 
         if (cardType === 'favor' && targetPlayerId) {
@@ -285,6 +325,28 @@ module.exports = function registerGameSocket(io) {
       const room = roomCode ? getRoomState(roomCode) : null;
       if (!room?.gameState) return;
       handleCombo(room.gameState, userId, cards ?? [], targetPlayerId);
+      io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
+      sendHands(io, room);
+    });
+
+    socket.on('game:alterFuture:respond', ({ rearrangedCards }) => {
+      const roomCode = [...socket.rooms].find((room) => room.length === 6);
+      if (!roomCode) return;
+      const room = getRoomState(roomCode);
+      if (!room?.gameState) return;
+
+      resolveAlterTheFuture(room.gameState, rearrangedCards ?? []);
+      io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
+      sendHands(io, room);
+    });
+
+    socket.on('game:combo5:respond', ({ cardId }) => {
+      const roomCode = [...socket.rooms].find((room) => room.length === 6);
+      if (!roomCode) return;
+      const room = getRoomState(roomCode);
+      if (!room?.gameState) return;
+
+      resolveCombo5(room.gameState, cardId);
       io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
       sendHands(io, room);
     });

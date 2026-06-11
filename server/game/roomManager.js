@@ -71,9 +71,12 @@ function startGame(roomCode) {
 function getPublicRooms() {
   return [...rooms.values()].filter((room) => room.isPublic && room.status === 'waiting');
 }
-
 function getRoomState(roomCode) {
   return rooms.get(roomCode) ?? null;
+}
+
+function findRoomByUser(userId) {
+  return [...rooms.values()].find((room) => room.players.some((p) => p.userId === userId));
 }
 
 module.exports = {
@@ -83,4 +86,5 @@ module.exports = {
   startGame,
   getPublicRooms,
   getRoomState,
+  findRoomByUser,
 };
