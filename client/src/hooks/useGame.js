@@ -20,14 +20,24 @@ export function useGame() {
 
   useEffect(() => {
     // Sync access token and force reconnect on mount to apply authentication
-    socket.auth = { token: localStorage.getItem('accessToken') ?? '' };
+    let guestId = localStorage.getItem('guestId');
+    if (!guestId) {
+      guestId = `guest-${Math.random().toString(36).substring(2, 9)}`;
+      localStorage.setItem('guestId', guestId);
+    }
+    socket.auth = { 
+      token: localStorage.getItem('accessToken') ?? '',
+      guestId: guestId
+    };
     socket.disconnect();
     socket.connect();
 
     const onRoomUpdated = ({ room }) => {
       setRoomState(room);
-      if (room && room.gameState) {
+      if (room) {
         setGameState(room.gameState);
+      } else {
+        setGameState(null);
       }
     };
 

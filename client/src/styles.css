@@ -70,6 +70,25 @@ body {
   scrollbar-width: none;
 }
 
+.custom-scrollbar::-webkit-scrollbar {
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(26, 28, 28, 0.25);
+  border-radius: 999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(26, 28, 28, 0.45);
+}
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(26, 28, 28, 0.25) rgba(0, 0, 0, 0.05);
+}
+
 @keyframes spin-slow {
   from {
     transform: rotate(0deg);

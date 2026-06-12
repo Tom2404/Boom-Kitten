@@ -1,9 +1,41 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import Card from './Card.jsx';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, targetPlayerId }) {
   const [selectedIds, setSelectedIds] = useState([]);
+
+  const containerRef = useRef(null);
+  const isDown = useRef(false);
+  const startX = useRef(0);
+  const scrollLeftVal = useRef(0);
+  const hasDragged = useRef(false);
+
+  const handleMouseDown = (e) => {
+    isDown.current = true;
+    hasDragged.current = false;
+    startX.current = e.pageX - containerRef.current.offsetLeft;
+    scrollLeftVal.current = containerRef.current.scrollLeft;
+  };
+
+  const handleMouseLeave = () => {
+    isDown.current = false;
+  };
+
+  const handleMouseUp = () => {
+    isDown.current = false;
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isDown.current) return;
+    e.preventDefault();
+    const x = e.pageX - containerRef.current.offsetLeft;
+    const walk = (x - startX.current) * 1.5;
+    containerRef.current.scrollLeft = scrollLeftVal.current - walk;
+    if (Math.abs(x - startX.current) > 5) {
+      hasDragged.current = true;
+    }
+  };
 
   const toggleSelectCard = (cardId) => {
     setSelectedIds((prev) =>
@@ -121,7 +153,14 @@ export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, ta
           Không có lá bài nào trên tay. Hãy bốc bài!
         </div>
       ) : (
-        <div className="flex gap-4 overflow-x-auto pb-4 pt-6 px-2 hide-scroll max-w-full">
+        <div 
+          ref={containerRef}
+          onMouseDown={handleMouseDown}
+          onMouseLeave={handleMouseLeave}
+          onMouseUp={handleMouseUp}
+          onMouseMove={handleMouseMove}
+          className="flex gap-4 overflow-x-auto pb-4 pt-6 px-2 custom-scrollbar max-w-full cursor-grab active:cursor-grabbing select-none"
+        >
           <AnimatePresence mode="popLayout">
             {hand.map((card, index) => {
               const isSelected = selectedIds.includes(card.id);
@@ -146,7 +185,7 @@ export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, ta
                     transition: { duration: 0.2 } 
                   }}
                   whileHover={{ 
-                    y: isSelected ? -24 : -16, 
+                    y: isSelected ? -24 : -8, 
                     scale: 1.05, 
                     transition: { duration: 0.1 } 
                   }}
@@ -156,7 +195,11 @@ export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, ta
                   <Card
                     type={card.type}
                     selected={isSelected}
-                    onClick={() => toggleSelectCard(card.id)}
+                    onClick={() => {
+                      if (!hasDragged.current) {
+                        toggleSelectCard(card.id);
+                      }
+                    }}
                   />
                 </motion.div>
               );

@@ -177,6 +177,10 @@ export function NopeCountdown({ eventId, timeoutMs, hasNopeCard, onPlayNope }) {
   const [timeLeft, setTimeLeft] = useState(timeoutMs);
 
   useEffect(() => {
+    setTimeLeft(timeoutMs);
+  }, [eventId, timeoutMs]);
+
+  useEffect(() => {
     const step = 50;
     const timer = setInterval(() => {
       setTimeLeft((prev) => {

@@ -359,7 +359,7 @@ function resolveCombo5(gameState, cardId) {
 
 function handleCombo(gameState, playerId, cardIds, targetPlayerId) {
   const player = getPlayer(gameState, playerId);
-  if (!player || !player.alive) return gameState;
+  if (!player || !player.alive) return null;
 
   const cardsToPlay = [];
   cardIds.forEach((id) => {
@@ -367,8 +367,8 @@ function handleCombo(gameState, playerId, cardIds, targetPlayerId) {
     if (card) cardsToPlay.push(card);
   });
 
-  if (cardsToPlay.length !== cardIds.length) return gameState;
-  if (!cardsToPlay.every((c) => c.type.startsWith('cat_') || c.type === 'feral_cat')) return gameState;
+  if (cardsToPlay.length !== cardIds.length) return null;
+  if (!cardsToPlay.every((c) => c.type.startsWith('cat_') || c.type === 'feral_cat')) return null;
 
   const cardTypes = cardsToPlay.map((c) => c.type);
 
@@ -386,26 +386,7 @@ function handleCombo(gameState, playerId, cardIds, targetPlayerId) {
     canceled: false,
   };
 
-  if (cardTypes.length === 2) {
-    const target = getPlayer(gameState, targetPlayerId);
-    if (!target || !target.alive || target.hand.length === 0) return gameState;
-    const randomIndex = Math.floor(Math.random() * target.hand.length);
-    const [stolen] = target.hand.splice(randomIndex, 1);
-    player.hand.push(stolen);
-    checkStreakingKittenEffect(gameState, player.userId);
-    checkStreakingKittenEffect(gameState, target.userId);
-    return gameState;
-  }
-
-  if (cardTypes.length === 5) {
-    const uniqueTypes = new Set(cardTypes);
-    // Treat feral_cat as a unique wild type or any normal cat
-    if (uniqueTypes.size === 5 || cardTypes.includes('feral_cat')) {
-      return handleCombo5(gameState, playerId);
-    }
-  }
-
-  return gameState;
+  return { cardTypes };
 }
 
 function handleDefuse(gameState, playerId, insertPosition = 0) {
@@ -466,7 +447,7 @@ function handleNope(gameState, nopingPlayerId) {
 
 function playCard(gameState, playerId, cardType, targetPlayerId, options = {}) {
   const player = getPlayer(gameState, playerId);
-  if (!player || !player.alive) return gameState;
+  if (!player || !player.alive) return null;
 
   let actualCardType = cardType;
   if (cardType === 'godcat' && options.asCardType) {
@@ -474,7 +455,7 @@ function playCard(gameState, playerId, cardType, targetPlayerId, options = {}) {
   }
 
   const card = removeCardFromHand(player, cardType);
-  if (!card) return gameState;
+  if (!card) return null;
 
   gameState.discardPile.push(card);
   gameState.lastAction = { playerId, cardType: actualCardType, targetPlayerId, timestamp: Date.now(), canceled: false };
@@ -484,8 +465,11 @@ function playCard(gameState, playerId, cardType, targetPlayerId, options = {}) {
     actualCardType = gameState.lastAction.cardType;
   }
 
-  // Run the specific action logic
-  switch (actualCardType) {
+  return actualCardType;
+}
+
+function executeActionEffect(gameState, cardType, playerId, targetPlayerId, options = {}) {
+  switch (cardType) {
     case 'attack':
     case 'attack_2x':
       return handleAttack(gameState);
@@ -500,13 +484,11 @@ function playCard(gameState, playerId, cardType, targetPlayerId, options = {}) {
       return handleReverse(gameState);
     case 'see_the_future':
     case 'see_the_future_3':
-      gameState.lastSeeFuture = { playerId, cards: handleSeeTheFuture(gameState, 3) };
+      // Handled by returning deck slice in seeTheFuture listener
       return gameState;
     case 'see_the_future_1':
-      gameState.lastSeeFuture = { playerId, cards: handleSeeTheFuture(gameState, 1) };
       return gameState;
     case 'see_the_future_5':
-      gameState.lastSeeFuture = { playerId, cards: handleSeeTheFuture(gameState, 5) };
       return gameState;
     case 'alter_the_future_3':
       return handleAlterTheFuture(gameState, playerId, 3);
@@ -527,18 +509,35 @@ function playCard(gameState, playerId, cardType, targetPlayerId, options = {}) {
       return handleBury(gameState, playerId);
     case 'mark':
       return handleMark(gameState, targetPlayerId);
-    case 'ill_take_that':
+    case 'ill_take_that': {
       const target = getPlayer(gameState, targetPlayerId);
       if (target && target.alive) {
         target.pendingTakeFrom = playerId;
       }
       return gameState;
+    }
     case 'garbage_collection':
       return handleGarbageCollection(gameState);
     case 'pot_luck':
       return handlePotLuck(gameState);
     case 'raising_heck':
       return handleRaisingHeck(gameState, playerId);
+
+    // Combo effects executed after Nope window:
+    case 'combo_2': {
+      const target = getPlayer(gameState, targetPlayerId);
+      const player = getPlayer(gameState, playerId);
+      if (!target || !target.alive || target.hand.length === 0 || !player || !player.alive) return gameState;
+      const randomIndex = Math.floor(Math.random() * target.hand.length);
+      const [stolen] = target.hand.splice(randomIndex, 1);
+      player.hand.push(stolen);
+      checkStreakingKittenEffect(gameState, player.userId);
+      checkStreakingKittenEffect(gameState, target.userId);
+      return gameState;
+    }
+    case 'combo_5': {
+      return handleCombo5(gameState, playerId);
+    }
     default:
       return gameState;
   }
@@ -546,6 +545,7 @@ function playCard(gameState, playerId, cardType, targetPlayerId, options = {}) {
 
 module.exports = {
   playCard,
+  executeActionEffect,
   drawCard,
   handleNope,
   handleDefuse,

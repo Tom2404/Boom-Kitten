@@ -10,6 +10,7 @@ const {
 } = require('../game/roomManager');
 const {
   playCard,
+  executeActionEffect,
   drawCard,
   handleNope,
   handleCombo,
@@ -34,6 +35,7 @@ function sanitizePublicGameState(gameState) {
     deck: undefined,
     players: gameState.players.map((player) => ({
       userId: player.userId,
+      username: player.username,
       alive: player.alive,
       handCount: player.hand.length,
       markedCards: player.hand
@@ -54,6 +56,7 @@ async function finalizeGame(io, room) {
   if (!winnerId) return;
 
   room.status = 'finished';
+  io.to(room.code).emit('room:updated', { room });
   const rankings = room.gameState.players
     .map((player) => ({ userId: player.userId, result: player.userId === winnerId ? 'win' : 'lose' }))
     .sort((a, b) => (a.result === 'win' ? -1 : 1));
@@ -111,6 +114,152 @@ async function finalizeGame(io, room) {
 }
 
 module.exports = function registerGameSocket(io) {
+  function setupNopeTimeout(room, eventId) {
+    setTimeout(async () => {
+      const gameState = room.gameState;
+      if (!gameState || !gameState.pendingAction || gameState.pendingAction.eventId !== eventId) return;
+
+      const action = gameState.pendingAction;
+      gameState.pendingAction = null;
+
+      if (action.nopeCount % 2 === 1) {
+        // Canceled by Nope!
+        gameState.lastAction = { ...gameState.lastAction, canceled: true };
+        io.to(room.code).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(gameState) });
+        return;
+      }
+
+      await runActionEffect(room, action);
+    }, 3000);
+  }
+
+  async function runActionEffect(room, action) {
+    const gameState = room.gameState;
+    const { playerId, cardType, targetPlayerId, options } = action;
+
+    executeActionEffect(gameState, cardType, playerId, targetPlayerId, options);
+
+    if (cardType.startsWith('see_the_future')) {
+      const count = cardType === 'see_the_future_1' ? 1 : cardType === 'see_the_future_5' ? 5 : 3;
+      const player = gameState.players.find((p) => p.userId === playerId);
+      io.to(`user:${playerId}`).emit('game:seeTheFuture', {
+        cards: gameState.deck.slice(-count).reverse(),
+      });
+      if (player) io.to(`user:${playerId}`).emit('game:privateHand', { cards: player.hand });
+    }
+
+    if (cardType.startsWith('alter_the_future')) {
+      const count = cardType === 'alter_the_future_5' ? 5 : 3;
+      const topCards = gameState.deck.slice(-count).reverse();
+      io.to(`user:${playerId}`).emit('game:alterFuture:request', {
+        cards: topCards,
+        count,
+        timeoutMs: 15000,
+      });
+
+      setTimeout(() => {
+        const pending = gameState.pendingAlter;
+        if (!pending || pending.playerId !== playerId) return;
+        resolveAlterTheFuture(gameState, []);
+        io.to(room.code).emit('game:stateUpdate', {
+          publicGameState: sanitizePublicGameState(gameState),
+        });
+        sendHands(io, room);
+      }, 15000);
+    }
+
+    if (cardType === 'favor' && targetPlayerId) {
+      io.to(`user:${targetPlayerId}`).emit('game:favor:request', { fromPlayerId: playerId, timeoutMs: 15000 });
+
+      setTimeout(() => {
+        const pending = gameState.pendingFavor;
+        if (!pending || pending.targetPlayerId !== targetPlayerId) return;
+        const giver = gameState.players.find((p) => p.userId === targetPlayerId);
+        const receiver = gameState.players.find((p) => p.userId === playerId);
+        if (giver?.hand?.length && receiver) {
+          const idx = Math.floor(Math.random() * giver.hand.length);
+          const [gift] = giver.hand.splice(idx, 1);
+          receiver.hand.push(gift);
+          checkStreakingKittenEffect(gameState, giver.userId);
+          checkStreakingKittenEffect(gameState, receiver.userId);
+        }
+        gameState.pendingFavor = null;
+        io.to(room.code).emit('game:stateUpdate', {
+          publicGameState: sanitizePublicGameState(gameState),
+        });
+        sendHands(io, room);
+      }, 15000);
+    }
+
+    if (cardType === 'bury') {
+      io.to(`user:${playerId}`).emit('game:bury:request', { timeoutMs: 15000 });
+
+      setTimeout(() => {
+        const pending = gameState.pendingBury;
+        if (!pending || pending.playerId !== playerId) return;
+        const player = gameState.players.find((p) => p.userId === playerId);
+        if (player?.hand?.length) {
+          resolveBury(gameState, player.hand[0].id, 0);
+        } else {
+          gameState.pendingBury = null;
+        }
+        io.to(room.code).emit('game:stateUpdate', {
+          publicGameState: sanitizePublicGameState(gameState),
+        });
+        sendHands(io, room);
+      }, 15000);
+    }
+
+    if (cardType === 'garbage_collection') {
+      const activePlayers = gameState.players.filter((p) => p.alive && p.hand.length > 0);
+      activePlayers.forEach((p) => {
+        io.to(`user:${p.userId}`).emit('game:garbage:request', { timeoutMs: 15000 });
+      });
+
+      setTimeout(() => {
+        const pending = gameState.pendingGarbage;
+        if (!pending) return;
+        gameState.players.forEach((p) => {
+          if (p.alive && p.hand.length > 0 && !pending.responses[p.userId]) {
+            resolveGarbageCollection(gameState, p.userId, p.hand[0].id);
+          }
+        });
+        io.to(room.code).emit('game:stateUpdate', {
+          publicGameState: sanitizePublicGameState(gameState),
+        });
+        sendHands(io, room);
+      }, 15000);
+    }
+
+    if (cardType === 'pot_luck') {
+      const activePlayers = gameState.players.filter((p) => p.alive && p.hand.length > 0);
+      activePlayers.forEach((p) => {
+        io.to(`user:${p.userId}`).emit('game:potLuck:request', { timeoutMs: 15000 });
+      });
+
+      setTimeout(() => {
+        const pending = gameState.pendingPotLuck;
+        if (!pending) return;
+        gameState.players.forEach((p) => {
+          if (p.alive && p.hand.length > 0 && !pending.responses[p.userId]) {
+            resolvePotLuck(gameState, p.userId, p.hand[0].id);
+          }
+        });
+        io.to(room.code).emit('game:stateUpdate', {
+          publicGameState: sanitizePublicGameState(gameState),
+        });
+        sendHands(io, room);
+      }, 15000);
+    }
+
+    if (cardType === 'combo_5') {
+      io.to(`user:${playerId}`).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(gameState) });
+    }
+
+    io.to(room.code).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(gameState) });
+    sendHands(io, room);
+    await finalizeGame(io, room);
+  }
   io.use((socket, next) => {
     const rawToken = socket.handshake.auth?.token;
     if (!rawToken) return next();
@@ -125,7 +274,8 @@ module.exports = function registerGameSocket(io) {
   });
 
   io.on('connection', (socket) => {
-    const userId = socket.user?.id ?? socket.id;
+    const guestId = socket.handshake.auth?.guestId || `guest-${socket.id}`;
+    const userId = socket.user?.id ?? guestId;
     socket.join(`user:${userId}`);
 
     // Auto re-join room if the user was already in one (supports tab switching and reconnection)
@@ -146,7 +296,8 @@ module.exports = function registerGameSocket(io) {
 
     socket.on('room:create', ({ maxPlayers, isPublic }) => {
       try {
-        const room = createRoom(userId, { maxPlayers, isPublic });
+        const username = socket.user?.username ?? `Guest-${guestId.slice(6, 11)}`;
+        const room = createRoom(userId, { maxPlayers, isPublic }, username);
         socket.join(room.code);
         io.to(room.code).emit('room:updated', { room });
       } catch (error) {
@@ -156,7 +307,8 @@ module.exports = function registerGameSocket(io) {
 
     socket.on('room:join', ({ roomCode }) => {
       try {
-        const room = joinRoom(roomCode, userId);
+        const username = socket.user?.username ?? `Guest-${guestId.slice(6, 11)}`;
+        const room = joinRoom(roomCode, userId, username);
         socket.join(room.code);
         io.to(room.code).emit('room:updated', { room });
       } catch (error) {
@@ -179,6 +331,7 @@ module.exports = function registerGameSocket(io) {
 
       try {
         const room = startGame(roomCode);
+        io.to(roomCode).emit('room:updated', { room });
         io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
         sendHands(io, room);
       } catch (error) {
@@ -192,7 +345,9 @@ module.exports = function registerGameSocket(io) {
       const room = getRoomState(roomCode);
       if (!room?.gameState) return;
 
-      playCard(room.gameState, userId, cardType, targetPlayerId, options);
+      const actualCardType = playCard(room.gameState, userId, cardType, targetPlayerId, options);
+      if (!actualCardType) return; // Invalid play
+
       io.to(roomCode).emit('game:cardPlayed', { playerId: userId, cardType, targetPlayerId });
 
       // Run checkStreakingKittenEffect whenever cards change hands or are played
@@ -202,135 +357,20 @@ module.exports = function registerGameSocket(io) {
       }
 
       const eventId = `${Date.now()}-${Math.random()}`;
-      room.gameState.pendingNope = { eventId, resolved: false };
+      room.gameState.pendingAction = {
+        eventId,
+        playerId: userId,
+        cardType: actualCardType,
+        targetPlayerId,
+        options,
+        nopeCount: 0,
+      };
+
       io.to(roomCode).emit('game:nopeWindow', { eventId, timeoutMs: 3000 });
+      io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
+      sendHands(io, room);
 
-      setTimeout(async () => {
-        if (room.gameState.pendingNope?.eventId !== eventId || room.gameState.pendingNope.resolved) return;
-
-        let actualCardType = cardType;
-        if (cardType === 'godcat' && options?.asCardType) {
-          actualCardType = options.asCardType;
-        }
-
-        if (actualCardType.startsWith('see_the_future')) {
-          const count = actualCardType === 'see_the_future_1' ? 1 : actualCardType === 'see_the_future_5' ? 5 : 3;
-          const player = room.gameState.players.find((p) => p.userId === userId);
-          io.to(`user:${userId}`).emit('game:seeTheFuture', {
-            cards: room.gameState.deck.slice(-count).reverse(),
-          });
-          if (player) io.to(`user:${userId}`).emit('game:privateHand', { cards: player.hand });
-        }
-
-        if (actualCardType.startsWith('alter_the_future')) {
-          const count = actualCardType === 'alter_the_future_5' ? 5 : 3;
-          const topCards = room.gameState.deck.slice(-count).reverse();
-          io.to(`user:${userId}`).emit('game:alterFuture:request', {
-            cards: topCards,
-            count,
-            timeoutMs: 15000,
-          });
-
-          setTimeout(() => {
-            const pending = room.gameState.pendingAlter;
-            if (!pending || pending.playerId !== userId) return;
-            resolveAlterTheFuture(room.gameState, []);
-            io.to(roomCode).emit('game:stateUpdate', {
-              publicGameState: sanitizePublicGameState(room.gameState),
-            });
-            sendHands(io, room);
-          }, 15000);
-        }
-
-        if (actualCardType === 'favor' && targetPlayerId) {
-          room.gameState.pendingFavor = { fromPlayerId: userId, targetPlayerId };
-          io.to(`user:${targetPlayerId}`).emit('game:favor:request', { fromPlayerId: userId, timeoutMs: 15000 });
-
-          setTimeout(() => {
-            const pending = room.gameState.pendingFavor;
-            if (!pending || pending.targetPlayerId !== targetPlayerId) return;
-            const giver = room.gameState.players.find((p) => p.userId === targetPlayerId);
-            const receiver = room.gameState.players.find((p) => p.userId === userId);
-            if (giver?.hand?.length && receiver) {
-              const idx = Math.floor(Math.random() * giver.hand.length);
-              const [gift] = giver.hand.splice(idx, 1);
-              receiver.hand.push(gift);
-              checkStreakingKittenEffect(room.gameState, giver.userId);
-              checkStreakingKittenEffect(room.gameState, receiver.userId);
-            }
-            room.gameState.pendingFavor = null;
-            io.to(roomCode).emit('game:stateUpdate', {
-              publicGameState: sanitizePublicGameState(room.gameState),
-            });
-            sendHands(io, room);
-          }, 15000);
-        }
-
-        if (actualCardType === 'bury') {
-          io.to(`user:${userId}`).emit('game:bury:request', { timeoutMs: 15000 });
-
-          setTimeout(() => {
-            const pending = room.gameState.pendingBury;
-            if (!pending || pending.playerId !== userId) return;
-            const player = room.gameState.players.find((p) => p.userId === userId);
-            if (player?.hand?.length) {
-              resolveBury(room.gameState, player.hand[0].id, 0);
-            } else {
-              room.gameState.pendingBury = null;
-            }
-            io.to(roomCode).emit('game:stateUpdate', {
-              publicGameState: sanitizePublicGameState(room.gameState),
-            });
-            sendHands(io, room);
-          }, 15000);
-        }
-
-        if (actualCardType === 'garbage_collection') {
-          const activePlayers = room.gameState.players.filter((p) => p.alive && p.hand.length > 0);
-          activePlayers.forEach((p) => {
-            io.to(`user:${p.userId}`).emit('game:garbage:request', { timeoutMs: 15000 });
-          });
-
-          setTimeout(() => {
-            const pending = room.gameState.pendingGarbage;
-            if (!pending) return;
-            room.gameState.players.forEach((p) => {
-              if (p.alive && p.hand.length > 0 && !pending.responses[p.userId]) {
-                resolveGarbageCollection(room.gameState, p.userId, p.hand[0].id);
-              }
-            });
-            io.to(roomCode).emit('game:stateUpdate', {
-              publicGameState: sanitizePublicGameState(room.gameState),
-            });
-            sendHands(io, room);
-          }, 15000);
-        }
-
-        if (actualCardType === 'pot_luck') {
-          const activePlayers = room.gameState.players.filter((p) => p.alive && p.hand.length > 0);
-          activePlayers.forEach((p) => {
-            io.to(`user:${p.userId}`).emit('game:potLuck:request', { timeoutMs: 15000 });
-          });
-
-          setTimeout(() => {
-            const pending = room.gameState.pendingPotLuck;
-            if (!pending) return;
-            room.gameState.players.forEach((p) => {
-              if (p.alive && p.hand.length > 0 && !pending.responses[p.userId]) {
-                resolvePotLuck(room.gameState, p.userId, p.hand[0].id);
-              }
-            });
-            io.to(roomCode).emit('game:stateUpdate', {
-              publicGameState: sanitizePublicGameState(room.gameState),
-            });
-            sendHands(io, room);
-          }, 15000);
-        }
-
-        io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
-        sendHands(io, room);
-        await finalizeGame(io, room);
-      }, 3000);
+      setupNopeTimeout(room, eventId);
     });
 
     socket.on('game:drawCard', async () => {
@@ -381,12 +421,26 @@ module.exports = function registerGameSocket(io) {
       const roomCode = [...socket.rooms].find((room) => room.length === 6);
       if (!roomCode) return;
       const room = getRoomState(roomCode);
-      if (!room?.gameState?.pendingNope) return;
-      if (room.gameState.pendingNope.eventId !== originalEventId) return;
+      const pending = room?.gameState?.pendingAction;
+      if (!pending || pending.eventId !== originalEventId) return;
 
-      room.gameState.pendingNope.resolved = true;
-      handleNope(room.gameState, userId);
+      const player = room.gameState.players.find((p) => p.userId === userId);
+      const nopeIdx = player?.hand.findIndex((c) => c.type === 'nope');
+      if (nopeIdx === undefined || nopeIdx < 0) return;
+
+      const [nopeCard] = player.hand.splice(nopeIdx, 1);
+      room.gameState.discardPile.push(nopeCard);
+
+      pending.nopeCount += 1;
+
+      const newEventId = `${Date.now()}-${Math.random()}`;
+      pending.eventId = newEventId;
+
+      io.to(roomCode).emit('game:nopeWindow', { eventId: newEventId, timeoutMs: 3000 });
       io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
+      sendHands(io, room);
+
+      setupNopeTimeout(room, newEventId);
     });
 
     socket.on('game:favor:respond', ({ cardId }) => {
@@ -432,9 +486,32 @@ module.exports = function registerGameSocket(io) {
       const roomCode = [...socket.rooms].find((room) => room.length === 6);
       const room = roomCode ? getRoomState(roomCode) : null;
       if (!room?.gameState) return;
-      handleCombo(room.gameState, userId, cards ?? [], targetPlayerId);
+
+      const comboResult = handleCombo(room.gameState, userId, cards ?? [], targetPlayerId);
+      if (!comboResult) return; // Invalid combo
+
+      // Run checkStreakingKittenEffect
+      checkStreakingKittenEffect(room.gameState, userId);
+      if (targetPlayerId) {
+        checkStreakingKittenEffect(room.gameState, targetPlayerId);
+      }
+
+      // Queue action
+      const eventId = `${Date.now()}-${Math.random()}`;
+      room.gameState.pendingAction = {
+        eventId,
+        playerId: userId,
+        cardType: `combo_${cards.length}`,
+        targetPlayerId,
+        options: { cardTypes: comboResult.cardTypes },
+        nopeCount: 0,
+      };
+
+      io.to(roomCode).emit('game:nopeWindow', { eventId, timeoutMs: 3000 });
       io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
       sendHands(io, room);
+
+      setupNopeTimeout(room, eventId);
     });
 
     socket.on('game:alterFuture:respond', ({ rearrangedCards }) => {

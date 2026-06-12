@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 const CARD_THEMES = {
   defuse: {
@@ -311,38 +311,119 @@ export default function Card({ type, selected, onClick, disabled }) {
     desc: 'Lá bài không xác định.',
   };
 
+  const [imageError, setImageError] = useState(false);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+
   return (
-    <div
-      onClick={!disabled ? onClick : undefined}
-      className={`relative h-44 w-32 cursor-pointer rounded-xl border-3 border-on-surface p-3 shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] transition-all duration-100 select-none flex flex-col justify-between
-        ${theme.color}
-        ${selected ? '-translate-y-6 scale-105 ring-4 ring-yellow-400 shadow-[6px_6px_0px_0px_rgba(26,28,28,1)]' : 'hover:-translate-y-4 hover:shadow-[6px_6px_0px_0px_rgba(26,28,28,1)]'}
-        ${disabled ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
-    >
-      {/* Decorative top dot */}
-      <div className="flex justify-between items-center">
-        <span className="text-[10px] font-headline font-black uppercase tracking-tight truncate max-w-[70%]">{theme.name}</span>
-        <span className="text-base">{theme.icon}</span>
-      </div>
-
-      {/* Main Art Area */}
-      <div className="my-auto flex flex-col items-center justify-center rounded-lg bg-black/10 py-2 min-h-[64px] relative">
-        <img 
-          src={`/src/assets/cards/${type}.png`}
-          alt={theme.name}
-          className="h-12 w-12 object-contain absolute z-10"
-          onError={(e) => { e.target.style.display = 'none'; }}
-        />
-        <span className="text-3xl filter drop-shadow-md transform transition-transform duration-300 hover:scale-125 z-0">
-          {theme.icon}
+    <>
+      <div
+        onClick={!disabled ? onClick : undefined}
+        className={`relative h-44 w-32 cursor-pointer rounded-xl overflow-hidden transition-all duration-100 select-none flex flex-col justify-between bg-white shadow-md
+          ${selected ? '-translate-y-6 scale-105 ring-4 ring-yellow-400' : 'hover:-translate-y-1 hover:shadow-lg'}
+          ${disabled ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
+      >
+        {/* Info button */}
+        <span
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsDetailOpen(true);
+          }}
+          className="absolute top-1.5 right-1.5 z-20 material-symbols-outlined text-[14px] leading-none text-slate-500 bg-white/80 hover:bg-white p-0.5 rounded-full hover:scale-110 transition-transform cursor-pointer shadow-sm"
+          title="Xem chi tiết"
+        >
+          info
         </span>
+
+        {/* Main Image Area - filling the middle */}
+        <div className="flex-grow flex items-center justify-center p-2 relative min-h-[70px]">
+          {!imageError ? (
+            <img 
+              src={`/src/assets/cards/${type}.png`}
+              alt={theme.name}
+              className="h-28 w-28 object-contain drop-shadow"
+              onError={() => setImageError(true)}
+            />
+          ) : (
+            <span className="text-4xl filter drop-shadow">
+              {theme.icon}
+            </span>
+          )}
+        </div>
+
+        {/* Description box at the bottom */}
+        <div className="bg-slate-950/90 text-white p-1 px-1.5 flex flex-col justify-center min-h-[46px] rounded-b-xl border-t border-white/10 z-10">
+          <div className="text-[9px] font-headline font-black uppercase tracking-wide truncate text-yellow-300 text-center mb-0.5">
+            {theme.name}
+          </div>
+          <div className="text-[7.5px] leading-tight font-sans font-bold text-center line-clamp-2 text-slate-200">
+            {theme.desc}
+          </div>
+        </div>
       </div>
 
-      {/* Description */}
-      <div className="text-[9px] leading-tight font-sans font-bold text-center line-clamp-3 opacity-90">
-        {theme.desc}
-      </div>
-    </div>
+      {/* Detail Modal */}
+      {isDetailOpen && (
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-4 animate-fade-in text-slate-900"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsDetailOpen(false);
+          }}
+        >
+          <div 
+            className="w-full max-w-sm bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 flex flex-col items-center gap-6 text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-full flex justify-between items-center border-b-4 border-on-surface pb-3">
+              <h3 className="text-xl font-headline font-black text-on-surface uppercase flex items-center gap-2">
+                <span>{theme.icon}</span> {theme.name}
+              </h3>
+              <button 
+                onClick={() => setIsDetailOpen(false)}
+                className="text-xl font-black hover:scale-110 transition-transform text-on-surface"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className={`w-40 h-56 rounded-2xl border-3 border-on-surface shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] flex flex-col justify-between p-4 ${theme.color}`}>
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-headline font-black uppercase">{theme.name}</span>
+                <span className="text-lg">{theme.icon}</span>
+              </div>
+              <div className="flex justify-center items-center">
+                {!imageError ? (
+                  <img 
+                    src={`/src/assets/cards/${type}.png`}
+                    alt={theme.name}
+                    className="h-28 w-28 object-contain drop-shadow"
+                  />
+                ) : (
+                  <span className="text-6xl">{theme.icon}</span>
+                )}
+              </div>
+              <div className="h-6"></div>
+            </div>
+
+            <div className="bg-slate-50 border-3 border-on-surface rounded-2xl p-4 w-full shadow-[3px_3px_0px_0px_rgba(26,28,28,1)] text-left">
+              <span className="text-[10px] font-headline font-black text-primary uppercase tracking-widest block mb-1">
+                Chức Năng Quân Bài
+              </span>
+              <p className="text-xs font-sans font-bold leading-relaxed text-on-surface">
+                {theme.desc}
+              </p>
+            </div>
+
+            <button
+              onClick={() => setIsDetailOpen(false)}
+              className="btn-detonator w-full py-3 rounded-xl font-headline font-black uppercase text-sm"
+            >
+              Đóng ✕
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 export { CARD_THEMES };

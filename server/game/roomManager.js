@@ -10,12 +10,12 @@ function makeCode() {
   return code;
 }
 
-function createRoom(hostId, options = {}) {
+function createRoom(hostId, options = {}, username = 'Guest') {
   const code = makeCode();
   const room = {
     code,
     host: hostId,
-    players: [{ userId: hostId, hand: [], alive: true }],
+    players: [{ userId: hostId, username, hand: [], alive: true }],
     maxPlayers: Math.min(Math.max(options.maxPlayers ?? 5, 2), 5),
     status: 'waiting',
     isPublic: Boolean(options.isPublic),
@@ -25,13 +25,13 @@ function createRoom(hostId, options = {}) {
   return room;
 }
 
-function joinRoom(roomCode, userId) {
+function joinRoom(roomCode, userId, username = 'Guest') {
   const room = rooms.get(roomCode);
   if (!room) throw new Error('Room not found');
   if (room.players.find((p) => p.userId === userId)) return room;
   if (room.players.length >= room.maxPlayers) throw new Error('Room is full');
   if (room.status !== 'waiting') throw new Error('Game already started');
-  room.players.push({ userId, hand: [], alive: true });
+  room.players.push({ userId, username, hand: [], alive: true });
   return room;
 }
 
@@ -40,6 +40,10 @@ function leaveRoom(roomCode, userId) {
   if (!room) return null;
   room.players = room.players.filter((p) => p.userId !== userId);
   if (room.host === userId && room.players[0]) room.host = room.players[0].userId;
+  if (room.status === 'playing') {
+    room.status = 'waiting';
+    room.gameState = null;
+  }
   if (room.players.length === 0) rooms.delete(roomCode);
   return rooms.get(roomCode) ?? null;
 }

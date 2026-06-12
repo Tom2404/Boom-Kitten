@@ -39,13 +39,12 @@ export default function PlayerAvatar({
   return (
     <div
       onClick={handleSelect}
-      className={`relative p-3 rounded-2xl flex flex-col items-center justify-between border-3 border-on-surface w-36 transition-all duration-100 select-none
+      className={`relative p-3 rounded-2xl flex flex-col items-center justify-between transition-all duration-200 select-none w-36
         ${alive 
-          ? 'bg-surface shadow-[4px_4px_0px_0px_rgba(26,28,28,1)]' 
-          : 'bg-surface-dim opacity-50 shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]'}
-        ${isCurrentTurn && alive 
-          ? 'ring-4 ring-primary border-primary animate-pulse' 
-          : ''}
+          ? (isCurrentTurn 
+              ? 'bg-yellow-300 text-slate-950 border-4 border-slate-950 scale-105 shadow-[6px_6px_0px_0px_rgba(26,28,28,1)]' 
+              : 'bg-surface text-on-surface border-3 border-on-surface shadow-[4px_4px_0px_0px_rgba(26,28,28,1)]') 
+          : 'bg-surface-dim opacity-50 text-on-surface border-3 border-on-surface shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]'}
         ${isTargetable && alive 
           ? 'cursor-pointer border-dashed hover:-translate-y-1' 
           : ''}
@@ -82,20 +81,25 @@ export default function PlayerAvatar({
 
       {/* Name and Rank Details */}
       <div className="w-full text-center">
-        <h4 className="text-xs font-headline font-black text-on-surface truncate max-w-full px-1">{username || userId}</h4>
-        <span className="text-[9px] font-headline font-black text-primary block tracking-wider uppercase">
+        <h4 className={`text-xs font-headline font-black truncate max-w-full px-1 ${isCurrentTurn && alive ? 'text-slate-950' : 'text-on-surface'}`}>
+          {username || userId}
+        </h4>
+        <span className={`text-[9px] font-headline font-black block tracking-wider uppercase ${isCurrentTurn && alive ? 'text-slate-800' : 'text-primary'}`}>
           {RANK_BADGES[currentRank] || currentRank}
         </span>
-        <span className="text-[9px] font-mono font-bold text-on-surface-variant block">
+        <span className={`text-[9px] font-mono font-bold block ${isCurrentTurn && alive ? 'text-slate-700' : 'text-on-surface-variant'}`}>
           {currentElo} ELO
         </span>
       </div>
 
       {/* Cards remaining indicator (for opponents) */}
       {alive && handCount !== undefined && (
-        <div className="mt-2 bg-surface-container-high border-2 border-on-surface px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-[1px_1px_0px_0px_rgba(26,28,28,1)]">
-          <span className="text-[9px] font-headline font-bold text-on-surface-variant">CARDS:</span>
-          <span className="text-[10px] font-headline font-black text-primary">{handCount}</span>
+        <div className={`mt-2 border-2 px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-[1px_1px_0px_0px_rgba(26,28,28,1)]
+          ${isCurrentTurn && alive 
+            ? 'bg-yellow-400 border-slate-950' 
+            : 'bg-surface-container-high border-on-surface'}`}>
+          <span className={`text-[9px] font-headline font-bold ${isCurrentTurn && alive ? 'text-slate-800' : 'text-on-surface-variant'}`}>CARDS:</span>
+          <span className={`text-[10px] font-headline font-black ${isCurrentTurn && alive ? 'text-slate-950' : 'text-primary'}`}>{handCount}</span>
         </div>
       )}
 
@@ -108,8 +112,8 @@ export default function PlayerAvatar({
 
       {/* Turn indicator text */}
       {isCurrentTurn && alive && (
-        <span className="absolute -top-3.5 left-1/2 transform -translate-x-1/2 bg-primary text-on-primary font-headline font-black text-[8px] px-2 py-0.5 rounded-full uppercase tracking-wider shadow border-2 border-on-surface">
-          LƯỢT ĐI
+        <span className="absolute -top-4.5 left-1/2 transform -translate-x-1/2 bg-yellow-400 text-slate-950 font-headline font-black text-[10px] px-3 py-1 rounded-full uppercase tracking-wider shadow border-3 border-slate-950 animate-bounce whitespace-nowrap z-30">
+          👉 LƯỢT ĐI 🔥
         </span>
       )}
 
