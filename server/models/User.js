@@ -7,6 +7,8 @@ const userSchema = new mongoose.Schema(
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     passwordHash: { type: String, required: true },
     avatar: { type: String, default: '' },
+    role: { type: String, enum: ['user', 'admin'], default: 'user' },
+    isBanned: { type: Boolean, default: false },
     
     // Currency
     coins: { type: Number, default: 100, min: 0 },

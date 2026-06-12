@@ -11,35 +11,36 @@ export default function DeckPile({ count, onDraw, isMyTurn, disabled }) {
 
   return (
     <div className="flex flex-col items-center gap-2">
-      <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Bài Bốc</span>
+      <span className="text-xs font-headline font-black text-white uppercase tracking-wider bg-on-background px-3 py-0.5 rounded-lg border-2 border-on-surface shadow-[1.5px_1.5px_0px_0px_#1a1c1c] rotate-[-2deg]">BÀI BỐC</span>
       
       <div
         onClick={handleDraw}
-        className={`relative h-44 w-32 rounded-xl border-2 bg-gradient-to-br from-indigo-700 to-slate-900 shadow-xl flex flex-col items-center justify-center p-3 transition-all duration-300 select-none
+        className={`relative h-44 w-32 rounded-xl border-3 border-on-surface bg-primary-container flex flex-col items-center justify-center p-3 select-none transition-all duration-100
           ${isClickable 
-            ? 'cursor-pointer border-indigo-400 hover:scale-105 hover:-translate-y-2 hover:shadow-indigo-500/20 active:scale-95' 
-            : 'border-slate-800 cursor-not-allowed opacity-85'}`}
+            ? 'cursor-pointer hover:-translate-y-2 hover:shadow-[6px_6px_0px_0px_rgba(26,28,28,1)] shadow-[4px_4px_0px_0px_rgba(26,28,28,1)]' 
+            : 'border-slate-800 cursor-not-allowed opacity-80 shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]'}`}
       >
-        {/* Card Back Design */}
-        <div className="absolute inset-1.5 border border-dashed border-indigo-500/30 rounded-lg flex flex-col items-center justify-center">
-          {/* Neon paw icon or symbol */}
-          <span className="text-4xl filter drop-shadow-[0_0_8px_rgba(99,102,241,0.5)]">🐾</span>
-          <span className="mt-2 text-xs font-bold text-indigo-300 font-mono tracking-widest uppercase">Mèo Nổ</span>
+        {/* Stack effect */}
+        {count > 1 && (
+          <div className="absolute inset-0 bg-primary-container border-3 border-on-surface rounded-xl translate-x-1.5 translate-y-1.5 -z-10" />
+        )}
+        {count > 2 && (
+          <div className="absolute inset-0 bg-primary-container border-3 border-on-surface rounded-xl translate-x-3 translate-y-3 -z-20" />
+        )}
+
+        <div className="absolute inset-1.5 border-2 border-dashed border-on-primary-container/30 rounded-lg flex flex-col items-center justify-center">
+          <span className="text-4xl">🐾</span>
+          <span className="mt-2 text-[10px] font-headline font-black text-on-primary-container tracking-wider uppercase">MÈO NỔ</span>
         </div>
 
         {/* Floating badge for card count */}
-        <div className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-indigo-500 border-2 border-slate-950 flex items-center justify-center text-xs font-bold font-mono text-white shadow-md">
+        <div className="absolute -top-3.5 -right-3.5 h-9 w-9 rounded-full bg-yellow-400 border-3 border-on-surface flex items-center justify-center text-xs font-headline font-black text-slate-950 shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]">
           {count}
         </div>
-
-        {/* Glow overlay for clickable */}
-        {isClickable && (
-          <div className="absolute inset-0 rounded-xl bg-indigo-500/5 animate-pulse pointer-events-none" />
-        )}
       </div>
 
-      <span className="text-[10px] text-slate-500 text-center max-w-[130px] leading-tight">
-        {isClickable ? 'Bấm vào để bốc bài và kết thúc lượt!' : 'Chưa đến lượt của bạn'}
+      <span className="text-[9px] font-headline font-black text-slate-400 text-center max-w-[130px] leading-tight uppercase mt-1">
+        {isClickable ? 'Bốc bài để hết lượt!' : 'Đang chờ lượt...'}
       </span>
     </div>
   );

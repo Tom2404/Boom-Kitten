@@ -11,6 +11,7 @@ const roomRoutes = require('./routes/room');
 const userRoutes = require('./routes/user');
 const shopRoutes = require('./routes/shop');
 const leaderboardRoutes = require('./routes/leaderboard');
+const adminRoutes = require('./routes/admin');
 const errorHandler = require('./middleware/errorHandler');
 const registerGameSocket = require('./sockets/gameSocket');
 
@@ -25,6 +26,8 @@ const io = new Server(server, {
   },
 });
 
+app.set('io', io);
+
 app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
 app.use(express.json());
 
@@ -34,6 +37,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/shop', shopRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
+app.use('/api/admin', adminRoutes);
 app.use(errorHandler);
 
 registerGameSocket(io);

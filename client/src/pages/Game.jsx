@@ -56,7 +56,6 @@ export default function Game() {
   const [targetPlayerId, setTargetPlayerId] = useState(null);
   const [chatInput, setChatInput] = useState('');
   const [myUser, setMyUser] = useState(null);
-  const [activeEmote, setActiveEmote] = useState(null);
 
   // Decode user data from access token
   useEffect(() => {
@@ -73,17 +72,12 @@ export default function Game() {
     }
   }, [roomState]);
 
-  // Listen for emotes
-  useEffect(() => {
-    const socket = roomState?.code ? window.socketInstance : null; // socket is accessible in useGame
-  }, [roomState]);
-
   if (!myUser) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center gap-4">
-        <span className="text-5xl">🔒</span>
-        <h2 className="text-xl font-bold text-slate-300">Yêu Cầu Đăng Nhập</h2>
-        <p className="text-sm text-slate-500 max-w-sm">
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center gap-6 bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-8 max-w-md mx-auto">
+        <span className="text-6xl animate-bounce">🔒</span>
+        <h2 className="text-2xl font-headline font-black text-on-surface uppercase">Yêu Cầu Đăng Nhập</h2>
+        <p className="text-xs font-bold text-on-surface-variant max-w-sm">
           Bạn cần đăng nhập tài khoản để có thể tạo phòng hoặc tham gia chơi bài Mèo Nổ.
         </p>
       </div>
@@ -95,36 +89,36 @@ export default function Game() {
   // ==========================================
   if (!roomState) {
     return (
-      <div className="max-w-md mx-auto my-12 bg-slate-900/60 border border-slate-800 backdrop-blur rounded-2xl p-6 shadow-2xl flex flex-col gap-6">
-        <div className="text-center">
-          <span className="text-5xl">🐱</span>
-          <h2 className="text-2xl font-bold text-white mt-2">Phòng Chờ Game</h2>
-          <p className="text-xs text-slate-400 mt-1">Tạo phòng mới hoặc gia nhập phòng của bạn bè.</p>
+      <div className="max-w-md mx-auto my-6 bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-8 flex flex-col gap-6">
+        <div className="text-center flex flex-col items-center">
+          <span className="text-6xl animate-bounce">🐱💥</span>
+          <h2 className="text-2xl font-headline font-black text-on-surface uppercase mt-3">Đấu Trường Mèo Nổ</h2>
+          <p className="text-xs font-bold text-on-surface-variant mt-1">Tạo phòng chơi mới hoặc gia nhập phòng có sẵn.</p>
         </div>
 
-        <div className="flex flex-col gap-4 border-t border-slate-800 pt-6">
-          <h3 className="text-sm font-semibold text-slate-300">Tạo phòng chơi</h3>
+        <div className="flex flex-col gap-4 border-t-4 border-dashed border-on-surface-variant pt-6">
+          <h3 className="text-xs font-headline font-black text-on-surface uppercase tracking-wider">Tạo phòng chơi</h3>
           <button
             onClick={() => createRoom(5, true)}
-            className="w-full py-3 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-400 hover:to-indigo-500 text-white font-bold rounded-xl active:scale-98 transition-all duration-300 shadow-lg shadow-indigo-500/20"
+            className="btn-detonator w-full py-4 rounded-2xl font-headline font-black uppercase text-sm"
           >
             ➕ Tạo Phòng Mới (Tối đa 5 người)
           </button>
         </div>
 
-        <div className="flex flex-col gap-4 border-t border-slate-800 pt-6">
-          <h3 className="text-sm font-semibold text-slate-300">Tham gia phòng có sẵn</h3>
-          <div className="flex gap-2">
+        <div className="flex flex-col gap-4 border-t-4 border-dashed border-on-surface-variant pt-6">
+          <h3 className="text-xs font-headline font-black text-on-surface uppercase tracking-wider">Tham gia phòng có sẵn</h3>
+          <div className="flex gap-3">
             <input
               type="text"
-              placeholder="Nhập mã phòng (6 chữ cái)"
+              placeholder="MÃ PHÒNG (6 CHỮ CÁI)"
               value={roomInput}
               onChange={(e) => setRoomInput(e.target.value.toUpperCase())}
-              className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white font-mono uppercase tracking-widest text-center text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+              className="flex-1 bg-surface border-3 border-on-surface rounded-2xl px-4 py-3 text-on-surface font-headline font-black uppercase tracking-widest text-center text-sm focus:outline-none focus:bg-white transition-all shadow-[3px_3px_0px_0px_rgba(26,28,28,1)]"
             />
             <button
               onClick={() => joinRoom(roomInput)}
-              className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl active:scale-98 transition-all duration-300"
+              className="px-6 py-3 bg-yellow-400 text-slate-950 font-headline font-black uppercase rounded-2xl border-3 border-on-surface shadow-[3px_3px_0px_0px_rgba(26,28,28,1)] hover:scale-105 active:scale-95 transition-all text-xs"
             >
               Vào Phòng
             </button>
@@ -141,50 +135,50 @@ export default function Game() {
   // ==========================================
   if (roomState.status === 'waiting') {
     return (
-      <div className="max-w-xl mx-auto my-6 bg-slate-900/60 border border-slate-800 backdrop-blur rounded-2xl p-6 shadow-2xl flex flex-col gap-6">
-        <div className="flex justify-between items-start border-b border-slate-800 pb-4">
+      <div className="max-w-xl mx-auto my-6 bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-8 flex flex-col gap-6">
+        <div className="flex justify-between items-start border-b-4 border-on-surface pb-4 flex-wrap gap-4">
           <div>
-            <h2 className="text-xl font-bold text-white">Phòng Chờ Trận Đấu</h2>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-xs text-slate-400">Mã Phòng:</span>
-              <span className="bg-slate-800 text-yellow-400 font-mono font-bold text-sm px-2.5 py-0.5 rounded border border-slate-700">
+            <h2 className="text-2xl font-headline font-black text-on-surface uppercase">Phòng Chờ Trận Đấu</h2>
+            <div className="flex items-center gap-2 mt-1.5">
+              <span className="text-[10px] font-headline font-black text-on-surface-variant uppercase">Mã Phòng:</span>
+              <span className="bg-yellow-400 text-slate-950 font-headline font-black text-sm px-3 py-1 rounded-xl border-2 border-on-surface shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]">
                 {roomState.code}
               </span>
             </div>
           </div>
           <button
             onClick={leaveRoom}
-            className="px-3 py-1.5 bg-red-950/60 hover:bg-red-900 border border-red-900/60 text-red-400 hover:text-white text-xs font-semibold rounded-lg transition-colors"
+            className="bg-secondary text-on-error font-headline font-black border-2 border-on-surface shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] px-4 py-2 text-xs rounded-xl hover:scale-105 active:scale-95 transition-all uppercase"
           >
             Rời Phòng
           </button>
         </div>
 
         <div>
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">
-            Thành viên phòng ({roomState.players.length}/5)
+          <h3 className="text-xs font-headline font-black text-on-surface uppercase tracking-wider mb-4">
+            Thành viên trong phòng ({roomState.players.length}/5)
           </h3>
-          <div className="flex flex-col gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {roomState.players.map((player) => (
               <div
                 key={player.userId}
-                className="flex justify-between items-center bg-slate-950/40 border border-slate-800/60 px-4 py-3 rounded-xl"
+                className="flex justify-between items-center bg-surface border-3 border-on-surface px-4 py-3 rounded-2xl shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]"
               >
                 <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-sm font-bold text-white uppercase">
-                    {player.username ? player.username.slice(0, 2) : player.userId.slice(0, 2)}
+                  <div className="h-9 w-9 rounded-full bg-primary-fixed border-2 border-on-surface flex items-center justify-center text-xs font-headline font-black uppercase text-on-surface">
+                    {player.username ? player.username.slice(0, 2).toUpperCase() : player.userId.slice(0, 2).toUpperCase()}
                   </div>
-                  <span className="text-sm font-medium text-slate-200">
-                    {player.username || player.userId}
-                  </span>
-                  {roomState.host === player.userId && (
-                    <span className="bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full">
-                      👑 Trưởng phòng
+                  <div className="flex flex-col">
+                    <span className="text-xs font-headline font-black uppercase text-on-surface truncate max-w-[120px]">
+                      {player.username || player.userId}
                     </span>
-                  )}
+                    {roomState.host === player.userId && (
+                      <span className="text-[8px] font-headline font-black text-primary uppercase">👑 Trưởng phòng</span>
+                    )}
+                  </div>
                 </div>
-                <span className="text-[10px] text-green-400 flex items-center gap-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-green-500" /> Sẵn sàng
+                <span className="text-[9px] font-headline font-black text-emerald-600 uppercase flex items-center gap-1">
+                  🟢 Sẵn sàng
                 </span>
               </div>
             ))}
@@ -192,27 +186,25 @@ export default function Game() {
         </div>
 
         {isHost ? (
-          <div className="flex flex-col gap-2 border-t border-slate-800 pt-6">
+          <div className="flex flex-col gap-2 border-t-4 border-dashed border-on-surface-variant pt-6 mt-4">
             <button
               onClick={startGame}
               disabled={roomState.players.length < 2}
-              className={`w-full py-3 text-slate-950 font-bold rounded-xl shadow-lg transition-all duration-300
-                ${roomState.players.length >= 2
-                  ? 'bg-yellow-500 hover:bg-yellow-400 active:scale-98 shadow-yellow-500/20'
-                  : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-800'}`}
+              className={`btn-detonator w-full py-4 rounded-2xl font-headline font-black uppercase text-base
+                ${roomState.players.length < 2 ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
             >
-              🚀 Bắt Đầu Trận Đấu
+              🚀 KHAI HỎA TRẬN ĐẤU 💣
             </button>
             {roomState.players.length < 2 && (
-              <p className="text-center text-[10px] text-slate-500">
-                Cần tối thiểu 2 người chơi để bắt đầu trận đấu.
+              <p className="text-center text-[10px] font-bold text-on-surface-variant">
+                Cần tối thiểu 2 người chơi để khai hỏa trận đấu.
               </p>
             )}
           </div>
         ) : (
-          <div className="text-center border-t border-slate-800 pt-6">
-            <p className="text-xs text-slate-400 animate-pulse">
-              Đang đợi Trưởng phòng bắt đầu trận đấu...
+          <div className="text-center border-t-4 border-dashed border-on-surface-variant pt-6 mt-4">
+            <p className="text-xs font-headline font-black uppercase text-primary animate-pulse">
+              Đang chờ trưởng phòng bắt đầu trận đấu...
             </p>
           </div>
         )}
@@ -230,17 +222,10 @@ export default function Game() {
   const activePlayerId = gameState.players[gameState.currentPlayerIndex]?.userId;
   const isMyTurn = activePlayerId === myUser.id;
 
-  // Determine if opponents can be targeted (e.g. for Favor card or 2-cat combo)
   const isOpponentTargetable = (oppId) => {
     if (!isMyTurn) return false;
     const opp = opponents.find((o) => o.userId === oppId);
-    if (!opp || !opp.alive) return false;
-
-    // Check if we have selected cards or type
-    const hasFavorSelected = privateHand.some(
-      (c) => c.type === 'favor' && !targetPlayerId
-    );
-    return true; // Simplify targetability for user ease (they select the opponent anytime)
+    return opp && opp.alive;
   };
 
   const hasNopeCard = privateHand.some((c) => c.type === 'nope');
@@ -254,138 +239,135 @@ export default function Game() {
   };
 
   return (
-    <div className="relative min-h-[85vh] grid grid-cols-1 lg:grid-cols-4 gap-6 max-w-7xl mx-auto p-2">
+    <div className="relative min-h-[82vh] grid grid-cols-1 lg:grid-cols-4 gap-6">
       {/* Game Board (Left 3 columns) */}
-      <div className="lg:col-span-3 flex flex-col justify-between gap-6 bg-slate-950/20 border border-slate-900 rounded-2xl p-6 shadow-2xl relative overflow-hidden">
+      <div className="lg:col-span-3 flex flex-col justify-between gap-6 border-4 border-on-surface rounded-3xl shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] overflow-hidden bg-[#2f3131]">
         
         {/* Header: Room Code and Info */}
-        <div className="flex justify-between items-center border-b border-slate-900 pb-3">
+        <div className="flex justify-between items-center bg-surface border-b-4 border-on-surface px-6 py-3.5 z-10">
           <div className="flex items-center gap-3">
-            <span className="text-xs text-slate-500 uppercase tracking-widest font-semibold">Phòng chơi:</span>
-            <span className="bg-slate-900 text-yellow-400 font-mono font-bold text-xs px-2.5 py-1 rounded border border-slate-800">
+            <span className="text-[10px] font-headline font-black text-on-surface-variant uppercase tracking-widest">Phòng chơi:</span>
+            <span className="bg-yellow-400 text-slate-950 font-headline font-black text-xs px-3 py-1 rounded-xl border-2 border-on-surface shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]">
               {roomState.code}
             </span>
           </div>
 
           <div className="flex items-center gap-3">
             {gameState.drawsRequired > 1 && (
-              <span className="bg-red-500/20 border border-red-500/30 text-red-400 text-xs px-3 py-1 rounded-full font-bold animate-pulse">
-                ⚠️ Bị dồn bốc: {gameState.drawsRequired} lượt!
+              <span className="bg-secondary text-on-error font-headline font-black text-xs px-4 py-1.5 rounded-full border-2 border-on-surface shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] animate-bounce">
+                ⚠️ LƯỢT DỒN BỐC: {gameState.drawsRequired} lượt!
               </span>
             )}
             <button
               onClick={leaveRoom}
-              className="px-3 py-1 bg-red-950/40 hover:bg-red-900 border border-red-900/40 text-red-400 text-xs font-semibold rounded-lg transition-colors"
+              className="bg-secondary text-on-error font-headline font-black border-2 border-on-surface shadow-[2.5px_2.5px_0px_0px_#1a1c1c] px-3.5 py-1.5 rounded-xl text-xs hover:scale-105 active:scale-95 transition-all uppercase"
             >
               Rời Phòng
             </button>
           </div>
         </div>
 
-        {/* 1. Opponents Row (Top) */}
-        <div className="flex justify-center gap-4 flex-wrap py-2">
-          {opponents.map((opp) => (
-            <PlayerAvatar
-              key={opp.userId}
-              player={opp}
-              isCurrentTurn={activePlayerId === opp.userId}
-              isTargetable={isOpponentTargetable(opp.userId)}
-              isSelectedTarget={targetPlayerId === opp.userId}
-              onSelectTarget={(id) => setTargetPlayerId(prev => prev === id ? null : id)}
+        {/* Game Canvas Container */}
+        <div className="flex-grow flex flex-col justify-between felt-bg p-6 relative select-none">
+          {/* Opponents Row */}
+          <div className="flex justify-center gap-6 flex-wrap py-2 z-10">
+            {opponents.map((opp) => (
+              <PlayerAvatar
+                key={opp.userId}
+                player={opp}
+                isCurrentTurn={activePlayerId === opp.userId}
+                isTargetable={isOpponentTargetable(opp.userId)}
+                isSelectedTarget={targetPlayerId === opp.userId}
+                onSelectTarget={(id) => setTargetPlayerId(prev => prev === id ? null : id)}
+              />
+            ))}
+          </div>
+
+          {/* Board Center: Deck and Discard Pile */}
+          <div className="flex-grow flex justify-center items-center gap-16 py-6 relative">
+            <DeckPile
+              count={gameState.deckCount ?? 0}
+              onDraw={drawCard}
+              isMyTurn={isMyTurn}
+              disabled={!!gameState.pendingFavor || !!gameState.pendingAlter || (nopeWindow && nopeWindow.active)}
             />
-          ))}
-        </div>
 
-        {/* 2. Board Center: Deck and Discard Pile */}
-        <div className="flex-1 flex justify-center items-center gap-16 py-6 relative">
-          
-          {/* Deck Pile */}
-          <DeckPile
-            count={gameState.deckCount ?? 0}
-            onDraw={drawCard}
-            isMyTurn={isMyTurn}
-            disabled={!!gameState.pendingFavor || !!gameState.pendingAlter || (nopeWindow && nopeWindow.active)}
-          />
+            {/* Announcer and Status Message Board */}
+            <div className="flex flex-col items-center gap-3 max-w-[260px] text-center z-10">
+              <div className="bg-white border-3 border-on-surface rounded-2xl px-5 py-4 shadow-[4px_4px_0px_0px_#1a1c1c] min-w-[220px]">
+                <span className="text-[10px] font-headline font-black text-primary uppercase tracking-widest block mb-1">
+                  Hành Động
+                </span>
+                <p className="text-xs font-sans font-bold text-on-surface leading-relaxed min-h-[48px] flex items-center justify-center">
+                  {statusMessage || 'Ván đấu đã bắt đầu!'}
+                </p>
+              </div>
+              
+              {targetPlayerId && (
+                <div className="bg-yellow-400 border-2 border-on-surface text-slate-950 text-[9px] font-headline font-black uppercase tracking-wider px-3.5 py-1 rounded-full flex items-center gap-1.5 shadow-[2px_2px_0px_0px_#1a1c1c]">
+                  🎯 Mục tiêu: {opponents.find((o) => o.userId === targetPlayerId)?.username || targetPlayerId}
+                  <button 
+                    onClick={() => setTargetPlayerId(null)}
+                    className="hover:scale-110 ml-1.5"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+            </div>
 
-          {/* Announcer and Status Message Board */}
-          <div className="flex flex-col items-center gap-3 max-w-[240px] text-center">
-            <div className="bg-slate-900/80 border border-slate-800 rounded-xl px-4 py-3 shadow-inner min-w-[200px]">
-              <span className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">
-                Diễn Biến
-              </span>
-              <p className="text-sm font-semibold text-slate-200 leading-relaxed font-sans min-h-[40px] flex items-center justify-center">
-                {statusMessage || 'Ván đấu đã bắt đầu!'}
-              </p>
+            <DiscardPile
+              discardPile={gameState.discardPile}
+              pendingCombo5={gameState.pendingCombo5}
+              myUserId={myUser.id}
+              onSelectCard={respondCombo5}
+            />
+          </div>
+
+          {/* Bottom Row: Player's own avatar & Player's hand */}
+          <div className="flex flex-col md:flex-row gap-6 items-stretch border-t-4 border-dashed border-on-surface-variant pt-6 z-10">
+            <div className="flex items-center justify-center bg-white/10 p-3 rounded-2xl border-2 border-dashed border-white/20">
+              {myPlayerState && (
+                <PlayerAvatar
+                  player={myPlayerState}
+                  isCurrentTurn={isMyTurn}
+                  isTargetable={false}
+                />
+              )}
             </div>
             
-            {targetPlayerId && (
-              <div className="bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full flex items-center gap-1.5">
-                🎯 Mục tiêu: {opponents.find((o) => o.userId === targetPlayerId)?.username || targetPlayerId}
-                <button 
-                  onClick={() => setTargetPlayerId(null)}
-                  className="hover:text-white ml-1 font-sans"
-                >
-                  ✕
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Discard Pile */}
-          <DiscardPile
-            discardPile={gameState.discardPile}
-            pendingCombo5={gameState.pendingCombo5}
-            myUserId={myUser.id}
-            onSelectCard={respondCombo5}
-          />
-        </div>
-
-        {/* 3. Bottom Row: Player's own avatar & Player's hand */}
-        <div className="flex flex-col md:flex-row gap-4 items-stretch border-t border-slate-900 pt-6">
-          <div className="flex items-center justify-center bg-slate-950/20 px-3 rounded-xl">
-            {myPlayerState && (
-              <PlayerAvatar
-                player={myPlayerState}
-                isCurrentTurn={isMyTurn}
-                isTargetable={false}
+            <div className="flex-1 overflow-x-auto hide-scroll">
+              <PlayerHand
+                hand={privateHand}
+                onPlayCard={playCard}
+                onPlayCombo={playCombo}
+                isMyTurn={isMyTurn}
+                targetPlayerId={targetPlayerId}
               />
-            )}
-          </div>
-          
-          <div className="flex-1">
-            <PlayerHand
-              hand={privateHand}
-              onPlayCard={playCard}
-              onPlayCombo={playCombo}
-              isMyTurn={isMyTurn}
-              targetPlayerId={targetPlayerId}
-            />
+            </div>
           </div>
         </div>
-
-        {/* Decorative Grid backgrounds */}
-        <div className="absolute inset-0 bg-grid-slate-900/[0.04] bg-[size:20px_20px] pointer-events-none" />
       </div>
 
       {/* Chat & Emotes Panel (Right 1 column) */}
-      <div className="lg:col-span-1 bg-slate-900/60 border border-slate-800 backdrop-blur rounded-2xl p-4 shadow-2xl flex flex-col justify-between h-[85vh]">
+      <div className="lg:col-span-1 bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-5 flex flex-col justify-between h-[82vh]">
         <div className="flex flex-col gap-4 flex-1 overflow-hidden">
           
           {/* Header */}
-          <div className="border-b border-slate-800 pb-2 flex justify-between items-center">
-            <h3 className="text-sm font-bold text-white">Trò Chuyện & Emote</h3>
-            <span className="h-2 w-2 rounded-full bg-green-500" />
+          <div className="border-b-3 border-on-surface pb-2.5 flex justify-between items-center">
+            <h3 className="text-sm font-headline font-black uppercase text-on-surface">Đấu Trường Chat</h3>
+            <span className="h-3 w-3 rounded-full bg-emerald-500 animate-pulse border border-on-surface" />
           </div>
 
           {/* Emotes quick buttons */}
           <div className="flex flex-col gap-2">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Gửi nhanh biểu cảm</span>
+            <span className="text-[10px] font-headline font-black text-on-surface-variant uppercase tracking-wider">Phát biểu cảm nhanh</span>
             <div className="grid grid-cols-4 gap-2">
               {EMOTES_LIST.map((emote) => (
                 <button
                   key={emote.id}
                   onClick={() => sendEmote(emote.id)}
-                  className="h-10 text-2xl bg-slate-950 border border-slate-800 hover:border-slate-700 hover:bg-slate-800 rounded-xl transition-all active:scale-90 flex items-center justify-center"
+                  className="h-10 text-2xl bg-surface border-2 border-on-surface hover:bg-slate-100 rounded-xl transition-all active:scale-90 flex items-center justify-center shadow-[1px_1px_0px_0px_#1a1c1c]"
                 >
                   {emote.char}
                 </button>
@@ -394,10 +376,10 @@ export default function Game() {
           </div>
 
           {/* Chat Messages history */}
-          <div className="flex-1 flex flex-col gap-2 overflow-y-auto mt-2 border-t border-slate-800/80 pt-3 pr-1 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
+          <div className="flex-1 flex flex-col gap-2.5 overflow-y-auto mt-2 border-t-3 border-dashed border-on-surface-variant pt-3 pr-1 hide-scroll">
             {chatMessages.length === 0 ? (
-              <div className="text-center text-slate-600 text-xs py-8 font-sans">
-                Chưa có tin nhắn nào. Chat để trêu đùa đối thủ!
+              <div className="text-center text-on-surface-variant text-xs py-8 font-sans font-bold italic">
+                Chưa có cuộc hội thoại nào. Chat để trêu đùa đối thủ!
               </div>
             ) : (
               chatMessages.map((msg, index) => {
@@ -405,15 +387,15 @@ export default function Game() {
                 return (
                   <div
                     key={index}
-                    className={`flex flex-col max-w-[85%] rounded-2xl px-3 py-1.5 text-xs shadow-sm
+                    className={`flex flex-col max-w-[85%] rounded-2xl px-3.5 py-2 text-xs border-2 border-on-surface shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]
                       ${isMe 
-                        ? 'self-end bg-indigo-600/30 border border-indigo-500/20 text-indigo-100 rounded-tr-none' 
-                        : 'self-start bg-slate-950 border border-slate-800 text-slate-300 rounded-tl-none'}`}
+                        ? 'self-end bg-primary-container text-on-primary-container rounded-tr-none' 
+                        : 'self-start bg-surface text-on-surface rounded-tl-none'}`}
                   >
-                    <span className="font-bold text-[9px] text-slate-400 mb-0.5">
-                      {isMe ? 'Bạn' : msg.username}
+                    <span className="font-headline font-black text-[9px] text-on-surface mb-0.5 uppercase">
+                      {isMe ? 'BẠN' : msg.username}
                     </span>
-                    <p className="leading-relaxed font-sans">{msg.text}</p>
+                    <p className="leading-relaxed font-sans font-bold">{msg.text}</p>
                   </div>
                 );
               })
@@ -422,17 +404,17 @@ export default function Game() {
         </div>
 
         {/* Input Chat bar */}
-        <form onSubmit={handleSendChat} className="flex gap-2 border-t border-slate-800 pt-3 mt-2">
+        <form onSubmit={handleSendChat} className="flex gap-2 border-t-3 border-on-surface pt-3 mt-2">
           <input
             type="text"
-            placeholder="Gửi tin nhắn..."
+            placeholder="Gửi tin nhắn hăm dọa..."
             value={chatInput}
             onChange={(e) => setChatInput(e.target.value)}
-            className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 transition-colors"
+            className="flex-1 bg-surface border-2 border-on-surface rounded-xl px-3 py-2 text-xs text-on-surface font-bold focus:outline-none focus:bg-white transition-all shadow-[1.5px_1.5px_0px_0px_#1a1c1c]"
           />
           <button
             type="submit"
-            className="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs"
+            className="px-4 py-2 bg-primary text-on-primary font-headline font-black rounded-xl text-xs border-2 border-on-surface shadow-[1.5px_1.5px_0px_0px_#1a1c1c] active:translate-y-0.5 active:shadow-none hover:scale-105"
           >
             Gửi
           </button>
@@ -481,33 +463,32 @@ export default function Game() {
       {/* 5. Game Ended Win Overlay */}
       {gameEnded && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur p-4 animate-fade-in">
-          <div className="w-full max-w-md bg-slate-900 border border-yellow-500 rounded-2xl p-6 shadow-2xl flex flex-col items-center gap-6 text-center">
+          <div className="w-full max-w-md bg-white border-4 border-on-surface rounded-3xl p-6 shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] flex flex-col items-center gap-6 text-center">
             
-            {/* Victory / Defeat animation banner */}
             <div className="flex flex-col items-center">
-              <span className="text-6xl animate-bounce">
-                {gameEnded.winnerId === myUser.id ? '🏆' : '💀'}
+              <span className="text-7xl animate-bounce">
+                {gameEnded.winnerId === myUser.id ? '🏆😸' : '💀😿'}
               </span>
-              <h2 className="text-2xl font-bold mt-2 text-white">
-                {gameEnded.winnerId === myUser.id ? 'CHIẾN THẮNG!' : 'BẠN ĐÃ THUA'}
+              <h2 className="text-3xl font-headline font-black mt-3 text-on-surface uppercase">
+                {gameEnded.winnerId === myUser.id ? 'BẠN CHIẾN THẮNG!' : 'BẠN ĐÃ THUA CUỘC'}
               </h2>
-              <p className="text-xs text-slate-400 mt-1">
-                Người chiến thắng cuối cùng: <strong className="text-white">{gameEnded.winnerId}</strong>
+              <p className="text-xs font-bold text-on-surface-variant mt-1">
+                Kẻ sống sót cuối cùng: <strong className="text-primary uppercase">{gameEnded.winnerId}</strong>
               </p>
             </div>
 
             {/* Placements */}
-            <div className="w-full bg-slate-950/60 border border-slate-800 rounded-xl p-4 flex flex-col gap-2">
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest text-left pb-1 border-b border-slate-800">
+            <div className="w-full bg-surface border-3 border-on-surface rounded-2xl p-4 flex flex-col gap-2 shadow-[3px_3px_0px_0px_rgba(26,28,28,1)]">
+              <h3 className="text-xs font-headline font-black text-on-surface-variant uppercase tracking-widest text-left pb-1.5 border-b-2 border-on-surface">
                 Thứ hạng chung cuộc
               </h3>
               {gameEnded.rankings.map((rank, index) => (
                 <div key={index} className="flex justify-between items-center text-xs py-1">
-                  <span className="text-slate-300 font-medium">
+                  <span className="text-on-surface font-bold uppercase text-[10px]">
                     #{index + 1} {rank.userId}
                   </span>
-                  <span className={`font-bold uppercase tracking-wider
-                    ${rank.result === 'win' ? 'text-green-400' : 'text-slate-500'}`}>
+                  <span className={`font-headline font-black uppercase tracking-wider text-[9px]
+                    ${rank.result === 'win' ? 'text-emerald-600' : 'text-on-surface-variant'}`}>
                     {rank.result === 'win' ? 'Thắng (+50đ)' : 'Bị loại (+10đ)'}
                   </span>
                 </div>
@@ -519,9 +500,9 @@ export default function Game() {
                 setGameEnded(null);
                 leaveRoom();
               }}
-              className="w-full py-3 bg-yellow-500 hover:bg-yellow-400 text-slate-950 font-bold rounded-xl active:scale-95 transition-all shadow-lg shadow-yellow-500/20"
+              className="btn-detonator w-full py-4 rounded-2xl font-headline font-black uppercase text-base"
             >
-              Quay Lại Phòng Chờ
+              Quay Lại Phòng Chờ 🏠
             </button>
           </div>
         </div>

@@ -8,7 +8,7 @@ function authMiddleware(req, res, next) {
 
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = { id: payload.sub, email: payload.email, username: payload.username };
+    req.user = { id: payload.sub, email: payload.email, username: payload.username, role: payload.role };
     return next();
   } catch (_error) {
     return res.status(401).json({ message: 'Invalid or expired access token' });

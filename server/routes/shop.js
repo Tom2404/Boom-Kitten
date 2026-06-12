@@ -86,6 +86,8 @@ router.post('/buy', async (req, res, next) => {
   }
 });
 
+const adminMiddleware = require('../middleware/adminMiddleware');
+
 router.get('/owned', async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id).select('ownedSkins ownedEmotes ownedAvatarFrames');
@@ -99,5 +101,61 @@ router.get('/owned', async (req, res, next) => {
   }
 });
 
+// Admin-only endpoints for managing shop items
+router.post('/items', adminMiddleware, async (req, res, next) => {
+  try {
+    const { name, type, price, rarity, isLimited, availableUntil, imageUrl, previewUrl } = req.body;
+    if (!name || !type) return res.status(400).json({ message: 'Name and type are required' });
+    const item = await ShopItem.create({
+      name,
+      type,
+      price: price ?? { coins: 0, gems: 0 },
+      rarity: rarity ?? 'common',
+      isLimited: isLimited ?? false,
+      availableUntil,
+      imageUrl: imageUrl ?? '',
+      previewUrl: previewUrl ?? '',
+    });
+    return res.status(201).json(item);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.put('/items/:id', adminMiddleware, async (req, res, next) => {
+  try {
+    const { name, type, price, rarity, isLimited, availableUntil, imageUrl, previewUrl } = req.body;
+    const item = await ShopItem.findByIdAndUpdate(
+      req.params.id,
+      {
+        $set: {
+          name,
+          type,
+          price,
+          rarity,
+          isLimited,
+          availableUntil,
+          imageUrl,
+          previewUrl,
+        },
+      },
+      { new: true, runValidators: true }
+    );
+    if (!item) return res.status(404).json({ message: 'Shop item not found' });
+    return res.json(item);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.delete('/items/:id', adminMiddleware, async (req, res, next) => {
+  try {
+    const item = await ShopItem.findByIdAndDelete(req.params.id);
+    if (!item) return res.status(404).json({ message: 'Shop item not found' });
+    return res.json({ success: true, message: 'Shop item deleted successfully' });
+  } catch (error) {
+    return next(error);
+  }
+});
 
 module.exports = router;

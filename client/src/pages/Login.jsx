@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../hooks/useAuth.js';
 
-export default function Login() {
+export default function Login({ setPage }) {
   const { setToken } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -34,13 +34,15 @@ export default function Login() {
       }
 
       setToken(data.accessToken);
-      // Store refreshToken too just in case
       if (data.refreshToken) {
         localStorage.setItem('refreshToken', data.refreshToken);
       }
 
       setIsError(false);
-      setMessage('Đăng nhập thành công! Hãy chuyển sang trang Game để chơi.');
+      setMessage('Đăng nhập thành công! Đang chuyển hướng...');
+      setTimeout(() => {
+        setPage('Game');
+      }, 1000);
     } catch (err) {
       setIsError(true);
       setMessage(err.message);
@@ -48,51 +50,62 @@ export default function Login() {
   };
 
   return (
-    <div className="max-w-md mx-auto my-12 bg-slate-900/60 border border-slate-800 backdrop-blur rounded-2xl p-6 shadow-2xl flex flex-col gap-6">
-      <div className="text-center">
-        <span className="text-5xl">🔑</span>
-        <h2 className="text-2xl font-bold text-white mt-2">Đăng Nhập Hệ Thống</h2>
-        <p className="text-xs text-slate-400 mt-1">Đăng nhập tài khoản để vào bàn chơi.</p>
+    <div className="max-w-md mx-auto my-12 bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-8 flex flex-col gap-6">
+      <div className="text-center flex flex-col items-center">
+        <span className="text-5xl animate-bounce">🔑</span>
+        <h2 className="text-2xl font-headline font-black text-on-surface uppercase mt-4">Đăng Nhập</h2>
+        <p className="text-xs font-bold text-on-surface-variant mt-1">Đăng nhập tài khoản để vào bàn chơi.</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-5">
         {message && (
-          <div className={`p-3 rounded-xl text-xs font-semibold text-center border
+          <div className={`p-4 rounded-xl text-xs font-headline font-black text-center border-3 border-on-surface shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]
             ${isError 
-              ? 'bg-red-500/10 border-red-500/20 text-red-400' 
-              : 'bg-green-500/10 border-green-500/20 text-green-400'}`}>
+              ? 'bg-rose-100 text-rose-700' 
+              : 'bg-emerald-100 text-emerald-700'}`}>
             {message}
           </div>
         )}
 
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Email đăng nhập</label>
+        <div className="flex flex-col gap-2">
+          <label className="text-xs font-headline font-black text-on-surface uppercase tracking-wider">Email đăng nhập</label>
           <input
             type="email"
             placeholder="username@gmail.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500 transition-colors"
+            className="bg-surface border-3 border-on-surface rounded-xl px-4 py-3 text-xs text-on-surface font-bold focus:outline-none focus:bg-white transition-all shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]"
           />
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Mật khẩu</label>
+        <div className="flex flex-col gap-2">
+          <label className="text-xs font-headline font-black text-on-surface uppercase tracking-wider">Mật khẩu</label>
           <input
             type="password"
             placeholder="••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500 transition-colors"
+            className="bg-surface border-3 border-on-surface rounded-xl px-4 py-3 text-xs text-on-surface font-bold focus:outline-none focus:bg-white transition-all shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]"
           />
         </div>
 
         <button
           type="submit"
-          className="w-full mt-2 py-3 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-400 hover:to-indigo-500 text-white font-bold rounded-xl active:scale-98 transition-all duration-300 shadow-lg shadow-indigo-500/20"
+          className="btn-detonator w-full mt-4 py-4 rounded-2xl font-headline font-black uppercase text-base"
         >
-          Đăng Nhập
+          Khai Hỏa 💣
         </button>
+
+        <p className="text-center text-xs font-bold text-on-surface-variant mt-2">
+          Chưa có tài khoản?{' '}
+          <button 
+            type="button" 
+            onClick={() => setPage('Register')}
+            className="text-primary hover:underline"
+          >
+            Đăng ký ngay
+          </button>
+        </p>
       </form>
     </div>
   );
