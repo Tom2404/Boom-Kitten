@@ -10,6 +10,10 @@ export function useGame() {
   const [seeTheFutureCards, setSeeTheFutureCards] = useState(null);
   const [alterFutureRequest, setAlterFutureRequest] = useState(null);
   const [favorRequest, setFavorRequest] = useState(null);
+  const [buryRequest, setBuryRequest] = useState(null);
+  const [garbageRequest, setGarbageRequest] = useState(null);
+  const [potLuckRequest, setPotLuckRequest] = useState(null);
+  const [zombieRequest, setZombieRequest] = useState(null);
   const [gameEnded, setGameEnded] = useState(null);
   const [chatMessages, setChatMessages] = useState([]);
   const [statusMessage, setStatusMessage] = useState('');
@@ -36,6 +40,18 @@ export function useGame() {
       if (publicGameState && !publicGameState.pendingAlter) {
         setAlterFutureRequest(null);
       }
+      if (publicGameState && !publicGameState.pendingBury) {
+        setBuryRequest(null);
+      }
+      if (publicGameState && !publicGameState.pendingGarbage) {
+        setGarbageRequest(null);
+      }
+      if (publicGameState && !publicGameState.pendingPotLuck) {
+        setPotLuckRequest(null);
+      }
+      if (publicGameState && !publicGameState.pendingZombie) {
+        setZombieRequest(null);
+      }
     };
 
     const onPrivateHand = ({ cards }) => {
@@ -54,12 +70,28 @@ export function useGame() {
       setSeeTheFutureCards(cards);
     };
 
-    const onAlterFutureRequest = ({ cards, timeoutMs }) => {
-      setAlterFutureRequest({ cards, timeoutMs, active: true });
+    const onAlterFutureRequest = ({ cards, count, timeoutMs }) => {
+      setAlterFutureRequest({ cards, count: count || 3, timeoutMs, active: true });
     };
 
     const onFavorRequest = ({ fromPlayerId, timeoutMs }) => {
       setFavorRequest({ fromPlayerId, timeoutMs, active: true });
+    };
+
+    const onBuryRequest = ({ timeoutMs }) => {
+      setBuryRequest({ timeoutMs, active: true });
+    };
+
+    const onGarbageRequest = ({ timeoutMs }) => {
+      setGarbageRequest({ timeoutMs, active: true });
+    };
+
+    const onPotLuckRequest = ({ timeoutMs }) => {
+      setPotLuckRequest({ timeoutMs, active: true });
+    };
+
+    const onZombieRequest = ({ timeoutMs }) => {
+      setZombieRequest({ timeoutMs, active: true });
     };
 
     const onGameEnded = ({ winnerId, rankings }) => {
@@ -90,6 +122,10 @@ export function useGame() {
     socket.on('game:seeTheFuture', onSeeTheFuture);
     socket.on('game:alterFuture:request', onAlterFutureRequest);
     socket.on('game:favor:request', onFavorRequest);
+    socket.on('game:bury:request', onBuryRequest);
+    socket.on('game:garbage:request', onGarbageRequest);
+    socket.on('game:potLuck:request', onPotLuckRequest);
+    socket.on('game:zombie:request', onZombieRequest);
     socket.on('game:ended', onGameEnded);
     socket.on('game:exploded', onExploded);
     socket.on('game:cardPlayed', onCardPlayed);
@@ -104,6 +140,10 @@ export function useGame() {
       socket.off('game:seeTheFuture', onSeeTheFuture);
       socket.off('game:alterFuture:request', onAlterFutureRequest);
       socket.off('game:favor:request', onFavorRequest);
+      socket.off('game:bury:request', onBuryRequest);
+      socket.off('game:garbage:request', onGarbageRequest);
+      socket.off('game:potLuck:request', onPotLuckRequest);
+      socket.off('game:zombie:request', onZombieRequest);
       socket.off('game:ended', onGameEnded);
       socket.off('game:exploded', onExploded);
       socket.off('game:cardPlayed', onCardPlayed);
@@ -137,8 +177,8 @@ export function useGame() {
     socket.emit('game:drawCard');
   };
 
-  const playCard = (cardType, targetPlayerId = null) => {
-    socket.emit('game:playCard', { cardType, targetPlayerId });
+  const playCard = (cardType, targetPlayerId = null, options = null) => {
+    socket.emit('game:playCard', { cardType, targetPlayerId, options });
   };
 
   const playNope = (originalEventId) => {
@@ -152,13 +192,31 @@ export function useGame() {
   };
 
   const respondAlterFuture = (rearrangedCards) => {
-    // rearrangedCards is array of card IDs
     socket.emit('game:alterFuture:respond', { rearrangedCards });
     setAlterFutureRequest(null);
   };
 
+  const respondBury = (cardId, insertPosition) => {
+    socket.emit('game:bury:respond', { cardId, insertPosition });
+    setBuryRequest(null);
+  };
+
+  const respondGarbage = (cardId) => {
+    socket.emit('game:garbage:respond', { cardId });
+    setGarbageRequest(null);
+  };
+
+  const respondPotLuck = (cardId) => {
+    socket.emit('game:potLuck:respond', { cardId });
+    setPotLuckRequest(null);
+  };
+
+  const respondZombie = (targetPlayerId) => {
+    socket.emit('game:zombie:respond', { targetPlayerId });
+    setZombieRequest(null);
+  };
+
   const playCombo = (cards, targetPlayerId = null) => {
-    // cards is array of card IDs
     socket.emit('game:combo', { cards, targetPlayerId });
   };
 
@@ -185,6 +243,10 @@ export function useGame() {
     setSeeTheFutureCards,
     alterFutureRequest,
     favorRequest,
+    buryRequest,
+    garbageRequest,
+    potLuckRequest,
+    zombieRequest,
     gameEnded,
     setGameEnded,
     chatMessages,
@@ -199,6 +261,10 @@ export function useGame() {
     playNope,
     respondFavor,
     respondAlterFuture,
+    respondBury,
+    respondGarbage,
+    respondPotLuck,
+    respondZombie,
     playCombo,
     respondCombo5,
     sendChatMessage,

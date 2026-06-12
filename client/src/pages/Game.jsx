@@ -9,6 +9,9 @@ import {
   AlterFutureModal,
   FavorRequestModal,
   NopeCountdown,
+  BuryPositionModal,
+  GarbageSelectModal,
+  ZombieReviveModal,
 } from '../components/ActionModals.jsx';
 
 const EMOTES_LIST = [
@@ -32,6 +35,10 @@ export default function Game() {
     setSeeTheFutureCards,
     alterFutureRequest,
     favorRequest,
+    buryRequest,
+    garbageRequest,
+    potLuckRequest,
+    zombieRequest,
     gameEnded,
     setGameEnded,
     chatMessages,
@@ -46,6 +53,10 @@ export default function Game() {
     playNope,
     respondFavor,
     respondAlterFuture,
+    respondBury,
+    respondGarbage,
+    respondPotLuck,
+    respondZombie,
     playCombo,
     respondCombo5,
     sendChatMessage,
@@ -460,7 +471,44 @@ export default function Game() {
         />
       )}
 
-      {/* 5. Game Ended Win Overlay */}
+      {/* 5. Bury Request Modal */}
+      {buryRequest && buryRequest.active && (
+        <BuryPositionModal
+          hand={privateHand}
+          deckCount={gameState?.deckCount || 0}
+          onRespond={respondBury}
+        />
+      )}
+
+      {/* 6. Garbage Collection Request Modal */}
+      {garbageRequest && garbageRequest.active && (
+        <GarbageSelectModal
+          hand={privateHand}
+          title="🗑️ Thu Gom Rác (Garbage Collection)"
+          description="Hãy chọn 1 lá bài từ tay của bạn để bỏ ngược lại vào bộ bài bốc."
+          onRespond={respondGarbage}
+        />
+      )}
+
+      {/* 7. Pot Luck Request Modal */}
+      {potLuckRequest && potLuckRequest.active && (
+        <GarbageSelectModal
+          hand={privateHand}
+          title="🍲 Góp Nồi (Pot Luck)"
+          description="Hãy chọn 1 lá bài từ tay của bạn để đặt lên đầu bộ bài bốc."
+          onRespond={respondPotLuck}
+        />
+      )}
+
+      {/* 8. Zombie Kitten Revival Modal */}
+      {zombieRequest && zombieRequest.active && (
+        <ZombieReviveModal
+          players={gameState?.players || []}
+          onRespond={respondZombie}
+        />
+      )}
+
+      {/* 9. Game Ended Win Overlay */}
       {gameEnded && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur p-4 animate-fade-in">
           <div className="w-full max-w-md bg-white border-4 border-on-surface rounded-3xl p-6 shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] flex flex-col items-center gap-6 text-center">

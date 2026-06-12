@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import Card, { CARD_THEMES } from './Card.jsx';
+import { motion } from 'framer-motion';
 
 export default function DiscardPile({ discardPile = [], pendingCombo5, myUserId, onSelectCard }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -18,12 +19,16 @@ export default function DiscardPile({ discardPile = [], pendingCombo5, myUserId,
 
       <div className="relative">
         {topCard ? (
-          <div
+          <motion.div
+            key={topCard.id}
+            initial={{ scale: 1.5, rotate: Math.random() * 40 - 20, opacity: 0 }}
+            animate={{ scale: 1, rotate: 0, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 200, damping: 15 }}
             onClick={() => setIsOpen(true)}
             className="cursor-pointer hover:-translate-y-1 transition-transform"
           >
             <Card type={topCard.type} disabled={false} />
-          </div>
+          </motion.div>
         ) : (
           <div className="h-44 w-32 rounded-xl border-3 border-dashed border-on-surface flex items-center justify-center text-white/50 text-xs bg-white/5 font-headline font-black uppercase shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]">
             Trống

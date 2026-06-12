@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import Card from './Card.jsx';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, targetPlayerId }) {
   const [selectedIds, setSelectedIds] = useState([]);
@@ -121,22 +122,46 @@ export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, ta
         </div>
       ) : (
         <div className="flex gap-4 overflow-x-auto pb-4 pt-6 px-2 hide-scroll max-w-full">
-          {hand.map((card, index) => {
-            const isSelected = selectedIds.includes(card.id);
-            return (
-              <div
-                key={card.id || index}
-                style={{ zIndex: isSelected ? 20 : 10 + index }}
-                className="transform transition-transform duration-100 flex-shrink-0"
-              >
-                <Card
-                  type={card.type}
-                  selected={isSelected}
-                  onClick={() => toggleSelectCard(card.id)}
-                />
-              </div>
-            );
-          })}
+          <AnimatePresence mode="popLayout">
+            {hand.map((card, index) => {
+              const isSelected = selectedIds.includes(card.id);
+              return (
+                <motion.div
+                  key={card.id}
+                  layout
+                  initial={{ opacity: 0, x: 200, y: 150, scale: 0.3, rotate: 45 }}
+                  animate={{ 
+                    opacity: 1, 
+                    x: 0, 
+                    y: 0, 
+                    scale: 1, 
+                    rotate: 0,
+                    transition: { type: 'spring', stiffness: 150, damping: 18 }
+                  }}
+                  exit={{ 
+                    opacity: 0, 
+                    y: -100, 
+                    scale: 0.5, 
+                    rotate: -15,
+                    transition: { duration: 0.2 } 
+                  }}
+                  whileHover={{ 
+                    y: isSelected ? -24 : -16, 
+                    scale: 1.05, 
+                    transition: { duration: 0.1 } 
+                  }}
+                  style={{ zIndex: isSelected ? 20 : 10 + index }}
+                  className="flex-shrink-0"
+                >
+                  <Card
+                    type={card.type}
+                    selected={isSelected}
+                    onClick={() => toggleSelectCard(card.id)}
+                  />
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
         </div>
       )}
     </div>

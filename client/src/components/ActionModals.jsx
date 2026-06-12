@@ -236,3 +236,196 @@ export function NopeCountdown({ eventId, timeoutMs, hasNopeCard, onPlayNope }) {
     </div>
   );
 }
+
+// ==========================================
+// 5. BURY POSITION SELECT MODAL
+// ==========================================
+export function BuryPositionModal({ hand, deckCount, onRespond }) {
+  const [selectedId, setSelectedId] = useState(null);
+  const [position, setPosition] = useState(0);
+
+  const handleConfirm = () => {
+    if (!selectedId) return;
+    onRespond(selectedId, position);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 animate-fade-in">
+      <div className="w-full max-w-3xl bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 md:p-8 flex flex-col gap-6">
+        <div className="text-center">
+          <h3 className="text-2xl font-headline font-black text-primary uppercase">🪦 Chôn Bài (Bury Card)</h3>
+          <p className="text-xs font-bold text-on-surface-variant mt-1">
+            Chọn 1 lá bài từ tay của bạn và chọn vị trí chôn trong bộ bài bốc. Lượt chơi của bạn sẽ kết thúc.
+          </p>
+        </div>
+
+        {/* Card selection */}
+        <div className="flex-1 overflow-x-auto flex gap-4 pb-4 pt-6 justify-center max-w-full hide-scroll">
+          {hand.map((card) => {
+            const isSelected = selectedId === card.id;
+            return (
+              <div
+                key={card.id}
+                onClick={() => setSelectedId(card.id)}
+                className="transform transition-transform cursor-pointer flex-shrink-0"
+              >
+                <Card type={card.type} selected={isSelected} />
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Position selection slider */}
+        {selectedId && (
+          <div className="flex flex-col gap-3 px-6 py-4 bg-surface border-3 border-on-surface rounded-2xl">
+            <span className="text-xs font-headline font-black text-on-surface uppercase">
+              Vị trí chôn: {position === 0 ? 'Dưới Cùng (Bottom)' : position === deckCount ? 'Trên Cùng (Top)' : `Vị trí thứ ${position} từ dưới lên`}
+            </span>
+            <input
+              type="range"
+              min="0"
+              max={deckCount}
+              value={position}
+              onChange={(e) => setPosition(parseInt(e.target.value, 10))}
+              className="w-full accent-primary cursor-pointer h-2 bg-slate-200 rounded-lg appearance-none"
+            />
+            <div className="flex justify-between text-[9px] font-bold text-on-surface-variant uppercase">
+              <span>Dưới Đáy (0)</span>
+              <span>Giữa Bộ Bài</span>
+              <span>Trên Cùng ({deckCount})</span>
+            </div>
+          </div>
+        )}
+
+        <div className="flex justify-center mt-2">
+          <button
+            onClick={handleConfirm}
+            disabled={!selectedId}
+            className={`btn-detonator px-8 py-3 rounded-2xl font-headline font-black uppercase text-sm
+              ${!selectedId ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
+          >
+            Xác nhận Chôn Bài 🪦
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// 6. GARBAGE COLLECTION / POT LUCK SELECT MODAL
+// ==========================================
+export function GarbageSelectModal({ hand, title, description, onRespond }) {
+  const [selectedId, setSelectedId] = useState(null);
+
+  const handleConfirm = () => {
+    if (!selectedId) return;
+    onRespond(selectedId);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 animate-fade-in">
+      <div className="w-full max-w-3xl bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 md:p-8 flex flex-col gap-6">
+        <div className="text-center">
+          <h3 className="text-2xl font-headline font-black text-primary uppercase">{title}</h3>
+          <p className="text-xs font-bold text-on-surface-variant mt-1">{description}</p>
+        </div>
+
+        <div className="flex-1 overflow-x-auto flex gap-4 pb-4 pt-6 justify-center max-w-full hide-scroll">
+          {hand.map((card) => {
+            const isSelected = selectedId === card.id;
+            return (
+              <div
+                key={card.id}
+                onClick={() => setSelectedId(card.id)}
+                className="transform transition-transform cursor-pointer flex-shrink-0"
+              >
+                <Card type={card.type} selected={isSelected} />
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="flex justify-center mt-2">
+          <button
+            onClick={handleConfirm}
+            disabled={!selectedId}
+            className={`btn-detonator px-8 py-3 rounded-2xl font-headline font-black uppercase text-sm
+              ${!selectedId ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
+          >
+            Nộp Lá Bài Đã Chọn ✉️
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// 7. ZOMBIE KITTEN REVIVAL TARGET MODAL
+// ==========================================
+export function ZombieReviveModal({ players, onRespond }) {
+  const [selectedPlayerId, setSelectedPlayerId] = useState(null);
+
+  const deadPlayers = players.filter((p) => !p.alive);
+
+  const handleConfirm = () => {
+    if (!selectedPlayerId) return;
+    onRespond(selectedPlayerId);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 animate-fade-in">
+      <div className="w-full max-w-xl bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 md:p-8 flex flex-col gap-6 text-center">
+        <div>
+          <h3 className="text-2xl font-headline font-black text-primary uppercase">🧟‍♀️ Hồi Sinh Đồng Đội (Zombie Revival)</h3>
+          <p className="text-xs font-bold text-on-surface-variant mt-1">
+            Bạn đã dùng Mèo Thây Ma! Hãy chọn 1 người chơi đã bị loại để đưa họ quay trở lại trận đấu.
+          </p>
+        </div>
+
+        {deadPlayers.length === 0 ? (
+          <div className="py-8 text-sm font-bold text-on-surface-variant uppercase">
+            Không có người chơi nào đã chết để hồi sinh. Tiến trình sẽ tự giải phóng.
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3 max-h-[300px] overflow-y-auto px-2">
+            {deadPlayers.map((p) => {
+              const isSelected = selectedPlayerId === p.userId;
+              return (
+                <div
+                  key={p.userId}
+                  onClick={() => setSelectedPlayerId(p.userId)}
+                  className={`flex items-center justify-between p-4 border-3 rounded-2xl cursor-pointer transition-all duration-100
+                    ${isSelected 
+                      ? 'border-yellow-400 bg-yellow-400/10 shadow-[3px_3px_0px_0px_rgba(26,28,28,1)] translate-y-[-2px]' 
+                      : 'border-on-surface bg-surface hover:bg-slate-50'}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">💀</span>
+                    <div className="text-left flex flex-col">
+                      <span className="text-xs font-headline font-black text-on-surface uppercase">{p.userId}</span>
+                      <span className="text-[10px] font-bold text-slate-400">TRẠNG THÁI: HỒN MA</span>
+                    </div>
+                  </div>
+                  {isSelected && <span className="text-xl">✅</span>}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="flex justify-center mt-2">
+          <button
+            onClick={handleConfirm}
+            disabled={deadPlayers.length > 0 && !selectedPlayerId}
+            className={`btn-detonator px-8 py-3 rounded-2xl font-headline font-black uppercase text-sm
+              ${deadPlayers.length > 0 && !selectedPlayerId ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
+          >
+            Triệu Hồi Hồi Sinh 🧟‍♀️
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
