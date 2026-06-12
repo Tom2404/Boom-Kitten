@@ -17,6 +17,25 @@ const registerGameSocket = require('./sockets/gameSocket');
 
 dotenv.config();
 
+// Automatically close server when parent process dies (e.g. terminal closes on Windows/POSIX)
+const ppid = process.ppid;
+if (ppid && ppid !== 1) {
+  const checkParent = setInterval(() => {
+    try {
+      process.kill(ppid, 0);
+    } catch (e) {
+      clearInterval(checkParent);
+      process.exit(0);
+    }
+  }, 2000);
+  checkParent.unref();
+}
+
+// Handle SIGHUP when the terminal window is closed
+process.on('SIGHUP', () => {
+  process.exit(0);
+});
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {

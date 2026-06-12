@@ -41,7 +41,7 @@ Start both frontend and backend development servers concurrently with a single c
 npm run dev
 ```
 
-Frontend runs on `http://localhost:5173`, backend on `http://localhost:5000`.
+Frontend runs on `http://localhost:2404`, backend on `http://localhost:5000`.
 
 ## Implemented Highlights
 
