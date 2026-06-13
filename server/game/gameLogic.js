@@ -333,6 +333,10 @@ function resolveZombieRevive(gameState, targetPlayerId) {
   }
 
   gameState.pendingZombie = null;
+  if (gameState.drawsRequired === 0) {
+    gameState.drawsRequired = 1;
+    passTurn(gameState);
+  }
   return gameState;
 }
 
@@ -413,12 +417,14 @@ function drawCard(gameState, playerId, fromBottom = false) {
     if (thief && thief.alive) {
       const card = fromBottom ? gameState.deck.shift() : gameState.deck.pop();
       if (card) {
+        // Since thief drew it, decrement drawsRequired for player, but resolve explosion for thief!
+        gameState.drawsRequired = Math.max(0, (gameState.drawsRequired ?? 1) - 1);
         resolveExplosion(gameState, thiefId, card);
-      }
-      gameState.drawsRequired = Math.max(0, (gameState.drawsRequired ?? 1) - 1);
-      if (gameState.drawsRequired === 0) {
-        gameState.drawsRequired = 1;
-        passTurn(gameState);
+        // If thief survived and has no pending zombie, check if turn changes for player
+        if (gameState.drawsRequired === 0) {
+          gameState.drawsRequired = 1;
+          passTurn(gameState);
+        }
       }
       return gameState;
     }
@@ -427,12 +433,23 @@ function drawCard(gameState, playerId, fromBottom = false) {
   const card = fromBottom ? gameState.deck.shift() : gameState.deck.pop();
   if (!card) return gameState;
 
+  // Decrement drawsRequired since a card was drawn!
+  gameState.drawsRequired = Math.max(0, (gameState.drawsRequired ?? 1) - 1);
+
   if (card.type === 'exploding_kitten' || card.type === 'imploding_kitten') {
-    return resolveExplosion(gameState, playerId, card);
+    resolveExplosion(gameState, playerId, card);
+    // If player survived (defused it and didn't die) and no pending zombie (Zombie Kitten has its own async flow)
+    const p = getPlayer(gameState, playerId);
+    if (p && p.alive && !gameState.pendingZombie) {
+      if (gameState.drawsRequired === 0) {
+        gameState.drawsRequired = 1;
+        passTurn(gameState);
+      }
+    }
+    return gameState;
   }
 
   player.hand.push(card);
-  gameState.drawsRequired = Math.max(0, (gameState.drawsRequired ?? 1) - 1);
   if (gameState.drawsRequired === 0) {
     gameState.drawsRequired = 1;
     passTurn(gameState);

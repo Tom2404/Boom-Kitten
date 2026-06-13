@@ -14,6 +14,7 @@ export default function DeckPile({ count, onDraw, isMyTurn, disabled }) {
       <span className="text-xs font-headline font-black text-white uppercase tracking-wider bg-on-background px-3 py-0.5 rounded-lg border-2 border-on-surface shadow-[1.5px_1.5px_0px_0px_#1a1c1c] rotate-[-2deg]">BÀI BỐC</span>
       
       <div
+        id="deck-pile-element"
         onClick={handleDraw}
         className={`relative h-44 w-32 rounded-xl border-3 border-on-surface bg-primary-container flex flex-col items-center justify-center p-3 select-none transition-all duration-100
           ${isClickable 

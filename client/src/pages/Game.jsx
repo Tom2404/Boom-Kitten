@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useGame } from '../hooks/useGame.js';
 import PlayerAvatar from '../components/PlayerAvatar.jsx';
 import PlayerHand from '../components/PlayerHand.jsx';
 import DeckPile from '../components/DeckPile.jsx';
 import DiscardPile from '../components/DiscardPile.jsx';
+import Card from '../components/Card.jsx';
+import gsap from 'gsap';
 import {
   SeeFutureModal,
   AlterFutureModal,
@@ -13,6 +15,124 @@ import {
   GarbageSelectModal,
   ZombieReviveModal,
 } from '../components/ActionModals.jsx';
+
+function FlyingCard({ id, type, cardType, startPos, endPos, onComplete }) {
+  const elementRef = useRef(null);
+
+  useEffect(() => {
+    if (!elementRef.current) return;
+
+    // Set initial state
+    gsap.set(elementRef.current, {
+      x: startPos.x - 64, // center horizontally (w-32 is 128px)
+      y: startPos.y - 88, // center vertically (h-44 is 176px)
+      scale: 0.2,
+      opacity: 0,
+      rotation: type === 'draw' ? 90 : 0,
+    });
+
+    // Animate to end position
+    gsap.to(elementRef.current, {
+      x: endPos.x - 64,
+      y: endPos.y - 88,
+      scale: 1,
+      opacity: 1,
+      rotation: type === 'draw' ? 0 : Math.random() * 30 - 15,
+      duration: 0.55,
+      ease: 'power2.out',
+      onComplete: () => {
+        gsap.to(elementRef.current, {
+          opacity: 0,
+          scale: type === 'draw' ? 0.8 : 1.15,
+          duration: 0.15,
+          onComplete,
+        });
+      },
+    });
+  }, [startPos, endPos, type, onComplete]);
+
+  return (
+    <div
+      ref={elementRef}
+      className="absolute pointer-events-none z-[9999]"
+      style={{ width: '128px', height: '176px' }}
+    >
+      {type === 'draw' ? (
+        <div className="h-full w-full rounded-xl border-3 border-on-surface bg-primary-container flex items-center justify-center p-3 select-none shadow-xl">
+          <div className="absolute inset-1.5 border-2 border-dashed border-on-primary-container/30 rounded-lg flex flex-col items-center justify-center">
+            <span className="text-3xl">🐾</span>
+          </div>
+        </div>
+      ) : (
+        <div className="scale-90 shadow-2xl">
+          <Card type={cardType} disabled={true} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ParticleExplosion({ startPos, onComplete }) {
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const particles = containerRef.current.children;
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      const angle = Math.random() * Math.PI * 2;
+      const distance = 40 + Math.random() * 100;
+      const targetX = Math.cos(angle) * distance;
+      const targetY = Math.sin(angle) * distance;
+
+      gsap.set(p, {
+        x: 0,
+        y: 0,
+        scale: 0.5 + Math.random() * 1.5,
+        opacity: 1,
+        backgroundColor: ['#ef4444', '#f59e0b', '#fbbf24', '#ff4500'][Math.floor(Math.random() * 4)],
+      });
+
+      gsap.to(p, {
+        x: targetX,
+        y: targetY,
+        opacity: 0,
+        scale: 0.1,
+        duration: 0.8 + Math.random() * 0.4,
+        ease: 'power3.out',
+      });
+    }
+
+    const timer = setTimeout(onComplete, 1200);
+    return () => clearTimeout(timer);
+  }, [onComplete]);
+
+  const particleArray = Array.from({ length: 20 });
+
+  return (
+    <div
+      ref={containerRef}
+      className="absolute pointer-events-none z-[9999]"
+      style={{
+        left: `${startPos.x}px`,
+        top: `${startPos.y}px`,
+      }}
+    >
+      {particleArray.map((_, idx) => (
+        <div
+          key={idx}
+          className="absolute rounded-full"
+          style={{
+            width: '12px',
+            height: '12px',
+            transform: 'translate(-50%, -50%)',
+          }}
+        />
+      ))}
+    </div>
+  );
+}
 
 const EMOTES_LIST = [
   { id: 'emote_smile', char: '😀' },
@@ -27,6 +147,7 @@ const EMOTES_LIST = [
 
 export default function Game() {
   const {
+    socket,
     roomState,
     gameState,
     privateHand,
@@ -68,6 +189,41 @@ export default function Game() {
   const [chatInput, setChatInput] = useState('');
   const [myUser, setMyUser] = useState(null);
 
+  const getOrderedOpponents = () => {
+    if (!gameState || !gameState.players) return [];
+    const myIndex = gameState.players.findIndex((p) => p.userId === myUser?.id);
+    if (myIndex === -1) return gameState.players.filter((p) => p.userId !== myUser?.id);
+    const ordered = [];
+    const len = gameState.players.length;
+    for (let i = 1; i < len; i += 1) {
+      const p = gameState.players[(myIndex + i) % len];
+      if (p.userId !== myUser?.id) {
+        ordered.push(p);
+      }
+    }
+    return ordered;
+  };
+
+  const getOpponentPositionClass = (index, total) => {
+    let positionClass = '';
+    if (total === 1) {
+      positionClass = 'md:absolute md:top-4 md:left-1/2 md:transform md:-translate-x-1/2';
+    } else if (total === 2) {
+      if (index === 0) positionClass = 'md:absolute md:left-6 md:top-[40%] md:transform md:-translate-y-1/2';
+      else positionClass = 'md:absolute md:right-6 md:top-[40%] md:transform md:-translate-y-1/2';
+    } else if (total === 3) {
+      if (index === 0) positionClass = 'md:absolute md:left-6 md:top-[40%] md:transform md:-translate-y-1/2';
+      else if (index === 1) positionClass = 'md:absolute md:top-4 md:left-1/2 md:transform md:-translate-x-1/2';
+      else positionClass = 'md:absolute md:right-6 md:top-[40%] md:transform md:-translate-y-1/2';
+    } else {
+      if (index === 0) positionClass = 'md:absolute md:left-6 md:bottom-24';
+      else if (index === 1) positionClass = 'md:absolute md:left-24 md:top-4';
+      else if (index === 2) positionClass = 'md:absolute md:right-24 md:top-4';
+      else positionClass = 'md:absolute md:right-6 md:bottom-24';
+    }
+    return `${positionClass} flex-shrink-0`;
+  };
+
   // Decode user data from access token
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
@@ -82,6 +238,110 @@ export default function Game() {
       }
     }
   }, [roomState]);
+
+  const [animations, setAnimations] = useState([]);
+  const mainContainerRef = useRef(null);
+
+  const getRelativeCenter = (targetId) => {
+    if (!mainContainerRef.current) return null;
+    const target = document.getElementById(targetId);
+    if (!target) return null;
+    const targetRect = target.getBoundingClientRect();
+    const parentRect = mainContainerRef.current.getBoundingClientRect();
+    return {
+      x: targetRect.left - parentRect.left + targetRect.width / 2,
+      y: targetRect.top - parentRect.top + targetRect.height / 2,
+    };
+  };
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleCardDrawn = ({ playerId }) => {
+      setTimeout(() => {
+        const startPos = getRelativeCenter('deck-pile-element');
+        const targetId = playerId === myUser?.id ? 'player-hand-container' : `player-avatar-${playerId}`;
+        const endPos = getRelativeCenter(targetId);
+        
+        if (startPos && endPos) {
+          const animId = `${Date.now()}-${Math.random()}`;
+          setAnimations((prev) => [
+            ...prev,
+            {
+              id: animId,
+              type: 'draw',
+              startPos,
+              endPos,
+            },
+          ]);
+        }
+      }, 50);
+    };
+
+    const handleCardPlayed = ({ playerId, cardType }) => {
+      setTimeout(() => {
+        const targetId = playerId === myUser?.id ? 'player-hand-container' : `player-avatar-${playerId}`;
+        const startPos = getRelativeCenter(targetId);
+        const endPos = getRelativeCenter('discard-pile-element');
+        
+        if (startPos && endPos) {
+          const animId = `${Date.now()}-${Math.random()}`;
+          setAnimations((prev) => [
+            ...prev,
+            {
+              id: animId,
+              type: 'play',
+              cardType,
+              startPos,
+              endPos,
+            },
+          ]);
+        }
+      }, 50);
+    };
+
+    const handleExploded = ({ playerId }) => {
+      gsap.fromTo(
+        '#game-board-container',
+        { x: -12 },
+        {
+          x: 12,
+          duration: 0.05,
+          repeat: 12,
+          yoyo: true,
+          onComplete: () => {
+            gsap.set('#game-board-container', { x: 0 });
+          },
+        }
+      );
+
+      setTimeout(() => {
+        const targetId = playerId === myUser?.id ? 'player-hand-container' : `player-avatar-${playerId}`;
+        const startPos = getRelativeCenter(targetId);
+        if (startPos) {
+          const animId = `${Date.now()}-${Math.random()}`;
+          setAnimations((prev) => [
+            ...prev,
+            {
+              id: animId,
+              type: 'explosion',
+              startPos,
+            },
+          ]);
+        }
+      }, 50);
+    };
+
+    socket.on('game:cardDrawn', handleCardDrawn);
+    socket.on('game:cardPlayed', handleCardPlayed);
+    socket.on('game:exploded', handleExploded);
+
+    return () => {
+      socket.off('game:cardDrawn', handleCardDrawn);
+      socket.off('game:cardPlayed', handleCardPlayed);
+      socket.off('game:exploded', handleExploded);
+    };
+  }, [socket, myUser]);
 
   if (!myUser) {
     return (
@@ -250,9 +510,9 @@ export default function Game() {
   };
 
   return (
-    <div className="relative min-h-[82vh] grid grid-cols-1 lg:grid-cols-4 gap-6">
+    <div ref={mainContainerRef} className="relative min-h-[82vh] grid grid-cols-1 lg:grid-cols-4 gap-6">
       {/* Game Board (Left 3 columns) */}
-      <div className="lg:col-span-3 flex flex-col justify-between gap-6 border-4 border-on-surface rounded-3xl shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] overflow-hidden bg-[#2f3131]">
+      <div id="game-board-container" className="lg:col-span-3 flex flex-col justify-between gap-6 border-4 border-on-surface rounded-3xl shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] overflow-hidden bg-[#2f3131]">
         
         {/* Header: Room Code and Info */}
         <div className="flex justify-between items-center bg-surface border-b-4 border-on-surface px-6 py-3.5 z-10">
@@ -280,59 +540,61 @@ export default function Game() {
 
         {/* Game Canvas Container */}
         <div className="flex-grow flex flex-col justify-between felt-bg p-6 relative select-none">
-          {/* Opponents Row */}
-          <div className="flex justify-center gap-6 flex-wrap py-2 z-10">
-            {opponents.map((opp) => (
-              <PlayerAvatar
-                key={opp.userId}
-                player={opp}
-                isCurrentTurn={activePlayerId === opp.userId}
-                isTargetable={isOpponentTargetable(opp.userId)}
-                isSelectedTarget={targetPlayerId === opp.userId}
-                onSelectTarget={(id) => setTargetPlayerId(prev => prev === id ? null : id)}
-              />
-            ))}
-          </div>
-
-          {/* Board Center: Deck and Discard Pile */}
-          <div className="flex-grow flex justify-center items-center gap-16 py-6 relative">
-            <DeckPile
-              count={gameState.deckCount ?? 0}
-              onDraw={drawCard}
-              isMyTurn={isMyTurn}
-              disabled={!!gameState.pendingFavor || !!gameState.pendingAlter || (nopeWindow && nopeWindow.active)}
-            />
-
-            {/* Announcer and Status Message Board */}
-            <div className="flex flex-col items-center gap-3 max-w-[260px] text-center z-10">
-              <div className="bg-white border-3 border-on-surface rounded-2xl px-5 py-4 shadow-[4px_4px_0px_0px_#1a1c1c] min-w-[220px]">
-                <span className="text-[10px] font-headline font-black text-primary uppercase tracking-widest block mb-1">
-                  Hành Động
-                </span>
-                <p className="text-xs font-sans font-bold text-on-surface leading-relaxed min-h-[48px] flex items-center justify-center">
-                  {statusMessage || 'Ván đấu đã bắt đầu!'}
-                </p>
+          
+          {/* Circular Board Container */}
+          <div className="flex justify-center gap-4 flex-wrap md:flex-none md:block w-full relative min-h-[160px] md:min-h-[420px] flex-grow py-2 z-10">
+            {getOrderedOpponents().map((opp, idx) => (
+              <div key={opp.userId} className={getOpponentPositionClass(idx, opponents.length)}>
+                <PlayerAvatar
+                  player={opp}
+                  isCurrentTurn={activePlayerId === opp.userId}
+                  isTargetable={isOpponentTargetable(opp.userId)}
+                  isSelectedTarget={targetPlayerId === opp.userId}
+                  onSelectTarget={(id) => setTargetPlayerId(prev => prev === id ? null : id)}
+                />
               </div>
-              
-              {targetPlayerId && (
-                <div className="bg-yellow-400 border-2 border-on-surface text-slate-950 text-[9px] font-headline font-black uppercase tracking-wider px-3.5 py-1 rounded-full flex items-center gap-1.5 shadow-[2px_2px_0px_0px_#1a1c1c]">
-                  🎯 Mục tiêu: {opponents.find((o) => o.userId === targetPlayerId)?.username || targetPlayerId}
-                  <button 
-                    onClick={() => setTargetPlayerId(null)}
-                    className="hover:scale-110 ml-1.5"
-                  >
-                    ✕
-                  </button>
-                </div>
-              )}
-            </div>
+            ))}
 
-            <DiscardPile
-              discardPile={gameState.discardPile}
-              pendingCombo5={gameState.pendingCombo5}
-              myUserId={myUser.id}
-              onSelectCard={respondCombo5}
-            />
+            {/* Board Center: Deck and Discard Pile */}
+            <div className="md:absolute md:top-1/2 md:left-1/2 md:transform md:-translate-x-1/2 md:-translate-y-1/2 flex justify-center items-center gap-6 md:gap-16 py-6 z-10 w-full md:w-auto">
+              <DeckPile
+                count={gameState.deckCount ?? 0}
+                onDraw={drawCard}
+                isMyTurn={isMyTurn}
+                disabled={!!gameState.pendingFavor || !!gameState.pendingAlter || (nopeWindow && nopeWindow.active)}
+              />
+
+              {/* Announcer and Status Message Board */}
+              <div className="flex flex-col items-center gap-3 max-w-[260px] text-center z-10">
+                <div className="bg-white border-3 border-on-surface rounded-2xl px-5 py-4 shadow-[4px_4px_0px_0px_#1a1c1c] min-w-[220px]">
+                  <span className="text-[10px] font-headline font-black text-primary uppercase tracking-widest block mb-1">
+                    Hành Động
+                  </span>
+                  <p className="text-xs font-sans font-bold text-on-surface leading-relaxed min-h-[48px] flex items-center justify-center">
+                    {statusMessage || 'Ván đấu đã bắt đầu!'}
+                  </p>
+                </div>
+                
+                {targetPlayerId && (
+                  <div className="bg-yellow-400 border-2 border-on-surface text-slate-950 text-[9px] font-headline font-black uppercase tracking-wider px-3.5 py-1 rounded-full flex items-center gap-1.5 shadow-[2px_2px_0px_0px_#1a1c1c]">
+                    🎯 Mục tiêu: {opponents.find((o) => o.userId === targetPlayerId)?.username || targetPlayerId}
+                    <button 
+                      onClick={() => setTargetPlayerId(null)}
+                      className="hover:scale-110 ml-1.5"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <DiscardPile
+                discardPile={gameState.discardPile}
+                pendingCombo5={gameState.pendingCombo5}
+                myUserId={myUser.id}
+                onSelectCard={respondCombo5}
+              />
+            </div>
           </div>
 
           {/* Bottom Row: Player's own avatar & Player's hand */}
@@ -555,6 +817,28 @@ export default function Game() {
           </div>
         </div>
       )}
+      {animations.map((anim) => {
+        if (anim.type === 'explosion') {
+          return (
+            <ParticleExplosion
+              key={anim.id}
+              startPos={anim.startPos}
+              onComplete={() => setAnimations((prev) => prev.filter((a) => a.id !== anim.id))}
+            />
+          );
+        }
+        return (
+          <FlyingCard
+            key={anim.id}
+            id={anim.id}
+            type={anim.type}
+            cardType={anim.cardType}
+            startPos={anim.startPos}
+            endPos={anim.endPos}
+            onComplete={() => setAnimations((prev) => prev.filter((a) => a.id !== anim.id))}
+          />
+        );
+      })}
     </div>
   );
 }

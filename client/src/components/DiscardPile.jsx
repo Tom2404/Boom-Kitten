@@ -17,7 +17,7 @@ export default function DiscardPile({ discardPile = [], pendingCombo5, myUserId,
     <div className="flex flex-col items-center gap-2">
       <span className="text-xs font-headline font-black text-white uppercase tracking-wider bg-on-background px-3 py-0.5 rounded-lg border-2 border-on-surface shadow-[1.5px_1.5px_0px_0px_#1a1c1c] rotate-[2deg]">BÀI ĐÃ ĐÁNH</span>
 
-      <div className="relative">
+      <div id="discard-pile-element" className="relative">
         {topCard ? (
           <motion.div
             key={topCard.id}

@@ -318,9 +318,13 @@ export default function Card({ type, selected, onClick, disabled }) {
     <>
       <div
         onClick={!disabled ? onClick : undefined}
-        className={`relative h-44 w-32 cursor-pointer rounded-xl overflow-hidden transition-all duration-100 select-none flex flex-col justify-between bg-white shadow-md
-          ${selected ? '-translate-y-6 scale-105 ring-4 ring-yellow-400' : 'hover:-translate-y-1 hover:shadow-lg'}
-          ${disabled ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
+        onDoubleClick={!disabled ? (e) => {
+          e.stopPropagation();
+          setIsDetailOpen(true);
+        } : undefined}
+        className={`relative h-44 w-32 cursor-pointer rounded-xl overflow-visible transition-all duration-100 select-none flex flex-col justify-between bg-transparent
+          ${selected ? '-translate-y-6 scale-105 filter drop-shadow-[0_0_12px_rgba(234,179,8,0.8)]' : 'hover:-translate-y-2 hover:scale-102 hover:filter hover:drop-shadow-[0_0_6px_rgba(255,255,255,0.4)]'}
+          ${disabled ? 'opacity-40 cursor-not-allowed pointer-events-none' : ''}`}
       >
         {/* Info button */}
         <span
@@ -328,34 +332,34 @@ export default function Card({ type, selected, onClick, disabled }) {
             e.stopPropagation();
             setIsDetailOpen(true);
           }}
-          className="absolute top-1.5 right-1.5 z-20 material-symbols-outlined text-[14px] leading-none text-slate-500 bg-white/80 hover:bg-white p-0.5 rounded-full hover:scale-110 transition-transform cursor-pointer shadow-sm"
-          title="Xem chi tiết"
+          className="absolute top-1 right-1 z-20 material-symbols-outlined text-[16px] leading-none text-slate-300 bg-slate-900/60 hover:bg-slate-900 p-1 rounded-full hover:scale-110 transition-transform cursor-pointer shadow-sm border border-white/20"
+          title="Xem chi tiết (Click đúp)"
         >
           info
         </span>
 
         {/* Main Image Area - filling the middle */}
-        <div className="flex-grow flex items-center justify-center p-2 relative min-h-[70px]">
+        <div className="flex-grow flex items-center justify-center p-1 relative min-h-[90px] w-full">
           {!imageError ? (
             <img 
               src={`/src/assets/cards/${type}.png`}
               alt={theme.name}
-              className="h-28 w-28 object-contain drop-shadow"
+              className="h-32 w-32 object-contain drop-shadow"
               onError={() => setImageError(true)}
             />
           ) : (
-            <span className="text-4xl filter drop-shadow">
+            <span className="text-5xl filter drop-shadow">
               {theme.icon}
             </span>
           )}
         </div>
 
         {/* Description box at the bottom */}
-        <div className="bg-slate-950/90 text-white p-1 px-1.5 flex flex-col justify-center min-h-[46px] rounded-b-xl border-t border-white/10 z-10">
+        <div className="bg-slate-900/90 text-white p-1.5 px-2 flex flex-col justify-center min-h-[44px] rounded-2xl border-2 border-slate-700 shadow-[2px_2px_0px_0px_#1a1c1c] z-10 w-[95%] mx-auto mb-1">
           <div className="text-[9px] font-headline font-black uppercase tracking-wide truncate text-yellow-300 text-center mb-0.5">
             {theme.name}
           </div>
-          <div className="text-[7.5px] leading-tight font-sans font-bold text-center line-clamp-2 text-slate-200">
+          <div className="text-[7.5px] leading-tight font-sans font-bold text-center line-clamp-2 text-slate-300">
             {theme.desc}
           </div>
         </div>
@@ -413,6 +417,19 @@ export default function Card({ type, selected, onClick, disabled }) {
                 {theme.desc}
               </p>
             </div>
+
+            {onClick && (
+              <button
+                onClick={() => {
+                  onClick();
+                  setIsDetailOpen(false);
+                }}
+                className={`w-full py-3 rounded-xl font-headline font-black uppercase text-sm border-2 border-on-surface shadow-[2px_2px_0px_0px_#1a1c1c] mb-2
+                  ${selected ? 'bg-rose-500 text-white hover:bg-rose-600' : 'bg-yellow-400 text-slate-950 hover:bg-yellow-500'}`}
+              >
+                {selected ? '❌ Hủy Chọn Thẻ Bài' : '🚀 Chọn Thẻ Bài'}
+              </button>
+            )}
 
             <button
               onClick={() => setIsDetailOpen(false)}

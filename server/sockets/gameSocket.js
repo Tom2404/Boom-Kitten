@@ -294,9 +294,13 @@ module.exports = function registerGameSocket(io) {
       }, 200);
     }
 
-    socket.on('room:create', ({ maxPlayers, isPublic }) => {
+    socket.on('room:create', async ({ maxPlayers, isPublic }) => {
       try {
-        const username = socket.user?.username ?? `Guest-${guestId.slice(6, 11)}`;
+        let username = socket.user?.username ?? `Guest-${guestId.slice(6, 11)}`;
+        if (socket.user?.id) {
+          const dbUser = await User.findById(socket.user.id);
+          if (dbUser) username = dbUser.username;
+        }
         const room = createRoom(userId, { maxPlayers, isPublic }, username);
         socket.join(room.code);
         io.to(room.code).emit('room:updated', { room });
@@ -305,9 +309,13 @@ module.exports = function registerGameSocket(io) {
       }
     });
 
-    socket.on('room:join', ({ roomCode }) => {
+    socket.on('room:join', async ({ roomCode }) => {
       try {
-        const username = socket.user?.username ?? `Guest-${guestId.slice(6, 11)}`;
+        let username = socket.user?.username ?? `Guest-${guestId.slice(6, 11)}`;
+        if (socket.user?.id) {
+          const dbUser = await User.findById(socket.user.id);
+          if (dbUser) username = dbUser.username;
+        }
         const room = joinRoom(roomCode, userId, username);
         socket.join(room.code);
         io.to(room.code).emit('room:updated', { room });
@@ -325,14 +333,38 @@ module.exports = function registerGameSocket(io) {
       });
     });
 
-    socket.on('game:start', () => {
-      const roomCode = [...socket.rooms].find((room) => room.length === 6);
-      if (!roomCode) return;
+    socket.on('disconnect', () => {
+      setTimeout(() => {
+        const activeSockets = io.sockets.adapter.rooms.get(`user:${userId}`);
+        if (!activeSockets || activeSockets.size === 0) {
+          const activeRoom = findRoomByUser(userId);
+          if (activeRoom) {
+            const wasPlaying = activeRoom.status === 'playing';
+            const room = leaveRoom(activeRoom.code, userId);
+            if (room) {
+              io.to(activeRoom.code).emit('room:updated', { room });
+              if (wasPlaying && room.status === 'waiting') {
+                io.to(activeRoom.code).emit('chat:message', {
+                  userId: 'system',
+                  username: 'Hệ Thống',
+                  text: `Trận đấu bị hủy do người chơi đã thoát hoặc mất kết nối.`,
+                  timestamp: new Date().toISOString(),
+                });
+              }
+            }
+          }
+        }
+      }, 5000);
+    });
+
+    socket.on('game:start', ({ roomCode } = {}) => {
+      const targetRoomCode = roomCode || [...socket.rooms].find((room) => room.length === 6);
+      if (!targetRoomCode) return;
 
       try {
-        const room = startGame(roomCode);
-        io.to(roomCode).emit('room:updated', { room });
-        io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
+        const room = startGame(targetRoomCode);
+        io.to(targetRoomCode).emit('room:updated', { room });
+        io.to(targetRoomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
         sendHands(io, room);
       } catch (error) {
         socket.emit('error', { message: error.message });
@@ -380,6 +412,7 @@ module.exports = function registerGameSocket(io) {
       if (!room?.gameState) return;
 
       const beforeAlive = room.gameState.players.find((p) => p.userId === userId)?.alive;
+      io.to(roomCode).emit('game:cardDrawn', { playerId: userId });
       drawCard(room.gameState, userId);
       const afterAlive = room.gameState.players.find((p) => p.userId === userId)?.alive;
       
@@ -430,6 +463,7 @@ module.exports = function registerGameSocket(io) {
 
       const [nopeCard] = player.hand.splice(nopeIdx, 1);
       room.gameState.discardPile.push(nopeCard);
+      io.to(roomCode).emit('game:cardPlayed', { playerId: userId, cardType: 'nope' });
 
       pending.nopeCount += 1;
 
@@ -489,6 +523,12 @@ module.exports = function registerGameSocket(io) {
 
       const comboResult = handleCombo(room.gameState, userId, cards ?? [], targetPlayerId);
       if (!comboResult) return; // Invalid combo
+
+      io.to(roomCode).emit('game:cardPlayed', {
+        playerId: userId,
+        cardType: comboResult.cardTypes[0] || 'cat_taco',
+        targetPlayerId,
+      });
 
       // Run checkStreakingKittenEffect
       checkStreakingKittenEffect(room.gameState, userId);

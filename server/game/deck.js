@@ -66,23 +66,6 @@ function createDeck(playerCount) {
     }
   });
 
-  // Calculate number of lethal kittens:
-  // If streaking_kitten is in the deck, we need playerCount lethal kittens.
-  // Otherwise, we need playerCount - 1 lethal kittens.
-  const hasStreaking = CARD_COUNTS.streaking_kitten > 0;
-  const totalKittensNeeded = hasStreaking ? playerCount : playerCount - 1;
-  
-  // We will have 1 Imploding Kitten, and the rest Exploding Kittens
-  const implodingCount = Math.min(1, totalKittensNeeded);
-  const explodingCount = totalKittensNeeded - implodingCount;
-  
-  for (let i = 0; i < implodingCount; i += 1) {
-    deck.push(makeCard('imploding_kitten'));
-  }
-  for (let i = 0; i < explodingCount; i += 1) {
-    deck.push(makeCard('exploding_kitten'));
-  }
-
   return shuffleDeck(deck);
 }
 
@@ -96,7 +79,21 @@ function dealCards(deck, players, handSize = 7) {
       if (card) player.hand.push(card);
     }
   });
-  return { deck: mutableDeck, players };
+
+  // Add Exploding and Imploding Kittens to remaining deck
+  const totalKittensNeeded = players.length; // Since Streaking Kitten is in the deck (always 1)
+  const implodingCount = Math.min(1, totalKittensNeeded);
+  const explodingCount = totalKittensNeeded - implodingCount;
+
+  for (let i = 0; i < implodingCount; i += 1) {
+    mutableDeck.push(makeCard('imploding_kitten'));
+  }
+  for (let i = 0; i < explodingCount; i += 1) {
+    mutableDeck.push(makeCard('exploding_kitten'));
+  }
+
+  const finalDeck = shuffleDeck(mutableDeck);
+  return { deck: finalDeck, players };
 }
 
 function insertExplodingKittens(deck, count) {

@@ -146,9 +146,10 @@ export default function Home({ setPage }) {
 
           <div className="relative flex justify-center items-center">
             <div className="absolute inset-0 bg-primary-container rounded-full blur-3xl opacity-30 scale-150 animate-pulse"></div>
-            <span className="text-[120px] md:text-[200px] transform hover:rotate-12 transition-transform duration-300 drop-shadow-[8px_8px_0px_#1a1c1c]">
-              🐱💣
-            </span>
+            <div className="flex gap-4 relative">
+              <img src="/src/assets/cards/exploding_kitten.png" alt="Exploding Kitten" className="w-36 h-48 object-contain transform -rotate-12 hover:-rotate-6 transition-transform duration-300 drop-shadow-[4px_4px_0px_#1a1c1c] border-3 border-on-surface rounded-2xl p-1 bg-rose-500" />
+              <img src="/src/assets/cards/defuse.png" alt="Defuse" className="w-36 h-48 object-contain transform rotate-12 hover:rotate-6 transition-transform duration-300 drop-shadow-[4px_4px_0px_#1a1c1c] border-3 border-on-surface rounded-2xl p-1 bg-emerald-500 -ml-12 mt-6" />
+            </div>
           </div>
         </div>
       </section>
@@ -167,8 +168,8 @@ export default function Home({ setPage }) {
             <div className="absolute -top-6 -left-6 bg-secondary text-on-error w-12 h-12 flex items-center justify-center rounded-full font-headline font-black text-xl border-3 border-on-surface z-10 group-hover:scale-110 transition-transform">
               1
             </div>
-            <div className="w-24 h-24 bg-primary-fixed border-3 border-on-surface rounded-full flex items-center justify-center mb-6 group-hover:-translate-y-2 group-hover:rotate-6 transition-all duration-300">
-              <span className="material-symbols-outlined text-[48px] text-primary">style</span>
+            <div className="w-24 h-24 bg-primary-fixed border-3 border-on-surface rounded-2xl flex items-center justify-center mb-6 group-hover:-translate-y-2 group-hover:rotate-6 transition-all duration-300 p-2">
+              <img src="/src/assets/cards/see_the_future_3.png" alt="Tiên Tri" className="h-full w-full object-contain" />
             </div>
             <h3 className="font-headline font-black text-lg uppercase mb-2">Bốc Một Lá Bài</h3>
             <p className="font-sans text-sm text-on-surface-variant font-bold">
@@ -181,8 +182,8 @@ export default function Home({ setPage }) {
             <div className="absolute -top-6 -left-6 bg-primary text-on-primary w-12 h-12 flex items-center justify-center rounded-full font-headline font-black text-xl border-3 border-on-surface z-10 group-hover:scale-110 transition-transform">
               2
             </div>
-            <div className="w-24 h-24 bg-error-container border-3 border-on-surface rounded-full flex items-center justify-center mb-6 group-hover:-translate-y-2 group-hover:-rotate-6 transition-all duration-300">
-              <span className="material-symbols-outlined text-[48px] text-error">warning</span>
+            <div className="w-24 h-24 bg-error-container border-3 border-on-surface rounded-2xl flex items-center justify-center mb-6 group-hover:-translate-y-2 group-hover:-rotate-6 transition-all duration-300 p-2">
+              <img src="/src/assets/cards/exploding_kitten.png" alt="Mèo Nổ" className="h-full w-full object-contain" />
             </div>
             <h3 className="font-headline font-black text-lg uppercase mb-2">Đừng Để Bị Nổ</h3>
             <p className="font-sans text-sm text-on-surface-variant font-bold">
@@ -195,8 +196,8 @@ export default function Home({ setPage }) {
             <div className="absolute -top-6 -left-6 bg-yellow-400 text-slate-950 w-12 h-12 flex items-center justify-center rounded-full font-headline font-black text-xl border-3 border-on-surface z-10 group-hover:scale-110 transition-transform">
               3
             </div>
-            <div className="w-24 h-24 bg-indigo-100 border-3 border-on-surface rounded-full flex items-center justify-center mb-6 group-hover:-translate-y-2 group-hover:rotate-12 transition-all duration-300">
-              <span className="material-symbols-outlined text-[48px] text-indigo-600">front_hand</span>
+            <div className="w-24 h-24 bg-indigo-100 border-3 border-on-surface rounded-2xl flex items-center justify-center mb-6 group-hover:-translate-y-2 group-hover:rotate-12 transition-all duration-300 p-2">
+              <img src="/src/assets/cards/attack_2x.png" alt="Tấn Công" className="h-full w-full object-contain" />
             </div>
             <h3 className="font-headline font-black text-lg uppercase mb-2">Hãm Hại Bạn Bè</h3>
             <p className="font-sans text-sm text-on-surface-variant font-bold">

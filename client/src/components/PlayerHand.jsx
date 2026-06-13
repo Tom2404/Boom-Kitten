@@ -155,6 +155,7 @@ export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, ta
       ) : (
         <div 
           ref={containerRef}
+          id="player-hand-container"
           onMouseDown={handleMouseDown}
           onMouseLeave={handleMouseLeave}
           onMouseUp={handleMouseUp}
@@ -185,8 +186,8 @@ export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, ta
                     transition: { duration: 0.2 } 
                   }}
                   whileHover={{ 
-                    y: isSelected ? -24 : -8, 
-                    scale: 1.05, 
+                    y: isSelected ? -20 : -4, 
+                    scale: 1.02, 
                     transition: { duration: 0.1 } 
                   }}
                   style={{ zIndex: isSelected ? 20 : 10 + index }}

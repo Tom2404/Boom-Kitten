@@ -38,6 +38,7 @@ export default function PlayerAvatar({
 
   return (
     <div
+      id={`player-avatar-${userId}`}
       onClick={handleSelect}
       className={`relative p-3 rounded-2xl flex flex-col items-center justify-between transition-all duration-200 select-none w-36
         ${alive 

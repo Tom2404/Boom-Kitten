@@ -180,7 +180,9 @@ export function useGame() {
   };
 
   const startGame = () => {
-    socket.emit('game:start');
+    if (roomState) {
+      socket.emit('game:start', { roomCode: roomState.code });
+    }
   };
 
   const drawCard = () => {
