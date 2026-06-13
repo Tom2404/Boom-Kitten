@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { PRESET_AVATARS } from '../components/PlayerAvatar.jsx';
+import { gsap } from 'gsap';
 
 export default function Profile() {
   const [profile, setProfile] = useState(null);
@@ -8,6 +9,7 @@ export default function Profile() {
   const [message, setMessage] = useState('');
   const [isError, setIsError] = useState(false);
   const [history, setHistory] = useState([]);
+  const [quests, setQuests] = useState([]);
 
   const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5000';
 
@@ -47,10 +49,62 @@ export default function Profile() {
     }
   };
 
+  const fetchQuests = async () => {
+    const token = localStorage.getItem('accessToken');
+    if (!token) return;
+
+    try {
+      const res = await fetch(`${API_URL}/api/users/me/quests`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setQuests(data);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleClaimQuest = async (questId) => {
+    const token = localStorage.getItem('accessToken');
+    if (!token) return;
+
+    try {
+      const res = await fetch(`${API_URL}/api/users/me/quests/${questId}/claim`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        fetchProfile();
+        fetchQuests();
+      } else {
+        alert(data.message || 'Nhận thưởng thất bại.');
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   useEffect(() => {
     fetchProfile();
     fetchHistory();
+    fetchQuests();
   }, []);
+
+  useEffect(() => {
+    if (profile) {
+      gsap.fromTo('.profile-left', 
+        { opacity: 0, x: -50 },
+        { opacity: 1, x: 0, duration: 0.6, ease: 'power3.out' }
+      );
+      gsap.fromTo('.profile-right', 
+        { opacity: 0, x: 50 },
+        { opacity: 1, x: 0, duration: 0.6, ease: 'power3.out', delay: 0.1 }
+      );
+    }
+  }, [profile]);
 
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
@@ -104,7 +158,7 @@ export default function Profile() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       {/* Left Column: Personal Info & Avatar Settings */}
-      <div className="lg:col-span-1 flex flex-col gap-8">
+      <div className="profile-left lg:col-span-1 flex flex-col gap-8">
         {/* Profile Details Card */}
         <div className="bg-white border-4 border-on-surface shadow-[6px_6px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 flex flex-col items-center relative">
           <div className="relative h-24 w-24 mb-4">
@@ -198,7 +252,82 @@ export default function Profile() {
       </div>
 
       {/* Right Column: Statistics & Match History */}
-      <div className="lg:col-span-2 flex flex-col gap-8">
+      <div className="profile-right lg:col-span-2 flex flex-col gap-8">
+        {/* Daily Quests Card */}
+        <div className="bg-white border-4 border-on-surface shadow-[6px_6px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 flex flex-col gap-6">
+          <h3 className="text-lg font-headline font-black text-on-surface uppercase border-b-3 border-on-surface pb-2">
+            Nhiệm Vụ Hàng Ngày 🎯
+          </h3>
+
+          <div className="flex flex-col gap-4">
+            {quests.length === 0 ? (
+              <p className="text-center text-sm font-bold text-on-surface-variant py-8">
+                Không có nhiệm vụ nào hôm nay hoặc chưa đăng nhập.
+              </p>
+            ) : (
+              quests.map((quest) => {
+                const progressPercent = Math.min(100, (quest.currentCount / quest.targetCount) * 100);
+                const isClaimed = quest.status === 'claimed';
+                const isCompleted = quest.status === 'completed';
+
+                return (
+                  <div 
+                    key={quest.questId} 
+                    className="border-3 border-on-surface rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] bg-surface"
+                  >
+                    <div className="flex-1 flex flex-col gap-1.5 w-full">
+                      <div className="flex justify-between items-center">
+                        <span className="font-headline font-black text-sm uppercase text-on-surface">
+                          {quest.title}
+                        </span>
+                        <span className="text-[10px] font-headline font-black text-indigo-600 bg-indigo-50 border-2 border-indigo-200 px-2 py-0.5 rounded-full">
+                          🎁 +{quest.reward?.coins || 0} Xu {quest.reward?.gems > 0 && `• +${quest.reward.gems} Đá`}
+                        </span>
+                      </div>
+                      
+                      <p className="text-[11px] text-on-surface-variant font-bold">
+                        {quest.description}
+                      </p>
+
+                      {/* Progress Bar */}
+                      <div className="flex items-center gap-3 w-full mt-1">
+                        <div className="flex-1 h-3.5 bg-slate-100 border-2 border-on-surface rounded-full overflow-hidden relative">
+                          <div 
+                            className="h-full bg-emerald-400 transition-all duration-300"
+                            style={{ width: `${progressPercent}%` }}
+                          />
+                          <span className="absolute inset-0 flex items-center justify-center text-[9px] font-headline font-black text-on-surface">
+                            {quest.currentCount} / {quest.targetCount}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="w-full sm:w-auto flex justify-end">
+                      {isClaimed ? (
+                        <span className="bg-slate-100 border-2 border-slate-300 text-slate-400 font-headline font-black text-[10px] px-4 py-2 rounded-xl uppercase">
+                          Đã Nhận ✔️
+                        </span>
+                      ) : isCompleted ? (
+                        <button
+                          onClick={() => handleClaimQuest(quest.questId)}
+                          className="w-full sm:w-auto bg-yellow-400 text-slate-950 font-headline font-black border-2 border-on-surface shadow-[2px_2px_0px_0px_#1a1c1c] px-4 py-2 rounded-xl text-[10px] hover:scale-105 active:scale-95 transition-all uppercase"
+                        >
+                          Nhận Thưởng 🎁
+                        </button>
+                      ) : (
+                        <span className="bg-surface border-2 border-slate-300 text-on-surface-variant font-headline font-black text-[10px] px-4 py-2 rounded-xl uppercase">
+                          Chưa Đạt ⏳
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
         {/* Statistics Grid */}
         <div className="bg-white border-4 border-on-surface shadow-[6px_6px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 flex flex-col gap-6">
           <h3 className="text-lg font-headline font-black text-on-surface uppercase border-b-3 border-on-surface pb-2">

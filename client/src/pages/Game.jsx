@@ -172,6 +172,7 @@ export default function Game() {
     drawCard,
     playCard,
     playNope,
+    discardCard,
     respondFavor,
     respondAlterFuture,
     respondBury,
@@ -182,12 +183,14 @@ export default function Game() {
     respondCombo5,
     sendChatMessage,
     sendEmote,
+    actionLog,
   } = useGame();
 
   const [roomInput, setRoomInput] = useState('');
   const [targetPlayerId, setTargetPlayerId] = useState(null);
   const [chatInput, setChatInput] = useState('');
   const [myUser, setMyUser] = useState(null);
+  const [rightPanelTab, setRightPanelTab] = useState('chat');
 
   const getOrderedOpponents = () => {
     if (!gameState || !gameState.players) return [];
@@ -561,7 +564,7 @@ export default function Game() {
                 count={gameState.deckCount ?? 0}
                 onDraw={drawCard}
                 isMyTurn={isMyTurn}
-                disabled={!!gameState.pendingFavor || !!gameState.pendingAlter || (nopeWindow && nopeWindow.active)}
+                disabled={!!gameState.pendingFavor || !!gameState.pendingAlter || (nopeWindow && nopeWindow.active) || privateHand.length > 10}
               />
 
               {/* Announcer and Status Message Board */}
@@ -616,78 +619,125 @@ export default function Game() {
                 onPlayCombo={playCombo}
                 isMyTurn={isMyTurn}
                 targetPlayerId={targetPlayerId}
+                nopeWindowActive={nopeWindow && nopeWindow.active}
+                onDiscard={discardCard}
               />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Chat & Emotes Panel (Right 1 column) */}
+      {/* Chat & Lịch Sử Panel (Right 1 column) */}
       <div className="lg:col-span-1 bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-5 flex flex-col justify-between h-[82vh]">
         <div className="flex flex-col gap-4 flex-1 overflow-hidden">
           
-          {/* Header */}
-          <div className="border-b-3 border-on-surface pb-2.5 flex justify-between items-center">
-            <h3 className="text-sm font-headline font-black uppercase text-on-surface">Đấu Trường Chat</h3>
-            <span className="h-3 w-3 rounded-full bg-emerald-500 animate-pulse border border-on-surface" />
+          {/* Header Tab Switcher */}
+          <div className="flex border-b-4 border-on-surface pb-2.5 gap-2">
+            <button
+              onClick={() => setRightPanelTab('chat')}
+              className={`flex-1 py-1.5 rounded-xl border-2 border-on-surface font-headline font-black text-xs uppercase shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)] transition-all
+                ${rightPanelTab === 'chat' 
+                  ? 'bg-primary text-on-primary -translate-y-0.5 shadow-[2.5px_2.5px_0px_0px_rgba(26,28,28,1)]' 
+                  : 'bg-surface hover:bg-slate-100'}`}
+            >
+              Chat 💬
+            </button>
+            <button
+              onClick={() => setRightPanelTab('log')}
+              className={`flex-1 py-1.5 rounded-xl border-2 border-on-surface font-headline font-black text-xs uppercase shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)] transition-all
+                ${rightPanelTab === 'log' 
+                  ? 'bg-primary text-on-primary -translate-y-0.5 shadow-[2.5px_2.5px_0px_0px_rgba(26,28,28,1)]' 
+                  : 'bg-surface hover:bg-slate-100'}`}
+            >
+              Lịch sử 📜
+            </button>
           </div>
 
-          {/* Emotes quick buttons */}
-          <div className="flex flex-col gap-2">
-            <span className="text-[10px] font-headline font-black text-on-surface-variant uppercase tracking-wider">Phát biểu cảm nhanh</span>
-            <div className="grid grid-cols-4 gap-2">
-              {EMOTES_LIST.map((emote) => (
-                <button
-                  key={emote.id}
-                  onClick={() => sendEmote(emote.id)}
-                  className="h-10 text-2xl bg-surface border-2 border-on-surface hover:bg-slate-100 rounded-xl transition-all active:scale-90 flex items-center justify-center shadow-[1px_1px_0px_0px_#1a1c1c]"
-                >
-                  {emote.char}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Chat Messages history */}
-          <div className="flex-1 flex flex-col gap-2.5 overflow-y-auto mt-2 border-t-3 border-dashed border-on-surface-variant pt-3 pr-1 hide-scroll">
-            {chatMessages.length === 0 ? (
-              <div className="text-center text-on-surface-variant text-xs py-8 font-sans font-bold italic">
-                Chưa có cuộc hội thoại nào. Chat để trêu đùa đối thủ!
+          {rightPanelTab === 'chat' && (
+            <div className="flex-1 flex flex-col gap-4 overflow-hidden">
+              {/* Emotes quick buttons */}
+              <div className="flex flex-col gap-2">
+                <span className="text-[10px] font-headline font-black text-on-surface-variant uppercase tracking-wider">Phát biểu cảm nhanh</span>
+                <div className="grid grid-cols-4 gap-2">
+                  {EMOTES_LIST.map((emote) => (
+                    <button
+                      key={emote.id}
+                      onClick={() => sendEmote(emote.id)}
+                      className="h-10 text-2xl bg-surface border-2 border-on-surface hover:bg-slate-100 rounded-xl transition-all active:scale-90 flex items-center justify-center shadow-[1px_1px_0px_0px_#1a1c1c]"
+                    >
+                      {emote.char}
+                    </button>
+                  ))}
+                </div>
               </div>
-            ) : (
-              chatMessages.map((msg, index) => {
-                const isMe = msg.userId === myUser.id;
-                return (
-                  <div
-                    key={index}
-                    className={`flex flex-col max-w-[85%] rounded-2xl px-3.5 py-2 text-xs border-2 border-on-surface shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]
-                      ${isMe 
-                        ? 'self-end bg-primary-container text-on-primary-container rounded-tr-none' 
-                        : 'self-start bg-surface text-on-surface rounded-tl-none'}`}
-                  >
-                    <span className="font-headline font-black text-[9px] text-on-surface mb-0.5 uppercase">
-                      {isMe ? 'BẠN' : msg.username}
-                    </span>
-                    <p className="leading-relaxed font-sans font-bold">{msg.text}</p>
+
+              {/* Chat Messages history */}
+              <div className="flex-1 flex flex-col gap-2.5 overflow-y-auto border-t-3 border-dashed border-on-surface-variant pt-3 pr-1 hide-scroll">
+                {chatMessages.length === 0 ? (
+                  <div className="text-center text-on-surface-variant text-xs py-8 font-sans font-bold italic">
+                    Chưa có cuộc hội thoại nào. Chat để trêu đùa đối thủ!
                   </div>
-                );
-              })
-            )}
-          </div>
+                ) : (
+                  chatMessages.map((msg, index) => {
+                    const isMe = msg.userId === myUser?.id;
+                    return (
+                      <div
+                        key={index}
+                        className={`flex flex-col max-w-[85%] rounded-2xl px-3.5 py-2 text-xs border-2 border-on-surface shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]
+                          ${isMe 
+                            ? 'self-end bg-primary-container text-on-primary-container rounded-tr-none' 
+                            : 'self-start bg-surface text-on-surface rounded-tl-none'}`}
+                      >
+                        <span className="font-headline font-black text-[9px] text-on-surface mb-0.5 uppercase">
+                          {isMe ? 'BẠN' : msg.username}
+                        </span>
+                        <p className="leading-relaxed font-sans font-bold">{msg.text}</p>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
+
+          {rightPanelTab === 'log' && (
+            <div className="flex-1 flex flex-col gap-3 overflow-hidden">
+              <span className="text-[10px] font-headline font-black text-on-surface-variant uppercase tracking-wider">Nhật ký diễn biến</span>
+              <div className="flex-1 flex flex-col gap-2 overflow-y-auto pr-1 hide-scroll bg-surface border-2 border-on-surface rounded-2xl p-3 shadow-[1.5px_1.5px_0px_0px_#1a1c1c]">
+                {actionLog.length === 0 ? (
+                  <div className="text-center text-on-surface-variant text-xs py-8 font-sans font-bold italic">
+                    Chưa có diễn biến nào được ghi nhận.
+                  </div>
+                ) : (
+                  actionLog.map((log) => (
+                    <div
+                      key={log.id}
+                      className="flex justify-between items-start gap-2 border-b border-on-surface/10 pb-1.5 text-xs font-bold font-sans text-on-surface last:border-b-0"
+                    >
+                      <span className="leading-relaxed flex-1">{log.text}</span>
+                      <span className="text-[9px] text-on-surface-variant font-mono whitespace-nowrap bg-slate-100 border border-on-surface px-1 py-0.5 rounded">{log.timestamp}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Input Chat bar */}
         <form onSubmit={handleSendChat} className="flex gap-2 border-t-3 border-on-surface pt-3 mt-2">
           <input
             type="text"
-            placeholder="Gửi tin nhắn hăm dọa..."
+            placeholder={rightPanelTab === 'chat' ? "Gửi tin nhắn hăm dọa..." : "Chuyển sang tab Chat để trò chuyện"}
+            disabled={rightPanelTab !== 'chat'}
             value={chatInput}
             onChange={(e) => setChatInput(e.target.value)}
-            className="flex-1 bg-surface border-2 border-on-surface rounded-xl px-3 py-2 text-xs text-on-surface font-bold focus:outline-none focus:bg-white transition-all shadow-[1.5px_1.5px_0px_0px_#1a1c1c]"
+            className="flex-1 bg-surface border-2 border-on-surface rounded-xl px-3 py-2 text-xs text-on-surface font-bold focus:outline-none focus:bg-white transition-all shadow-[1.5px_1.5px_0px_0px_#1a1c1c] disabled:opacity-50 disabled:cursor-not-allowed"
           />
           <button
             type="submit"
-            className="px-4 py-2 bg-primary text-on-primary font-headline font-black rounded-xl text-xs border-2 border-on-surface shadow-[1.5px_1.5px_0px_0px_#1a1c1c] active:translate-y-0.5 active:shadow-none hover:scale-105"
+            disabled={rightPanelTab !== 'chat'}
+            className="px-4 py-2 bg-primary text-on-primary font-headline font-black rounded-xl text-xs border-2 border-on-surface shadow-[1.5px_1.5px_0px_0px_#1a1c1c] active:translate-y-0.5 active:shadow-none hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Gửi
           </button>

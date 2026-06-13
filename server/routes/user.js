@@ -4,6 +4,8 @@ const User = require('../models/User');
 const GameHistory = require('../models/GameHistory');
 const Transaction = require('../models/Transaction');
 const Friendship = require('../models/Friendship');
+const Quest = require('../models/Quest');
+const UserQuestProgress = require('../models/UserQuestProgress');
 const authMiddleware = require('../middleware/authMiddleware');
 
 const router = express.Router();
@@ -148,6 +150,131 @@ router.post('/friends/:id', async (req, res, next) => {
     }
 
     return res.json({ success: true });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.get('/me/quests', async (req, res, next) => {
+  try {
+    const activeQuests = await Quest.find({ isActive: true });
+    const now = new Date();
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const results = await Promise.all(
+      activeQuests.map(async (quest) => {
+        let progress = await UserQuestProgress.findOne({
+          userId: req.user.id,
+          questId: quest._id,
+        });
+
+        if (!progress) {
+          progress = await UserQuestProgress.create({
+            userId: req.user.id,
+            questId: quest._id,
+            currentCount: 0,
+            status: 'in_progress',
+            expiresAt: endOfDay,
+          });
+        } else if (progress.expiresAt < now) {
+          progress.currentCount = 0;
+          progress.status = 'in_progress';
+          progress.expiresAt = endOfDay;
+          await progress.save();
+        }
+
+        // Auto transition status to 'completed' if count >= target and status is 'in_progress'
+        if (progress.status === 'in_progress' && progress.currentCount >= quest.targetCount) {
+          progress.status = 'completed';
+          await progress.save();
+        }
+
+        return {
+          questId: quest._id,
+          title: quest.title,
+          description: quest.description,
+          actionType: quest.actionType,
+          targetCount: quest.targetCount,
+          reward: quest.reward,
+          currentCount: progress.currentCount,
+          status: progress.status,
+        };
+      })
+    );
+
+    return res.json(results);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post('/me/quests/:questId/claim', async (req, res, next) => {
+  try {
+    const { questId } = req.params;
+    const progress = await UserQuestProgress.findOne({
+      userId: req.user.id,
+      questId: questId,
+    });
+
+    if (!progress) {
+      return res.status(404).json({ message: 'Tiến trình nhiệm vụ không tìm thấy' });
+    }
+
+    if (progress.status === 'claimed') {
+      return res.status(400).json({ message: 'Nhiệm vụ đã được nhận thưởng trước đó' });
+    }
+
+    const quest = await Quest.findById(questId);
+    if (!quest) return res.status(404).json({ message: 'Nhiệm vụ không tồn tại' });
+
+    if (progress.status === 'in_progress') {
+      if (progress.currentCount >= quest.targetCount) {
+        progress.status = 'completed';
+      } else {
+        return res.status(400).json({ message: 'Nhiệm vụ chưa hoàn thành' });
+      }
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: 'Người chơi không tìm thấy' });
+
+    const rewardCoins = quest.reward?.coins ?? 0;
+    const rewardGems = quest.reward?.gems ?? 0;
+
+    user.coins += rewardCoins;
+    user.gems += rewardGems;
+    await user.save();
+
+    progress.status = 'claimed';
+    await progress.save();
+
+    if (rewardCoins > 0) {
+      await Transaction.create({
+        userId: user._id,
+        type: 'earn',
+        amount: rewardCoins,
+        currency: 'coin',
+        description: `Nhận thưởng nhiệm vụ: ${quest.title}`,
+      });
+    }
+
+    if (rewardGems > 0) {
+      await Transaction.create({
+        userId: user._id,
+        type: 'earn',
+        amount: rewardGems,
+        currency: 'gem',
+        description: `Nhận thưởng nhiệm vụ: ${quest.title}`,
+      });
+    }
+
+    return res.json({
+      success: true,
+      coins: user.coins,
+      gems: user.gems,
+      status: 'claimed',
+    });
   } catch (error) {
     return next(error);
   }

@@ -1,6 +1,7 @@
 const express = require('express');
 const User = require('../models/User');
 const ShopItem = require('../models/ShopItem');
+const Quest = require('../models/Quest');
 const Transaction = require('../models/Transaction');
 const authMiddleware = require('../middleware/authMiddleware');
 const adminMiddleware = require('../middleware/adminMiddleware');
@@ -115,6 +116,73 @@ router.post('/announcement', async (req, res, next) => {
     }
 
     return res.json({ success: true, message: 'Announcement broadcasted successfully' });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// GET /api/admin/quests - List all quests
+router.get('/quests', async (req, res, next) => {
+  try {
+    const quests = await Quest.find().sort({ createdAt: -1 });
+    return res.json(quests);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// POST /api/admin/quests - Create a new quest
+router.post('/quests', async (req, res, next) => {
+  try {
+    const { title, description, actionType, targetCount, reward, isActive } = req.body;
+    if (!title || !description || !actionType) {
+      return res.status(400).json({ message: 'Title, description, and actionType are required' });
+    }
+    const quest = await Quest.create({
+      title,
+      description,
+      actionType,
+      targetCount: targetCount ?? 1,
+      reward: reward ?? { coins: 0, gems: 0 },
+      isActive: isActive ?? true
+    });
+    return res.status(201).json(quest);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// PUT /api/admin/quests/:id - Update an existing quest
+router.put('/quests/:id', async (req, res, next) => {
+  try {
+    const { title, description, actionType, targetCount, reward, isActive } = req.body;
+    const quest = await Quest.findByIdAndUpdate(
+      req.params.id,
+      {
+        $set: {
+          title,
+          description,
+          actionType,
+          targetCount,
+          reward,
+          isActive
+        }
+      },
+      { new: true, runValidators: true }
+    );
+    if (!quest) return res.status(404).json({ message: 'Quest not found' });
+    return res.json(quest);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// DELETE /api/admin/quests/:id - Delete a quest
+router.delete('/quests/:id', async (req, res, next) => {
+  try {
+    const quest = await Quest.findByIdAndDelete(req.params.id);
+    if (!quest) return res.status(404).json({ message: 'Quest not found' });
+    return res.json({ success: true, message: 'Quest deleted successfully' });
   } catch (error) {
     return next(error);
   }

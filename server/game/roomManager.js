@@ -54,7 +54,7 @@ function startGame(roomCode) {
   if (room.players.length < 2) throw new Error('Need at least 2 players');
 
   const deck = createDeck(room.players.length);
-  const dealt = dealCards(deck, room.players, 7);
+  const dealt = dealCards(deck, room.players, 4);
 
   room.status = 'playing';
   room.gameState = {

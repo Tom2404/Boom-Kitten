@@ -69,7 +69,7 @@ function checkStreakingKittenEffect(gameState, playerId) {
   return gameState;
 }
 
-function resolveExplosion(gameState, playerId, card) {
+function resolveExplosion(gameState, playerId, card, onDefuse) {
   const player = getPlayer(gameState, playerId);
   if (!player) return gameState;
 
@@ -93,6 +93,8 @@ function resolveExplosion(gameState, playerId, card) {
   if (defuseIdx >= 0) {
     const defuseCard = player.hand.splice(defuseIdx, 1)[0];
     gameState.discardPile.push(defuseCard);
+
+    if (onDefuse) onDefuse(playerId, defuseCard.type);
 
     if (defuseCard.type === 'zombie_kitten') {
       gameState.pendingZombie = { playerId, card, startedAt: Date.now() };
@@ -404,7 +406,7 @@ function handleDefuse(gameState, playerId, insertPosition = 0) {
   return gameState;
 }
 
-function drawCard(gameState, playerId, fromBottom = false) {
+function drawCard(gameState, playerId, fromBottom = false, onDefuse) {
   const player = getPlayer(gameState, playerId);
   if (!player || !player.alive) return gameState;
 
@@ -419,7 +421,7 @@ function drawCard(gameState, playerId, fromBottom = false) {
       if (card) {
         // Since thief drew it, decrement drawsRequired for player, but resolve explosion for thief!
         gameState.drawsRequired = Math.max(0, (gameState.drawsRequired ?? 1) - 1);
-        resolveExplosion(gameState, thiefId, card);
+        resolveExplosion(gameState, thiefId, card, onDefuse);
         // If thief survived and has no pending zombie, check if turn changes for player
         if (gameState.drawsRequired === 0) {
           gameState.drawsRequired = 1;
@@ -437,7 +439,7 @@ function drawCard(gameState, playerId, fromBottom = false) {
   gameState.drawsRequired = Math.max(0, (gameState.drawsRequired ?? 1) - 1);
 
   if (card.type === 'exploding_kitten' || card.type === 'imploding_kitten') {
-    resolveExplosion(gameState, playerId, card);
+    resolveExplosion(gameState, playerId, card, onDefuse);
     // If player survived (defused it and didn't die) and no pending zombie (Zombie Kitten has its own async flow)
     const p = getPlayer(gameState, playerId);
     if (p && p.alive && !gameState.pendingZombie) {
@@ -485,7 +487,7 @@ function playCard(gameState, playerId, cardType, targetPlayerId, options = {}) {
   return actualCardType;
 }
 
-function executeActionEffect(gameState, cardType, playerId, targetPlayerId, options = {}) {
+function executeActionEffect(gameState, cardType, playerId, targetPlayerId, options = {}, onDefuse) {
   switch (cardType) {
     case 'attack':
     case 'attack_2x':
@@ -515,7 +517,7 @@ function executeActionEffect(gameState, cardType, playerId, targetPlayerId, opti
       return handleShuffle(gameState);
     case 'draw_from_bottom':
     case 'draw_from_the_bottom':
-      return drawCard(gameState, playerId, true);
+      return drawCard(gameState, playerId, true, onDefuse);
     case 'favor':
       return handleFavor(gameState, playerId, targetPlayerId);
     case 'swap_top_and_bottom':

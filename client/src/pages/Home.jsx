@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { gsap } from 'gsap';
 
 export default function Home({ setPage }) {
   const canvasRef = useRef(null);
@@ -102,6 +103,13 @@ export default function Home({ setPage }) {
     };
   }, []);
 
+  useEffect(() => {
+    gsap.fromTo('.hero-anim',
+      { opacity: 0, y: 30 },
+      { opacity: 1, y: 0, duration: 0.6, stagger: 0.1, ease: 'power3.out' }
+    );
+  }, []);
+
   const handleStartPlay = () => {
     const token = localStorage.getItem('accessToken');
     if (token) {
@@ -123,21 +131,21 @@ export default function Home({ setPage }) {
 
         <div className="relative z-10 w-full max-w-5xl mx-auto px-6 py-12 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
           <div className="flex flex-col items-start gap-6">
-            <div className="chip-warning bg-secondary text-on-error px-4 py-1.5 rounded-xl border-3 border-on-surface font-headline font-black uppercase shadow-[3px_3px_0px_0px_#1a1c1c] text-xs">
+            <div className="hero-anim chip-warning bg-secondary text-on-error px-4 py-1.5 rounded-xl border-3 border-on-surface font-headline font-black uppercase shadow-[3px_3px_0px_0px_#1a1c1c] text-xs">
               Cảnh Báo: Gây Nghiện Cực Mạnh!
             </div>
             
-            <h1 className="font-headline text-3xl md:text-5xl text-on-surface uppercase leading-tight bg-white p-6 border-4 border-on-surface shadow-[6px_6px_0px_0px_#1a1c1c] transform -rotate-1">
+            <h1 className="hero-anim font-headline text-3xl md:text-5xl text-on-surface uppercase leading-tight bg-white p-6 border-4 border-on-surface shadow-[6px_6px_0px_0px_#1a1c1c] transform -rotate-1">
               Trò chơi bài mèo nổ kịch tính và hỗn loạn
             </h1>
             
-            <p className="font-sans font-bold text-sm md:text-base text-on-surface-variant bg-white/95 p-5 border-3 border-on-surface shadow-[4px_4px_0px_0px_#1a1c1c] rounded-xl leading-relaxed">
+            <p className="hero-anim font-sans font-bold text-sm md:text-base text-on-surface-variant bg-white/95 p-5 border-3 border-on-surface shadow-[4px_4px_0px_0px_#1a1c1c] rounded-xl leading-relaxed">
               Giống như bài Uno, ngoại trừ việc có dê con, bánh enchilada thần kỳ và những chú mèo có thể nổ tung giết chết bạn bất cứ lúc nào!
             </p>
             
             <button
               onClick={handleStartPlay}
-              className="btn-detonator px-8 py-4 rounded-2xl font-headline font-black text-xl md:text-2xl uppercase mt-4 flex items-center gap-2"
+              className="hero-anim btn-detonator px-8 py-4 rounded-2xl font-headline font-black text-xl md:text-2xl uppercase mt-4 flex items-center gap-2"
             >
               Chơi Ngay 💣
               <span className="material-symbols-outlined text-2xl">local_fire_department</span>

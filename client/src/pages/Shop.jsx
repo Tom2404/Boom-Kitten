@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { gsap } from 'gsap';
 
 const RARITY_COLORS = {
   common: 'bg-slate-200 text-slate-800',
@@ -55,6 +56,20 @@ export default function Shop() {
     fetchShopData();
   }, []);
 
+  const filteredItems = items.filter((item) => {
+    if (selectedTab === 'all') return true;
+    return item.type === selectedTab;
+  });
+
+  useEffect(() => {
+    if (!loading && filteredItems.length > 0) {
+      gsap.fromTo('.shop-card', 
+        { opacity: 0, y: 30, scale: 0.95 },
+        { opacity: 1, y: 0, scale: 1, duration: 0.5, stagger: 0.08, ease: 'back.out(1.2)' }
+      );
+    }
+  }, [filteredItems, loading, selectedTab]);
+
   const handleBuyItem = async (itemId) => {
     setMessage('');
     setIsError(false);
@@ -98,11 +113,6 @@ export default function Shop() {
     if (item.type === 'avatar_frame') return ownedItems.ownedAvatarFrames.includes(item.name);
     return false;
   };
-
-  const filteredItems = items.filter((item) => {
-    if (selectedTab === 'all') return true;
-    return item.type === selectedTab;
-  });
 
   return (
     <div className="flex flex-col gap-8">
@@ -168,7 +178,7 @@ export default function Shop() {
             return (
               <div 
                 key={item._id}
-                className="card-brutalist bg-white rounded-3xl p-5 flex flex-col justify-between gap-4 h-80"
+                className="shop-card card-brutalist bg-white rounded-3xl p-5 flex flex-col justify-between gap-4 h-80"
               >
                 {/* Item Type & Rarity Header */}
                 <div className="flex justify-between items-center">

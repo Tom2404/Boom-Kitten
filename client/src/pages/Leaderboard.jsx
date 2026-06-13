@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { PRESET_AVATARS } from '../components/PlayerAvatar.jsx';
+import { gsap } from 'gsap';
 
 export default function Leaderboard() {
   const [players, setPlayers] = useState([]);
@@ -24,6 +25,15 @@ export default function Leaderboard() {
 
     fetchLeaderboard();
   }, []);
+
+  useEffect(() => {
+    if (!loading && players.length > 0) {
+      gsap.fromTo('.leaderboard-row', 
+        { opacity: 0, y: 20 },
+        { opacity: 1, y: 0, duration: 0.4, stagger: 0.05, ease: 'power2.out' }
+      );
+    }
+  }, [players, loading]);
 
   const getRankEmoji = (index) => {
     if (index === 0) return '👑 Quyết Chiến';
@@ -69,7 +79,7 @@ export default function Leaderboard() {
             {players.map((player, index) => (
               <div
                 key={player._id}
-                className="border-3 border-on-surface rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-center gap-4 shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] bg-surface hover:translate-x-1 transition-transform"
+                className="leaderboard-row border-3 border-on-surface rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-center gap-4 shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] bg-surface hover:translate-x-1 transition-transform"
               >
                 <div className="flex items-center gap-4 flex-1">
                   {/* Rank badge */}

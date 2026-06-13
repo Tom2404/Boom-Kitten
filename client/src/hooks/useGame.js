@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useSocket } from './useSocket.js';
 
 export function useGame() {
@@ -17,6 +17,18 @@ export function useGame() {
   const [gameEnded, setGameEnded] = useState(null);
   const [chatMessages, setChatMessages] = useState([]);
   const [statusMessage, setStatusMessage] = useState('');
+  const [actionLog, setActionLog] = useState([]);
+
+  const roomStateRef = useRef(roomState);
+  const gameStateRef = useRef(gameState);
+
+  useEffect(() => {
+    roomStateRef.current = roomState;
+  }, [roomState]);
+
+  useEffect(() => {
+    gameStateRef.current = gameState;
+  }, [gameState]);
 
   useEffect(() => {
     // Sync access token and force reconnect on mount to apply authentication
@@ -33,6 +45,9 @@ export function useGame() {
     socket.connect();
 
     const onRoomUpdated = ({ room }) => {
+      if (room && room.status === 'playing' && roomStateRef.current?.status !== 'playing') {
+        setActionLog([{ id: 'start', text: '🎬 Ván đấu bắt đầu!', timestamp: new Date().toLocaleTimeString() }]);
+      }
       setRoomState(room);
       if (room) {
         setGameState(room.gameState);
@@ -44,6 +59,9 @@ export function useGame() {
     const onStateUpdate = ({ publicGameState }) => {
       setGameState(publicGameState);
       // Clean up local modal states if their triggers are no longer in server state
+      if (publicGameState && !publicGameState.pendingAction) {
+        setNopeWindow(null);
+      }
       if (publicGameState && !publicGameState.pendingFavor) {
         setFavorRequest(null);
       }
@@ -109,12 +127,40 @@ export function useGame() {
       setStatusMessage(`Trận đấu kết thúc! Người thắng: ${winnerId}`);
     };
 
+    const getUsername = (pId) => {
+      const player = roomStateRef.current?.players?.find(p => p.userId === pId) || gameStateRef.current?.players?.find(p => p.userId === pId);
+      return player ? player.username : pId;
+    };
+
     const onExploded = ({ playerId }) => {
-      setStatusMessage(`Người chơi ${playerId} đã BÙM! 💣`);
+      const pName = getUsername(playerId);
+      setStatusMessage(`Người chơi ${pName} đã BÙM! 💣`);
+      setActionLog(prev => [...prev, { id: Math.random().toString(), text: `💥 ${pName} đã bị nổ tung!`, timestamp: new Date().toLocaleTimeString() }]);
     };
 
     const onCardPlayed = ({ playerId, cardType, targetPlayerId }) => {
-      setStatusMessage(`Người chơi ${playerId} đã đánh lá ${cardType}${targetPlayerId ? ` nhắm vào ${targetPlayerId}` : ''}`);
+      const pName = getUsername(playerId);
+      const tName = targetPlayerId ? getUsername(targetPlayerId) : null;
+      setStatusMessage(`Người chơi ${pName} đã đánh lá ${cardType}${tName ? ` nhắm vào ${tName}` : ''}`);
+
+      let msg = '';
+      if (cardType.startsWith('discard_')) {
+        const cleanType = cardType.replace('discard_', '');
+        msg = `${pName} đã hủy bỏ lá bài ${cleanType}`;
+      } else {
+        msg = `${pName} đã đánh lá ${cardType}${tName ? ` nhắm vào ${tName}` : ''}`;
+      }
+      setActionLog(prev => [...prev, { id: Math.random().toString(), text: msg, timestamp: new Date().toLocaleTimeString() }]);
+    };
+
+    const onCardDrawn = ({ playerId }) => {
+      const pName = getUsername(playerId);
+      setActionLog(prev => [...prev, { id: Math.random().toString(), text: `${pName} đã bốc 1 lá bài`, timestamp: new Date().toLocaleTimeString() }]);
+    };
+
+    const onTurnChanged = ({ currentPlayerId, drawsRequired }) => {
+      const pName = getUsername(currentPlayerId);
+      setActionLog(prev => [...prev, { id: Math.random().toString(), text: `⏳ Đến lượt của ${pName} (Cần bốc: ${drawsRequired} lá)`, timestamp: new Date().toLocaleTimeString() }]);
     };
 
     const onChatMessage = (msg) => {
@@ -139,6 +185,8 @@ export function useGame() {
     socket.on('game:ended', onGameEnded);
     socket.on('game:exploded', onExploded);
     socket.on('game:cardPlayed', onCardPlayed);
+    socket.on('game:cardDrawn', onCardDrawn);
+    socket.on('game:turnChanged', onTurnChanged);
     socket.on('chat:message', onChatMessage);
     socket.on('error', onError);
 
@@ -157,6 +205,8 @@ export function useGame() {
       socket.off('game:ended', onGameEnded);
       socket.off('game:exploded', onExploded);
       socket.off('game:cardPlayed', onCardPlayed);
+      socket.off('game:cardDrawn', onCardDrawn);
+      socket.off('game:turnChanged', onTurnChanged);
       socket.off('chat:message', onChatMessage);
       socket.off('error', onError);
     };
@@ -177,6 +227,7 @@ export function useGame() {
     setGameState(null);
     setPrivateHand([]);
     setGameEnded(null);
+    setActionLog([]);
   };
 
   const startGame = () => {
@@ -196,6 +247,10 @@ export function useGame() {
   const playNope = (originalEventId) => {
     socket.emit('game:nope', { originalEventId });
     setNopeWindow(prev => prev?.eventId === originalEventId ? { ...prev, active: false } : prev);
+  };
+
+  const discardCard = (cardId) => {
+    socket.emit('game:discard', { cardId });
   };
 
   const respondFavor = (cardId) => {
@@ -264,6 +319,7 @@ export function useGame() {
     chatMessages,
     statusMessage,
     setStatusMessage,
+    actionLog,
     createRoom,
     joinRoom,
     leaveRoom,
@@ -271,6 +327,7 @@ export function useGame() {
     drawCard,
     playCard,
     playNope,
+    discardCard,
     respondFavor,
     respondAlterFuture,
     respondBury,

@@ -26,6 +26,48 @@ const {
 const User = require('../models/User');
 const GameHistory = require('../models/GameHistory');
 const Transaction = require('../models/Transaction');
+const Quest = require('../models/Quest');
+const UserQuestProgress = require('../models/UserQuestProgress');
+
+async function updateQuestProgress(userId, actionType, count = 1) {
+  try {
+    const activeQuests = await Quest.find({ actionType, isActive: true });
+    if (!activeQuests || activeQuests.length === 0) return;
+
+    const now = new Date();
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+
+    await Promise.all(
+      activeQuests.map(async (quest) => {
+        let progress = await UserQuestProgress.findOne({ userId, questId: quest._id });
+        if (!progress) {
+          progress = await UserQuestProgress.create({
+            userId,
+            questId: quest._id,
+            currentCount: 0,
+            status: 'in_progress',
+            expiresAt: endOfDay,
+          });
+        } else if (progress.expiresAt < now) {
+          progress.currentCount = 0;
+          progress.status = 'in_progress';
+          progress.expiresAt = endOfDay;
+        }
+
+        if (progress.status === 'in_progress') {
+          progress.currentCount += count;
+          if (progress.currentCount >= quest.targetCount) {
+            progress.status = 'completed';
+          }
+          await progress.save();
+        }
+      })
+    );
+  } catch (err) {
+    console.error('Error updating quest progress:', err);
+  }
+}
 
 function sanitizePublicGameState(gameState) {
   if (!gameState) return null;
@@ -98,6 +140,12 @@ async function finalizeGame(io, room) {
           description: 'Win streak bonus',
         });
       }
+
+      // Update quests progress
+      await updateQuestProgress(entry.userId, 'play_game', 1);
+      if (isWin) {
+        await updateQuestProgress(entry.userId, 'win_game', 1);
+      }
     }),
   );
 
@@ -137,7 +185,9 @@ module.exports = function registerGameSocket(io) {
     const gameState = room.gameState;
     const { playerId, cardType, targetPlayerId, options } = action;
 
-    executeActionEffect(gameState, cardType, playerId, targetPlayerId, options);
+    executeActionEffect(gameState, cardType, playerId, targetPlayerId, options, (pId, defuseType) => {
+      updateQuestProgress(pId, 'defuse_kitten', 1);
+    });
 
     if (cardType.startsWith('see_the_future')) {
       const count = cardType === 'see_the_future_1' ? 1 : cardType === 'see_the_future_5' ? 5 : 3;
@@ -377,6 +427,18 @@ module.exports = function registerGameSocket(io) {
       const room = getRoomState(roomCode);
       if (!room?.gameState) return;
 
+      const state = room.gameState;
+      if (state.pendingAction || state.pendingFavor || state.pendingAlter || state.pendingBury || state.pendingGarbage || state.pendingPotLuck || state.pendingZombie) {
+        socket.emit('error', { message: 'Không thể đánh bài vào lúc này!' });
+        return;
+      }
+
+      const player = state.players.find((p) => p.userId === userId);
+      if (player && player.hand.length > 10) {
+        socket.emit('error', { message: 'Bạn phải hủy bớt bài xuống 10 lá trước!' });
+        return;
+      }
+
       const actualCardType = playCard(room.gameState, userId, cardType, targetPlayerId, options);
       if (!actualCardType) return; // Invalid play
 
@@ -411,9 +473,23 @@ module.exports = function registerGameSocket(io) {
       const room = getRoomState(roomCode);
       if (!room?.gameState) return;
 
+      const state = room.gameState;
+      if (state.pendingAction || state.pendingFavor || state.pendingAlter || state.pendingBury || state.pendingGarbage || state.pendingPotLuck || state.pendingZombie) {
+        socket.emit('error', { message: 'Không thể bốc bài vào lúc này!' });
+        return;
+      }
+
+      const player = state.players.find((p) => p.userId === userId);
+      if (player && player.hand.length > 10) {
+        socket.emit('error', { message: 'Bạn phải hủy bớt bài xuống 10 lá trước!' });
+        return;
+      }
+
       const beforeAlive = room.gameState.players.find((p) => p.userId === userId)?.alive;
       io.to(roomCode).emit('game:cardDrawn', { playerId: userId });
-      drawCard(room.gameState, userId);
+      drawCard(room.gameState, userId, false, (pId, defuseType) => {
+        updateQuestProgress(pId, 'defuse_kitten', 1);
+      });
       const afterAlive = room.gameState.players.find((p) => p.userId === userId)?.alive;
       
       if (beforeAlive && !afterAlive) {
@@ -450,6 +526,26 @@ module.exports = function registerGameSocket(io) {
       await finalizeGame(io, room);
     });
 
+    socket.on('game:discard', ({ cardId }) => {
+      const roomCode = [...socket.rooms].find((room) => room.length === 6);
+      if (!roomCode) return;
+      const room = getRoomState(roomCode);
+      if (!room?.gameState) return;
+
+      const player = room.gameState.players.find((p) => p.userId === userId);
+      if (!player || !player.alive) return;
+      if (player.hand.length <= 10) return;
+
+      const idx = player.hand.findIndex((c) => c.id === cardId);
+      if (idx >= 0) {
+        const [card] = player.hand.splice(idx, 1);
+        room.gameState.discardPile.push(card);
+        io.to(roomCode).emit('game:cardPlayed', { playerId: userId, cardType: `discard_${card.type}` });
+        io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
+        sendHands(io, room);
+      }
+    });
+
     socket.on('game:nope', ({ originalEventId }) => {
       const roomCode = [...socket.rooms].find((room) => room.length === 6);
       if (!roomCode) return;
@@ -466,6 +562,7 @@ module.exports = function registerGameSocket(io) {
       io.to(roomCode).emit('game:cardPlayed', { playerId: userId, cardType: 'nope' });
 
       pending.nopeCount += 1;
+      updateQuestProgress(userId, 'nope_card', 1);
 
       const newEventId = `${Date.now()}-${Math.random()}`;
       pending.eventId = newEventId;
@@ -521,6 +618,18 @@ module.exports = function registerGameSocket(io) {
       const room = roomCode ? getRoomState(roomCode) : null;
       if (!room?.gameState) return;
 
+      const state = room.gameState;
+      if (state.pendingAction || state.pendingFavor || state.pendingAlter || state.pendingBury || state.pendingGarbage || state.pendingPotLuck || state.pendingZombie) {
+        socket.emit('error', { message: 'Không thể đánh bài vào lúc này!' });
+        return;
+      }
+
+      const player = state.players.find((p) => p.userId === userId);
+      if (player && player.hand.length > 10) {
+        socket.emit('error', { message: 'Bạn phải hủy bớt bài xuống 10 lá trước!' });
+        return;
+      }
+
       const comboResult = handleCombo(room.gameState, userId, cards ?? [], targetPlayerId);
       if (!comboResult) return; // Invalid combo
 
@@ -534,6 +643,10 @@ module.exports = function registerGameSocket(io) {
       checkStreakingKittenEffect(room.gameState, userId);
       if (targetPlayerId) {
         checkStreakingKittenEffect(room.gameState, targetPlayerId);
+      }
+
+      if (cards && cards.length === 2) {
+        updateQuestProgress(userId, 'steal_card', 1);
       }
 
       // Queue action

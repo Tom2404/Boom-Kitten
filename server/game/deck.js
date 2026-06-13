@@ -56,29 +56,75 @@ function shuffleDeck(deck) {
   return copy;
 }
 
+function getCardCounts(playerCount) {
+  // We scale the quantities based on playerCount (2 to 5)
+  // If playerCount is 2, factor 0.5
+  // If playerCount is 3, factor 0.7
+  // If playerCount is 4, factor 0.9
+  // If playerCount is 5, factor 1.0 (full deck)
+  const factor = playerCount === 2 ? 0.5 : playerCount === 3 ? 0.7 : playerCount === 4 ? 0.9 : 1.0;
+  
+  const scaled = {};
+  Object.entries(CARD_COUNTS).forEach(([type, count]) => {
+    if (type === 'defuse') {
+      // Defuse is handled separately in dealCards: we need 6 total defuse cards in the game.
+      scaled[type] = 6;
+    } else if (type === 'streaking_kitten') {
+      scaled[type] = 1; // Only 1 Streaking Kitten
+    } else if (type === 'imploding_kitten' || type === 'exploding_kitten') {
+      scaled[type] = 0; // Added dynamically in dealCards
+    } else {
+      let scaledCount = Math.round(count * factor);
+      if (count > 0 && scaledCount === 0) {
+        // Keep at least 1 for common cards
+        if (['nope', 'attack', 'skip', 'shuffle', 'favor'].includes(type) || type.startsWith('cat_')) {
+          scaledCount = 1;
+        }
+      }
+      scaled[type] = scaledCount;
+    }
+  });
+  return scaled;
+}
+
 function createDeck(playerCount) {
   const deck = [];
+  const counts = getCardCounts(playerCount);
   
-  // Add all normal cards from counts
-  Object.entries(CARD_COUNTS).forEach(([type, count]) => {
-    for (let i = 0; i < count; i += 1) {
-      deck.push(makeCard(type));
+  // Add all normal cards from counts (excluding defuse and kittens)
+  Object.entries(counts).forEach(([type, count]) => {
+    if (type !== 'defuse' && type !== 'exploding_kitten' && type !== 'imploding_kitten') {
+      for (let i = 0; i < count; i += 1) {
+        deck.push(makeCard(type));
+      }
     }
   });
 
   return shuffleDeck(deck);
 }
 
-function dealCards(deck, players, handSize = 7) {
+function dealCards(deck, players, handSize = 4) {
   const mutableDeck = [...deck];
+  
+  // Give each player exactly 1 defuse card
   players.forEach((player) => {
     player.hand = player.hand ?? [];
     player.hand.push(makeCard('defuse'));
+  });
+
+  // Deal handSize (default 4) cards to each player from the deck (which has no defuses or kittens)
+  players.forEach((player) => {
     for (let i = 0; i < handSize; i += 1) {
       const card = mutableDeck.pop();
       if (card) player.hand.push(card);
     }
   });
+
+  // Put remaining defuse cards back into the deck (6 total - players.length)
+  const remainingDefuses = Math.max(0, 6 - players.length);
+  for (let i = 0; i < remainingDefuses; i += 1) {
+    mutableDeck.push(makeCard('defuse'));
+  }
 
   // Add Exploding and Imploding Kittens to remaining deck
   const totalKittensNeeded = players.length; // Since Streaking Kitten is in the deck (always 1)

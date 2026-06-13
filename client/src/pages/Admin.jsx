@@ -34,6 +34,19 @@ export default function Admin() {
   const [announcementSuccess, setAnnouncementSuccess] = useState('');
   const [announcementError, setAnnouncementError] = useState('');
 
+  // Quest management state
+  const [quests, setQuests] = useState([]);
+  const [newQuestTitle, setNewQuestTitle] = useState('');
+  const [newQuestDescription, setNewQuestDescription] = useState('');
+  const [newQuestActionType, setNewQuestActionType] = useState('play_game');
+  const [newQuestTargetCount, setNewQuestTargetCount] = useState(1);
+  const [newQuestCoinReward, setNewQuestCoinReward] = useState(0);
+  const [newQuestGemReward, setNewQuestGemReward] = useState(0);
+  const [newQuestIsActive, setNewQuestIsActive] = useState(true);
+  const [questsError, setQuestsError] = useState('');
+  const [questsSuccess, setQuestsSuccess] = useState('');
+  const [editingQuestId, setEditingQuestId] = useState(null);
+
   const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5000';
 
   // API Call helper
@@ -72,10 +85,16 @@ export default function Admin() {
     if (res.ok) setPlayers(res.data);
   };
 
+  const fetchQuests = async () => {
+    const res = await adminApiCall('/api/admin/quests');
+    if (res.ok) setQuests(res.data);
+  };
+
   useEffect(() => {
     if (activeTab === 'stats') fetchStats();
     if (activeTab === 'catalog') fetchCatalog();
     if (activeTab === 'players') fetchPlayers();
+    if (activeTab === 'quests') fetchQuests();
   }, [activeTab]);
 
   // Handle new item creation
@@ -193,6 +212,96 @@ export default function Admin() {
     }
   };
 
+  // Handle Quest Creation or Update
+  const handleCreateOrUpdateQuest = async (e) => {
+    e.preventDefault();
+    setQuestsError('');
+    setQuestsSuccess('');
+
+    if (!newQuestTitle || !newQuestDescription) {
+      setQuestsError('Tiêu đề và mô tả không được để trống.');
+      return;
+    }
+
+    const payload = {
+      title: newQuestTitle,
+      description: newQuestDescription,
+      actionType: newQuestActionType,
+      targetCount: Number(newQuestTargetCount),
+      reward: { coins: Number(newQuestCoinReward), gems: Number(newQuestGemReward) },
+      isActive: newQuestIsActive,
+    };
+
+    let res;
+    if (editingQuestId) {
+      res = await adminApiCall(`/api/admin/quests/${editingQuestId}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      });
+    } else {
+      res = await adminApiCall('/api/admin/quests', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    }
+
+    if (res.ok) {
+      setQuestsSuccess(editingQuestId ? 'Cập nhật nhiệm vụ thành công!' : 'Tạo nhiệm vụ mới thành công!');
+      setNewQuestTitle('');
+      setNewQuestDescription('');
+      setNewQuestActionType('play_game');
+      setNewQuestTargetCount(1);
+      setNewQuestCoinReward(0);
+      setNewQuestGemReward(0);
+      setNewQuestIsActive(true);
+      setEditingQuestId(null);
+      fetchQuests();
+    } else {
+      setQuestsError(res.data?.message || 'Có lỗi xảy ra.');
+    }
+  };
+
+  const handleEditQuest = (quest) => {
+    setEditingQuestId(quest._id);
+    setNewQuestTitle(quest.title);
+    setNewQuestDescription(quest.description);
+    setNewQuestActionType(quest.actionType);
+    setNewQuestTargetCount(quest.targetCount);
+    setNewQuestCoinReward(quest.reward?.coins ?? 0);
+    setNewQuestGemReward(quest.reward?.gems ?? 0);
+    setNewQuestIsActive(quest.isActive);
+    setQuestsError('');
+    setQuestsSuccess('');
+  };
+
+  const handleDeleteQuest = async (questId) => {
+    if (!window.confirm('Bạn chắc chắn muốn xóa nhiệm vụ này?')) return;
+    
+    setQuestsError('');
+    setQuestsSuccess('');
+
+    const res = await adminApiCall(`/api/admin/quests/${questId}`, {
+      method: 'DELETE',
+    });
+
+    if (res.ok) {
+      setQuestsSuccess('Đã xóa nhiệm vụ thành công!');
+      if (editingQuestId === questId) {
+        setEditingQuestId(null);
+        setNewQuestTitle('');
+        setNewQuestDescription('');
+        setNewQuestActionType('play_game');
+        setNewQuestTargetCount(1);
+        setNewQuestCoinReward(0);
+        setNewQuestGemReward(0);
+        setNewQuestIsActive(true);
+      }
+      fetchQuests();
+    } else {
+      setQuestsError(res.data?.message || 'Không thể xóa nhiệm vụ.');
+    }
+  };
+
   return (
     <div className="bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 md:p-8 flex flex-col gap-8">
       {/* Title */}
@@ -209,6 +318,7 @@ export default function Admin() {
           { id: 'stats', label: 'Thống Kê 📊' },
           { id: 'catalog', label: 'Quản Lý Shop 🛒' },
           { id: 'players', label: 'Quản Lý Người Chơi 👥' },
+          { id: 'quests', label: 'Quản Lý Nhiệm Vụ 🎯' },
           { id: 'announcement', label: 'Thông Báo Live 📢' },
         ].map((tab) => (
           <button
@@ -539,6 +649,190 @@ export default function Admin() {
                 )}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* TAB CONTENT: QUESTS */}
+      {activeTab === 'quests' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Create/Edit form */}
+          <div className="lg:col-span-1 bg-surface border-3 border-on-surface rounded-2xl p-6 shadow-[4px_4px_0px_0px_#1a1c1c]">
+            <h3 className="text-md font-headline font-black text-on-surface uppercase border-b-2 border-on-surface pb-2 mb-4">
+              {editingQuestId ? 'Cập Nhật Nhiệm Vụ 🎯' : 'Thêm Nhiệm Vụ Mới 🎯'}
+            </h3>
+
+            {questsError && (
+              <div className="bg-rose-100 text-rose-700 border-2 border-on-surface p-3 text-xs font-bold rounded-xl mb-4 text-center">
+                {questsError}
+              </div>
+            )}
+            {questsSuccess && (
+              <div className="bg-emerald-100 text-emerald-700 border-2 border-on-surface p-3 text-xs font-bold rounded-xl mb-4 text-center">
+                {questsSuccess}
+              </div>
+            )}
+
+            <form onSubmit={handleCreateOrUpdateQuest} className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-headline font-black text-on-surface uppercase">Tiêu đề nhiệm vụ</label>
+                <input
+                  type="text"
+                  placeholder="Ví dụ: Kẻ Hủy Diệt Nope"
+                  value={newQuestTitle}
+                  onChange={(e) => setNewQuestTitle(e.target.value)}
+                  className="bg-white border-2 border-on-surface rounded-xl px-3 py-2 text-xs text-on-surface font-bold focus:outline-none"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-headline font-black text-on-surface uppercase">Mô tả nhiệm vụ</label>
+                <input
+                  type="text"
+                  placeholder="Ví dụ: Sử dụng thành công lá bài Nope 3 lần"
+                  value={newQuestDescription}
+                  onChange={(e) => setNewQuestDescription(e.target.value)}
+                  className="bg-white border-2 border-on-surface rounded-xl px-3 py-2 text-xs text-on-surface font-bold focus:outline-none"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-headline font-black text-on-surface uppercase">Loại hành động</label>
+                <select
+                  value={newQuestActionType}
+                  onChange={(e) => setNewQuestActionType(e.target.value)}
+                  className="bg-white border-2 border-on-surface rounded-xl px-3 py-2 text-xs text-on-surface font-bold focus:outline-none"
+                >
+                  <option value="play_game">Chơi game (play_game)</option>
+                  <option value="win_game">Thắng game (win_game)</option>
+                  <option value="nope_card">Sử dụng Nope (nope_card)</option>
+                  <option value="defuse_kitten">Gỡ bom (defuse_kitten)</option>
+                  <option value="steal_card">Cướp bài bằng combo 2 (steal_card)</option>
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-headline font-black text-on-surface uppercase">Số lượng mục tiêu</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={newQuestTargetCount}
+                  onChange={(e) => setNewQuestTargetCount(e.target.value)}
+                  className="bg-white border-2 border-on-surface rounded-xl px-3 py-2 text-xs text-on-surface font-bold focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-headline font-black text-on-surface uppercase">Thưởng Xu (Coins)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={newQuestCoinReward}
+                    onChange={(e) => setNewQuestCoinReward(e.target.value)}
+                    className="bg-white border-2 border-on-surface rounded-xl px-3 py-2 text-xs text-on-surface font-bold focus:outline-none"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-headline font-black text-on-surface uppercase">Thưởng Đá (Gems)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={newQuestGemReward}
+                    onChange={(e) => setNewQuestGemReward(e.target.value)}
+                    className="bg-white border-2 border-on-surface rounded-xl px-3 py-2 text-xs text-on-surface font-bold focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 py-2">
+                <input
+                  type="checkbox"
+                  id="quest-active-checkbox"
+                  checked={newQuestIsActive}
+                  onChange={(e) => setNewQuestIsActive(e.target.checked)}
+                  className="h-4 w-4 border-2 border-on-surface rounded focus:ring-0"
+                />
+                <label htmlFor="quest-active-checkbox" className="text-xs font-headline font-black text-on-surface uppercase cursor-pointer">
+                  Kích hoạt nhiệm vụ này
+                </label>
+              </div>
+
+              <div className="flex gap-2">
+                {editingQuestId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingQuestId(null);
+                      setNewQuestTitle('');
+                      setNewQuestDescription('');
+                      setNewQuestActionType('play_game');
+                      setNewQuestTargetCount(1);
+                      setNewQuestCoinReward(0);
+                      setNewQuestGemReward(0);
+                      setNewQuestIsActive(true);
+                    }}
+                    className="flex-1 bg-surface border-2 border-on-surface text-on-surface font-headline font-black text-xs uppercase py-3 rounded-xl hover:bg-slate-100"
+                  >
+                    Hủy sửa
+                  </button>
+                )}
+                <button type="submit" className="btn-detonator flex-grow py-3 rounded-xl font-headline font-black uppercase text-xs">
+                  {editingQuestId ? 'Cập Nhật 💾' : 'Xác Nhận Thêm ➕'}
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* List quests */}
+          <div className="lg:col-span-2 flex flex-col gap-4">
+            <h3 className="text-md font-headline font-black text-on-surface uppercase">Danh sách nhiệm vụ hiện tại</h3>
+            
+            <div className="flex flex-col gap-3 max-h-[500px] overflow-y-auto pr-2">
+              {quests.map((quest) => (
+                <div
+                  key={quest._id}
+                  className="border-2 border-on-surface rounded-2xl p-4 flex justify-between items-center bg-surface shadow-[2px_2px_0px_0px_#1a1c1c]"
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="text-3xl mt-1">🎯</span>
+                    <div>
+                      <h4 className="font-headline font-black text-xs uppercase text-on-surface flex items-center gap-2">
+                        {quest.title}
+                        {!quest.isActive && (
+                          <span className="bg-rose-100 text-rose-700 text-[8px] px-1.5 py-0.5 rounded border border-on-surface">Tạm khóa</span>
+                        )}
+                      </h4>
+                      <p className="text-xs text-on-surface-variant font-medium mt-0.5">{quest.description}</p>
+                      <p className="text-[10px] text-on-surface-variant font-bold mt-1">
+                        Hành động: <strong className="text-indigo-600">{quest.actionType}</strong> • Mục tiêu: <strong>{quest.targetCount}</strong>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-6">
+                    <div className="text-right">
+                      {quest.reward?.coins > 0 && <span className="font-headline font-black text-xs text-primary block">💰 +{quest.reward.coins}</span>}
+                      {quest.reward?.gems > 0 && <span className="font-headline font-black text-xs text-indigo-600 block">💎 +{quest.reward.gems}</span>}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleEditQuest(quest)}
+                        className="bg-yellow-400 text-slate-950 border-2 border-on-surface shadow-[1.5px_1.5px_0px_0px_#1a1c1c] px-3 py-1 text-[10px] font-headline font-black rounded-lg hover:scale-105 active:scale-95 transition-all uppercase"
+                      >
+                        Sửa ✏️
+                      </button>
+                      <button
+                        onClick={() => handleDeleteQuest(quest._id)}
+                        className="bg-secondary text-on-error border-2 border-on-surface shadow-[1.5px_1.5px_0px_0px_#1a1c1c] px-3 py-1 text-[10px] font-headline font-black rounded-lg hover:scale-105 active:scale-95 transition-all uppercase"
+                      >
+                        Xóa 🗑️
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
