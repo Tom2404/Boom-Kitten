@@ -303,7 +303,7 @@ const CARD_THEMES = {
   },
 };
 
-export default function Card({ type, selected, onClick, disabled }) {
+export default function Card({ type, selected, onClick, disabled, marked }) {
   const theme = CARD_THEMES[type] || {
     name: type,
     icon: '🃏',
@@ -326,6 +326,11 @@ export default function Card({ type, selected, onClick, disabled }) {
           ${selected ? '-translate-y-6 scale-105 filter drop-shadow-[0_0_12px_rgba(234,179,8,0.8)]' : 'hover:-translate-y-2 hover:scale-102 hover:filter hover:drop-shadow-[0_0_6px_rgba(255,255,255,0.4)]'}
           ${disabled ? 'opacity-40 cursor-not-allowed pointer-events-none' : ''}`}
       >
+        {marked && (
+          <span className="absolute -top-2.5 -left-2.5 z-30 bg-rose-500 text-white font-headline font-black text-[9px] px-2 py-0.5 rounded-full border-2 border-on-surface shadow-[1px_1px_0px_0px_#1a1c1c] uppercase tracking-wider animate-pulse">
+            Lộ bài
+          </span>
+        )}
         {/* Info button */}
         <span
           onClick={(e) => {

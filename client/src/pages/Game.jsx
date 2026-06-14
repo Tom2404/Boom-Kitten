@@ -188,9 +188,69 @@ export default function Game() {
 
   const [roomInput, setRoomInput] = useState('');
   const [targetPlayerId, setTargetPlayerId] = useState(null);
+
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [lobbyMaxPlayers, setLobbyMaxPlayers] = useState(5);
+  const [lobbyMaxHandSize, setLobbyMaxHandSize] = useState(10);
+  const [lobbyIsPublic, setLobbyIsPublic] = useState(true);
   const [chatInput, setChatInput] = useState('');
   const [myUser, setMyUser] = useState(null);
   const [rightPanelTab, setRightPanelTab] = useState('chat');
+
+  const handleLeaveConfirm = () => {
+    if (gameState) {
+      const confirmLeave = window.confirm("Bạn có chắc chắn muốn rời khỏi trận đấu không? Trận đấu sẽ bị hủy!");
+      if (confirmLeave) leaveRoom();
+    } else {
+      leaveRoom();
+    }
+  };
+
+  const getStatusDisplay = () => {
+    if (nopeWindow && nopeWindow.active) {
+      return 'Đang chờ Nope...';
+    }
+    if (gameState) {
+      if (gameState.pendingZombie) {
+        const pName = gameState.players.find(p => p.userId === gameState.pendingZombie.playerId)?.username || gameState.pendingZombie.playerId;
+        return `Zombie Kitten: Chờ ${pName} chọn người hồi sinh`;
+      }
+      if (gameState.pendingFavor) {
+        const fromName = gameState.players.find(p => p.userId === gameState.pendingFavor.fromPlayerId)?.username || gameState.pendingFavor.fromPlayerId;
+        const targetName = gameState.players.find(p => p.userId === gameState.pendingFavor.targetPlayerId)?.username || gameState.pendingFavor.targetPlayerId;
+        return `Xin xỏ: Chờ ${targetName} tặng bài cho ${fromName}`;
+      }
+      if (gameState.pendingAlter) {
+        const pName = gameState.players.find(p => p.userId === gameState.pendingAlter.playerId)?.username || gameState.pendingAlter.playerId;
+        return `Thay đổi tương lai: Chờ ${pName} sắp xếp bài`;
+      }
+      if (gameState.pendingBury) {
+        const pName = gameState.players.find(p => p.userId === gameState.pendingBury.playerId)?.username || gameState.pendingBury.playerId;
+        return `Chôn bài: Chờ ${pName} chôn lá bài`;
+      }
+      if (gameState.pendingGarbage) {
+        return `Thu gom rác thải: Chờ mọi người chọn lá bài`;
+      }
+      if (gameState.pendingPotLuck) {
+        return `Pot Luck: Chờ mọi người chọn lá bài`;
+      }
+    }
+    
+    if (statusMessage && statusMessage !== 'Đang chờ Nope...') {
+      return statusMessage;
+    }
+    
+    if (gameState) {
+      const activePlayer = gameState.players[gameState.currentPlayerIndex];
+      if (activePlayer) {
+        const isMe = activePlayer.userId === myUser?.id;
+        const pName = isMe ? 'Bạn' : activePlayer.username;
+        const draws = gameState.drawsRequired ?? 1;
+        return `Lượt của: ${pName} (Cần bốc: ${draws} lá)`;
+      }
+    }
+    return 'Ván đấu đã bắt đầu!';
+  };
 
   const getOrderedOpponents = () => {
     if (!gameState || !gameState.players) return [];
@@ -241,6 +301,15 @@ export default function Game() {
       }
     }
   }, [roomState]);
+
+  useEffect(() => {
+    if (gameEnded) {
+      gsap.fromTo('.ended-overlay-anim', 
+        { scale: 0.4, rotation: -8, opacity: 0 },
+        { scale: 1, rotation: 0, opacity: 1, duration: 0.65, ease: 'back.out(1.5)' }
+      );
+    }
+  }, [gameEnded]);
 
   const [animations, setAnimations] = useState([]);
   const mainContainerRef = useRef(null);
@@ -372,11 +441,53 @@ export default function Game() {
 
         <div className="flex flex-col gap-4 border-t-4 border-dashed border-on-surface-variant pt-6">
           <h3 className="text-xs font-headline font-black text-on-surface uppercase tracking-wider">Tạo phòng chơi</h3>
+          
+          <div className="flex flex-col gap-3 bg-slate-50 p-4 border-2 border-on-surface rounded-2xl">
+            <div className="flex justify-between items-center text-xs font-bold text-on-surface">
+              <span>Số lượng người chơi tối đa:</span>
+              <select 
+                value={lobbyMaxPlayers} 
+                onChange={(e) => setLobbyMaxPlayers(parseInt(e.target.value, 10))}
+                className="bg-white border-2 border-on-surface px-2 py-1 rounded-lg text-xs font-bold focus:outline-none"
+              >
+                <option value="2">2 người</option>
+                <option value="3">3 người</option>
+                <option value="4">4 người</option>
+                <option value="5">5 người</option>
+              </select>
+            </div>
+            
+            <div className="flex justify-between items-center text-xs font-bold text-on-surface">
+              <span>Giới hạn số lá bài trên tay:</span>
+              <select 
+                value={lobbyMaxHandSize} 
+                onChange={(e) => setLobbyMaxHandSize(parseInt(e.target.value, 10))}
+                className="bg-white border-2 border-on-surface px-2 py-1 rounded-lg text-xs font-bold focus:outline-none"
+              >
+                {[5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].map((size) => (
+                  <option key={size} value={size}>{size} lá</option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="flex justify-between items-center text-xs font-bold text-on-surface">
+              <span>Chế độ phòng:</span>
+              <select 
+                value={lobbyIsPublic ? "public" : "private"} 
+                onChange={(e) => setLobbyIsPublic(e.target.value === "public")}
+                className="bg-white border-2 border-on-surface px-2 py-1 rounded-lg text-xs font-bold focus:outline-none"
+              >
+                <option value="public">Công khai (Public)</option>
+                <option value="private">Riêng tư (Private)</option>
+              </select>
+            </div>
+          </div>
+
           <button
-            onClick={() => createRoom(5, true)}
+            onClick={() => createRoom(lobbyMaxPlayers, lobbyIsPublic, lobbyMaxHandSize)}
             className="btn-detonator w-full py-4 rounded-2xl font-headline font-black uppercase text-sm"
           >
-            ➕ Tạo Phòng Mới (Tối đa 5 người)
+            Tạo Phòng Mới
           </button>
         </div>
 
@@ -421,7 +532,7 @@ export default function Game() {
             </div>
           </div>
           <button
-            onClick={leaveRoom}
+            onClick={handleLeaveConfirm}
             className="bg-secondary text-on-error font-headline font-black border-2 border-on-surface shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] px-4 py-2 text-xs rounded-xl hover:scale-105 active:scale-95 transition-all uppercase"
           >
             Rời Phòng
@@ -514,8 +625,8 @@ export default function Game() {
 
   return (
     <div ref={mainContainerRef} className="relative min-h-[82vh] grid grid-cols-1 lg:grid-cols-4 gap-6">
-      {/* Game Board (Left 3 columns) */}
-      <div id="game-board-container" className="lg:col-span-3 flex flex-col justify-between gap-6 border-4 border-on-surface rounded-3xl shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] overflow-hidden bg-[#2f3131]">
+      {/* Game Board (Left 3 or 4 columns depending on sidebar toggle) */}
+      <div id="game-board-container" className={`${isSidebarOpen ? 'lg:col-span-3' : 'lg:col-span-4'} flex flex-col justify-between gap-6 border-4 border-on-surface rounded-3xl shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] overflow-hidden bg-[#2f3131]`}>
         
         {/* Header: Room Code and Info */}
         <div className="flex justify-between items-center bg-surface border-b-4 border-on-surface px-6 py-3.5 z-10">
@@ -533,7 +644,13 @@ export default function Game() {
               </span>
             )}
             <button
-              onClick={leaveRoom}
+              onClick={() => setIsSidebarOpen(prev => !prev)}
+              className="bg-primary text-on-primary font-headline font-black border-2 border-on-surface shadow-[2.5px_2.5px_0px_0px_#1a1c1c] px-3.5 py-1.5 rounded-xl text-xs hover:scale-105 active:scale-95 transition-all uppercase"
+            >
+              {isSidebarOpen ? "Ẩn Chat" : "Hiện Chat"}
+            </button>
+            <button
+              onClick={handleLeaveConfirm}
               className="bg-secondary text-on-error font-headline font-black border-2 border-on-surface shadow-[2.5px_2.5px_0px_0px_#1a1c1c] px-3.5 py-1.5 rounded-xl text-xs hover:scale-105 active:scale-95 transition-all uppercase"
             >
               Rời Phòng
@@ -564,7 +681,7 @@ export default function Game() {
                 count={gameState.deckCount ?? 0}
                 onDraw={drawCard}
                 isMyTurn={isMyTurn}
-                disabled={!!gameState.pendingFavor || !!gameState.pendingAlter || (nopeWindow && nopeWindow.active) || privateHand.length > 10}
+                disabled={!!gameState.pendingFavor || !!gameState.pendingAlter || (nopeWindow && nopeWindow.active) || privateHand.length > (gameState.maxHandSize ?? 10)}
               />
 
               {/* Announcer and Status Message Board */}
@@ -574,7 +691,7 @@ export default function Game() {
                     Hành Động
                   </span>
                   <p className="text-xs font-sans font-bold text-on-surface leading-relaxed min-h-[48px] flex items-center justify-center">
-                    {statusMessage || 'Ván đấu đã bắt đầu!'}
+                    {getStatusDisplay()}
                   </p>
                 </div>
                 
@@ -621,6 +738,7 @@ export default function Game() {
                 targetPlayerId={targetPlayerId}
                 nopeWindowActive={nopeWindow && nopeWindow.active}
                 onDiscard={discardCard}
+                maxHandSize={gameState.maxHandSize ?? 10}
               />
             </div>
           </div>
@@ -628,7 +746,7 @@ export default function Game() {
       </div>
 
       {/* Chat & Lịch Sử Panel (Right 1 column) */}
-      <div className="lg:col-span-1 bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-5 flex flex-col justify-between h-[82vh]">
+      <div className={`lg:col-span-1 bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-5 flex flex-col justify-between h-[82vh] ${isSidebarOpen ? 'flex' : 'hidden'}`}>
         <div className="flex flex-col gap-4 flex-1 overflow-hidden">
           
           {/* Header Tab Switcher */}
@@ -816,6 +934,7 @@ export default function Game() {
       {zombieRequest && zombieRequest.active && (
         <ZombieReviveModal
           players={gameState?.players || []}
+          deckCount={gameState?.deckCount || 0}
           onRespond={respondZombie}
         />
       )}
@@ -823,7 +942,7 @@ export default function Game() {
       {/* 9. Game Ended Win Overlay */}
       {gameEnded && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur p-4 animate-fade-in">
-          <div className="w-full max-w-md bg-white border-4 border-on-surface rounded-3xl p-6 shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] flex flex-col items-center gap-6 text-center">
+          <div className="ended-overlay-anim w-full max-w-md bg-white border-4 border-on-surface rounded-3xl p-6 shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] flex flex-col items-center gap-6 text-center">
             
             <div className="flex flex-col items-center">
               <span className="text-7xl animate-bounce">

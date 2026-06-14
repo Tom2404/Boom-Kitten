@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import Card from './Card.jsx';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, targetPlayerId, nopeWindowActive, onDiscard }) {
+export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, targetPlayerId, nopeWindowActive, onDiscard, maxHandSize = 10 }) {
   const [selectedIds, setSelectedIds] = useState([]);
 
   const containerRef = useRef(null);
@@ -56,7 +56,7 @@ export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, ta
     const card = hand.find((c) => c.id === selectedIds[0]);
     if (!card) return;
 
-    if (hand.length > 10) {
+    if (hand.length > maxHandSize) {
       if (onDiscard) onDiscard(card.id);
     } else {
       // Trigger play action
@@ -81,7 +81,7 @@ export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, ta
     if (!card) return false;
 
     // If they have too many cards, they can discard any card
-    if (hand.length > 10) return true;
+    if (hand.length > maxHandSize) return true;
 
     // Nope can be played at any time (not just my turn)
     if (card.type === 'nope') return true;
@@ -97,7 +97,7 @@ export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, ta
   };
 
   const isComboPlayable = () => {
-    if (hand.length > 10) return false; // Must discard first, no combos
+    if (hand.length > maxHandSize) return false; // Must discard first, no combos
     if (nopeWindowActive) return false; // No combos during Nope window
     if (selectedIds.length === 2) {
       // 2-card combo: must be same cat type
@@ -124,14 +124,14 @@ export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, ta
           <span className="bg-primary-fixed text-xs px-2.5 py-0.5 rounded-full text-on-surface border-2 border-on-surface shadow-[1px_1px_0px_0px_#1a1c1c] font-headline font-black">
             {hand.length} lá
           </span>
-          {isMyTurn && hand.length <= 10 && (
+          {isMyTurn && hand.length <= maxHandSize && (
             <span className="bg-yellow-400 text-slate-950 text-xs px-3 py-0.5 rounded-full font-headline font-black border-2 border-on-surface shadow-[1px_1px_0px_0px_#1a1c1c] animate-pulse">
               ĐẾN LƯỢT!
             </span>
           )}
-          {hand.length > 10 && (
+          {hand.length > maxHandSize && (
             <span className="bg-rose-500 text-white text-xs px-3 py-0.5 rounded-full font-headline font-black border-2 border-on-surface shadow-[1px_1px_0px_0px_#1a1c1c] animate-pulse">
-              BẮT BUỘC HỦY BÀI (&gt;10 LÁ)!
+              BẮT BUỘC HỦY BÀI (&gt;{maxHandSize} LÁ)!
             </span>
           )}
         </div>
@@ -151,7 +151,7 @@ export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, ta
             disabled={!isSinglePlayable()}
             className="btn-detonator px-5 py-1.5 rounded-xl text-xs font-headline font-black uppercase shadow-[2px_2px_0px_0px_#1a1c1c]"
           >
-            {hand.length > 10 ? "Bỏ Bớt Bài 🗑️" : "Đánh Bài 🚀"}
+            {hand.length > maxHandSize ? "Bỏ Bớt Bài 🗑️" : "Đánh Bài 🚀"}
           </button>
 
           <button
@@ -213,6 +213,7 @@ export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, ta
                   <Card
                     type={card.type}
                     selected={isSelected}
+                    marked={card.marked}
                     onClick={() => {
                       if (!hasDragged.current) {
                         toggleSelectCard(card.id);

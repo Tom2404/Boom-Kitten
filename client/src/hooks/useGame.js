@@ -61,6 +61,7 @@ export function useGame() {
       // Clean up local modal states if their triggers are no longer in server state
       if (publicGameState && !publicGameState.pendingAction) {
         setNopeWindow(null);
+        setStatusMessage(prev => prev === 'Đang chờ Nope...' ? '' : prev);
       }
       if (publicGameState && !publicGameState.pendingFavor) {
         setFavorRequest(null);
@@ -156,11 +157,13 @@ export function useGame() {
     const onCardDrawn = ({ playerId }) => {
       const pName = getUsername(playerId);
       setActionLog(prev => [...prev, { id: Math.random().toString(), text: `${pName} đã bốc 1 lá bài`, timestamp: new Date().toLocaleTimeString() }]);
+      setStatusMessage('');
     };
 
     const onTurnChanged = ({ currentPlayerId, drawsRequired }) => {
       const pName = getUsername(currentPlayerId);
       setActionLog(prev => [...prev, { id: Math.random().toString(), text: `⏳ Đến lượt của ${pName} (Cần bốc: ${drawsRequired} lá)`, timestamp: new Date().toLocaleTimeString() }]);
+      setStatusMessage('');
     };
 
     const onChatMessage = (msg) => {
@@ -278,8 +281,8 @@ export function useGame() {
     setPotLuckRequest(null);
   };
 
-  const respondZombie = (targetPlayerId) => {
-    socket.emit('game:zombie:respond', { targetPlayerId });
+  const respondZombie = (targetPlayerId, insertPosition) => {
+    socket.emit('game:zombie:respond', { targetPlayerId, insertPosition });
     setZombieRequest(null);
   };
 

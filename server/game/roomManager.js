@@ -17,6 +17,7 @@ function createRoom(hostId, options = {}, username = 'Guest') {
     host: hostId,
     players: [{ userId: hostId, username, hand: [], alive: true }],
     maxPlayers: Math.min(Math.max(options.maxPlayers ?? 5, 2), 5),
+    maxHandSize: Math.min(Math.max(options.maxHandSize ?? 10, 5), 15),
     status: 'waiting',
     isPublic: Boolean(options.isPublic),
     gameState: null,
@@ -54,7 +55,7 @@ function startGame(roomCode) {
   if (room.players.length < 2) throw new Error('Need at least 2 players');
 
   const deck = createDeck(room.players.length);
-  const dealt = dealCards(deck, room.players, 4);
+  const dealt = dealCards(deck, room.players, 6);
 
   room.status = 'playing';
   room.gameState = {
@@ -67,6 +68,7 @@ function startGame(roomCode) {
     drawsRequired: 1,
     pendingFavor: null,
     lastAction: null,
+    maxHandSize: room.maxHandSize ?? 10,
   };
 
   return room;

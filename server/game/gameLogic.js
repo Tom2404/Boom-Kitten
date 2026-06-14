@@ -115,9 +115,16 @@ function resolveExplosion(gameState, playerId, card, onDefuse) {
   return gameState;
 }
 
-function handleAttack(gameState) {
+function handleAttack(gameState, targetPlayerId) {
   // Attack stacks! Adds 2 draws to next player
   gameState.drawsRequired = (gameState.drawsRequired ?? 1) > 1 ? gameState.drawsRequired + 2 : 2;
+  if (targetPlayerId) {
+    const targetIdx = gameState.players.findIndex((p) => p.userId === targetPlayerId);
+    if (targetIdx >= 0 && gameState.players[targetIdx].alive) {
+      gameState.currentPlayerIndex = targetIdx;
+      return gameState;
+    }
+  }
   passTurn(gameState);
   return gameState;
 }
@@ -317,22 +324,24 @@ function handleRaisingHeck(gameState, playerId) {
   return gameState;
 }
 
-function resolveZombieRevive(gameState, targetPlayerId) {
+function resolveZombieRevive(gameState, targetPlayerId, insertPosition = 0) {
   if (!gameState.pendingZombie) return gameState;
-  const target = getPlayer(gameState, targetPlayerId);
+  const target = targetPlayerId ? getPlayer(gameState, targetPlayerId) : null;
   const activator = getPlayer(gameState, gameState.pendingZombie.playerId);
 
   if (target && !target.alive && activator && activator.alive) {
     target.alive = true;
     target.hand = [];
-
-    // Put the causing exploding/imploding kitten back randomly
-    const kitten = gameState.pendingZombie.card;
-    const pos = Math.floor(Math.random() * (gameState.deck.length + 1));
-    gameState.deck.splice(pos, 0, kitten);
-
     gameState.activePlayerIds = gameState.players.filter((p) => p.alive).map((p) => p.userId);
   }
+
+  // Always put the causing exploding/imploding kitten back in the deck at specified position
+  const kitten = gameState.pendingZombie.card;
+  const pos = Math.max(0, Math.min(insertPosition, gameState.deck.length));
+  if (kitten.type === 'imploding_kitten') {
+    kitten.faceUp = true; // Flips face up for next draw
+  }
+  gameState.deck.splice(pos, 0, kitten);
 
   gameState.pendingZombie = null;
   if (gameState.drawsRequired === 0) {
@@ -491,7 +500,7 @@ function executeActionEffect(gameState, cardType, playerId, targetPlayerId, opti
   switch (cardType) {
     case 'attack':
     case 'attack_2x':
-      return handleAttack(gameState);
+      return handleAttack(gameState, targetPlayerId);
     case 'personal_attack':
       return handlePersonalAttack(gameState);
     case 'skip':

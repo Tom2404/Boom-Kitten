@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatCardName } from '../utils/cardHelpers.js';
 
 const RANK_BADGES = {
   Bronze: '🟫 BRONZE',
@@ -25,7 +26,7 @@ export default function PlayerAvatar({
   onSelectTarget,
   publicProfile,
 }) {
-  const { userId, username, alive, handCount, avatar, activeAvatarFrame, eloPoints, rank } = player;
+  const { userId, username, alive, handCount, avatar, activeAvatarFrame, eloPoints, rank, markedCards, pendingTakeFrom } = player;
 
   const handleSelect = () => {
     if (isTargetable && onSelectTarget) {
@@ -123,6 +124,28 @@ export default function PlayerAvatar({
         <span className="absolute -bottom-3.5 left-1/2 transform -translate-x-1/2 bg-yellow-400 text-slate-950 font-headline font-black text-[8px] px-2 py-0.5 rounded-full uppercase tracking-wider shadow border-2 border-on-surface animate-bounce">
           CHỌN MỤC TIÊU
         </span>
+      )}
+      {/* Marked cards and redirection warning */}
+      {alive && (
+        <div className="w-full mt-2 flex flex-col gap-1 text-[9px] font-bold border-t border-on-surface/10 pt-2 text-left">
+          {pendingTakeFrom && (
+            <span className="text-rose-500 uppercase animate-pulse">
+              Bị cướp bài bốc tiếp theo
+            </span>
+          )}
+          {markedCards && markedCards.length > 0 && (
+            <div className="flex flex-col gap-0.5">
+              <span className="text-on-surface-variant uppercase">Bài bị lộ:</span>
+              <div className="flex flex-wrap gap-1">
+                {markedCards.map((c) => (
+                  <span key={c.id} className="bg-rose-100 border border-rose-400 text-rose-700 px-1 rounded text-[8px] truncate max-w-full">
+                    {formatCardName(c.type)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

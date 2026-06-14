@@ -344,14 +344,14 @@ module.exports = function registerGameSocket(io) {
       }, 200);
     }
 
-    socket.on('room:create', async ({ maxPlayers, isPublic }) => {
+    socket.on('room:create', async ({ maxPlayers, isPublic, maxHandSize }) => {
       try {
         let username = socket.user?.username ?? `Guest-${guestId.slice(6, 11)}`;
         if (socket.user?.id) {
           const dbUser = await User.findById(socket.user.id);
           if (dbUser) username = dbUser.username;
         }
-        const room = createRoom(userId, { maxPlayers, isPublic }, username);
+        const room = createRoom(userId, { maxPlayers, isPublic, maxHandSize }, username);
         socket.join(room.code);
         io.to(room.code).emit('room:updated', { room });
       } catch (error) {
@@ -377,9 +377,20 @@ module.exports = function registerGameSocket(io) {
     socket.on('room:leave', () => {
       const activeRooms = [...socket.rooms].filter((room) => room.length === 6);
       activeRooms.forEach((roomCode) => {
+        const roomBefore = getRoomState(roomCode);
+        const player = roomBefore?.players.find((p) => p.userId === userId);
+        const pName = player ? player.username : userId;
         const room = leaveRoom(roomCode, userId);
         socket.leave(roomCode);
-        if (room) io.to(roomCode).emit('room:updated', { room });
+        if (room) {
+          io.to(roomCode).emit('room:updated', { room });
+          io.to(roomCode).emit('chat:message', {
+            userId: 'system',
+            username: 'Hệ Thống',
+            text: `Người chơi ${pName} đã rời phòng.`,
+            timestamp: new Date().toISOString(),
+          });
+        }
       });
     });
 
@@ -389,6 +400,8 @@ module.exports = function registerGameSocket(io) {
         if (!activeSockets || activeSockets.size === 0) {
           const activeRoom = findRoomByUser(userId);
           if (activeRoom) {
+            const player = activeRoom.players.find((p) => p.userId === userId);
+            const pName = player ? player.username : userId;
             const wasPlaying = activeRoom.status === 'playing';
             const room = leaveRoom(activeRoom.code, userId);
             if (room) {
@@ -397,7 +410,14 @@ module.exports = function registerGameSocket(io) {
                 io.to(activeRoom.code).emit('chat:message', {
                   userId: 'system',
                   username: 'Hệ Thống',
-                  text: `Trận đấu bị hủy do người chơi đã thoát hoặc mất kết nối.`,
+                  text: `Trận đấu bị hủy do người chơi ${pName} đã thoát hoặc mất kết nối.`,
+                  timestamp: new Date().toISOString(),
+                });
+              } else {
+                io.to(activeRoom.code).emit('chat:message', {
+                  userId: 'system',
+                  username: 'Hệ Thống',
+                  text: `Người chơi ${pName} đã rời phòng hoặc mất kết nối.`,
                   timestamp: new Date().toISOString(),
                 });
               }
@@ -434,8 +454,9 @@ module.exports = function registerGameSocket(io) {
       }
 
       const player = state.players.find((p) => p.userId === userId);
-      if (player && player.hand.length > 10) {
-        socket.emit('error', { message: 'Bạn phải hủy bớt bài xuống 10 lá trước!' });
+      const maxHandSize = state.maxHandSize ?? 10;
+      if (player && player.hand.length > maxHandSize) {
+        socket.emit('error', { message: `Bạn phải hủy bớt bài xuống ${maxHandSize} lá trước!` });
         return;
       }
 
@@ -505,11 +526,8 @@ module.exports = function registerGameSocket(io) {
         setTimeout(async () => {
           if (room.gameState.pendingZombie && room.gameState.pendingZombie === currentPendingZombie) {
             const firstDead = room.gameState.players.find((p) => !p.alive);
-            if (firstDead) {
-              resolveZombieRevive(room.gameState, firstDead.userId);
-            } else {
-              room.gameState.pendingZombie = null;
-            }
+            const randomPos = Math.floor(Math.random() * (room.gameState.deck.length + 1));
+            resolveZombieRevive(room.gameState, firstDead ? firstDead.userId : null, randomPos);
             io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
             sendHands(io, room);
             await finalizeGame(io, room);
@@ -722,13 +740,13 @@ module.exports = function registerGameSocket(io) {
       sendHands(io, room);
     });
 
-    socket.on('game:zombie:respond', ({ targetPlayerId }) => {
+    socket.on('game:zombie:respond', ({ targetPlayerId, insertPosition }) => {
       const roomCode = [...socket.rooms].find((room) => room.length === 6);
       if (!roomCode) return;
       const room = getRoomState(roomCode);
       if (!room?.gameState) return;
 
-      resolveZombieRevive(room.gameState, targetPlayerId);
+      resolveZombieRevive(room.gameState, targetPlayerId, insertPosition);
       io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
       sendHands(io, room);
     });

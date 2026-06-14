@@ -368,32 +368,37 @@ export function GarbageSelectModal({ hand, title, description, onRespond }) {
 // ==========================================
 // 7. ZOMBIE KITTEN REVIVAL TARGET MODAL
 // ==========================================
-export function ZombieReviveModal({ players, onRespond }) {
+export function ZombieReviveModal({ players, deckCount = 0, onRespond }) {
   const [selectedPlayerId, setSelectedPlayerId] = useState(null);
+  const [position, setPosition] = useState(0);
 
   const deadPlayers = players.filter((p) => !p.alive);
 
   const handleConfirm = () => {
+    if (deadPlayers.length === 0) {
+      onRespond(null, position);
+      return;
+    }
     if (!selectedPlayerId) return;
-    onRespond(selectedPlayerId);
+    onRespond(selectedPlayerId, position);
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 animate-fade-in">
       <div className="w-full max-w-xl bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 md:p-8 flex flex-col gap-6 text-center">
         <div>
-          <h3 className="text-2xl font-headline font-black text-primary uppercase">🧟‍♀️ Hồi Sinh Đồng Đội (Zombie Revival)</h3>
+          <h3 className="text-2xl font-headline font-black text-primary uppercase">Hồi Sinh Đồng Đội (Zombie Revival)</h3>
           <p className="text-xs font-bold text-on-surface-variant mt-1">
-            Bạn đã dùng Mèo Thây Ma! Hãy chọn 1 người chơi đã bị loại để đưa họ quay trở lại trận đấu.
+            Bạn đã dùng Mèo Thây Ma. Hãy chọn 1 người chơi đã bị loại để đưa họ quay trở lại trận đấu.
           </p>
         </div>
 
         {deadPlayers.length === 0 ? (
           <div className="py-8 text-sm font-bold text-on-surface-variant uppercase">
-            Không có người chơi nào đã chết để hồi sinh. Tiến trình sẽ tự giải phóng.
+            Không có người chơi nào đã chết để hồi sinh.
           </div>
         ) : (
-          <div className="flex flex-col gap-3 max-h-[300px] overflow-y-auto px-2">
+          <div className="flex flex-col gap-3 max-h-[200px] overflow-y-auto px-2">
             {deadPlayers.map((p) => {
               const isSelected = selectedPlayerId === p.userId;
               return (
@@ -419,6 +424,26 @@ export function ZombieReviveModal({ players, onRespond }) {
           </div>
         )}
 
+        {/* Position selection slider */}
+        <div className="flex flex-col gap-3 px-6 py-4 bg-surface border-3 border-on-surface rounded-2xl text-left">
+          <span className="text-xs font-headline font-black text-on-surface uppercase">
+            Vị trí đặt Mèo Nổ vào bộ bài: {position === 0 ? 'Dưới cùng (Bottom)' : position === deckCount ? 'Trên cùng (Top)' : `Vị trí thứ ${position} từ dưới lên`}
+          </span>
+          <input
+            type="range"
+            min="0"
+            max={deckCount}
+            value={position}
+            onChange={(e) => setPosition(parseInt(e.target.value, 10))}
+            className="w-full accent-primary cursor-pointer h-2 bg-slate-200 rounded-lg appearance-none"
+          />
+          <div className="flex justify-between text-[9px] font-bold text-on-surface-variant uppercase">
+            <span>Dưới đáy (0)</span>
+            <span>Giữa bộ bài</span>
+            <span>Trên cùng ({deckCount})</span>
+          </div>
+        </div>
+
         <div className="flex justify-center mt-2">
           <button
             onClick={handleConfirm}
@@ -426,7 +451,7 @@ export function ZombieReviveModal({ players, onRespond }) {
             className={`btn-detonator px-8 py-3 rounded-2xl font-headline font-black uppercase text-sm
               ${deadPlayers.length > 0 && !selectedPlayerId ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
           >
-            Triệu Hồi Hồi Sinh 🧟‍♀️
+            {deadPlayers.length === 0 ? "Bỏ qua hồi sinh" : "Triệu Hồi Hồi Sinh"}
           </button>
         </div>
       </div>
