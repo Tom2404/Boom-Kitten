@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
+import { getCardImageUrl } from '../utils/cardSkins.js';
 
 const CARD_THEMES = {
   defuse: {
@@ -303,7 +305,7 @@ const CARD_THEMES = {
   },
 };
 
-export default function Card({ type, selected, onClick, disabled, marked }) {
+export default function Card({ type, skinIndex = 0, selected, onClick, disabled, marked }) {
   const theme = CARD_THEMES[type] || {
     name: type,
     icon: '🃏',
@@ -313,6 +315,8 @@ export default function Card({ type, selected, onClick, disabled, marked }) {
 
   const [imageError, setImageError] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+
+  const cardImageUrl = getCardImageUrl(type, skinIndex);
 
   return (
     <>
@@ -345,9 +349,9 @@ export default function Card({ type, selected, onClick, disabled, marked }) {
 
         {/* Main Image Area - filling the middle */}
         <div className="flex-grow flex items-center justify-center p-1 relative min-h-[90px] w-full">
-          {!imageError ? (
+          {cardImageUrl && !imageError ? (
             <img 
-              src={`/src/assets/cards/${type}.png`}
+              src={cardImageUrl}
               alt={theme.name}
               className="h-32 w-32 object-contain drop-shadow"
               onError={() => setImageError(true)}
@@ -371,7 +375,7 @@ export default function Card({ type, selected, onClick, disabled, marked }) {
       </div>
 
       {/* Detail Modal */}
-      {isDetailOpen && (
+      {isDetailOpen && createPortal(
         <div 
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-4 animate-fade-in text-slate-900"
           onClick={(e) => {
@@ -401,9 +405,9 @@ export default function Card({ type, selected, onClick, disabled, marked }) {
                 <span className="text-lg">{theme.icon}</span>
               </div>
               <div className="flex justify-center items-center">
-                {!imageError ? (
+                {cardImageUrl && !imageError ? (
                   <img 
-                    src={`/src/assets/cards/${type}.png`}
+                    src={cardImageUrl}
                     alt={theme.name}
                     className="h-28 w-28 object-contain drop-shadow"
                   />
@@ -443,7 +447,8 @@ export default function Card({ type, selected, onClick, disabled, marked }) {
               Đóng ✕
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

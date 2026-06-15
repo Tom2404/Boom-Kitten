@@ -16,22 +16,24 @@ function createRoom(hostId, options = {}, username = 'Guest') {
     code,
     host: hostId,
     players: [{ userId: hostId, username, hand: [], alive: true }],
-    maxPlayers: Math.min(Math.max(options.maxPlayers ?? 5, 2), 5),
-    maxHandSize: Math.min(Math.max(options.maxHandSize ?? 10, 5), 15),
+    maxPlayers: 5,
+    maxHandSize: 10,
     status: 'waiting',
     isPublic: Boolean(options.isPublic),
+    password: options.password || '',
     gameState: null,
   };
   rooms.set(code, room);
   return room;
 }
 
-function joinRoom(roomCode, userId, username = 'Guest') {
+function joinRoom(roomCode, userId, username = 'Guest', password = '') {
   const room = rooms.get(roomCode);
-  if (!room) throw new Error('Room not found');
+  if (!room) throw new Error('Không tìm thấy phòng chơi');
   if (room.players.find((p) => p.userId === userId)) return room;
-  if (room.players.length >= room.maxPlayers) throw new Error('Room is full');
-  if (room.status !== 'waiting') throw new Error('Game already started');
+  if (room.players.length >= room.maxPlayers) throw new Error('Phòng chơi đã đầy');
+  if (room.status !== 'waiting') throw new Error('Trận đấu đã bắt đầu');
+  if (room.password && room.password !== password) throw new Error('Mật khẩu phòng chơi không chính xác');
   room.players.push({ userId, username, hand: [], alive: true });
   return room;
 }

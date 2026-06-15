@@ -9,6 +9,7 @@ import Leaderboard from './pages/Leaderboard.jsx';
 import Shop from './pages/Shop.jsx';
 import Admin from './pages/Admin.jsx';
 import { useSocket } from './hooks/useSocket.js';
+import CustomDialog from './components/CustomDialog.jsx';
 
 const PAGES = { Home, Login, Register, Lobby, Game, Profile, Leaderboard, Shop, Admin };
 
@@ -17,6 +18,7 @@ export default function App() {
   const [announcement, setAnnouncement] = useState(null);
   const [userRole, setUserRole] = useState('user');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [activeRoom, setActiveRoom] = useState(null);
   const socket = useSocket();
 
   // Decode JWT role and login status on render & storage update
@@ -53,20 +55,69 @@ export default function App() {
       setTimeout(() => setAnnouncement(null), 10000);
     };
 
+    const handleRoomUpdated = ({ room }) => {
+      setActiveRoom(room);
+    };
+
     socket.on('server_announcement', handleAnnouncement);
+    socket.on('room:updated', handleRoomUpdated);
 
     return () => {
       clearInterval(interval);
       socket.off('server_announcement', handleAnnouncement);
+      socket.off('room:updated', handleRoomUpdated);
     };
   }, [socket]);
 
+  const [dialogState, setDialogState] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: null,
+  });
+
+  const navigateWithConfirm = (targetPage) => {
+    if (activeRoom && (activeRoom.status === 'waiting' || activeRoom.status === 'playing')) {
+      setDialogState({
+        isOpen: true,
+        title: 'Rời phòng đấu',
+        message: 'Bạn đang ở trong phòng đấu. Việc chuyển trang sẽ khiến bạn rời phòng. Bạn có chắc chắn muốn thoát?',
+        onConfirm: () => {
+          socket.emit('room:leave');
+          setActiveRoom(null);
+          setPage(targetPage);
+          setDialogState({ isOpen: false });
+        },
+      });
+    } else {
+      setPage(targetPage);
+    }
+  };
+
   const handleLogout = () => {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    setIsLoggedIn(false);
-    setUserRole('user');
-    setPage('Home');
+    if (activeRoom && (activeRoom.status === 'waiting' || activeRoom.status === 'playing')) {
+      setDialogState({
+        isOpen: true,
+        title: 'Đăng xuất',
+        message: 'Bạn đang ở trong phòng đấu. Đăng xuất sẽ khiến bạn rời phòng. Bạn có chắc chắn muốn thoát?',
+        onConfirm: () => {
+          socket.emit('room:leave');
+          setActiveRoom(null);
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+          setIsLoggedIn(false);
+          setUserRole('user');
+          setPage('Home');
+          setDialogState({ isOpen: false });
+        },
+      });
+    } else {
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      setIsLoggedIn(false);
+      setUserRole('user');
+      setPage('Home');
+    }
   };
 
   const Page = useMemo(() => PAGES[page] ?? Home, [page]);
@@ -88,7 +139,7 @@ export default function App() {
       <nav className="sticky top-0 w-full z-40 border-b-4 border-on-surface bg-surface shadow-[4px_4px_0px_0px_#1a1c1c]">
         <div className="flex justify-between items-center px-4 md:px-12 py-4 max-w-7xl mx-auto flex-wrap gap-4">
           <button 
-            onClick={() => setPage('Home')}
+            onClick={() => navigateWithConfirm('Home')}
             className="font-headline text-2xl md:text-3xl italic font-black text-primary uppercase tracking-tighter hover:scale-105 hover:-translate-y-1 transition-all duration-100"
           >
             EXPLODING KITTENS 💣
@@ -97,25 +148,25 @@ export default function App() {
           <div className="flex gap-4 md:gap-8 items-center flex-wrap">
             <button 
               className={`font-headline font-bold pb-1 text-sm md:text-base border-b-2 transition-all ${page === 'Home' ? 'text-primary border-primary' : 'text-on-surface-variant border-transparent hover:text-primary'}`}
-              onClick={() => setPage('Home')}
+              onClick={() => navigateWithConfirm('Home')}
             >
               Trang Chủ
             </button>
             <button 
               className={`font-headline font-bold pb-1 text-sm md:text-base border-b-2 transition-all ${page === 'Game' ? 'text-primary border-primary' : 'text-on-surface-variant border-transparent hover:text-primary'}`}
-              onClick={() => setPage('Game')}
+              onClick={() => navigateWithConfirm('Game')}
             >
               Phòng Đấu
             </button>
             <button 
               className={`font-headline font-bold pb-1 text-sm md:text-base border-b-2 transition-all ${page === 'Leaderboard' ? 'text-primary border-primary' : 'text-on-surface-variant border-transparent hover:text-primary'}`}
-              onClick={() => setPage('Leaderboard')}
+              onClick={() => navigateWithConfirm('Leaderboard')}
             >
               BXH
             </button>
             <button 
               className={`font-headline font-bold pb-1 text-sm md:text-base border-b-2 transition-all ${page === 'Shop' ? 'text-primary border-primary' : 'text-on-surface-variant border-transparent hover:text-primary'}`}
-              onClick={() => setPage('Shop')}
+              onClick={() => navigateWithConfirm('Shop')}
             >
               Cửa Hàng
             </button>
@@ -124,14 +175,14 @@ export default function App() {
               <>
                 <button 
                   className={`font-headline font-bold pb-1 text-sm md:text-base border-b-2 transition-all ${page === 'Profile' ? 'text-primary border-primary' : 'text-on-surface-variant border-transparent hover:text-primary'}`}
-                  onClick={() => setPage('Profile')}
+                  onClick={() => navigateWithConfirm('Profile')}
                 >
                   Cá Nhân
                 </button>
                 {userRole === 'admin' && (
                   <button 
                     className={`bg-yellow-400 text-slate-950 font-headline font-bold border-2 border-on-surface shadow-[2px_2px_0px_0px_#1a1c1c] px-3 py-1 text-xs hover:scale-105 active:scale-95 transition-all`}
-                    onClick={() => setPage('Admin')}
+                    onClick={() => navigateWithConfirm('Admin')}
                   >
                     Admin
                   </button>
@@ -147,13 +198,13 @@ export default function App() {
               <>
                 <button 
                   className={`font-headline font-bold pb-1 text-sm md:text-base border-b-2 transition-all ${page === 'Login' ? 'text-primary border-primary' : 'text-on-surface-variant border-transparent hover:text-primary'}`}
-                  onClick={() => setPage('Login')}
+                  onClick={() => navigateWithConfirm('Login')}
                 >
                   Đăng Nhập
                 </button>
                 <button 
                   className={`bg-primary-container text-on-primary-container font-headline font-bold border-2 border-on-surface shadow-[2px_2px_0px_0px_#1a1c1c] px-3 py-1 text-xs md:text-sm hover:scale-105 active:scale-95 transition-all`}
-                  onClick={() => setPage('Register')}
+                  onClick={() => navigateWithConfirm('Register')}
                 >
                   Đăng Ký
                 </button>
@@ -179,6 +230,15 @@ export default function App() {
           </p>
         </div>
       </footer>
+
+      <CustomDialog
+        isOpen={dialogState.isOpen}
+        title={dialogState.title}
+        message={dialogState.message}
+        isConfirm={true}
+        onConfirm={dialogState.onConfirm}
+        onCancel={() => setDialogState({ isOpen: false })}
+      />
     </div>
   );
 }

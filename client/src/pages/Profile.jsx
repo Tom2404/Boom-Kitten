@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { PRESET_AVATARS } from '../components/PlayerAvatar.jsx';
 import { gsap } from 'gsap';
+import CustomDialog from '../components/CustomDialog.jsx';
 
 export default function Profile() {
   const [profile, setProfile] = useState(null);
@@ -10,6 +11,12 @@ export default function Profile() {
   const [isError, setIsError] = useState(false);
   const [history, setHistory] = useState([]);
   const [quests, setQuests] = useState([]);
+  const [dialogState, setDialogState] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: null,
+  });
 
   const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5000';
 
@@ -80,7 +87,12 @@ export default function Profile() {
         fetchProfile();
         fetchQuests();
       } else {
-        alert(data.message || 'Nhận thưởng thất bại.');
+        setDialogState({
+          isOpen: true,
+          title: 'Nhận thưởng thất bại',
+          message: data.message || 'Nhận thưởng thất bại.',
+          onConfirm: () => setDialogState({ isOpen: false }),
+        });
       }
     } catch (e) {
       console.error(e);
@@ -246,7 +258,7 @@ export default function Profile() {
           </div>
 
           <button type="submit" className="btn-detonator w-full mt-2 py-3 rounded-2xl font-headline font-black uppercase text-sm">
-            Lưu Thay Đổi 🛡️
+            Lưu Thay Đổi
           </button>
         </form>
       </div>
@@ -256,7 +268,7 @@ export default function Profile() {
         {/* Daily Quests Card */}
         <div className="bg-white border-4 border-on-surface shadow-[6px_6px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 flex flex-col gap-6">
           <h3 className="text-lg font-headline font-black text-on-surface uppercase border-b-3 border-on-surface pb-2">
-            Nhiệm Vụ Hàng Ngày 🎯
+            Nhiệm Vụ Hàng Ngày
           </h3>
 
           <div className="flex flex-col gap-4">
@@ -281,7 +293,7 @@ export default function Profile() {
                           {quest.title}
                         </span>
                         <span className="text-[10px] font-headline font-black text-indigo-600 bg-indigo-50 border-2 border-indigo-200 px-2 py-0.5 rounded-full">
-                          🎁 +{quest.reward?.coins || 0} Xu {quest.reward?.gems > 0 && `• +${quest.reward.gems} Đá`}
+                          +{quest.reward?.coins || 0} Xu {quest.reward?.gems > 0 && `• +${quest.reward.gems} Đá`}
                         </span>
                       </div>
                       
@@ -306,18 +318,18 @@ export default function Profile() {
                     <div className="w-full sm:w-auto flex justify-end">
                       {isClaimed ? (
                         <span className="bg-slate-100 border-2 border-slate-300 text-slate-400 font-headline font-black text-[10px] px-4 py-2 rounded-xl uppercase">
-                          Đã Nhận ✔️
+                          Đã Nhận
                         </span>
                       ) : isCompleted ? (
                         <button
                           onClick={() => handleClaimQuest(quest.questId)}
                           className="w-full sm:w-auto bg-yellow-400 text-slate-950 font-headline font-black border-2 border-on-surface shadow-[2px_2px_0px_0px_#1a1c1c] px-4 py-2 rounded-xl text-[10px] hover:scale-105 active:scale-95 transition-all uppercase"
                         >
-                          Nhận Thưởng 🎁
+                          Nhận Thưởng
                         </button>
                       ) : (
                         <span className="bg-surface border-2 border-slate-300 text-on-surface-variant font-headline font-black text-[10px] px-4 py-2 rounded-xl uppercase">
-                          Chưa Đạt ⏳
+                          Chưa Đạt
                         </span>
                       )}
                     </div>
@@ -390,6 +402,15 @@ export default function Profile() {
           </div>
         </div>
       </div>
+
+      <CustomDialog
+        isOpen={dialogState.isOpen}
+        title={dialogState.title}
+        message={dialogState.message}
+        isConfirm={false}
+        confirmText="Đóng"
+        onConfirm={dialogState.onConfirm || (() => setDialogState({ isOpen: false }))}
+      />
     </div>
   );
 }

@@ -52,7 +52,6 @@ export default function Login({ setPage }) {
   return (
     <div className="max-w-md mx-auto my-12 bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-8 flex flex-col gap-6">
       <div className="text-center flex flex-col items-center">
-        <span className="text-5xl animate-bounce">🔑</span>
         <h2 className="text-2xl font-headline font-black text-on-surface uppercase mt-4">Đăng Nhập</h2>
         <p className="text-xs font-bold text-on-surface-variant mt-1">Đăng nhập tài khoản để vào bàn chơi.</p>
       </div>
@@ -93,7 +92,7 @@ export default function Login({ setPage }) {
           type="submit"
           className="btn-detonator w-full mt-4 py-4 rounded-2xl font-headline font-black uppercase text-base"
         >
-          Khai Hỏa 💣
+          Khai Hỏa
         </button>
 
         <p className="text-center text-xs font-bold text-on-surface-variant mt-2">

@@ -99,12 +99,7 @@ function resolveExplosion(gameState, playerId, card, onDefuse) {
     if (defuseCard.type === 'zombie_kitten') {
       gameState.pendingZombie = { playerId, card, startedAt: Date.now() };
     } else {
-      // Put back in deck at random position
-      const pos = Math.floor(Math.random() * (gameState.deck.length + 1));
-      if (card.type === 'imploding_kitten') {
-        card.faceUp = true; // Flips face up for next draw
-      }
-      gameState.deck.splice(pos, 0, card);
+      gameState.pendingDefuse = { playerId, card, startedAt: Date.now() };
     }
     return gameState;
   }
@@ -383,9 +378,39 @@ function handleCombo(gameState, playerId, cardIds, targetPlayerId) {
   });
 
   if (cardsToPlay.length !== cardIds.length) return null;
+
+  // All cards must be cat cards or feral_cat
   if (!cardsToPlay.every((c) => c.type.startsWith('cat_') || c.type === 'feral_cat')) return null;
 
+  const n = cardsToPlay.length;
+  if (n < 2 || (n !== 2 && n !== 3 && n !== 5)) return null;
+
   const cardTypes = cardsToPlay.map((c) => c.type);
+
+  if (n === 2) {
+    // 2-card combo: both must be the same type, OR one feral + one cat
+    const nonFeral = cardTypes.filter((t) => t !== 'feral_cat');
+    const feral = cardTypes.filter((t) => t === 'feral_cat');
+    const valid = feral.length === 2 // 2 feral cats
+      || (feral.length === 1 && nonFeral.length === 1) // 1 feral + 1 cat
+      || (nonFeral.length === 2 && nonFeral[0] === nonFeral[1]); // 2 same cats
+    if (!valid) return null;
+  } else if (n === 3) {
+    // 3-card combo: 2+ same type + feral, or all same type
+    const nonFeral = cardTypes.filter((t) => t !== 'feral_cat');
+    const feral = cardTypes.filter((t) => t === 'feral_cat');
+    const valid = feral.length === 3 // 3 ferals
+      || (feral.length === 2 && nonFeral.length === 1) // 2 feral + 1 cat
+      || (feral.length === 1 && nonFeral.length === 2 && nonFeral[0] === nonFeral[1]) // 1 feral + 2 same
+      || (nonFeral.length === 3 && nonFeral[0] === nonFeral[1] && nonFeral[1] === nonFeral[2]); // 3 same
+    if (!valid) return null;
+  } else if (n === 5) {
+    // 5-card combo: 5 different cat types (ferals count as any)
+    const nonFeral = cardTypes.filter((t) => t !== 'feral_cat');
+    const uniqueNonFeral = new Set(nonFeral);
+    const feral = cardTypes.filter((t) => t === 'feral_cat').length;
+    if (uniqueNonFeral.size + feral < 5) return null; // Not enough distinct types
+  }
 
   cardsToPlay.forEach((c) => {
     const index = player.hand.findIndex((handCard) => handCard.id === c.id);
@@ -428,13 +453,21 @@ function drawCard(gameState, playerId, fromBottom = false, onDefuse) {
     if (thief && thief.alive) {
       const card = fromBottom ? gameState.deck.shift() : gameState.deck.pop();
       if (card) {
-        // Since thief drew it, decrement drawsRequired for player, but resolve explosion for thief!
+        // Since thief drew it, decrement drawsRequired for player
         gameState.drawsRequired = Math.max(0, (gameState.drawsRequired ?? 1) - 1);
-        resolveExplosion(gameState, thiefId, card, onDefuse);
-        // If thief survived and has no pending zombie, check if turn changes for player
-        if (gameState.drawsRequired === 0) {
-          gameState.drawsRequired = 1;
-          passTurn(gameState);
+        if (card.type === 'exploding_kitten' || card.type === 'imploding_kitten') {
+          resolveExplosion(gameState, thiefId, card, onDefuse);
+        } else {
+          thief.hand.push(card);
+          checkStreakingKittenEffect(gameState, thiefId);
+        }
+        // If thief survived and has no pending zombie or pending defuse, check if turn changes for player
+        const t = getPlayer(gameState, thiefId);
+        if (t && t.alive && !gameState.pendingZombie && !gameState.pendingDefuse) {
+          if (gameState.drawsRequired === 0) {
+            gameState.drawsRequired = 1;
+            passTurn(gameState);
+          }
         }
       }
       return gameState;
@@ -500,6 +533,7 @@ function executeActionEffect(gameState, cardType, playerId, targetPlayerId, opti
   switch (cardType) {
     case 'attack':
     case 'attack_2x':
+    case 'target_attack_2x':
       return handleAttack(gameState, targetPlayerId);
     case 'personal_attack':
       return handlePersonalAttack(gameState);
@@ -512,6 +546,7 @@ function executeActionEffect(gameState, cardType, playerId, targetPlayerId, opti
       return handleReverse(gameState);
     case 'see_the_future':
     case 'see_the_future_3':
+    case 'share_the_future_3':
       // Handled by returning deck slice in seeTheFuture listener
       return gameState;
     case 'see_the_future_1':
@@ -519,10 +554,12 @@ function executeActionEffect(gameState, cardType, playerId, targetPlayerId, opti
     case 'see_the_future_5':
       return gameState;
     case 'alter_the_future_3':
+    case 'alter_the_future_3_now':
       return handleAlterTheFuture(gameState, playerId, 3);
     case 'alter_the_future_5':
       return handleAlterTheFuture(gameState, playerId, 5);
     case 'shuffle':
+    case 'shuffle_now':
       return handleShuffle(gameState);
     case 'draw_from_bottom':
     case 'draw_from_the_bottom':
@@ -553,6 +590,7 @@ function executeActionEffect(gameState, cardType, playerId, targetPlayerId, opti
 
     // Combo effects executed after Nope window:
     case 'combo_2': {
+      // 2-card combo: steal a random card from target
       const target = getPlayer(gameState, targetPlayerId);
       const player = getPlayer(gameState, playerId);
       if (!target || !target.alive || target.hand.length === 0 || !player || !player.alive) return gameState;
@@ -563,12 +601,54 @@ function executeActionEffect(gameState, cardType, playerId, targetPlayerId, opti
       checkStreakingKittenEffect(gameState, target.userId);
       return gameState;
     }
+    case 'combo_3': {
+      // 3-card combo: steal a specific card type from target (options.stealCardType)
+      const target = getPlayer(gameState, targetPlayerId);
+      const player = getPlayer(gameState, playerId);
+      if (!target || !target.alive || !player || !player.alive) return gameState;
+      const stealType = options.stealCardType;
+      if (stealType) {
+        // Steal a card of the requested type
+        const idx = target.hand.findIndex((c) => c.type === stealType);
+        if (idx >= 0) {
+          const [stolen] = target.hand.splice(idx, 1);
+          player.hand.push(stolen);
+          checkStreakingKittenEffect(gameState, player.userId);
+          checkStreakingKittenEffect(gameState, target.userId);
+        }
+      } else if (target.hand.length > 0) {
+        // Fallback: steal random if no type specified
+        const randomIndex = Math.floor(Math.random() * target.hand.length);
+        const [stolen] = target.hand.splice(randomIndex, 1);
+        player.hand.push(stolen);
+        checkStreakingKittenEffect(gameState, player.userId);
+        checkStreakingKittenEffect(gameState, target.userId);
+      }
+      return gameState;
+    }
     case 'combo_5': {
       return handleCombo5(gameState, playerId);
     }
     default:
       return gameState;
   }
+}
+
+function resolveDefusePutBack(gameState, insertPosition) {
+  if (!gameState.pendingDefuse) return gameState;
+  const card = gameState.pendingDefuse.card;
+  const pos = Math.max(0, Math.min(insertPosition, gameState.deck.length));
+  if (card.type === 'imploding_kitten') {
+    card.faceUp = true;
+  }
+  gameState.deck.splice(pos, 0, card);
+  gameState.pendingDefuse = null;
+
+  if (gameState.drawsRequired === 0) {
+    gameState.drawsRequired = 1;
+    passTurn(gameState);
+  }
+  return gameState;
 }
 
 module.exports = {
@@ -593,5 +673,6 @@ module.exports = {
   resolveGarbageCollection,
   resolvePotLuck,
   resolveZombieRevive,
+  resolveDefusePutBack,
   checkStreakingKittenEffect,
 };

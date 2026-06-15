@@ -116,3 +116,18 @@ body {
 .animate-fade-in {
   animation: fade-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+@keyframes spin-clockwise {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes spin-counter-clockwise {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(-360deg); }
+}
+.animate-spin-cw {
+  animation: spin-clockwise 10s linear infinite;
+}
+.animate-spin-ccw {
+  animation: spin-counter-clockwise 10s linear infinite;
+}

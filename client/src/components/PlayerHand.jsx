@@ -1,15 +1,84 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import Card from './Card.jsx';
 import { motion, AnimatePresence } from 'framer-motion';
 
+// Priority order for auto-sort: low number = high priority = leftmost in hand.
+// Same-type cards share the same priority so they cluster naturally.
+const CARD_PRIORITY = {
+  defuse: 1,
+  streaking_kitten: 2,
+  nope: 3,
+  attack_2x: 4,
+  target_attack_2x: 5,
+  personal_attack: 6,
+  skip: 7,
+  super_skip: 8,
+  reverse: 9,
+  see_the_future_5: 10,
+  see_the_future_3: 11,
+  see_the_future_1: 12,
+  alter_the_future_5: 13,
+  alter_the_future_3: 14,
+  alter_the_future_3_now: 15,
+  share_the_future_3: 16,
+  shuffle: 17,
+  shuffle_now: 18,
+  draw_from_bottom: 19,
+  favor: 20,
+  ill_take_that: 21,
+  bury: 22,
+  swap_top_and_bottom: 23,
+  catomic_bomb: 24,
+  mark: 25,
+  garbage_collection: 26,
+  pot_luck: 27,
+  clairvoyance_now: 28,
+  feral_cat: 40,
+  cat_taco: 41,
+  cat_watermelon: 42,
+  cat_beard: 43,
+  cat_rainbow: 44,
+  cat_potato: 45,
+};
+const DEFAULT_PRIORITY = 50;
+
+const CAT_TYPES = [
+  { type: 'cat_taco', label: 'Taco Cat' },
+  { type: 'cat_watermelon', label: 'Watermelon Cat' },
+  { type: 'cat_potato', label: 'Hairy Potato Cat' },
+  { type: 'cat_beard', label: 'Beard Cat' },
+  { type: 'cat_rainbow', label: 'Rainbow Ralphing Cat' },
+  { type: 'feral_cat', label: 'Feral Cat' },
+  { type: 'attack', label: 'Attack' },
+  { type: 'skip', label: 'Skip' },
+  { type: 'favor', label: 'Favor' },
+  { type: 'shuffle', label: 'Shuffle' },
+  { type: 'see_the_future', label: 'See the Future' },
+  { type: 'nope', label: 'Nope' },
+  { type: 'defuse', label: 'Defuse' },
+];
+
 export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, targetPlayerId, nopeWindowActive, onDiscard, maxHandSize = 10 }) {
   const [selectedIds, setSelectedIds] = useState([]);
+  const [combo3Pending, setCombo3Pending] = useState(null); // { ids, targetPlayerId }
 
   const containerRef = useRef(null);
   const isDown = useRef(false);
   const startX = useRef(0);
   const scrollLeftVal = useRef(0);
   const hasDragged = useRef(false);
+
+  // Auto-sort hand by priority; same type cards cluster together.
+  const sortedHand = useMemo(() =>
+    [...hand].sort((a, b) => {
+      const pa = CARD_PRIORITY[a.type] ?? DEFAULT_PRIORITY;
+      const pb = CARD_PRIORITY[b.type] ?? DEFAULT_PRIORITY;
+      if (pa !== pb) return pa - pb;
+      // Secondary: stable alphabetical within same priority bucket
+      return a.type.localeCompare(b.type);
+    }),
+    [hand]
+  );
 
   const handleMouseDown = (e) => {
     isDown.current = true;
@@ -67,8 +136,22 @@ export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, ta
 
   const handlePlayCombo = () => {
     if (selectedIds.length < 2) return;
+    if (selectedIds.length === 3) {
+      // 3-card combo: need to pick the card type to steal
+      setCombo3Pending({ ids: selectedIds, targetPlayerId });
+      clearSelection();
+      return;
+    }
     onPlayCombo(selectedIds, targetPlayerId);
     clearSelection();
+  };
+
+  const handleCombo3StealConfirm = (stealType) => {
+    if (!combo3Pending) return;
+    // Send combo with stealCardType in options via a custom event
+    // We piggyback on onPlayCombo but pass extra data via a workaround
+    onPlayCombo(combo3Pending.ids, combo3Pending.targetPlayerId, stealType);
+    setCombo3Pending(null);
   };
 
   const selectedCards = getSelectedCards();
@@ -83,8 +166,9 @@ export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, ta
     // If they have too many cards, they can discard any card
     if (hand.length > maxHandSize) return true;
 
-    // Nope can be played at any time (not just my turn)
-    if (card.type === 'nope') return true;
+    // Nope and "Now" cards can be played at any time (not just my turn, even during a nope window)
+    const isNow = card.type === 'nope' || card.type.endsWith('_now');
+    if (isNow) return true;
 
     // If Nope window is active, cannot play other cards
     if (nopeWindowActive) return false;
@@ -99,17 +183,36 @@ export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, ta
   const isComboPlayable = () => {
     if (hand.length > maxHandSize) return false; // Must discard first, no combos
     if (nopeWindowActive) return false; // No combos during Nope window
+    if (!isMyTurn) return false;
     if (selectedIds.length === 2) {
-      // 2-card combo: must be same cat type
-      return selectedTypes[0] === selectedTypes[1] && selectedTypes[0].startsWith('cat_') && isMyTurn;
+      // 2-card combo: same cat type, OR one feral + one cat.
+      // Requires a target opponent to steal from.
+      if (!targetPlayerId) return false;
+      const nonFeral = selectedTypes.filter((t) => t !== 'feral_cat');
+      const feral = selectedTypes.filter((t) => t === 'feral_cat').length;
+      const allCats = selectedTypes.every((t) => t.startsWith('cat_') || t === 'feral_cat');
+      if (!allCats) return false;
+      return feral === 2 || feral === 1 || (nonFeral.length === 2 && nonFeral[0] === nonFeral[1]);
+    }
+    if (selectedIds.length === 3) {
+      // 3-card combo: all cats, with 2+ same type (or feral filling in).
+      // Requires a target opponent to steal from.
+      if (!targetPlayerId) return false;
+      const nonFeral = selectedTypes.filter((t) => t !== 'feral_cat');
+      const feral = selectedTypes.filter((t) => t === 'feral_cat').length;
+      const allCats = selectedTypes.every((t) => t.startsWith('cat_') || t === 'feral_cat');
+      if (!allCats) return false;
+      if (feral >= 2) return true;
+      if (feral === 1 && nonFeral.length === 2 && nonFeral[0] === nonFeral[1]) return true;
+      if (feral === 0 && nonFeral.length === 3 && nonFeral[0] === nonFeral[1] && nonFeral[1] === nonFeral[2]) return true;
+      return false;
     }
     if (selectedIds.length === 5) {
       // 5-card combo: must be 5 different cat types
       const uniqueCats = new Set(selectedTypes);
       return (
         uniqueCats.size === 5 &&
-        selectedTypes.every((t) => t.startsWith('cat_')) &&
-        isMyTurn
+        selectedTypes.every((t) => t.startsWith('cat_') || t === 'feral_cat')
       );
     }
     return false;
@@ -136,7 +239,15 @@ export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, ta
           )}
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center flex-wrap">
+          {/* Hint: combo requires a target to be selected */}
+          {(selectedIds.length === 2 || selectedIds.length === 3) &&
+            selectedTypes.every((t) => t.startsWith('cat_') || t === 'feral_cat') &&
+            !targetPlayerId && (
+              <span className="text-[10px] font-headline font-black text-rose-500 uppercase animate-pulse">
+                🎯 Chọn mục tiêu trước!
+              </span>
+            )}
           {selectedIds.length > 0 && (
             <button
               onClick={clearSelection}
@@ -151,7 +262,7 @@ export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, ta
             disabled={!isSinglePlayable()}
             className="btn-detonator px-5 py-1.5 rounded-xl text-xs font-headline font-black uppercase shadow-[2px_2px_0px_0px_#1a1c1c]"
           >
-            {hand.length > maxHandSize ? "Bỏ Bớt Bài 🗑️" : "Đánh Bài 🚀"}
+            {hand.length > maxHandSize ? "Bỏ Bớt Bài 🗑️" : "Đánh Bài"}
           </button>
 
           <button
@@ -159,7 +270,7 @@ export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, ta
             disabled={!isComboPlayable()}
             className="btn-detonator px-5 py-1.5 rounded-xl text-xs font-headline font-black uppercase bg-indigo-400 text-slate-950 shadow-[2px_2px_0px_0px_#1a1c1c]"
           >
-            Đánh Combo ({selectedIds.length}) 🤝
+            Combo ({selectedIds.length}) Mèo
           </button>
         </div>
       </div>
@@ -180,8 +291,10 @@ export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, ta
           className="flex gap-4 overflow-x-auto pb-4 pt-6 px-2 custom-scrollbar max-w-full cursor-grab active:cursor-grabbing select-none"
         >
           <AnimatePresence mode="popLayout">
-            {hand.map((card, index) => {
+            {sortedHand.map((card, index) => {
               const isSelected = selectedIds.includes(card.id);
+              // Detect type boundary → add visual gap between groups
+              const isNewGroup = index > 0 && sortedHand[index - 1].type !== card.type;
               return (
                 <motion.div
                   key={card.id}
@@ -208,10 +321,11 @@ export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, ta
                     transition: { duration: 0.1 }
                   }}
                   style={{ zIndex: isSelected ? 20 : 10 + index }}
-                  className="flex-shrink-0"
+                  className={`flex-shrink-0${isNewGroup ? ' ml-4' : ''}`}
                 >
                   <Card
                     type={card.type}
+                    skinIndex={card.skinIndex ?? 0}
                     selected={isSelected}
                     marked={card.marked}
                     onClick={() => {
@@ -224,6 +338,35 @@ export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, ta
               );
             })}
           </AnimatePresence>
+        </div>
+      )}
+
+      {/* 3-Cat Combo: Card Type Picker Modal */}
+      {combo3Pending && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-white border-4 border-on-surface rounded-3xl shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] p-6 max-w-sm w-full mx-4 flex flex-col gap-4">
+            <div className="flex flex-col gap-1">
+              <span className="text-sm font-headline font-black text-on-surface uppercase tracking-wide">3 Mèo Combo</span>
+              <p className="text-xs font-bold text-on-surface-variant">Chọn loại bài muốn lấy từ đối thủ:</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
+              {CAT_TYPES.map((ct) => (
+                <button
+                  key={ct.type}
+                  onClick={() => handleCombo3StealConfirm(ct.type)}
+                  className="px-3 py-2.5 text-xs font-headline font-black border-2 border-on-surface rounded-xl bg-surface hover:bg-primary hover:text-on-primary transition-all shadow-[1.5px_1.5px_0px_0px_#1a1c1c] active:translate-y-0.5 active:shadow-none uppercase text-left"
+                >
+                  {ct.label}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setCombo3Pending(null)}
+              className="px-4 py-2 text-xs font-headline font-black border-2 border-on-surface rounded-xl bg-surface hover:bg-slate-100 transition-all shadow-[1.5px_1.5px_0px_0px_#1a1c1c] uppercase"
+            >
+              Hủy
+            </button>
+          </div>
         </div>
       )}
     </div>

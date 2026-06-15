@@ -27,7 +27,7 @@ export default function DiscardPile({ discardPile = [], pendingCombo5, myUserId,
             onClick={() => setIsOpen(true)}
             className="cursor-pointer hover:-translate-y-1 transition-transform"
           >
-            <Card type={topCard.type} disabled={false} />
+            <Card type={topCard.type} skinIndex={topCard.skinIndex ?? 0} disabled={false} />
           </motion.div>
         ) : (
           <div className="h-44 w-32 rounded-xl border-3 border-dashed border-on-surface flex items-center justify-center text-white/50 text-xs bg-white/5 font-headline font-black uppercase shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]">
@@ -95,7 +95,7 @@ export default function DiscardPile({ discardPile = [], pendingCombo5, myUserId,
                       ${isChoosing ? 'hover:scale-105 cursor-pointer' : ''}`}
                     onClick={isChoosing ? () => handleSelect(card.id) : undefined}
                   >
-                    <Card type={card.type} disabled={true} />
+                    <Card type={card.type} skinIndex={card.skinIndex ?? 0} disabled={true} />
                     {isChoosing && (
                       <div className="absolute inset-0 bg-purple-500/10 hover:bg-transparent rounded-xl flex items-end justify-center pb-4 pointer-events-none">
                         <span className="bg-purple-600 text-[9px] font-headline font-black uppercase tracking-wider px-2 py-0.5 rounded text-white shadow-[1.5px_1.5px_0px_0px_#1a1c1c] border border-on-surface">

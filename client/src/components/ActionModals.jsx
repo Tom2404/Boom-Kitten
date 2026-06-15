@@ -22,7 +22,7 @@ export function SeeFutureModal({ cards, onClose }) {
         <div className="flex gap-6 justify-center items-center py-4 flex-wrap">
           {cards.map((card, index) => (
             <div key={card.id || index} className="relative group">
-              <Card type={card.type} disabled={true} />
+              <Card type={card.type} skinIndex={card.skinIndex ?? 0} disabled={true} />
               <span className="absolute -top-3.5 left-1/2 transform -translate-x-1/2 bg-yellow-400 text-slate-950 font-headline font-black text-[9px] px-2.5 py-0.5 rounded-full border-2 border-on-surface shadow-[1.5px_1.5px_0px_0px_#1a1c1c] uppercase">
                 Thứ {index + 1}
               </span>
@@ -86,7 +86,7 @@ export function AlterFutureModal({ cards, onConfirm }) {
                 {index === 0 ? 'Trên Cùng (Top)' : `Vị trí ${index + 1}`}
               </span>
               
-              <Card type={card.type} disabled={true} />
+              <Card type={card.type} skinIndex={card.skinIndex ?? 0} disabled={true} />
               
               <div className="flex gap-2">
                 <button
@@ -149,7 +149,7 @@ export function FavorRequestModal({ fromPlayerId, hand, onRespond }) {
                 onClick={() => setSelectedId(card.id)}
                 className="transform transition-transform cursor-pointer flex-shrink-0"
               >
-                <Card type={card.type} selected={isSelected} />
+                <Card type={card.type} skinIndex={card.skinIndex ?? 0} selected={isSelected} />
               </div>
             );
           })}
@@ -225,8 +225,8 @@ export function NopeCountdown({ eventId, timeoutMs, hasNopeCard, onPlayNope }) {
       </div>
 
       <div className="flex flex-col">
-        <span className="text-xs font-headline font-black text-on-surface uppercase">Đang chờ Nope...</span>
-        <span className="text-[9px] text-on-surface-variant font-bold leading-tight">Bạn có muốn chặn lá bài vừa đánh không?</span>
+        <span className="text-xs font-headline font-black text-on-surface uppercase">Cửa sổ can thiệp</span>
+        <span className="text-[9px] text-on-surface-variant font-bold leading-tight">Chơi lá Now để phản ứng, hoặc Nope để chặn là bài vừa đánh.</span>
       </div>
 
       {hasNopeCard && (
@@ -234,7 +234,7 @@ export function NopeCountdown({ eventId, timeoutMs, hasNopeCard, onPlayNope }) {
           onClick={onPlayNope}
           className="bg-secondary text-on-error font-headline font-black border-2 border-on-surface shadow-[2px_2px_0px_0px_#1a1c1c] px-4 py-2 rounded-xl text-[10px] hover:scale-105 active:scale-95 transition-all uppercase"
         >
-          Đánh NOPE! ❌
+          Đánh NOPE!
         </button>
       )}
     </div>
@@ -273,7 +273,7 @@ export function BuryPositionModal({ hand, deckCount, onRespond }) {
                 onClick={() => setSelectedId(card.id)}
                 className="transform transition-transform cursor-pointer flex-shrink-0"
               >
-                <Card type={card.type} selected={isSelected} />
+                <Card type={card.type} skinIndex={card.skinIndex ?? 0} selected={isSelected} />
               </div>
             );
           })}
@@ -344,7 +344,7 @@ export function GarbageSelectModal({ hand, title, description, onRespond }) {
                 onClick={() => setSelectedId(card.id)}
                 className="transform transition-transform cursor-pointer flex-shrink-0"
               >
-                <Card type={card.type} selected={isSelected} />
+                <Card type={card.type} skinIndex={card.skinIndex ?? 0} selected={isSelected} />
               </div>
             );
           })}
@@ -452,6 +452,61 @@ export function ZombieReviveModal({ players, deckCount = 0, onRespond }) {
               ${deadPlayers.length > 0 && !selectedPlayerId ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
           >
             {deadPlayers.length === 0 ? "Bỏ qua hồi sinh" : "Triệu Hồi Hồi Sinh"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// 8. DEFUSE POSITION SELECT MODAL
+// ==========================================
+export function DefusePositionModal({ deckCount, onRespond, cardType }) {
+  const [position, setPosition] = useState(0);
+
+  const handleConfirm = () => {
+    onRespond(position);
+  };
+
+  const isImploding = cardType === 'imploding_kitten';
+  const name = isImploding ? 'Mèo Sập Nguồn' : 'Mèo Nổ';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 animate-fade-in text-slate-900">
+      <div className="w-full max-w-xl bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 md:p-8 flex flex-col gap-6 text-center">
+        <div>
+          <h3 className="text-2xl font-headline font-black text-primary uppercase">🛡️ Gỡ Mìn Thành Công!</h3>
+          <p className="text-xs font-bold text-on-surface-variant mt-1">
+            Bạn đã dùng lá bài Gỡ Mìn. Hãy chọn vị trí đặt quân **{name}** ngược lại vào bộ bài bốc.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-3 px-6 py-4 bg-surface border-3 border-on-surface rounded-2xl text-left">
+          <span className="text-xs font-headline font-black text-on-surface uppercase">
+            Vị trí đặt bom: {position === 0 ? 'Dưới cùng (Bottom)' : position === deckCount ? 'Trên cùng (Top)' : `Vị trí thứ ${position} từ dưới lên`}
+          </span>
+          <input
+            type="range"
+            min="0"
+            max={deckCount}
+            value={position}
+            onChange={(e) => setPosition(parseInt(e.target.value, 10))}
+            className="w-full accent-primary cursor-pointer h-2 bg-slate-200 rounded-lg appearance-none"
+          />
+          <div className="flex justify-between text-[9px] font-bold text-on-surface-variant uppercase">
+            <span>Dưới đáy (0)</span>
+            <span>Giữa bộ bài</span>
+            <span>Trên cùng ({deckCount})</span>
+          </div>
+        </div>
+
+        <div className="flex justify-center mt-2">
+          <button
+            onClick={handleConfirm}
+            className="btn-detonator px-8 py-3 rounded-2xl font-headline font-black uppercase text-sm"
+          >
+            Đặt Lại Quân Bài 💣
           </button>
         </div>
       </div>

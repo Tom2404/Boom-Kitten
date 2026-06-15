@@ -49,7 +49,6 @@ export default function Register({ setPage }) {
   return (
     <div className="max-w-md mx-auto my-12 bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-8 flex flex-col gap-6">
       <div className="text-center flex flex-col items-center">
-        <span className="text-5xl animate-bounce">📝</span>
         <h2 className="text-2xl font-headline font-black text-on-surface uppercase mt-4">Đăng Ký</h2>
         <p className="text-xs font-bold text-on-surface-variant mt-1">Tạo tài khoản để tham gia chơi Mèo Nổ.</p>
       </div>

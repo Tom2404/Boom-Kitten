@@ -14,6 +14,7 @@ export function useGame() {
   const [garbageRequest, setGarbageRequest] = useState(null);
   const [potLuckRequest, setPotLuckRequest] = useState(null);
   const [zombieRequest, setZombieRequest] = useState(null);
+  const [defuseRequest, setDefuseRequest] = useState(null);
   const [gameEnded, setGameEnded] = useState(null);
   const [chatMessages, setChatMessages] = useState([]);
   const [statusMessage, setStatusMessage] = useState('');
@@ -46,7 +47,7 @@ export function useGame() {
 
     const onRoomUpdated = ({ room }) => {
       if (room && room.status === 'playing' && roomStateRef.current?.status !== 'playing') {
-        setActionLog([{ id: 'start', text: '🎬 Ván đấu bắt đầu!', timestamp: new Date().toLocaleTimeString() }]);
+        setActionLog([{ id: 'start', text: 'Ván đấu bắt đầu!', timestamp: new Date().toLocaleTimeString() }]);
       }
       setRoomState(room);
       if (room) {
@@ -81,6 +82,9 @@ export function useGame() {
       if (publicGameState && !publicGameState.pendingZombie) {
         setZombieRequest(null);
       }
+      if (publicGameState && !publicGameState.pendingDefuse) {
+        setDefuseRequest(null);
+      }
     };
 
     const onPrivateHand = ({ cards }) => {
@@ -89,7 +93,7 @@ export function useGame() {
 
     const onNopeWindow = ({ eventId, timeoutMs }) => {
       setNopeWindow({ eventId, timeoutMs, active: true });
-      setStatusMessage('Đang chờ Nope...');
+      setStatusMessage('Đang chờ can thiệp...');
       setTimeout(() => {
         setNopeWindow(prev => prev?.eventId === eventId ? { ...prev, active: false } : prev);
       }, timeoutMs);
@@ -123,6 +127,10 @@ export function useGame() {
       setZombieRequest({ timeoutMs, active: true });
     };
 
+    const onDefuseRequest = ({ timeoutMs, cardType }) => {
+      setDefuseRequest({ timeoutMs, cardType, active: true });
+    };
+
     const onGameEnded = ({ winnerId, rankings }) => {
       setGameEnded({ winnerId, rankings });
       setStatusMessage(`Trận đấu kết thúc! Người thắng: ${winnerId}`);
@@ -135,8 +143,8 @@ export function useGame() {
 
     const onExploded = ({ playerId }) => {
       const pName = getUsername(playerId);
-      setStatusMessage(`Người chơi ${pName} đã BÙM! 💣`);
-      setActionLog(prev => [...prev, { id: Math.random().toString(), text: `💥 ${pName} đã bị nổ tung!`, timestamp: new Date().toLocaleTimeString() }]);
+      setStatusMessage(`Người chơi ${pName} đã bị nổ tung!`);
+      setActionLog(prev => [...prev, { id: Math.random().toString(), text: `${pName} đã bị nổ tung!`, timestamp: new Date().toLocaleTimeString() }]);
     };
 
     const onCardPlayed = ({ playerId, cardType, targetPlayerId }) => {
@@ -162,7 +170,7 @@ export function useGame() {
 
     const onTurnChanged = ({ currentPlayerId, drawsRequired }) => {
       const pName = getUsername(currentPlayerId);
-      setActionLog(prev => [...prev, { id: Math.random().toString(), text: `⏳ Đến lượt của ${pName} (Cần bốc: ${drawsRequired} lá)`, timestamp: new Date().toLocaleTimeString() }]);
+      setActionLog(prev => [...prev, { id: Math.random().toString(), text: `Đến lượt của ${pName} (Cần bốc: ${drawsRequired} lá)`, timestamp: new Date().toLocaleTimeString() }]);
       setStatusMessage('');
     };
 
@@ -185,6 +193,7 @@ export function useGame() {
     socket.on('game:garbage:request', onGarbageRequest);
     socket.on('game:potLuck:request', onPotLuckRequest);
     socket.on('game:zombie:request', onZombieRequest);
+    socket.on('game:defuse:request', onDefuseRequest);
     socket.on('game:ended', onGameEnded);
     socket.on('game:exploded', onExploded);
     socket.on('game:cardPlayed', onCardPlayed);
@@ -205,6 +214,7 @@ export function useGame() {
       socket.off('game:garbage:request', onGarbageRequest);
       socket.off('game:potLuck:request', onPotLuckRequest);
       socket.off('game:zombie:request', onZombieRequest);
+      socket.off('game:defuse:request', onDefuseRequest);
       socket.off('game:ended', onGameEnded);
       socket.off('game:exploded', onExploded);
       socket.off('game:cardPlayed', onCardPlayed);
@@ -216,12 +226,12 @@ export function useGame() {
   }, [socket]);
 
   // Actions
-  const createRoom = (maxPlayers = 5, isPublic = true) => {
-    socket.emit('room:create', { maxPlayers, isPublic });
+  const createRoom = (password = '', isPublic = true) => {
+    socket.emit('room:create', { password, isPublic });
   };
 
-  const joinRoom = (roomCode) => {
-    socket.emit('room:join', { roomCode });
+  const joinRoom = (roomCode, password = '') => {
+    socket.emit('room:join', { roomCode, password });
   };
 
   const leaveRoom = () => {
@@ -286,8 +296,14 @@ export function useGame() {
     setZombieRequest(null);
   };
 
-  const playCombo = (cards, targetPlayerId = null) => {
-    socket.emit('game:combo', { cards, targetPlayerId });
+  const respondDefuse = (insertPosition) => {
+    socket.emit('game:defuse:respond', { insertPosition });
+    setDefuseRequest(null);
+  };
+
+  const playCombo = (cards, targetPlayerId = null, stealCardType = null) => {
+    const options = stealCardType ? { stealCardType } : undefined;
+    socket.emit('game:combo', { cards, targetPlayerId, options });
   };
 
   const respondCombo5 = (cardId) => {
@@ -317,6 +333,7 @@ export function useGame() {
     garbageRequest,
     potLuckRequest,
     zombieRequest,
+    defuseRequest,
     gameEnded,
     setGameEnded,
     chatMessages,
@@ -337,6 +354,7 @@ export function useGame() {
     respondGarbage,
     respondPotLuck,
     respondZombie,
+    respondDefuse,
     playCombo,
     respondCombo5,
     sendChatMessage,

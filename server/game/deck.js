@@ -1,6 +1,46 @@
 // Deck utilities for creating and dealing Exploding Kittens cards.
 const crypto = require('crypto');
 
+// Number of image skin variants per card type.
+// Must stay in sync with client/src/utils/cardSkins.js.
+const SKIN_COUNTS = {
+  defuse: 18,
+  nope: 10,
+  skip: 8,
+  super_skip: 2,
+  see_the_future_1: 10,
+  see_the_future_3: 10,
+  see_the_future_5: 1,
+  alter_the_future_3: 4,
+  alter_the_future_3_now: 1,
+  alter_the_future_5: 1,
+  shuffle: 8,
+  draw_from_bottom: 1,
+  favor: 6,
+  cat_taco: 1,
+  cat_watermelon: 1,
+  cat_beard: 1,
+  cat_rainbow: 1,
+  cat_potato: 1,
+  feral_cat: 1,
+  reverse: 4,
+  attack_2x: 8,
+  personal_attack: 4,
+  bury: 2,
+  swap_top_and_bottom: 1,
+  catomic_bomb: 1,
+  mark: 1,
+  ill_take_that: 4,
+  garbage_collection: 1,
+  pot_luck: 2,
+  streaking_kitten: 1,
+  exploding_kitten: 13,
+  imploding_kitten: 1,
+  clairvoyance_now: 2,
+  target_attack_2x: 3,
+  share_the_future_3: 2,
+};
+
 const CARD_COUNTS = {
   defuse: 4,
   nope: 5,
@@ -41,10 +81,14 @@ const CARD_COUNTS = {
   feral_cat: 3,
   clone: 2,
   godcat: 1,
+  target_attack_2x: 2,
+  share_the_future_3: 2,
 };
 
 function makeCard(type) {
-  return { id: crypto.randomUUID(), type };
+  const skinCount = SKIN_COUNTS[type] ?? 1;
+  const skinIndex = Math.floor(Math.random() * skinCount);
+  return { id: crypto.randomUUID(), type, skinIndex };
 }
 
 function shuffleDeck(deck) {
