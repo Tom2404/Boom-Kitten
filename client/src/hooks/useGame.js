@@ -15,6 +15,7 @@ export function useGame() {
   const [potLuckRequest, setPotLuckRequest] = useState(null);
   const [zombieRequest, setZombieRequest] = useState(null);
   const [defuseRequest, setDefuseRequest] = useState(null);
+  const [selectTargetRequest, setSelectTargetRequest] = useState(null);
   const [gameEnded, setGameEnded] = useState(null);
   const [chatMessages, setChatMessages] = useState([]);
   const [statusMessage, setStatusMessage] = useState('');
@@ -85,6 +86,9 @@ export function useGame() {
       if (publicGameState && !publicGameState.pendingDefuse) {
         setDefuseRequest(null);
       }
+      if (publicGameState && !publicGameState.pendingTargetSelect) {
+        setSelectTargetRequest(null);
+      }
     };
 
     const onPrivateHand = ({ cards }) => {
@@ -129,6 +133,10 @@ export function useGame() {
 
     const onDefuseRequest = ({ timeoutMs, cardType }) => {
       setDefuseRequest({ timeoutMs, cardType, active: true });
+    };
+
+    const onSelectTargetRequest = ({ cardType, timeoutMs }) => {
+      setSelectTargetRequest({ cardType, timeoutMs, active: true });
     };
 
     const onGameEnded = ({ winnerId, rankings }) => {
@@ -194,6 +202,7 @@ export function useGame() {
     socket.on('game:potLuck:request', onPotLuckRequest);
     socket.on('game:zombie:request', onZombieRequest);
     socket.on('game:defuse:request', onDefuseRequest);
+    socket.on('game:selectTarget:request', onSelectTargetRequest);
     socket.on('game:ended', onGameEnded);
     socket.on('game:exploded', onExploded);
     socket.on('game:cardPlayed', onCardPlayed);
@@ -215,6 +224,7 @@ export function useGame() {
       socket.off('game:potLuck:request', onPotLuckRequest);
       socket.off('game:zombie:request', onZombieRequest);
       socket.off('game:defuse:request', onDefuseRequest);
+      socket.off('game:selectTarget:request', onSelectTargetRequest);
       socket.off('game:ended', onGameEnded);
       socket.off('game:exploded', onExploded);
       socket.off('game:cardPlayed', onCardPlayed);
@@ -301,6 +311,11 @@ export function useGame() {
     setDefuseRequest(null);
   };
 
+  const respondSelectTarget = (targetPlayerId) => {
+    socket.emit('game:selectTarget:respond', { targetPlayerId });
+    setSelectTargetRequest(null);
+  };
+
   const playCombo = (cards, targetPlayerId = null, stealCardType = null) => {
     const options = stealCardType ? { stealCardType } : undefined;
     socket.emit('game:combo', { cards, targetPlayerId, options });
@@ -334,6 +349,7 @@ export function useGame() {
     potLuckRequest,
     zombieRequest,
     defuseRequest,
+    selectTargetRequest,
     gameEnded,
     setGameEnded,
     chatMessages,
@@ -355,6 +371,7 @@ export function useGame() {
     respondPotLuck,
     respondZombie,
     respondDefuse,
+    respondSelectTarget,
     playCombo,
     respondCombo5,
     sendChatMessage,

@@ -510,6 +510,11 @@ function playCard(gameState, playerId, cardType, targetPlayerId, options = {}) {
   const player = getPlayer(gameState, playerId);
   if (!player || !player.alive) return null;
 
+  // Nope cannot be played manually — only via the Nope chain (game:nope event)
+  if (cardType === 'nope') return null;
+  // Defuse cannot be played manually — auto-played when drawing Exploding Kitten
+  if (cardType === 'defuse') return null;
+
   let actualCardType = cardType;
   if (cardType === 'godcat' && options.asCardType) {
     actualCardType = options.asCardType;

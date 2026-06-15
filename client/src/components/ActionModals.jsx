@@ -122,7 +122,7 @@ export function AlterFutureModal({ cards, onConfirm }) {
 // ==========================================
 // 3. FAVOR REQUEST MODAL
 // ==========================================
-export function FavorRequestModal({ fromPlayerId, hand, onRespond }) {
+export function FavorRequestModal({ fromPlayerId, fromPlayerName, hand, onRespond }) {
   const [selectedId, setSelectedId] = useState(null);
 
   const handleSend = () => {
@@ -136,7 +136,7 @@ export function FavorRequestModal({ fromPlayerId, hand, onRespond }) {
         <div className="text-center">
           <h3 className="text-2xl font-headline font-black text-primary uppercase">🤲 Bị Xin Bài! (Favor Request)</h3>
           <p className="text-xs font-bold text-on-surface-variant mt-1">
-            Người chơi <strong className="text-on-surface uppercase">{fromPlayerId}</strong> đã đánh lá Favor nhắm vào bạn. Hãy chọn **1 lá** để trao cho họ.
+            Người chơi <strong className="text-on-surface uppercase">{fromPlayerName || fromPlayerId}</strong> đã đánh lá Favor nhắm vào bạn. Hãy chọn 1 lá để trao cho họ.
           </p>
         </div>
 
@@ -507,6 +507,88 @@ export function DefusePositionModal({ deckCount, onRespond, cardType }) {
             className="btn-detonator px-8 py-3 rounded-2xl font-headline font-black uppercase text-sm"
           >
             Đặt Lại Quân Bài 💣
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// 9. SELECT TARGET MODAL (after playing card)
+// ==========================================
+export function SelectTargetModal({ players, myUserId, cardType, onRespond }) {
+  const [selectedPlayerId, setSelectedPlayerId] = useState(null);
+
+  const aliveOpponents = players.filter((p) => p.alive && p.userId !== myUserId);
+
+  const CARD_DISPLAY_NAMES = {
+    favor: '🤲 Xin Bài (Favor)',
+    mark: '🔖 Đánh Dấu (Mark)',
+    ill_take_that: "🫳 Tôi Lấy Đó (I'll Take That)",
+    target_attack_2x: '⚔️ Tấn Công Mục Tiêu (Target Attack)',
+    combo_2: '🐱🐱 Combo 2 Mèo',
+    combo_3: '🐱🐱🐱 Combo 3 Mèo',
+  };
+
+  const handleConfirm = () => {
+    if (!selectedPlayerId) return;
+    onRespond(selectedPlayerId);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 animate-fade-in">
+      <div className="w-full max-w-xl bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 md:p-8 flex flex-col gap-6 text-center">
+        <div>
+          <h3 className="text-2xl font-headline font-black text-primary uppercase">
+            🎯 Chọn Mục Tiêu
+          </h3>
+          <p className="text-xs font-bold text-on-surface-variant mt-1">
+            Bạn đã đánh lá <strong className="text-on-surface uppercase">{CARD_DISPLAY_NAMES[cardType] || cardType}</strong>. Hãy chọn người chơi bị tác động.
+          </p>
+        </div>
+
+        {aliveOpponents.length === 0 ? (
+          <div className="py-8 text-sm font-bold text-on-surface-variant uppercase">
+            Không có người chơi nào khả dụng.
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3 max-h-[280px] overflow-y-auto px-2">
+            {aliveOpponents.map((p) => {
+              const isSelected = selectedPlayerId === p.userId;
+              return (
+                <div
+                  key={p.userId}
+                  onClick={() => setSelectedPlayerId(p.userId)}
+                  className={`flex items-center justify-between p-4 border-3 rounded-2xl cursor-pointer transition-all duration-100
+                    ${isSelected
+                      ? 'border-yellow-400 bg-yellow-400/10 shadow-[3px_3px_0px_0px_rgba(26,28,28,1)] translate-y-[-2px]'
+                      : 'border-on-surface bg-surface hover:bg-slate-50'}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-primary-fixed border-2 border-on-surface flex items-center justify-center text-sm font-headline font-black uppercase text-on-surface">
+                      {(p.username || p.userId).slice(0, 2).toUpperCase()}
+                    </div>
+                    <div className="text-left flex flex-col">
+                      <span className="text-xs font-headline font-black text-on-surface uppercase">{p.username || p.userId}</span>
+                      <span className="text-[10px] font-bold text-slate-400">🃏 {p.handCount} lá bài</span>
+                    </div>
+                  </div>
+                  {isSelected && <span className="text-xl">✅</span>}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="flex justify-center mt-2">
+          <button
+            onClick={handleConfirm}
+            disabled={!selectedPlayerId}
+            className={`btn-detonator px-8 py-3 rounded-2xl font-headline font-black uppercase text-sm
+              ${!selectedPlayerId ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
+          >
+            Xác Nhận Mục Tiêu 🎯
           </button>
         </div>
       </div>

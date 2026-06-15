@@ -15,6 +15,7 @@ import {
   GarbageSelectModal,
   ZombieReviveModal,
   DefusePositionModal,
+  SelectTargetModal,
 } from '../components/ActionModals.jsx';
 import CustomDialog from '../components/CustomDialog.jsx';
 
@@ -163,6 +164,7 @@ export default function Game() {
     potLuckRequest,
     zombieRequest,
     defuseRequest,
+    selectTargetRequest,
     gameEnded,
     setGameEnded,
     chatMessages,
@@ -183,6 +185,7 @@ export default function Game() {
     respondPotLuck,
     respondZombie,
     respondDefuse,
+    respondSelectTarget,
     playCombo,
     respondCombo5,
     sendChatMessage,
@@ -694,6 +697,13 @@ export default function Game() {
   const opponents = gameState.players.filter((p) => p.userId !== myUser.id);
   const activePlayerId = gameState.players[gameState.currentPlayerIndex]?.userId;
   const isMyTurn = activePlayerId === myUser.id;
+  const getPlayerDisplayName = (playerId) => {
+    if (playerId === myUser.id) return myUser.username || 'Bạn';
+    const player =
+      gameState.players.find((p) => p.userId === playerId) ||
+      roomState?.players?.find((p) => p.userId === playerId);
+    return player?.username || playerId;
+  };
 
   const isOpponentTargetable = (oppId) => {
     if (!isMyTurn) return false;
@@ -752,7 +762,7 @@ export default function Game() {
           {/* Circular Board Container */}
           <div className="flex justify-center gap-4 flex-wrap md:flex-none md:block w-full relative min-h-[160px] md:min-h-[420px] flex-grow py-2 z-10">
             {getOrderedOpponents().map((opp, idx) => (
-              <div key={opp.userId} className={getOpponentPositionClass(idx, opponents.length)}>
+              <div key={opp.userId} className={`${getOpponentPositionClass(idx, opponents.length)} relative`}>
                 <PlayerAvatar
                   player={opp}
                   isCurrentTurn={activePlayerId === opp.userId}
@@ -764,10 +774,10 @@ export default function Game() {
             ))}
 
             {/* Board Center: Deck and Discard Pile */}
-            <div className="md:absolute md:top-1/2 md:left-1/2 md:transform md:-translate-x-1/2 md:-translate-y-1/2 flex justify-center items-center gap-6 md:gap-16 py-6 z-10 w-full md:w-auto relative">
+            <div className="md:absolute md:top-1/2 md:left-1/2 md:transform md:-translate-x-1/2 md:-translate-y-1/2 grid grid-cols-[auto_minmax(180px,240px)_auto] items-center justify-center gap-6 md:gap-8 py-6 z-10 w-full md:w-auto relative">
               {/* Rotating play direction arrows background */}
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-visible">
-                <div className={`w-[26rem] h-[26rem] border-4 border-dashed border-white/5 rounded-full flex items-center justify-center transition-all duration-500 ${gameState.playDirection === -1 ? 'animate-spin-ccw border-rose-500/10' : 'animate-spin-cw border-emerald-500/10'}`}>
+                <div className={`w-[20rem] h-[20rem] border-4 border-dashed border-white/5 rounded-full flex items-center justify-center transition-all duration-500 ${gameState.playDirection === -1 ? 'animate-spin-ccw border-rose-500/10' : 'animate-spin-cw border-emerald-500/10'}`}>
                   {/* Curved arrows/pointers */}
                   <span className={`absolute top-4 text-2xl font-black transition-colors ${gameState.playDirection === -1 ? 'text-rose-500/20' : 'text-emerald-500/20'}`}>▶</span>
                   <span className={`absolute right-4 text-2xl font-black rotate-90 transition-colors ${gameState.playDirection === -1 ? 'text-rose-500/20' : 'text-emerald-500/20'}`}>▶</span>
@@ -781,6 +791,7 @@ export default function Game() {
                 onDraw={drawCard}
                 isMyTurn={isMyTurn}
                 disabled={!!gameState.pendingFavor || !!gameState.pendingAlter || (nopeWindow && nopeWindow.active) || privateHand.length > (gameState.maxHandSize ?? 10)}
+                compact
               />
 
               {/* Announcer and Status Message Board */}
@@ -812,6 +823,7 @@ export default function Game() {
                 pendingCombo5={gameState.pendingCombo5}
                 myUserId={myUser.id}
                 onSelectCard={respondCombo5}
+                compact
               />
             </div>
           </div>
@@ -985,6 +997,7 @@ export default function Game() {
       {favorRequest && favorRequest.active && (
         <FavorRequestModal
           fromPlayerId={favorRequest.fromPlayerId}
+          fromPlayerName={gameState?.players?.find((p) => p.userId === favorRequest.fromPlayerId)?.username}
           hand={privateHand}
           onRespond={respondFavor}
         />
@@ -1047,6 +1060,16 @@ export default function Game() {
         />
       )}
 
+      {/* 8.6. Select Target Modal (after playing card) */}
+      {selectTargetRequest && selectTargetRequest.active && (
+        <SelectTargetModal
+          players={gameState?.players || []}
+          myUserId={myUser.id}
+          cardType={selectTargetRequest.cardType}
+          onRespond={respondSelectTarget}
+        />
+      )}
+
       {/* 9. Game Ended Win Overlay */}
       {gameEnded && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur p-4 animate-fade-in">
@@ -1060,7 +1083,7 @@ export default function Game() {
                 {gameEnded.winnerId === myUser.id ? 'BẠN CHIẾN THẮNG!' : 'BẠN ĐÃ THUA CUỘC'}
               </h2>
               <p className="text-xs font-bold text-on-surface-variant mt-1">
-                Kẻ sống sót cuối cùng: <strong className="text-primary uppercase">{gameEnded.winnerId}</strong>
+                Kẻ sống sót cuối cùng: <strong className="text-primary uppercase">{getPlayerDisplayName(gameEnded.winnerId)}</strong>
               </p>
             </div>
 
@@ -1070,9 +1093,9 @@ export default function Game() {
                 Thứ hạng chung cuộc
               </h3>
               {gameEnded.rankings.map((rank, index) => (
-                <div key={index} className="flex justify-between items-center text-xs py-1">
-                  <span className="text-on-surface font-bold uppercase text-[10px]">
-                    #{index + 1} {rank.userId}
+                <div key={rank.userId || index} className="flex justify-between items-center gap-4 text-xs py-1">
+                  <span className="min-w-0 flex-1 truncate text-left text-on-surface font-bold uppercase text-[10px]">
+                    #{index + 1} {getPlayerDisplayName(rank.userId)}
                   </span>
                   <span className={`font-headline font-black uppercase tracking-wider text-[9px]
                     ${rank.result === 'win' ? 'text-emerald-600' : 'text-on-surface-variant'}`}>

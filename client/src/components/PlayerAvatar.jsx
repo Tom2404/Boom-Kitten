@@ -27,6 +27,8 @@ export default function PlayerAvatar({
   publicProfile,
 }) {
   const { userId, username, alive, handCount, avatar, activeAvatarFrame, eloPoints, rank, markedCards, pendingTakeFrom } = player;
+  const visibleMarkedCards = markedCards?.slice(0, 3) ?? [];
+  const hiddenMarkedCount = Math.max((markedCards?.length ?? 0) - visibleMarkedCards.length, 0);
 
   const handleSelect = () => {
     if (isTargetable && onSelectTarget) {
@@ -125,26 +127,40 @@ export default function PlayerAvatar({
           CHỌN MỤC TIÊU
         </span>
       )}
-      {/* Marked cards and redirection warning */}
-      {alive && (
+      {/* Redirection warning */}
+      {alive && pendingTakeFrom && (
         <div className="w-full mt-2 flex flex-col gap-1 text-[9px] font-bold border-t border-on-surface/10 pt-2 text-left">
-          {pendingTakeFrom && (
-            <span className="text-rose-500 uppercase animate-pulse">
-              Bị cướp bài bốc tiếp theo
+          <span className="text-rose-500 uppercase animate-pulse">
+            Bị cướp bài bốc tiếp theo
+          </span>
+        </div>
+      )}
+
+      {alive && isSelectedTarget && (
+        <div className="mt-2 rounded-full border-2 border-on-surface bg-yellow-400 px-3 py-1 text-[9px] font-headline font-black uppercase tracking-wider text-slate-950 shadow-[2px_2px_0px_0px_#1a1c1c]">
+          🎯 Đang nhắm
+        </div>
+      )}
+
+      {alive && visibleMarkedCards.length > 0 && (
+        <div className="mt-2 w-full rounded-xl border-2 border-rose-500 bg-white px-2 py-1.5 text-left shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]">
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <span className="text-[8px] font-headline font-black uppercase tracking-wider text-rose-600">
+              👁 Bài bị lộ
             </span>
-          )}
-          {markedCards && markedCards.length > 0 && (
-            <div className="flex flex-col gap-0.5">
-              <span className="text-on-surface-variant uppercase">Bài bị lộ:</span>
-              <div className="flex flex-wrap gap-1">
-                {markedCards.map((c) => (
-                  <span key={c.id} className="bg-rose-100 border border-rose-400 text-rose-700 px-1 rounded text-[8px] truncate max-w-full">
-                    {formatCardName(c.type)}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
+            {hiddenMarkedCount > 0 && (
+              <span className="rounded-full bg-rose-100 px-1.5 py-0.5 text-[8px] font-headline font-black text-rose-700">
+                +{hiddenMarkedCount}
+              </span>
+            )}
+          </div>
+          <div className="flex flex-col gap-1">
+            {visibleMarkedCards.map((c) => (
+              <span key={c.id} className="max-w-full truncate rounded-md border border-rose-300 bg-rose-50 px-1.5 py-0.5 text-[8px] font-bold leading-tight text-rose-700">
+                {formatCardName(c.type)}
+              </span>
+            ))}
+          </div>
         </div>
       )}
     </div>

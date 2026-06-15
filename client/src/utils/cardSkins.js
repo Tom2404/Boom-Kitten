@@ -233,12 +233,34 @@ const SKIN_PACKS = {
 
 const DEFAULT_PACK = 'BoomKitten';
 
+const CARD_TYPE_ALIASES = {
+  Skip: 'skip',
+  Reverse: 'reverse',
+  Attack: 'attack_2x',
+  Favor: 'favor',
+  superskip: 'super_skip',
+  super_skip: 'super_skip',
+  attack: 'attack_2x',
+  see_the_future: 'see_the_future_3',
+  draw_from_the_bottom: 'draw_from_bottom',
+  shuffle_now: 'shuffle',
+};
+
+function normalizeCardType(cardType) {
+  if (!cardType) return cardType;
+  const directAlias = CARD_TYPE_ALIASES[cardType];
+  if (directAlias) return directAlias;
+  const normalized = String(cardType).trim().toLowerCase().replace(/[\s-]+/g, '_');
+  return CARD_TYPE_ALIASES[normalized] || normalized;
+}
+
 /**
  * Number of skin variants for a card type.
  * Used by the server (deck.js SKIN_COUNTS) to set the random range.
  */
 export function getSkinCount(cardType, pack = DEFAULT_PACK) {
-  const skins = SKIN_PACKS[pack]?.[cardType];
+  const resolvedType = normalizeCardType(cardType);
+  const skins = SKIN_PACKS[pack]?.[resolvedType];
   return skins ? skins.length : 1;
 }
 
@@ -253,7 +275,8 @@ export function getSkinCount(cardType, pack = DEFAULT_PACK) {
  * @returns {string|null}
  */
 export function getCardImageUrl(cardType, skinIndex = 0, pack = DEFAULT_PACK) {
-  const skins = SKIN_PACKS[pack]?.[cardType];
+  const resolvedType = normalizeCardType(cardType);
+  const skins = SKIN_PACKS[pack]?.[resolvedType];
   if (!skins || skins.length === 0) return null;
   const idx = Math.abs(Math.floor(skinIndex)) % skins.length;
   return _cache[skins[idx]] ?? null;
@@ -263,5 +286,6 @@ export function getCardImageUrl(cardType, skinIndex = 0, pack = DEFAULT_PACK) {
  * Full skins array for a card type (useful for preloading).
  */
 export function getCardSkins(cardType, pack = DEFAULT_PACK) {
-  return SKIN_PACKS[pack]?.[cardType] ?? [];
+  const resolvedType = normalizeCardType(cardType);
+  return SKIN_PACKS[pack]?.[resolvedType] ?? [];
 }

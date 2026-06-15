@@ -138,19 +138,19 @@ export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, ta
     if (selectedIds.length < 2) return;
     if (selectedIds.length === 3) {
       // 3-card combo: need to pick the card type to steal
-      setCombo3Pending({ ids: selectedIds, targetPlayerId });
+      setCombo3Pending({ ids: selectedIds });
       clearSelection();
       return;
     }
-    onPlayCombo(selectedIds, targetPlayerId);
+    onPlayCombo(selectedIds, null);
     clearSelection();
   };
 
   const handleCombo3StealConfirm = (stealType) => {
     if (!combo3Pending) return;
     // Send combo with stealCardType in options via a custom event
-    // We piggyback on onPlayCombo but pass extra data via a workaround
-    onPlayCombo(combo3Pending.ids, combo3Pending.targetPlayerId, stealType);
+    // Target will be selected after playing via SelectTargetModal
+    onPlayCombo(combo3Pending.ids, null, stealType);
     setCombo3Pending(null);
   };
 
@@ -166,8 +166,13 @@ export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, ta
     // If they have too many cards, they can discard any card
     if (hand.length > maxHandSize) return true;
 
-    // Nope and "Now" cards can be played at any time (not just my turn, even during a nope window)
-    const isNow = card.type === 'nope' || card.type.endsWith('_now');
+    // Nope cannot be played manually — only through Nope window chain
+    if (card.type === 'nope') return false;
+    // Defuse cannot be played manually — auto-played when drawing Exploding Kitten
+    if (card.type === 'defuse') return false;
+
+    // "Now" cards can be played at any time (not just my turn, even during a nope window)
+    const isNow = card.type.endsWith('_now');
     if (isNow) return true;
 
     // If Nope window is active, cannot play other cards
@@ -187,7 +192,6 @@ export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, ta
     if (selectedIds.length === 2) {
       // 2-card combo: same cat type, OR one feral + one cat.
       // Requires a target opponent to steal from.
-      if (!targetPlayerId) return false;
       const nonFeral = selectedTypes.filter((t) => t !== 'feral_cat');
       const feral = selectedTypes.filter((t) => t === 'feral_cat').length;
       const allCats = selectedTypes.every((t) => t.startsWith('cat_') || t === 'feral_cat');
@@ -196,8 +200,6 @@ export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, ta
     }
     if (selectedIds.length === 3) {
       // 3-card combo: all cats, with 2+ same type (or feral filling in).
-      // Requires a target opponent to steal from.
-      if (!targetPlayerId) return false;
       const nonFeral = selectedTypes.filter((t) => t !== 'feral_cat');
       const feral = selectedTypes.filter((t) => t === 'feral_cat').length;
       const allCats = selectedTypes.every((t) => t.startsWith('cat_') || t === 'feral_cat');
@@ -240,14 +242,7 @@ export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, ta
         </div>
 
         <div className="flex gap-2 items-center flex-wrap">
-          {/* Hint: combo requires a target to be selected */}
-          {(selectedIds.length === 2 || selectedIds.length === 3) &&
-            selectedTypes.every((t) => t.startsWith('cat_') || t === 'feral_cat') &&
-            !targetPlayerId && (
-              <span className="text-[10px] font-headline font-black text-rose-500 uppercase animate-pulse">
-                🎯 Chọn mục tiêu trước!
-              </span>
-            )}
+
           {selectedIds.length > 0 && (
             <button
               onClick={clearSelection}

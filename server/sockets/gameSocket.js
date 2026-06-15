@@ -76,6 +76,7 @@ function sanitizePublicGameState(gameState) {
     ...gameState,
     deckCount: gameState.deck.length,
     deck: undefined,
+    pendingTargetSelect: gameState.pendingTargetSelect || null,
     players: gameState.players.map((player) => ({
       userId: player.userId,
       username: player.username,
@@ -180,6 +181,41 @@ module.exports = function registerGameSocket(io) {
 
       await runActionEffect(room, action);
     }, 3000);
+  }
+
+  // Cards that require a target selection after being played
+  const CARDS_REQUIRING_TARGET = ['favor', 'mark', 'ill_take_that', 'target_attack_2x'];
+
+  function resolveTargetSelect(room, targetPlayerId) {
+    const gameState = room.gameState;
+    const pending = gameState.pendingTargetSelect;
+    if (!pending) return;
+
+    const { playerId, cardType, options, comboSize } = pending;
+    gameState.pendingTargetSelect = null;
+
+    // Update lastAction with target
+    if (gameState.lastAction) {
+      gameState.lastAction.targetPlayerId = targetPlayerId;
+    }
+
+    // Create pendingAction and start Nope timer
+    const actualCardType = comboSize ? `combo_${comboSize}` : cardType;
+    const eventId = `${Date.now()}-${Math.random()}`;
+    gameState.pendingAction = {
+      eventId,
+      playerId,
+      cardType: actualCardType,
+      targetPlayerId,
+      options: options || {},
+      nopeCount: 0,
+    };
+
+    io.to(room.code).emit('game:nopeWindow', { eventId, timeoutMs: 3000 });
+    io.to(room.code).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(gameState) });
+    sendHands(io, room);
+
+    setupNopeTimeout(room, eventId);
   }
 
   async function executeDraw(room, playerId) {
@@ -518,7 +554,7 @@ module.exports = function registerGameSocket(io) {
       const isNowCard = cardType.endsWith('_now');
 
       if (!isNowCard) {
-        if (state.pendingAction || state.pendingFavor || state.pendingAlter || state.pendingBury || state.pendingGarbage || state.pendingPotLuck || state.pendingZombie || state.pendingDefuse) {
+        if (state.pendingAction || state.pendingFavor || state.pendingAlter || state.pendingBury || state.pendingGarbage || state.pendingPotLuck || state.pendingZombie || state.pendingDefuse || state.pendingTargetSelect) {
           socket.emit('error', { message: 'Không thể đánh bài vào lúc này!' });
           return;
         }
@@ -529,7 +565,7 @@ module.exports = function registerGameSocket(io) {
           return;
         }
       } else {
-        if (state.pendingFavor || state.pendingAlter || state.pendingBury || state.pendingGarbage || state.pendingPotLuck || state.pendingZombie || state.pendingDefuse) {
+        if (state.pendingFavor || state.pendingAlter || state.pendingBury || state.pendingGarbage || state.pendingPotLuck || state.pendingZombie || state.pendingDefuse || state.pendingTargetSelect) {
           socket.emit('error', { message: 'Không thể đánh bài vào lúc này!' });
           return;
         }
@@ -551,6 +587,39 @@ module.exports = function registerGameSocket(io) {
       checkStreakingKittenEffect(room.gameState, userId);
       if (targetPlayerId) {
         checkStreakingKittenEffect(room.gameState, targetPlayerId);
+      }
+
+      // If this card requires a target and none was provided, prompt player to select
+      if (CARDS_REQUIRING_TARGET.includes(actualCardType) && !targetPlayerId) {
+        room.gameState.pendingTargetSelect = {
+          playerId: userId,
+          cardType: actualCardType,
+          options,
+          startedAt: Date.now(),
+        };
+
+        io.to(`user:${userId}`).emit('game:selectTarget:request', {
+          cardType: actualCardType,
+          timeoutMs: 15000,
+        });
+
+        // Timeout: auto-select random alive opponent
+        const currentPending = room.gameState.pendingTargetSelect;
+        setTimeout(() => {
+          if (room.gameState.pendingTargetSelect && room.gameState.pendingTargetSelect === currentPending) {
+            const aliveOpponents = room.gameState.players.filter(p => p.alive && p.userId !== userId);
+            if (aliveOpponents.length > 0) {
+              const randomTarget = aliveOpponents[Math.floor(Math.random() * aliveOpponents.length)];
+              resolveTargetSelect(room, randomTarget.userId);
+            } else {
+              room.gameState.pendingTargetSelect = null;
+            }
+          }
+        }, 15000);
+
+        io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
+        sendHands(io, room);
+        return;
       }
 
       const eventId = `${Date.now()}-${Math.random()}`;
@@ -577,7 +646,7 @@ module.exports = function registerGameSocket(io) {
       if (!room?.gameState) return;
 
       const state = room.gameState;
-      if (state.pendingAction || state.pendingFavor || state.pendingAlter || state.pendingBury || state.pendingGarbage || state.pendingPotLuck || state.pendingZombie || state.pendingDefuse) {
+      if (state.pendingAction || state.pendingFavor || state.pendingAlter || state.pendingBury || state.pendingGarbage || state.pendingPotLuck || state.pendingZombie || state.pendingDefuse || state.pendingTargetSelect) {
         socket.emit('error', { message: 'Không thể bốc bài vào lúc này!' });
         return;
       }
@@ -692,7 +761,7 @@ module.exports = function registerGameSocket(io) {
       if (!room?.gameState) return;
 
       const state = room.gameState;
-      if (state.pendingAction || state.pendingFavor || state.pendingAlter || state.pendingBury || state.pendingGarbage || state.pendingPotLuck || state.pendingZombie) {
+      if (state.pendingAction || state.pendingFavor || state.pendingAlter || state.pendingBury || state.pendingGarbage || state.pendingPotLuck || state.pendingZombie || state.pendingTargetSelect) {
         socket.emit('error', { message: 'Không thể đánh bài vào lúc này!' });
         return;
       }
@@ -732,6 +801,42 @@ module.exports = function registerGameSocket(io) {
         updateQuestProgress(userId, 'steal_card', 1);
       }
 
+      const comboSize = cards.length;
+
+      // Combo 2/3 needs a target — use select-target-after-play flow
+      if ((comboSize === 2 || comboSize === 3) && !targetPlayerId) {
+        room.gameState.pendingTargetSelect = {
+          playerId: userId,
+          cardType: `combo_${comboSize}`,
+          comboSize,
+          options: { cardTypes: comboResult.cardTypes, ...(clientOptions || {}) },
+          startedAt: Date.now(),
+        };
+
+        io.to(`user:${userId}`).emit('game:selectTarget:request', {
+          cardType: `combo_${comboSize}`,
+          timeoutMs: 15000,
+        });
+
+        // Timeout: auto-select random alive opponent
+        const currentPending = room.gameState.pendingTargetSelect;
+        setTimeout(() => {
+          if (room.gameState.pendingTargetSelect && room.gameState.pendingTargetSelect === currentPending) {
+            const aliveOpponents = room.gameState.players.filter(p => p.alive && p.userId !== userId);
+            if (aliveOpponents.length > 0) {
+              const randomTarget = aliveOpponents[Math.floor(Math.random() * aliveOpponents.length)];
+              resolveTargetSelect(room, randomTarget.userId);
+            } else {
+              room.gameState.pendingTargetSelect = null;
+            }
+          }
+        }, 15000);
+
+        io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
+        sendHands(io, room);
+        return;
+      }
+
       // Queue action — include stealCardType from client if present (for combo_3)
       const eventId = `${Date.now()}-${Math.random()}`;
       room.gameState.pendingAction = {
@@ -748,6 +853,22 @@ module.exports = function registerGameSocket(io) {
       sendHands(io, room);
 
       setupNopeTimeout(room, eventId);
+    });
+
+    socket.on('game:selectTarget:respond', ({ targetPlayerId }) => {
+      const roomCode = [...socket.rooms].find((room) => room.length === 6);
+      if (!roomCode) return;
+      const room = getRoomState(roomCode);
+      if (!room?.gameState) return;
+
+      const pending = room.gameState.pendingTargetSelect;
+      if (!pending || pending.playerId !== userId) return;
+
+      // Validate target is alive opponent
+      const target = room.gameState.players.find(p => p.userId === targetPlayerId && p.alive && p.userId !== userId);
+      if (!target) return;
+
+      resolveTargetSelect(room, targetPlayerId);
     });
 
     socket.on('game:alterFuture:respond', ({ rearrangedCards }) => {

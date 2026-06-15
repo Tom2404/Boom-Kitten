@@ -305,7 +305,7 @@ const CARD_THEMES = {
   },
 };
 
-export default function Card({ type, skinIndex = 0, selected, onClick, disabled, marked }) {
+export default function Card({ type, skinIndex = 0, selected, onClick, disabled, marked, compact = false }) {
   const theme = CARD_THEMES[type] || {
     name: type,
     icon: '🃏',
@@ -318,6 +318,11 @@ export default function Card({ type, skinIndex = 0, selected, onClick, disabled,
 
   const cardImageUrl = getCardImageUrl(type, skinIndex);
 
+  const sizeClass = compact ? 'h-36 w-28' : 'h-44 w-32';
+  const imageClass = compact ? 'h-24 w-24' : 'h-32 w-32';
+  const iconClass = compact ? 'text-4xl' : 'text-5xl';
+  const descBoxClass = compact ? 'min-h-[38px] p-1 px-1.5' : 'min-h-[44px] p-1.5 px-2';
+
   return (
     <>
       <div
@@ -326,13 +331,15 @@ export default function Card({ type, skinIndex = 0, selected, onClick, disabled,
           e.stopPropagation();
           setIsDetailOpen(true);
         } : undefined}
-        className={`relative h-44 w-32 cursor-pointer rounded-xl overflow-visible transition-all duration-100 select-none flex flex-col justify-between bg-transparent
+        className={`relative ${sizeClass} cursor-pointer rounded-xl overflow-visible transition-all duration-100 select-none flex flex-col justify-between bg-transparent
           ${selected ? '-translate-y-6 scale-105 filter drop-shadow-[0_0_12px_rgba(234,179,8,0.8)]' : 'hover:-translate-y-2 hover:scale-102 hover:filter hover:drop-shadow-[0_0_6px_rgba(255,255,255,0.4)]'}
-          ${disabled ? 'opacity-40 cursor-not-allowed pointer-events-none' : ''}`}
+          ${disabled ? 'opacity-40 cursor-not-allowed pointer-events-none' : ''}
+          ${marked ? 'rounded-xl ring-4 ring-rose-500/90 drop-shadow-[0_0_12px_rgba(244,63,94,0.55)]' : ''}`}
       >
         {marked && (
-          <span className="absolute -top-2.5 -left-2.5 z-30 bg-rose-500 text-white font-headline font-black text-[9px] px-2 py-0.5 rounded-full border-2 border-on-surface shadow-[1px_1px_0px_0px_#1a1c1c] uppercase tracking-wider animate-pulse">
-            Lộ bài
+          <span className="absolute -top-3 -left-2.5 z-30 bg-rose-500 text-white font-headline font-black text-[9px] px-2.5 py-1 rounded-full border-2 border-on-surface shadow-[1px_1px_0px_0px_#1a1c1c] uppercase tracking-wider animate-pulse flex items-center gap-1">
+            <span>👁</span>
+            <span>Lộ bài</span>
           </span>
         )}
         {/* Info button */}
@@ -353,18 +360,18 @@ export default function Card({ type, skinIndex = 0, selected, onClick, disabled,
             <img 
               src={cardImageUrl}
               alt={theme.name}
-              className="h-32 w-32 object-contain drop-shadow"
+              className={`${imageClass} object-contain drop-shadow`}
               onError={() => setImageError(true)}
             />
           ) : (
-            <span className="text-5xl filter drop-shadow">
+            <span className={`${iconClass} filter drop-shadow`}>
               {theme.icon}
             </span>
           )}
         </div>
 
         {/* Description box at the bottom */}
-        <div className="bg-slate-900/90 text-white p-1.5 px-2 flex flex-col justify-center min-h-[44px] rounded-2xl border-2 border-slate-700 shadow-[2px_2px_0px_0px_#1a1c1c] z-10 w-[95%] mx-auto mb-1">
+        <div className={`bg-slate-900/90 text-white ${descBoxClass} flex flex-col justify-center rounded-2xl border-2 border-slate-700 shadow-[2px_2px_0px_0px_#1a1c1c] z-10 w-[95%] mx-auto mb-1`}>
           <div className="text-[9px] font-headline font-black uppercase tracking-wide truncate text-yellow-300 text-center mb-0.5">
             {theme.name}
           </div>

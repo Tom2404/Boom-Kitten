@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import Card, { CARD_THEMES } from './Card.jsx';
 import { motion } from 'framer-motion';
 
-export default function DiscardPile({ discardPile = [], pendingCombo5, myUserId, onSelectCard }) {
+export default function DiscardPile({ discardPile = [], pendingCombo5, myUserId, onSelectCard, compact = false }) {
   const [isOpen, setIsOpen] = useState(false);
 
   const topCard = discardPile.length > 0 ? discardPile[discardPile.length - 1] : null;
@@ -12,6 +12,8 @@ export default function DiscardPile({ discardPile = [], pendingCombo5, myUserId,
     onSelectCard(cardId);
     setIsOpen(false);
   };
+
+  const pileSizeClass = compact ? 'h-36 w-28' : 'h-44 w-32';
 
   return (
     <div className="flex flex-col items-center gap-2">
@@ -27,10 +29,10 @@ export default function DiscardPile({ discardPile = [], pendingCombo5, myUserId,
             onClick={() => setIsOpen(true)}
             className="cursor-pointer hover:-translate-y-1 transition-transform"
           >
-            <Card type={topCard.type} skinIndex={topCard.skinIndex ?? 0} disabled={false} />
+            <Card type={topCard.type} skinIndex={topCard.skinIndex ?? 0} disabled={false} compact={compact} />
           </motion.div>
         ) : (
-          <div className="h-44 w-32 rounded-xl border-3 border-dashed border-on-surface flex items-center justify-center text-white/50 text-xs bg-white/5 font-headline font-black uppercase shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]">
+          <div className={`${pileSizeClass} rounded-xl border-3 border-dashed border-on-surface flex items-center justify-center text-white/50 text-xs bg-white/5 font-headline font-black uppercase shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]`}>
             Trống
           </div>
         )}
