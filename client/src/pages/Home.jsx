@@ -1,8 +1,208 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { gsap } from 'gsap';
+import { getCardImageUrl } from '../utils/cardSkins.js';
+
+// Pre-resolve card images via the skin system so Vite bundles them correctly
+const heroExplodingImg = getCardImageUrl('exploding_kitten', 0);
+const heroDefuseImg = getCardImageUrl('defuse', 0);
+const stepSeeTheFutureImg = getCardImageUrl('see_the_future_3', 0);
+const stepExplodingImg = getCardImageUrl('exploding_kitten', 1);
+const stepAttackImg = getCardImageUrl('attack_2x', 0);
+
+// --- Game Rules tab data ---
+const RULES_TABS = [
+  { id: 'setup', label: 'Chuẩn Bị' },
+  { id: 'flow', label: 'Vòng Chơi' },
+  { id: 'cards', label: 'Các Loại Thẻ' },
+  { id: 'combo', label: 'Combo Mèo' },
+];
+
+const CARD_TABLE = [
+  { name: 'Exploding Kitten', qty: 'Số người chơi - 1', effect: 'Bốc trúng và không có Defuse → bị loại ngay lập tức.' },
+  { name: 'Defuse', qty: '6', effect: 'Vô hiệu hóa Mèo Nổ. Đặt lại Mèo Nổ vào bất kỳ vị trí nào trong xấp bài.' },
+  { name: 'Nope', qty: '5', effect: 'Hủy bỏ hiệu ứng lá bài vừa đánh (trừ Defuse và Nope khác).' },
+  { name: 'Attack', qty: '4', effect: 'Kết thúc lượt không bốc bài. Đối thủ tiếp theo đi 2 lượt liên tiếp.' },
+  { name: 'Skip', qty: '4', effect: 'Kết thúc lượt hiện tại mà không cần bốc bài.' },
+  { name: 'See the Future', qty: '5', effect: 'Xem bí mật 3 lá bài trên cùng của bộ bài bốc.' },
+  { name: 'Shuffle', qty: '4', effect: 'Xáo trộn ngẫu nhiên xấp bài bốc còn lại.' },
+  { name: 'Favor', qty: '4', effect: 'Bắt một người chơi phải tặng bạn 1 lá bài (do họ tự chọn).' },
+  { name: 'Mèo Taco', qty: '4', effect: 'Mèo thường — combo 2 lá cùng loại để cướp bài đối thủ.' },
+  { name: 'Mèo Dưa Hấu', qty: '4', effect: 'Mèo thường — giống Mèo Taco.' },
+  { name: 'Mèo Râu Dài', qty: '4', effect: 'Mèo thường — giống Mèo Taco.' },
+  { name: 'Mèo Cầu Vồng', qty: '4', effect: 'Mèo thường — giống Mèo Taco.' },
+  { name: 'Mèo Khoai Tây', qty: '4', effect: 'Mèo thường — giống Mèo Taco.' },
+];
+
+function RulesSetup() {
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="card-brutalist bg-white rounded-2xl p-6">
+        <h4 className="font-headline font-black text-lg uppercase mb-4 flex items-center gap-2">
+          <span className="material-symbols-outlined text-primary">group</span>
+          Thiết Lập Trận Đấu
+        </h4>
+        <p className="font-sans text-sm text-on-surface-variant font-bold leading-relaxed mb-4">
+          Ván đấu hỗ trợ từ <span className="text-primary font-black">2 đến 5 người chơi</span>. Bộ bài được thiết lập tự động khi bắt đầu trận.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-emerald-50 border-3 border-on-surface rounded-xl p-4 shadow-[3px_3px_0px_0px_#1a1c1c]">
+            <div className="font-headline font-black text-sm uppercase text-emerald-700 mb-1">Bước 1</div>
+            <p className="text-xs font-sans font-bold text-on-surface-variant">Mỗi người chơi nhận <span className="text-emerald-700 font-black">1 lá Defuse</span> làm bài khởi đầu.</p>
+          </div>
+          <div className="bg-violet-50 border-3 border-on-surface rounded-xl p-4 shadow-[3px_3px_0px_0px_#1a1c1c]">
+            <div className="font-headline font-black text-sm uppercase text-violet-700 mb-1">Bước 2</div>
+            <p className="text-xs font-sans font-bold text-on-surface-variant">Chia thêm <span className="text-violet-700 font-black">7 lá ngẫu nhiên</span> cho mỗi người (tổng 8 lá trên tay).</p>
+          </div>
+          <div className="bg-rose-50 border-3 border-on-surface rounded-xl p-4 shadow-[3px_3px_0px_0px_#1a1c1c]">
+            <div className="font-headline font-black text-sm uppercase text-rose-700 mb-1">Bước 3</div>
+            <p className="text-xs font-sans font-bold text-on-surface-variant">Cho <span className="text-rose-700 font-black">Mèo Nổ</span> và Defuse dư vào bộ bài, xáo đều.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RulesFlow() {
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="card-brutalist bg-white rounded-2xl p-6">
+        <h4 className="font-headline font-black text-lg uppercase mb-4 flex items-center gap-2">
+          <span className="material-symbols-outlined text-primary">cycle</span>
+          Diễn Biến Mỗi Lượt
+        </h4>
+        <div className="space-y-4">
+          <div className="flex gap-4 items-start">
+            <div className="bg-primary text-on-primary w-10 h-10 min-w-[2.5rem] flex items-center justify-center rounded-full font-headline font-black text-sm border-3 border-on-surface shadow-[2px_2px_0px_0px_#1a1c1c]">1</div>
+            <div>
+              <div className="font-headline font-black text-sm uppercase mb-1">Đánh Bài (Tuỳ Chọn)</div>
+              <p className="text-xs font-sans font-bold text-on-surface-variant">Đánh bao nhiêu lá bài tuỳ ý từ trên tay, hoặc không đánh lá nào cũng được.</p>
+            </div>
+          </div>
+          <div className="flex gap-4 items-start">
+            <div className="bg-secondary text-on-error w-10 h-10 min-w-[2.5rem] flex items-center justify-center rounded-full font-headline font-black text-sm border-3 border-on-surface shadow-[2px_2px_0px_0px_#1a1c1c]">2</div>
+            <div>
+              <div className="font-headline font-black text-sm uppercase mb-1">Bốc Bài (Bắt Buộc)</div>
+              <p className="text-xs font-sans font-bold text-on-surface-variant">Lượt chơi chỉ kết thúc khi bạn bốc 1 lá bài từ xấp bài chung.</p>
+            </div>
+          </div>
+          <div className="flex gap-4 items-start">
+            <div className="bg-yellow-400 text-slate-950 w-10 h-10 min-w-[2.5rem] flex items-center justify-center rounded-full font-headline font-black text-sm border-3 border-on-surface shadow-[2px_2px_0px_0px_#1a1c1c]">3</div>
+            <div>
+              <div className="font-headline font-black text-sm uppercase mb-1">Nếu Bốc Trúng Mèo Nổ...</div>
+              <p className="text-xs font-sans font-bold text-on-surface-variant">
+                <span className="text-emerald-600">Có Defuse:</span> Gỡ mìn thành công, bí mật nhét Mèo Nổ trở lại vị trí bất kỳ trong bộ bài.
+              </p>
+              <p className="text-xs font-sans font-bold text-on-surface-variant mt-1">
+                <span className="text-red-600">Không có Defuse:</span> BÙM! Bạn bị loại khỏi trận đấu ngay lập tức.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="card-brutalist bg-amber-50 rounded-2xl p-6">
+        <h4 className="font-headline font-black text-base uppercase mb-2 flex items-center gap-2">
+          <span className="material-symbols-outlined text-amber-600">emoji_events</span>
+          Điều Kiện Chiến Thắng
+        </h4>
+        <p className="text-sm font-sans font-bold text-on-surface-variant">
+          Trận đấu tiếp diễn cho đến khi chỉ còn <span className="text-primary font-black">1 người chơi sống sót</span>. Người đó là người chiến thắng!
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function RulesCards() {
+  return (
+    <div className="card-brutalist bg-white rounded-2xl p-6 overflow-x-auto">
+      <h4 className="font-headline font-black text-lg uppercase mb-4 flex items-center gap-2">
+        <span className="material-symbols-outlined text-primary">playing_cards</span>
+        Bảng Tổng Hợp Thẻ Bài
+      </h4>
+      <table className="w-full text-left border-collapse">
+        <thead>
+          <tr className="border-b-4 border-on-surface">
+            <th className="font-headline font-black text-xs uppercase py-3 px-3 text-on-surface">Tên Thẻ</th>
+            <th className="font-headline font-black text-xs uppercase py-3 px-3 text-on-surface text-center">SL</th>
+            <th className="font-headline font-black text-xs uppercase py-3 px-3 text-on-surface">Hiệu Ứng</th>
+          </tr>
+        </thead>
+        <tbody>
+          {CARD_TABLE.map((card, idx) => (
+            <tr
+              key={card.name}
+              className={`border-b-2 border-slate-200 transition-colors hover:bg-primary-fixed/30 ${idx % 2 === 0 ? 'bg-slate-50' : 'bg-white'}`}
+            >
+              <td className="py-3 px-3 font-headline font-black text-xs uppercase text-on-surface whitespace-nowrap">{card.name}</td>
+              <td className="py-3 px-3 font-headline font-black text-xs text-center text-primary">{card.qty}</td>
+              <td className="py-3 px-3 font-sans font-bold text-xs text-on-surface-variant">{card.effect}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function RulesCombo() {
+  const comboImg = getCardImageUrl('cat_taco', 0);
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="card-brutalist bg-white rounded-2xl p-6">
+        <h4 className="font-headline font-black text-lg uppercase mb-4 flex items-center gap-2">
+          <span className="material-symbols-outlined text-primary">pets</span>
+          Quy Tắc Combo Mèo Thường
+        </h4>
+        <p className="font-sans text-sm text-on-surface-variant font-bold leading-relaxed mb-6">
+          Các quân bài mèo thường (Taco, Dưa Hấu, Râu Dài, Cầu Vồng, Khoai Tây) không có hiệu ứng khi đánh đơn lẻ. Tuy nhiên:
+        </p>
+
+        <div className="bg-gradient-to-r from-violet-50 to-fuchsia-50 border-3 border-on-surface rounded-2xl p-6 shadow-[4px_4px_0px_0px_#1a1c1c]">
+          <div className="flex flex-col md:flex-row gap-6 items-center">
+            {/* Visual combo illustration */}
+            <div className="flex items-center gap-2 shrink-0">
+              {comboImg && (
+                <>
+                  <div className="w-20 h-28 rounded-xl border-3 border-on-surface shadow-[3px_3px_0px_0px_#1a1c1c] overflow-hidden bg-slate-200 transform -rotate-6">
+                    <img src={comboImg} alt="Mèo Taco" className="w-full h-full object-cover" />
+                  </div>
+                  <div className="font-headline font-black text-2xl text-primary">+</div>
+                  <div className="w-20 h-28 rounded-xl border-3 border-on-surface shadow-[3px_3px_0px_0px_#1a1c1c] overflow-hidden bg-slate-200 transform rotate-6">
+                    <img src={comboImg} alt="Mèo Taco" className="w-full h-full object-cover" />
+                  </div>
+                  <div className="font-headline font-black text-2xl text-secondary mx-2">=</div>
+                </>
+              )}
+              <div className="bg-yellow-400 border-3 border-on-surface rounded-xl p-3 shadow-[3px_3px_0px_0px_#1a1c1c] transform rotate-3">
+                <span className="material-symbols-outlined text-3xl text-slate-950">redeem</span>
+              </div>
+            </div>
+
+            <div className="flex-1">
+              <div className="font-headline font-black text-base uppercase text-violet-700 mb-2">Combo 2 Lá Giống Nhau</div>
+              <p className="text-sm font-sans font-bold text-on-surface-variant leading-relaxed">
+                Đánh xuống 2 lá mèo <span className="text-violet-700 font-black">giống nhau</span> cho phép chọn 1 người chơi đối thủ và <span className="text-primary font-black">cướp ngẫu nhiên 1 lá bài</span> trên tay họ.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const TAB_CONTENT = {
+  setup: RulesSetup,
+  flow: RulesFlow,
+  cards: RulesCards,
+  combo: RulesCombo,
+};
 
 export default function Home({ setPage }) {
   const canvasRef = useRef(null);
+  const [activeTab, setActiveTab] = useState('setup');
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -119,6 +319,8 @@ export default function Home({ setPage }) {
     }
   };
 
+  const ActiveTabContent = TAB_CONTENT[activeTab];
+
   return (
     <div className="flex flex-col gap-16">
       {/* Hero Section */}
@@ -155,8 +357,12 @@ export default function Home({ setPage }) {
           <div className="relative flex justify-center items-center">
             <div className="absolute inset-0 bg-primary-container rounded-full blur-3xl opacity-30 scale-150 animate-pulse"></div>
             <div className="flex gap-4 relative">
-              <img src="/src/assets/cards/exploding_kitten.png" alt="Exploding Kitten" className="w-36 h-48 object-contain transform -rotate-12 hover:-rotate-6 transition-transform duration-300 drop-shadow-[4px_4px_0px_#1a1c1c] border-3 border-on-surface rounded-2xl p-1 bg-rose-500" />
-              <img src="/src/assets/cards/defuse.png" alt="Defuse" className="w-36 h-48 object-contain transform rotate-12 hover:rotate-6 transition-transform duration-300 drop-shadow-[4px_4px_0px_#1a1c1c] border-3 border-on-surface rounded-2xl p-1 bg-emerald-500 -ml-12 mt-6" />
+              {heroExplodingImg && (
+                <img src={heroExplodingImg} alt="Exploding Kitten" className="w-36 h-48 object-contain transform -rotate-12 hover:-rotate-6 transition-transform duration-300 drop-shadow-[4px_4px_0px_#1a1c1c] border-3 border-on-surface rounded-2xl p-1 bg-rose-500" />
+              )}
+              {heroDefuseImg && (
+                <img src={heroDefuseImg} alt="Defuse" className="w-36 h-48 object-contain transform rotate-12 hover:rotate-6 transition-transform duration-300 drop-shadow-[4px_4px_0px_#1a1c1c] border-3 border-on-surface rounded-2xl p-1 bg-emerald-500 -ml-12 mt-6" />
+              )}
             </div>
           </div>
         </div>
@@ -177,7 +383,11 @@ export default function Home({ setPage }) {
               1
             </div>
             <div className="w-24 h-24 bg-primary-fixed border-3 border-on-surface rounded-2xl flex items-center justify-center mb-6 group-hover:-translate-y-2 group-hover:rotate-6 transition-all duration-300 p-2">
-              <img src="/src/assets/cards/see_the_future_3.png" alt="Tiên Tri" className="h-full w-full object-contain" />
+              {stepSeeTheFutureImg ? (
+                <img src={stepSeeTheFutureImg} alt="Tiên Tri" className="h-full w-full object-contain" />
+              ) : (
+                <span className="text-4xl">👁️</span>
+              )}
             </div>
             <h3 className="font-headline font-black text-lg uppercase mb-2">Bốc Một Lá Bài</h3>
             <p className="font-sans text-sm text-on-surface-variant font-bold">
@@ -191,7 +401,11 @@ export default function Home({ setPage }) {
               2
             </div>
             <div className="w-24 h-24 bg-error-container border-3 border-on-surface rounded-2xl flex items-center justify-center mb-6 group-hover:-translate-y-2 group-hover:-rotate-6 transition-all duration-300 p-2">
-              <img src="/src/assets/cards/exploding_kitten.png" alt="Mèo Nổ" className="h-full w-full object-contain" />
+              {stepExplodingImg ? (
+                <img src={stepExplodingImg} alt="Mèo Nổ" className="h-full w-full object-contain" />
+              ) : (
+                <span className="text-4xl">💣</span>
+              )}
             </div>
             <h3 className="font-headline font-black text-lg uppercase mb-2">Đừng Để Bị Nổ</h3>
             <p className="font-sans text-sm text-on-surface-variant font-bold">
@@ -205,12 +419,49 @@ export default function Home({ setPage }) {
               3
             </div>
             <div className="w-24 h-24 bg-indigo-100 border-3 border-on-surface rounded-2xl flex items-center justify-center mb-6 group-hover:-translate-y-2 group-hover:rotate-12 transition-all duration-300 p-2">
-              <img src="/src/assets/cards/attack_2x.png" alt="Tấn Công" className="h-full w-full object-contain" />
+              {stepAttackImg ? (
+                <img src={stepAttackImg} alt="Tấn Công" className="h-full w-full object-contain" />
+              ) : (
+                <span className="text-4xl">⚔️</span>
+              )}
             </div>
             <h3 className="font-headline font-black text-lg uppercase mb-2">Hãm Hại Bạn Bè</h3>
             <p className="font-sans text-sm text-on-surface-variant font-bold">
               Sử dụng các thẻ bài Tấn công, Tiên tri, Xin xỏ để né lượt và đẩy bom cho đối thủ!
             </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Game Rules Section */}
+      <section className="py-12 relative">
+        <div className="text-center mb-12">
+          <h2 className="font-headline text-3xl md:text-4xl text-on-surface uppercase inline-block bg-primary-container px-8 py-3 border-4 border-on-surface shadow-[6px_6px_0px_0px_#1a1c1c] transform -rotate-1">
+            Luật Chơi Chi Tiết
+          </h2>
+        </div>
+
+        <div className="max-w-5xl mx-auto px-4">
+          {/* Tab Navigation */}
+          <div className="flex flex-wrap gap-2 mb-8 justify-center">
+            {RULES_TABS.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`px-5 py-2.5 rounded-xl font-headline font-black text-sm uppercase border-3 border-on-surface transition-all duration-100
+                  ${activeTab === tab.id
+                    ? 'bg-primary text-on-primary shadow-[4px_4px_0px_0px_#1a1c1c] -translate-y-1'
+                    : 'bg-white text-on-surface shadow-[3px_3px_0px_0px_#1a1c1c] hover:-translate-y-0.5 hover:shadow-[4px_4px_0px_0px_#1a1c1c]'
+                  }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Tab Content */}
+          <div className="min-h-[300px]">
+            <ActiveTabContent />
           </div>
         </div>
       </section>

@@ -736,10 +736,16 @@ export default function Game() {
           </div>
 
           <div className="flex items-center gap-3">
-            {gameState.drawsRequired > 1 && (
-              <span className="bg-secondary text-on-error font-headline font-black text-xs px-4 py-1.5 rounded-full border-2 border-on-surface shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] animate-bounce">
-                ⚠️ LƯỢT DỒN BỐC: {gameState.drawsRequired} lượt!
+            {isMyTurn ? (
+              <span className="bg-yellow-400 text-slate-950 font-headline font-black text-xs px-4 py-1.5 rounded-full border-2 border-on-surface shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] animate-pulse">
+                👉 BẠN CẦN BỐC: {gameState.drawsRequired} lá nữa!
               </span>
+            ) : (
+              gameState.drawsRequired > 1 && (
+                <span className="bg-secondary text-on-error font-headline font-black text-xs px-4 py-1.5 rounded-full border-2 border-on-surface shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] animate-bounce">
+                  ⚠️ LƯỢT DỒN BỐC: {gameState.drawsRequired} lượt!
+                </span>
+              )
             )}
             <button
               onClick={() => setIsSidebarOpen(prev => !prev)}
@@ -832,11 +838,18 @@ export default function Game() {
           <div className="flex flex-col md:flex-row gap-6 items-stretch border-t-4 border-dashed border-on-surface-variant pt-6 z-10">
             <div className="flex items-center justify-center bg-white/10 p-3 rounded-2xl border-2 border-dashed border-white/20">
               {myPlayerState && (
-                <PlayerAvatar
-                  player={myPlayerState}
-                  isCurrentTurn={isMyTurn}
-                  isTargetable={false}
-                />
+                <div className="flex flex-col items-center gap-2">
+                  <PlayerAvatar
+                    player={myPlayerState}
+                    isCurrentTurn={isMyTurn}
+                    isTargetable={false}
+                  />
+                  {isMyTurn && (
+                    <span className="bg-yellow-400 text-slate-950 font-headline font-black text-[10px] uppercase px-2.5 py-1 rounded-lg border-2 border-on-surface shadow-[1.5px_1.5px_0px_0px_#1a1c1c] text-center w-full">
+                      Bốc: {gameState.drawsRequired} lá
+                    </span>
+                  )}
+                </div>
               )}
             </div>
             

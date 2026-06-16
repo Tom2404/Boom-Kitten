@@ -1,5 +1,6 @@
 import React from 'react';
 import { formatCardName } from '../utils/cardHelpers.js';
+import { getCardImageUrl } from '../utils/cardSkins.js';
 
 const RANK_BADGES = {
   Bronze: '🟫 BRONZE',
@@ -154,12 +155,23 @@ export default function PlayerAvatar({
               </span>
             )}
           </div>
-          <div className="flex flex-col gap-1">
-            {visibleMarkedCards.map((c) => (
-              <span key={c.id} className="max-w-full truncate rounded-md border border-rose-300 bg-rose-50 px-1.5 py-0.5 text-[8px] font-bold leading-tight text-rose-700">
-                {formatCardName(c.type)}
-              </span>
-            ))}
+          <div className="flex gap-1 flex-wrap justify-center mt-1">
+            {visibleMarkedCards.map((c) => {
+              const imgUrl = getCardImageUrl(c.type, c.skinIndex ?? 0);
+              return (
+                <div
+                  key={c.id}
+                  className="w-7 h-10 border border-rose-400 rounded-md overflow-hidden bg-rose-50 shadow-[1px_1px_0px_0px_#f43f5e] hover:scale-110 transition-transform cursor-help"
+                  title={formatCardName(c.type)}
+                >
+                  {imgUrl ? (
+                    <img src={imgUrl} alt={c.type} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-[10px] flex items-center justify-center h-full w-full">🃏</span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

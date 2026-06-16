@@ -140,7 +140,7 @@ export function FavorRequestModal({ fromPlayerId, fromPlayerName, hand, onRespon
           </p>
         </div>
 
-        <div className="flex-1 overflow-x-auto flex gap-4 pb-4 pt-6 justify-center max-w-full hide-scroll">
+        <div className="flex-1 overflow-x-auto flex gap-4 pb-4 pt-6 justify-start md:justify-center max-w-full custom-scrollbar px-4">
           {hand.map((card) => {
             const isSelected = selectedId === card.id;
             return (
@@ -264,7 +264,7 @@ export function BuryPositionModal({ hand, deckCount, onRespond }) {
         </div>
 
         {/* Card selection */}
-        <div className="flex-1 overflow-x-auto flex gap-4 pb-4 pt-6 justify-center max-w-full hide-scroll">
+        <div className="flex-1 overflow-x-auto flex gap-4 pb-4 pt-6 justify-start md:justify-center max-w-full custom-scrollbar px-4">
           {hand.map((card) => {
             const isSelected = selectedId === card.id;
             return (
@@ -335,7 +335,7 @@ export function GarbageSelectModal({ hand, title, description, onRespond }) {
           <p className="text-xs font-bold text-on-surface-variant mt-1">{description}</p>
         </div>
 
-        <div className="flex-1 overflow-x-auto flex gap-4 pb-4 pt-6 justify-center max-w-full hide-scroll">
+        <div className="flex-1 overflow-x-auto flex gap-4 pb-4 pt-6 justify-start md:justify-center max-w-full custom-scrollbar px-4">
           {hand.map((card) => {
             const isSelected = selectedId === card.id;
             return (

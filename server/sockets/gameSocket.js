@@ -717,20 +717,40 @@ module.exports = function registerGameSocket(io) {
     });
 
     socket.on('game:favor:respond', ({ cardId }) => {
+      console.log('game:favor:respond received cardId:', cardId, 'from userId:', userId);
       const roomCode = [...socket.rooms].find((room) => room.length === 6);
-      if (!roomCode) return;
+      if (!roomCode) {
+        console.log('game:favor:respond - Room code not found in socket.rooms:', [...socket.rooms]);
+        return;
+      }
       const room = getRoomState(roomCode);
       const pending = room?.gameState?.pendingFavor;
-      if (!pending || pending.targetPlayerId !== userId) return;
+      console.log('game:favor:respond - pending:', pending);
+      if (!pending || pending.targetPlayerId !== userId) {
+        console.log('game:favor:respond - pending targetPlayerId mismatch or pending is null. pending.targetPlayerId:', pending?.targetPlayerId, 'userId:', userId);
+        return;
+      }
 
       const giver = room.gameState.players.find((p) => p.userId === userId);
       const receiver = room.gameState.players.find((p) => p.userId === pending.fromPlayerId);
-      if (!giver || !receiver) return;
+      if (!giver || !receiver) {
+        console.log('game:favor:respond - giver or receiver not found. giver:', !!giver, 'receiver:', !!receiver);
+        return;
+      }
 
+      console.log('giver hand before splice:', giver.hand.map(c => ({ id: c.id, type: c.type })));
       const idx = giver.hand.findIndex((card) => card.id === cardId);
+      console.log('giver hand findIndex:', idx);
       if (idx >= 0) {
         const [gift] = giver.hand.splice(idx, 1);
         receiver.hand.push(gift);
+        console.log('Card transferred successfully. Card type:', gift.type);
+        
+        // Run checkStreakingKittenEffect whenever cards change hands
+        checkStreakingKittenEffect(room.gameState, giver.userId);
+        checkStreakingKittenEffect(room.gameState, receiver.userId);
+      } else {
+        console.log('Card not found in giver hand! cardId:', cardId);
       }
 
       room.gameState.pendingFavor = null;
