@@ -16,11 +16,12 @@ function createRoom(hostId, options = {}, username = 'Guest') {
     code,
     host: hostId,
     players: [{ userId: hostId, username, hand: [], alive: true }],
-    maxPlayers: 5,
+    maxPlayers: options.edition === '2_player' ? 2 : 5,
     maxHandSize: 10,
     status: 'waiting',
     isPublic: Boolean(options.isPublic),
     password: options.password || '',
+    edition: options.edition || 'all',
     gameState: null,
   };
   rooms.set(code, room);
@@ -56,8 +57,8 @@ function startGame(roomCode) {
   if (!room) throw new Error('Room not found');
   if (room.players.length < 2) throw new Error('Need at least 2 players');
 
-  const deck = createDeck(room.players.length);
-  const dealt = dealCards(deck, room.players, 7);
+  const deck = createDeck(room.players.length, room.edition);
+  const dealt = dealCards(deck, room.players, 7, room.edition);
 
   room.status = 'playing';
   room.gameState = {

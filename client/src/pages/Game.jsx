@@ -16,8 +16,32 @@ import {
   ZombieReviveModal,
   DefusePositionModal,
   SelectTargetModal,
+  FeedTheDeadModal,
+  GraveRobberModal,
+  DigDeeperModal,
+  ArmageddonDistributeModal,
+  ArmageddonDecisionModal,
+  ClairvoyanceRevealModal,
 } from '../components/ActionModals.jsx';
 import CustomDialog from '../components/CustomDialog.jsx';
+import { CoinIcon, GemIcon } from '../components/CoinDisplay.jsx';
+import {
+  CrownIcon,
+  CheckCircleIcon,
+  RocketIcon,
+  LogoutIcon,
+  CopyIcon,
+  CheckIcon,
+  RefreshIcon,
+  BoltIcon,
+  KeyIcon,
+  LockIcon,
+  PublicIcon,
+  ExtensionIcon,
+  ArrowForwardIcon,
+  ListIcon,
+} from '../components/Icons.jsx';
+
 
 function FlyingCard({ id, type, cardType, startPos, endPos, onComplete }) {
   const elementRef = useRef(null);
@@ -148,6 +172,15 @@ const EMOTES_LIST = [
   { id: 'emote_cry', char: '😭' },
 ];
 
+const EDITION_NAMES = {
+  all: 'Tất Cả Mở Rộng 🌍',
+  original: 'Bản Gốc 🐱',
+  '2_player': 'Bản 2 Người 👥',
+  zombie: 'Mèo Thây Ma 🧟',
+  barking: 'Mèo Sủa 🐶',
+  good_vs_evil: 'Thiện và Ác ⚖️',
+};
+
 export default function Game() {
   const {
     socket,
@@ -165,6 +198,11 @@ export default function Game() {
     zombieRequest,
     defuseRequest,
     selectTargetRequest,
+    feedTheDeadRequest,
+    graveRobberRequest,
+    digDeeperRequest,
+    armageddonRequest,
+    clairvoyanceReveal,
     gameEnded,
     setGameEnded,
     chatMessages,
@@ -186,6 +224,11 @@ export default function Game() {
     respondZombie,
     respondDefuse,
     respondSelectTarget,
+    respondFeedTheDead,
+    respondGraveRobber,
+    respondDigDeeper,
+    respondArmageddonDistribute,
+    respondArmageddonDecision,
     playCombo,
     respondCombo5,
     sendChatMessage,
@@ -203,6 +246,12 @@ export default function Game() {
   const [createPassword, setCreatePassword] = useState('');
   const [joinPassword, setJoinPassword] = useState('');
   const [publicRooms, setPublicRooms] = useState([]);
+  const [lobbyTab, setLobbyTab] = useState('list'); // 'list' | 'create'
+  const [lobbyEdition, setLobbyEdition] = useState('all');
+  const [userProfile, setUserProfile] = useState(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   const [chatInput, setChatInput] = useState('');
   const [myUser, setMyUser] = useState(null);
@@ -213,6 +262,8 @@ export default function Game() {
     message: '',
     onConfirm: null,
   });
+
+  const [localClairvoyance, setLocalClairvoyance] = useState(null);
 
   const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5000';
 
@@ -228,6 +279,80 @@ export default function Game() {
     }
   };
 
+  const fetchUserProfile = async () => {
+    const token = localStorage.getItem('accessToken');
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_URL}/api/users/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setUserProfile(data);
+      }
+    } catch (e) {
+      console.error('Lỗi khi tải thông tin người dùng:', e);
+    }
+  };
+
+  useEffect(() => {
+    fetchUserProfile();
+  }, [roomState]);
+
+  const handleQuickPlay = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/rooms`);
+      const data = await res.json();
+      if (res.ok && data.length > 0) {
+        const availableRoom = data.find((r) => r.players.length < r.maxPlayers);
+        if (availableRoom) {
+          joinRoom(availableRoom.code);
+          return;
+        }
+      }
+      createRoom('', true, 'all');
+    } catch (e) {
+      console.error('Lỗi khi chơi nhanh:', e);
+      createRoom('', true, 'all');
+    }
+  };
+
+  const handleRefreshRooms = async () => {
+    setIsRefreshing(true);
+    try {
+      await fetchPublicRooms();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const handleCopyCode = (code) => {
+    navigator.clipboard.writeText(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const getAvatarBgColor = (name) => {
+    if (!name) return '#eeeeee';
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const colors = [
+      '#ffebee', '#f3e5f5', '#e8eaf6', '#e3f2fd', '#e0f2f1', '#e8f5e9', '#fffde7', '#fff3e0'
+    ];
+    return colors[Math.abs(hash) % colors.length];
+  };
+
+  const handleJoinRoomCode = (code, password) => {
+    if (password) {
+      const pwd = window.prompt("Nhập mật khẩu của phòng:") || '';
+      joinRoom(code, pwd);
+    } else {
+      joinRoom(code);
+    }
+  };
+
   useEffect(() => {
     if (!roomState) {
       fetchPublicRooms();
@@ -235,6 +360,14 @@ export default function Game() {
       return () => clearInterval(interval);
     }
   }, [roomState]);
+
+  useEffect(() => {
+    if (clairvoyanceReveal && clairvoyanceReveal.active) {
+      setLocalClairvoyance(clairvoyanceReveal);
+    } else {
+      setLocalClairvoyance(null);
+    }
+  }, [clairvoyanceReveal]);
 
   const handleLeaveConfirm = () => {
     if (gameState) {
@@ -476,130 +609,240 @@ export default function Game() {
   // ==========================================
   // VIEW 1: JOIN / CREATE ROOM
   // ==========================================
+  // ==========================================
+  // VIEW 1: JOIN / CREATE ROOM (LOBBY UPGRADE)
+  // ==========================================
   if (!roomState) {
     return (
-      <div className="max-w-md mx-auto my-6 bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-8 flex flex-col gap-6">
-        <div className="text-center flex flex-col items-center">
-          <span className="text-6xl animate-bounce">🐱💥</span>
-          <h2 className="text-2xl font-headline font-black text-on-surface uppercase mt-3">Đấu Trường Mèo Nổ</h2>
-          <p className="text-xs font-bold text-on-surface-variant mt-1">Tạo phòng chơi mới hoặc gia nhập phòng có sẵn.</p>
+      <div className="w-full max-w-5xl mx-auto my-6 flex flex-col gap-6 animate-fade-in">
+        {/* Header with Coins and Gems */}
+        <div className="flex justify-end gap-3">
+          <div className="bg-white border-3 border-on-surface px-4 py-2 rounded-2xl flex items-center gap-2 shadow-[3px_3px_0px_0px_#1a1c1c] text-xs font-headline font-black text-on-surface animate-fade-in">
+            <CoinIcon className="w-5 h-5 text-on-surface" />
+            <span>{userProfile?.coins?.toLocaleString() ?? 0} COINS</span>
+          </div>
+          <div className="bg-white border-3 border-on-surface px-4 py-2 rounded-2xl flex items-center gap-2 shadow-[3px_3px_0px_0px_#1a1c1c] text-xs font-headline font-black text-on-surface animate-fade-in">
+            <GemIcon className="w-5 h-5 text-on-surface" />
+            <span>{userProfile?.gems?.toLocaleString() ?? 0} GEMS</span>
+          </div>
         </div>
 
-        <div className="flex flex-col gap-4 border-t-4 border-dashed border-on-surface-variant pt-6">
-          <h3 className="text-xs font-headline font-black text-on-surface uppercase tracking-wider">Tạo phòng chơi</h3>
-          
-          <div className="flex flex-col gap-3 bg-slate-50 p-4 border-2 border-on-surface rounded-2xl">
-            <div className="flex justify-between items-center text-xs font-bold text-on-surface">
-              <span>Chế độ phòng:</span>
-              <select 
-                value={lobbyIsPublic ? "public" : "private"} 
-                onChange={(e) => setLobbyIsPublic(e.target.value === "public")}
-                className="bg-white border-2 border-on-surface px-2 py-1 rounded-lg text-xs font-bold focus:outline-none"
-              >
-                <option value="public">Công khai (Public)</option>
-                <option value="private">Riêng tư (Private)</option>
-              </select>
-            </div>
-            
-            <div className="flex flex-col gap-1.5 text-xs font-bold text-on-surface">
-              <span>Mật khẩu phòng (nếu muốn):</span>
+        {/* Title: CHOOSE YOUR CHAOS */}
+        <div className="text-center md:text-left mb-2 mt-2">
+          <h1 
+            className="font-headline font-black text-4xl md:text-6xl text-on-surface uppercase tracking-tight relative select-none leading-none py-1"
+            style={{
+              WebkitTextStroke: '2.5px #1a1c1c',
+              textShadow: '5px 5px 0px #ff5722'
+            }}
+          >
+            CHOOSE YOUR CHAOS
+          </h1>
+        </div>
+
+        {/* Quick Actions Row */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
+          {/* Card 1: QUICK PLAY */}
+          <button
+            onClick={handleQuickPlay}
+            className="card-brutalist bg-gradient-to-br from-primary-container to-primary border-3 border-on-surface p-6 rounded-2xl shadow-[4px_4px_0px_0px_#1a1c1c] flex flex-col items-center justify-center text-center gap-4 group cursor-pointer hover:scale-[1.03] active:scale-[0.98] transition-all text-white h-48"
+          >
+            <BoltIcon className="w-16 h-16 animate-pulse text-white" strokeWidth={2} />
+            <span className="font-headline font-black text-lg md:text-xl uppercase tracking-wider text-white">
+              QUICK PLAY
+            </span>
+          </button>
+
+          {/* Card 2: CREATE PRIVATE ROOM */}
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="card-brutalist bg-gradient-to-br from-secondary-container to-secondary border-3 border-on-surface p-6 rounded-2xl shadow-[4px_4px_0px_0px_#1a1c1c] flex flex-col items-center justify-center text-center gap-4 group cursor-pointer hover:scale-[1.03] active:scale-[0.98] transition-all text-white h-48"
+          >
+            <KeyIcon className="w-16 h-16 text-white" strokeWidth={2} />
+            <span className="font-headline font-black text-lg md:text-xl uppercase tracking-wider text-white">
+              CREATE ROOM
+            </span>
+          </button>
+
+          {/* Card 3: JOIN VIA CODE */}
+          <div className="card-brutalist bg-white border-3 border-on-surface p-6 rounded-2xl shadow-[4px_4px_0px_0px_#1a1c1c] flex flex-col justify-between h-48 text-left">
+            <div>
+              <span className="font-headline font-black text-[10px] uppercase text-on-surface-variant tracking-wider block mb-2">
+                JOIN VIA CODE
+              </span>
               <input
-                type="password"
-                placeholder="Nhập mật khẩu..."
-                value={createPassword}
-                onChange={(e) => setCreatePassword(e.target.value)}
-                className="bg-white border-2 border-on-surface px-3 py-2 rounded-xl text-xs font-bold focus:outline-none focus:bg-slate-100 transition-all w-full"
+                type="text"
+                placeholder="ENTER CODE"
+                value={roomInput}
+                onChange={(e) => setRoomInput(e.target.value.toUpperCase())}
+                maxLength={6}
+                className="w-full bg-slate-50 border-2 border-on-surface rounded-xl px-3 py-2 text-on-surface font-headline font-black uppercase tracking-widest text-center text-xs focus:outline-none focus:bg-white transition-all shadow-[1.5px_1.5px_0px_0px_#1a1c1c]"
               />
             </div>
-          </div>
-
-          <button
-            onClick={() => createRoom(createPassword, lobbyIsPublic)}
-            className="btn-detonator w-full py-4 rounded-2xl font-headline font-black uppercase text-sm"
-          >
-            Tạo Phòng Mới
-          </button>
-        </div>
-
-        <div className="flex flex-col gap-4 border-t-4 border-dashed border-on-surface-variant pt-6">
-          <h3 className="text-xs font-headline font-black text-on-surface uppercase tracking-wider">Tham gia phòng có sẵn</h3>
-          <div className="flex flex-col gap-3">
-            <input
-              type="text"
-              placeholder="MÃ PHÒNG (6 CHỮ CÁI)"
-              value={roomInput}
-              onChange={(e) => setRoomInput(e.target.value.toUpperCase())}
-              className="w-full bg-surface border-3 border-on-surface rounded-2xl px-4 py-3 text-on-surface font-headline font-black uppercase tracking-widest text-center text-sm focus:outline-none focus:bg-white transition-all shadow-[3px_3px_0px_0px_rgba(26,28,28,1)]"
-            />
-            <input
-              type="password"
-              placeholder="MẬT KHẨU PHÒNG (NẾU CÓ)"
-              value={joinPassword}
-              onChange={(e) => setJoinPassword(e.target.value)}
-              className="w-full bg-surface border-3 border-on-surface rounded-2xl px-4 py-3 text-on-surface font-headline font-black uppercase text-center text-sm focus:outline-none focus:bg-white transition-all shadow-[3px_3px_0px_0px_rgba(26,28,28,1)]"
-            />
             <button
-              onClick={() => joinRoom(roomInput, joinPassword)}
-              className="w-full py-4 bg-yellow-400 text-slate-950 font-headline font-black uppercase rounded-2xl border-3 border-on-surface shadow-[3px_3px_0px_0px_rgba(26,28,28,1)] hover:scale-105 active:scale-95 transition-all text-sm"
+              onClick={() => joinRoom(roomInput)}
+              disabled={roomInput.length !== 6}
+              className="w-full bg-on-surface text-white py-3 rounded-xl font-headline font-black uppercase hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-xs flex items-center justify-center gap-2 mt-2"
             >
-              Vào Phòng
+              <span>VÀO PHÒNG</span>
+              <ArrowForwardIcon className="w-4 h-4 text-white" strokeWidth={3} />
             </button>
           </div>
         </div>
 
-        <div className="flex flex-col gap-4 border-t-4 border-dashed border-on-surface-variant pt-6">
-          <div className="flex justify-between items-center">
-            <h3 className="text-xs font-headline font-black text-on-surface uppercase tracking-wider">Danh sách phòng chờ</h3>
+        {/* Active Games List Table */}
+        <div className="bg-white border-3 border-on-surface shadow-[6px_6px_0px_0px_#1a1c1c] rounded-2xl overflow-hidden mb-6">
+          <div className="bg-on-surface px-6 py-4 flex justify-between items-center text-white border-b-3 border-on-surface">
+            <h3 className="font-headline font-black text-sm uppercase tracking-wider flex items-center gap-2">
+              <ListIcon className="w-5 h-5 text-white" strokeWidth={2.5} />
+              ACTIVE GAMES
+            </h3>
             <button 
-              onClick={fetchPublicRooms} 
-              className="text-[10px] font-headline font-black text-primary hover:underline uppercase flex items-center gap-1"
+              onClick={handleRefreshRooms} 
+              className="hover:scale-110 active:scale-95 transition-all text-white flex items-center justify-center"
+              title="Làm mới danh sách"
             >
-              🔄 Làm mới
+              <RefreshIcon className={`w-5 h-5 text-white ${isRefreshing ? 'animate-spin' : ''}`} strokeWidth={2.5} />
             </button>
           </div>
           
-          {publicRooms.length === 0 ? (
-            <p className="text-center text-xs font-bold text-on-surface-variant py-4 italic bg-slate-50 border-2 border-on-surface rounded-2xl">
-              Không có phòng chờ công khai nào.
-            </p>
-          ) : (
-            <div className="flex flex-col gap-2 max-h-[200px] overflow-y-auto pr-1 hide-scroll">
-              {publicRooms.map((room) => (
-                <div 
-                  key={room.code} 
-                  className="flex justify-between items-center bg-surface border-2 border-on-surface p-3 rounded-xl shadow-[2px_2px_0px_0px_#1a1c1c] text-xs font-bold"
-                >
-                  <div className="flex flex-col">
-                    <span className="font-headline font-black text-primary uppercase text-[10px]">MÃ: {room.code}</span>
-                    <span className="text-[10px] text-on-surface-variant">Chủ phòng: {room.players[0]?.username || 'Ẩn danh'}</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-[10px] bg-slate-100 border border-on-surface px-1.5 py-0.5 rounded font-headline font-black text-on-surface">
-                      👤 {room.players.length}/{room.maxPlayers}
-                    </span>
-                    {room.password && (
-                      <span className="text-[10px]" title="Yêu cầu mật khẩu">🔒</span>
-                    )}
-                    <button
-                      onClick={() => {
-                        setRoomInput(room.code);
-                        if (room.password) {
-                          const pwd = window.prompt("Nhập mật khẩu của phòng:") || '';
-                          joinRoom(room.code, pwd);
-                        } else {
-                          joinRoom(room.code);
-                        }
-                      }}
-                      className="bg-primary text-on-primary font-headline font-black px-3 py-1 text-[10px] rounded-lg border border-on-surface shadow-[1px_1px_0px_0px_#1a1c1c] hover:scale-105 active:scale-95 transition-all uppercase"
-                    >
-                      Vào
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b-3 border-on-surface bg-slate-50 text-[10px] font-headline font-black uppercase text-on-surface">
+                  <th className="py-3.5 px-6">ROOM CODE</th>
+                  <th className="py-3.5 px-6">HOST</th>
+                  <th className="py-3.5 px-6">EDITION</th>
+                  <th className="py-3.5 px-6 text-center">PLAYERS</th>
+                  <th className="py-3.5 px-6 text-center">STATUS</th>
+                  <th className="py-3.5 px-6 text-right">ACTION</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y-2 divide-slate-100 font-sans font-bold text-xs text-on-surface">
+                {publicRooms.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" className="py-12 text-center text-on-surface-variant italic font-bold">
+                      Không có phòng công khai nào đang chờ... Hãy tự tạo phòng đấu của riêng bạn!
+                    </td>
+                  </tr>
+                ) : (
+                  publicRooms.map((room) => {
+                    const isFull = room.players.length >= room.maxPlayers;
+                    return (
+                      <tr key={room.code} className="hover:bg-slate-50 transition-colors">
+                        <td className="py-4 px-6 font-headline font-black text-primary uppercase text-sm">
+                          {room.code}
+                        </td>
+                        <td className="py-4 px-6">{room.players[0]?.username || 'Ẩn danh'}</td>
+                        <td className="py-4 px-6">
+                          <span className="text-[9px] font-headline font-black text-indigo-600 bg-indigo-50 border-2 border-indigo-200 px-2.5 py-0.5 rounded-lg">
+                            {EDITION_NAMES[room.edition] || room.edition}
+                          </span>
+                        </td>
+                        <td className="py-4 px-6 text-center">
+                          <span className={`font-headline font-black text-xs ${isFull ? 'text-rose-600' : 'text-on-surface'}`}>
+                            {room.players.length}/{room.maxPlayers}
+                          </span>
+                        </td>
+                        <td className="py-4 px-6 text-center">
+                          <span className={`inline-block px-2.5 py-0.5 text-[9px] font-headline font-black rounded-md border-2
+                            ${isFull 
+                              ? 'bg-rose-100 border-rose-300 text-rose-700' 
+                              : 'bg-emerald-100 border-emerald-300 text-emerald-700'}`}>
+                            {isFull ? 'FULL' : 'WAITING'}
+                          </span>
+                        </td>
+                        <td className="py-4 px-6 text-right">
+                          <button
+                            onClick={() => handleJoinRoomCode(room.code, room.password)}
+                            disabled={isFull}
+                            className={`px-4 py-2 font-headline font-black uppercase text-[10px] rounded-xl border-2 shadow-[2px_2px_0px_0px_#1a1c1c] transition-all hover:scale-105 active:scale-95
+                              ${isFull 
+                                ? 'bg-slate-100 border-slate-300 text-slate-400 cursor-not-allowed shadow-none' 
+                                : 'bg-yellow-400 border-on-surface text-slate-950'}`}
+                          >
+                            {isFull ? 'FULL' : 'JOIN'}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
+
+        {/* Modal tạo phòng */}
+        {isCreateModalOpen && (
+          <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
+            <div className="bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_#1a1c1c] rounded-3xl p-6 w-full max-w-md flex flex-col gap-5 relative text-left">
+              <button 
+                onClick={() => setIsCreateModalOpen(false)}
+                className="absolute top-4 right-4 font-headline font-black text-on-surface hover:scale-110 active:scale-95 text-lg"
+              >
+                ✕
+              </button>
+              
+              <div>
+                <h3 className="font-headline font-black text-xl text-on-surface uppercase tracking-tight">TẠO PHÒNG MỚI</h3>
+                <p className="text-[10px] font-bold text-on-surface-variant mt-0.5">Thiết lập các thông số đấu trường của bạn.</p>
+              </div>
+
+              <div className="flex flex-col gap-4 border-2 border-on-surface bg-slate-50 p-4 rounded-2xl shadow-[2.5px_2.5px_0px_0px_#1a1c1c]">
+                <div className="flex justify-between items-center text-xs font-bold text-on-surface">
+                  <span className="flex items-center gap-1.5"><PublicIcon className="w-4 h-4 text-on-surface" strokeWidth={2.5} /> Chế độ phòng:</span>
+                  <select 
+                    value={lobbyIsPublic ? "public" : "private"} 
+                    onChange={(e) => setLobbyIsPublic(e.target.value === "public")}
+                    className="bg-white border-2 border-on-surface px-2.5 py-1 rounded-xl text-xs font-headline font-black focus:outline-none"
+                  >
+                    <option value="public">Công khai</option>
+                    <option value="private">Riêng tư</option>
+                  </select>
+                </div>
+
+                <div className="flex justify-between items-center text-xs font-bold text-on-surface">
+                  <span className="flex items-center gap-1.5"><ExtensionIcon className="w-4 h-4 text-on-surface" strokeWidth={2.5} /> Phiên bản:</span>
+                  <select 
+                    value={lobbyEdition} 
+                    onChange={(e) => setLobbyEdition(e.target.value)}
+                    className="bg-white border-2 border-on-surface px-2.5 py-1 rounded-xl text-xs font-headline font-black focus:outline-none"
+                  >
+                    <option value="all">Tất cả mở rộng</option>
+                    <option value="original">Bản gốc</option>
+                    <option value="2_player">Bản 2 người</option>
+                    <option value="zombie">Mèo Thây Ma</option>
+                    <option value="barking">Mèo Sủa</option>
+                    <option value="good_vs_evil">Thiện và Ác</option>
+                  </select>
+                </div>
+                
+                <div className="flex flex-col gap-1.5 text-xs font-bold text-on-surface">
+                  <span className="flex items-center gap-1.5"><LockIcon className="w-4 h-4 text-on-surface" strokeWidth={2.5} /> Mật khẩu phòng (nếu muốn):</span>
+                  <input
+                    type="password"
+                    placeholder="Nhập mật khẩu..."
+                    value={createPassword}
+                    onChange={(e) => setCreatePassword(e.target.value)}
+                    className="bg-white border-2 border-on-surface px-3 py-2 rounded-xl text-xs font-bold focus:outline-none focus:bg-slate-100 transition-all w-full"
+                  />
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  createRoom(createPassword, lobbyIsPublic, lobbyEdition);
+
+                  setIsCreateModalOpen(false);
+                }}
+                className="btn-detonator w-full py-3.5 rounded-2xl font-headline font-black uppercase text-xs"
+              >
+                XÁC NHẬN TẠO PHÒNG
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -611,26 +854,43 @@ export default function Game() {
   // ==========================================
   if (roomState.status === 'waiting') {
     return (
-      <div className="max-w-xl mx-auto my-6 bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-8 flex flex-col gap-6">
-        <div className="flex justify-between items-start border-b-4 border-on-surface pb-4 flex-wrap gap-4">
+      <div className="max-w-xl mx-auto my-6 bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-8 flex flex-col gap-6 animate-fade-in">
+        <div className="flex justify-between items-start border-b-4 border-on-surface pb-4 flex-wrap gap-4 text-left">
           <div>
             <h2 className="text-2xl font-headline font-black text-on-surface uppercase">Phòng Chờ Trận Đấu</h2>
-            <div className="flex items-center gap-2 mt-1.5">
+            
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
               <span className="text-[10px] font-headline font-black text-on-surface-variant uppercase">Mã Phòng:</span>
-              <span className="bg-yellow-400 text-slate-950 font-headline font-black text-sm px-3 py-1 rounded-xl border-2 border-on-surface shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]">
-                {roomState.code}
+              <div className="flex items-center gap-1.5 bg-yellow-400 text-slate-950 font-headline font-black text-xs px-3 py-1.5 rounded-xl border-2 border-on-surface shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]">
+                <span>{roomState.code}</span>
+                <button 
+                  onClick={() => handleCopyCode(roomState.code)} 
+                  className="hover:scale-110 active:scale-95 transition-all flex items-center justify-center text-slate-950 ml-1"
+                  title="Sao chép mã phòng"
+                >
+                  {copied ? (
+                    <CheckIcon className="w-3.5 h-3.5" strokeWidth={3} />
+                  ) : (
+                    <CopyIcon className="w-3.5 h-3.5" strokeWidth={2.5} />
+                  )}
+                </button>
+              </div>
+              <span className="text-[9px] font-headline font-black bg-indigo-100 border-2 border-on-surface text-indigo-700 px-2 py-1.5 rounded-xl shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)] uppercase">
+                {EDITION_NAMES[roomState.edition] || roomState.edition || EDITION_NAMES.all}
               </span>
             </div>
           </div>
+          
           <button
             onClick={handleLeaveConfirm}
-            className="bg-secondary text-on-error font-headline font-black border-2 border-on-surface shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] px-4 py-2 text-xs rounded-xl hover:scale-105 active:scale-95 transition-all uppercase"
+            className="bg-secondary text-on-error font-headline font-black border-2 border-on-surface shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] px-4 py-2.5 text-xs rounded-xl hover:scale-105 active:scale-95 transition-all uppercase flex items-center gap-1.5"
           >
+            <LogoutIcon className="w-4 h-4 text-on-error" strokeWidth={2.5} />
             Rời Phòng
           </button>
         </div>
 
-        <div>
+        <div className="text-left">
           <h3 className="text-xs font-headline font-black text-on-surface uppercase tracking-wider mb-4">
             Thành viên trong phòng ({roomState.players.length}/5)
           </h3>
@@ -641,21 +901,29 @@ export default function Game() {
                 className="flex justify-between items-center bg-surface border-3 border-on-surface px-4 py-3 rounded-2xl shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]"
               >
                 <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-full bg-primary-fixed border-2 border-on-surface flex items-center justify-center text-xs font-headline font-black uppercase text-on-surface">
+                  <div 
+                    className="h-9 w-9 rounded-full border-2 border-on-surface flex items-center justify-center text-xs font-headline font-black uppercase text-on-surface"
+                    style={{ backgroundColor: getAvatarBgColor(player.username || player.userId) }}
+                  >
                     {player.username ? player.username.slice(0, 2).toUpperCase() : player.userId.slice(0, 2).toUpperCase()}
                   </div>
                   <div className="flex flex-col">
-                    <span className="text-xs font-headline font-black uppercase text-on-surface truncate max-w-[120px]">
+                    <span className="text-xs font-headline font-black uppercase text-on-surface truncate max-w-[120px] flex items-center gap-1">
                       {player.username || player.userId}
+                      {roomState.host === player.userId && (
+                        <CrownIcon className="w-4 h-4 text-on-surface" strokeWidth={2.5} title="Trưởng phòng" />
+                      )}
                     </span>
                     {roomState.host === player.userId && (
-                      <span className="text-[8px] font-headline font-black text-primary uppercase">👑 Trưởng phòng</span>
+                      <span className="text-[7.5px] font-headline font-black text-primary uppercase">Trưởng phòng</span>
                     )}
                   </div>
                 </div>
-                <span className="text-[9px] font-headline font-black text-emerald-600 uppercase flex items-center gap-1">
-                  🟢 Sẵn sàng
-                </span>
+                
+                <div className="flex items-center gap-1 font-headline font-black text-[9px] text-on-surface uppercase">
+                  <CheckCircleIcon className="w-4 h-4 text-on-surface animate-pulse" strokeWidth={2.5} />
+                  <span>Sẵn sàng</span>
+                </div>
               </div>
             ))}
           </div>
@@ -666,10 +934,11 @@ export default function Game() {
             <button
               onClick={startGame}
               disabled={roomState.players.length < 2}
-              className={`btn-detonator w-full py-4 rounded-2xl font-headline font-black uppercase text-base
-                ${roomState.players.length < 2 ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
+              className={`btn-detonator w-full py-4 rounded-2xl font-headline font-black uppercase text-base flex items-center justify-center gap-2
+                ${roomState.players.length < 2 ? 'opacity-50 cursor-not-allowed pointer-events-none' : 'hover:animate-shake'}`}
             >
-              🚀 KHAI HỎA TRẬN ĐẤU 💣
+              <RocketIcon className="w-5 h-5" strokeWidth={2.5} />
+              <span>BẮT ĐẦU TRẬN ĐẤU</span>
             </button>
             {roomState.players.length < 2 && (
               <p className="text-center text-[10px] font-bold text-on-surface-variant">
@@ -679,7 +948,8 @@ export default function Game() {
           </div>
         ) : (
           <div className="text-center border-t-4 border-dashed border-on-surface-variant pt-6 mt-4">
-            <p className="text-xs font-headline font-black uppercase text-primary animate-pulse">
+
+            <p className="text-xs font-headline font-black uppercase text-primary animate-pulse flex items-center justify-center gap-1">
               Đang chờ trưởng phòng bắt đầu trận đấu...
             </p>
           </div>
@@ -1080,6 +1350,55 @@ export default function Game() {
           myUserId={myUser.id}
           cardType={selectTargetRequest.cardType}
           onRespond={respondSelectTarget}
+        />
+      )}
+
+      {/* 8.7. Feed the Dead Modal */}
+      {feedTheDeadRequest && feedTheDeadRequest.active && (
+        <FeedTheDeadModal
+          targetPlayerName={gameState?.players.find(p => p.userId === feedTheDeadRequest.targetPlayerId)?.username || feedTheDeadRequest.targetPlayerId}
+          hand={privateHand}
+          onRespond={respondFeedTheDead}
+        />
+      )}
+
+      {/* 8.8. Grave Robber Modal */}
+      {graveRobberRequest && graveRobberRequest.active && (
+        <GraveRobberModal
+          hand={privateHand}
+          onRespond={respondGraveRobber}
+        />
+      )}
+
+      {/* 8.9. Dig Deeper Modal */}
+      {digDeeperRequest && digDeeperRequest.active && (
+        <DigDeeperModal
+          firstCard={digDeeperRequest.firstCard}
+          onRespond={respondDigDeeper}
+        />
+      )}
+
+      {/* 8.10. Armageddon Distribute Modal */}
+      {armageddonRequest && armageddonRequest.active && armageddonRequest.stage === 'distribute' && (
+        <ArmageddonDistributeModal
+          targetPlayerName={gameState?.players.find(p => p.userId === gameState?.pendingArmageddon?.targetPlayerId)?.username || gameState?.pendingArmageddon?.targetPlayerId}
+          onRespond={respondArmageddonDistribute}
+        />
+      )}
+
+      {/* 8.11. Armageddon Decision Modal */}
+      {armageddonRequest && armageddonRequest.active && armageddonRequest.stage === 'decision' && (
+        <ArmageddonDecisionModal
+          activatorPlayerName={gameState?.players.find(p => p.userId === gameState?.pendingArmageddon?.playerId)?.username || gameState?.pendingArmageddon?.playerId}
+          onRespond={respondArmageddonDecision}
+        />
+      )}
+
+      {/* 8.12. Clairvoyance Reveal Modal */}
+      {localClairvoyance && (
+        <ClairvoyanceRevealModal
+          position={localClairvoyance.position}
+          onClose={() => setLocalClairvoyance(null)}
         />
       )}
 

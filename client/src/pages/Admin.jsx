@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { PRESET_AVATARS } from '../components/PlayerAvatar.jsx';
+import { CoinIcon, GemIcon } from '../components/CoinDisplay.jsx';
 
 export default function Admin() {
   const [activeTab, setActiveTab] = useState('stats');
@@ -364,8 +365,12 @@ export default function Admin() {
               <div className="bg-yellow-100 border-3 border-on-surface rounded-2xl p-5 shadow-[4px_4px_0px_0px_#1a1c1c] sm:col-span-2">
                 <span className="text-[10px] font-headline font-black text-yellow-800 uppercase block">Doanh thu Shop tích lũy</span>
                 <div className="flex gap-6 mt-1">
-                  <span className="font-headline font-black text-2xl text-slate-950">💰 {stats.coinRevenue} Xu</span>
-                  <span className="font-headline font-black text-2xl text-slate-950">💎 {stats.gemRevenue} Đá</span>
+                  <span className="font-headline font-black text-2xl text-slate-950 flex items-center gap-1.5">
+                    <CoinIcon className="w-6 h-6 text-primary" /> {stats.coinRevenue} Xu
+                  </span>
+                  <span className="font-headline font-black text-2xl text-slate-950 flex items-center gap-1.5">
+                    <GemIcon className="w-6 h-6 text-indigo-600" /> {stats.gemRevenue} Đá
+                  </span>
                 </div>
               </div>
             </div>
@@ -497,9 +502,17 @@ export default function Admin() {
                   </div>
 
                   <div className="flex items-center gap-6">
-                    <div className="text-right">
-                      {item.price?.coins > 0 && <span className="font-headline font-black text-xs text-primary block">💰 {item.price.coins}</span>}
-                      {item.price?.gems > 0 && <span className="font-headline font-black text-xs text-indigo-600 block">💎 {item.price.gems}</span>}
+                    <div className="text-right flex flex-col items-end">
+                      {item.price?.coins > 0 && (
+                        <span className="font-headline font-black text-xs text-primary flex items-center gap-1">
+                          <CoinIcon className="w-4 h-4 text-primary" /> {item.price.coins}
+                        </span>
+                      )}
+                      {item.price?.gems > 0 && (
+                        <span className="font-headline font-black text-xs text-indigo-600 flex items-center gap-1">
+                          <GemIcon className="w-4 h-4 text-indigo-600" /> {item.price.gems}
+                        </span>
+                      )}
                       {item.price?.coins <= 0 && item.price?.gems <= 0 && <span className="font-headline font-black text-xs text-emerald-600 block">Free</span>}
                     </div>
                     <button
@@ -564,9 +577,9 @@ export default function Admin() {
                     </div>
                   </div>
 
-                  <div className="flex gap-4 font-headline font-black text-xs text-on-surface-variant">
-                    <span>💰 {p.coins}</span>
-                    <span>💎 {p.gems}</span>
+                  <div className="flex gap-4 font-headline font-black text-xs text-on-surface-variant items-center">
+                    <span className="flex items-center gap-1"><CoinIcon className="w-4 h-4 text-on-surface-variant" /> {p.coins}</span>
+                    <span className="flex items-center gap-1"><GemIcon className="w-4 h-4 text-on-surface-variant" /> {p.gems}</span>
                   </div>
                 </div>
               ))}
@@ -811,9 +824,17 @@ export default function Admin() {
                   </div>
 
                   <div className="flex items-center gap-6">
-                    <div className="text-right">
-                      {quest.reward?.coins > 0 && <span className="font-headline font-black text-xs text-primary block">💰 +{quest.reward.coins}</span>}
-                      {quest.reward?.gems > 0 && <span className="font-headline font-black text-xs text-indigo-600 block">💎 +{quest.reward.gems}</span>}
+                    <div className="text-right flex flex-col items-end">
+                      {quest.reward?.coins > 0 && (
+                        <span className="font-headline font-black text-xs text-primary flex items-center gap-1">
+                          <CoinIcon className="w-4 h-4 text-primary" /> +{quest.reward.coins}
+                        </span>
+                      )}
+                      {quest.reward?.gems > 0 && (
+                        <span className="font-headline font-black text-xs text-indigo-600 flex items-center gap-1">
+                          <GemIcon className="w-4 h-4 text-indigo-600" /> +{quest.reward.gems}
+                        </span>
+                      )}
                     </div>
                     <div className="flex gap-2">
                       <button

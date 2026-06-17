@@ -17,16 +17,20 @@
 //   '../assets/cards/BoomKitten/Skip/Skip-Commandeer-a-Bunnyraptor.jpg'
 // ---------------------------------------------------------------------------
 const _modules = import.meta.glob(
-  '../assets/cards/BoomKitten/**/*.{jpg,jpeg,png,webp}',
+  '../assets/cards/**/*.{jpg,jpeg,png,webp}',
   { eager: true }
 );
 
-// Build lookup cache:  'FolderName/filename.jpg'  →  resolved URL string
+// Build lookup cache: 'PackName/FolderName/filename.jpg' and relative keys
 const _cache = {};
 for (const [rawPath, mod] of Object.entries(_modules)) {
-  // Strip the common prefix so keys match the CARD_SKIN_MAP entries below.
-  const key = rawPath.replace('../assets/cards/BoomKitten/', '');
-  _cache[key] = mod.default;
+  const keyWithPack = rawPath.replace('../assets/cards/', '');
+  _cache[keyWithPack] = mod.default;
+
+  if (rawPath.startsWith('../assets/cards/BoomKitten/')) {
+    const keyBoomKitten = rawPath.replace('../assets/cards/BoomKitten/', '');
+    _cache[keyBoomKitten] = mod.default;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -254,13 +258,59 @@ function normalizeCardType(cardType) {
   return CARD_TYPE_ALIASES[normalized] || normalized;
 }
 
+const FALLBACK_SKINS = {
+  attack_of_the_dead: [
+    'Zombie_Kittens/Attack-Of-The-Dead-Burn-Some-Bread-To-Summon-A-Toast-Ghost.jpg',
+    'Zombie_Kittens/Attack-Of-The-Dead-Gift-Tickets-To-Some-Terrible-Zombie-Stand-Up.jpg',
+    'Zombie_Kittens/Attack-Of-The-Dead-Release-A-Swam-Of-Zom-Bees.jpg',
+  ],
+  feed_the_dead: [
+    'Zombie_Kittens/feed-the-dead.png',
+  ],
+  grave_robber: [
+    'Zombie_Kittens/Grave-Robber-Return-The-Terrible-Tie-You-Were-Buried-With.jpg',
+  ],
+  clairvoyance: [
+    'Zombie_Kittens/clairvoyance.png',
+  ],
+  clairvoyance_now: [
+    'Zombie_Kittens/clairvoyance.png',
+  ],
+  dig_deeper: [
+    'Zombie_Kittens/Dig-Deeper-Get-More-Than-You-Bargained-For.jpg',
+    'Zombie_Kittens/Dig-Deeper-Make-A-Deal-With-A-Devil-In-A-Bad-Disguise.jpg',
+    'Zombie_Kittens/Dig-Deeper-Pity-The-Zombie-With-Zero-Upper-Body-Strength.jpg',
+    'Zombie_Kittens/Dig-Deeper-Tend-To-Your-Dying-Garden.jpg',
+  ],
+  godcat: [
+    'Good_vs_Evil/Godcat-The-Best-Of-The-Blessed.jpg',
+  ],
+  devilcat: [
+    'Good_vs_Evil/Devilcat-The-Worst-Of-The-Cursed.jpg',
+  ],
+  armageddon: [
+    'Good_vs_Evil/Armageddon-Anything-Can-Become-Armor.jpg',
+    'Good_vs_Evil/Armageddon-Fight-Outside.jpg',
+    'Good_vs_Evil/Armageddon-Showdown.jpg',
+  ],
+  reveal_the_future_3x: [
+    'Good_vs_Evil/Reveal-The-Future-Extra-Pair-of-Eyes.jpg',
+    'Good_vs_Evil/Reveal-The-Future-Go-Back-In-Time.jpg',
+    'Good_vs_Evil/Reveal-The-Future-Particle-Accelerator.jpg',
+  ],
+  barking_kitten: [
+    'Barking_Kittens/Barking-Kitten-Dog-House.jpg',
+    'Barking_Kittens/Barking-Kitten-Fence.jpg',
+  ],
+};
+
 /**
  * Number of skin variants for a card type.
  * Used by the server (deck.js SKIN_COUNTS) to set the random range.
  */
 export function getSkinCount(cardType, pack = DEFAULT_PACK) {
   const resolvedType = normalizeCardType(cardType);
-  const skins = SKIN_PACKS[pack]?.[resolvedType];
+  const skins = SKIN_PACKS[pack]?.[resolvedType] || FALLBACK_SKINS[resolvedType];
   return skins ? skins.length : 1;
 }
 
@@ -276,7 +326,7 @@ export function getSkinCount(cardType, pack = DEFAULT_PACK) {
  */
 export function getCardImageUrl(cardType, skinIndex = 0, pack = DEFAULT_PACK) {
   const resolvedType = normalizeCardType(cardType);
-  const skins = SKIN_PACKS[pack]?.[resolvedType];
+  const skins = SKIN_PACKS[pack]?.[resolvedType] || FALLBACK_SKINS[resolvedType];
   if (!skins || skins.length === 0) return null;
   const idx = Math.abs(Math.floor(skinIndex)) % skins.length;
   return _cache[skins[idx]] ?? null;
@@ -287,5 +337,5 @@ export function getCardImageUrl(cardType, skinIndex = 0, pack = DEFAULT_PACK) {
  */
 export function getCardSkins(cardType, pack = DEFAULT_PACK) {
   const resolvedType = normalizeCardType(cardType);
-  return SKIN_PACKS[pack]?.[resolvedType] ?? [];
+  return SKIN_PACKS[pack]?.[resolvedType] ?? FALLBACK_SKINS[resolvedType] ?? [];
 }

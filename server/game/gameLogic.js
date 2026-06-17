@@ -379,37 +379,33 @@ function handleCombo(gameState, playerId, cardIds, targetPlayerId) {
 
   if (cardsToPlay.length !== cardIds.length) return null;
 
-  // All cards must be cat cards or feral_cat
-  if (!cardsToPlay.every((c) => c.type.startsWith('cat_') || c.type === 'feral_cat')) return null;
+  // All cards must be cat cards, feral_cat, or godcat
+  if (!cardsToPlay.every((c) => c.type.startsWith('cat_') || c.type === 'feral_cat' || c.type === 'godcat')) return null;
 
   const n = cardsToPlay.length;
   if (n < 2 || (n !== 2 && n !== 3 && n !== 5)) return null;
 
   const cardTypes = cardsToPlay.map((c) => c.type);
+  const wildCount = cardTypes.filter((t) => t === 'feral_cat' || t === 'godcat').length;
+  const nonWild = cardTypes.filter((t) => t !== 'feral_cat' && t !== 'godcat');
 
   if (n === 2) {
-    // 2-card combo: both must be the same type, OR one feral + one cat
-    const nonFeral = cardTypes.filter((t) => t !== 'feral_cat');
-    const feral = cardTypes.filter((t) => t === 'feral_cat');
-    const valid = feral.length === 2 // 2 feral cats
-      || (feral.length === 1 && nonFeral.length === 1) // 1 feral + 1 cat
-      || (nonFeral.length === 2 && nonFeral[0] === nonFeral[1]); // 2 same cats
+    // 2-card combo: both must be the same type, OR one wild + one cat
+    const valid = wildCount === 2 // 2 wild cards
+      || (wildCount === 1 && nonWild.length === 1) // 1 wild + 1 cat
+      || (nonWild.length === 2 && nonWild[0] === nonWild[1]); // 2 same cats
     if (!valid) return null;
   } else if (n === 3) {
-    // 3-card combo: 2+ same type + feral, or all same type
-    const nonFeral = cardTypes.filter((t) => t !== 'feral_cat');
-    const feral = cardTypes.filter((t) => t === 'feral_cat');
-    const valid = feral.length === 3 // 3 ferals
-      || (feral.length === 2 && nonFeral.length === 1) // 2 feral + 1 cat
-      || (feral.length === 1 && nonFeral.length === 2 && nonFeral[0] === nonFeral[1]) // 1 feral + 2 same
-      || (nonFeral.length === 3 && nonFeral[0] === nonFeral[1] && nonFeral[1] === nonFeral[2]); // 3 same
+    // 3-card combo: 2+ same type + wild, or all same type
+    const valid = wildCount === 3 // 3 wilds
+      || (wildCount === 2 && nonWild.length === 1) // 2 wild + 1 cat
+      || (wildCount === 1 && nonWild.length === 2 && nonWild[0] === nonWild[1]) // 1 wild + 2 same
+      || (nonWild.length === 3 && nonWild[0] === nonWild[1] && nonWild[1] === nonWild[2]); // 3 same
     if (!valid) return null;
   } else if (n === 5) {
-    // 5-card combo: 5 different cat types (ferals count as any)
-    const nonFeral = cardTypes.filter((t) => t !== 'feral_cat');
-    const uniqueNonFeral = new Set(nonFeral);
-    const feral = cardTypes.filter((t) => t === 'feral_cat').length;
-    if (uniqueNonFeral.size + feral < 5) return null; // Not enough distinct types
+    // 5-card combo: 5 different cat types (wilds count as any)
+    const uniqueNonWild = new Set(nonWild);
+    if (uniqueNonWild.size + wildCount < 5) return null; // Not enough distinct types
   }
 
   cardsToPlay.forEach((c) => {
@@ -523,15 +519,25 @@ function playCard(gameState, playerId, cardType, targetPlayerId, options = {}) {
   const card = removeCardFromHand(player, cardType);
   if (!card) return null;
 
-  gameState.discardPile.push(card);
-  gameState.lastAction = { playerId, cardType: actualCardType, targetPlayerId, timestamp: Date.now(), canceled: false };
-
   // Clone handles duplication of the previous action
-  if (actualCardType === 'clone' && gameState.lastAction && !gameState.lastAction.canceled) {
-    actualCardType = gameState.lastAction.cardType;
+  const prevAction = gameState.lastAction;
+  let clonedCardType = null;
+  if (actualCardType === 'clone' && prevAction && !prevAction.canceled) {
+    clonedCardType = prevAction.cardType;
   }
 
-  return actualCardType;
+  // Godcat goes to playmat instead of discard pile when played as a single card
+  if (cardType === 'godcat') {
+    if (!gameState.playmat) gameState.playmat = { godcat: false, devilcat: true };
+    gameState.playmat.godcat = true;
+  } else {
+    gameState.discardPile.push(card);
+  }
+
+  const recordedType = clonedCardType || actualCardType;
+  gameState.lastAction = { playerId, cardType: recordedType, targetPlayerId, timestamp: Date.now(), canceled: false };
+
+  return recordedType;
 }
 
 function executeActionEffect(gameState, cardType, playerId, targetPlayerId, options = {}, onDefuse) {
@@ -592,6 +598,74 @@ function executeActionEffect(gameState, cardType, playerId, targetPlayerId, opti
       return handlePotLuck(gameState);
     case 'raising_heck':
       return handleRaisingHeck(gameState, playerId);
+    case 'attack_of_the_dead': {
+      const deadCount = gameState.players.filter((p) => !p.alive).length;
+      const extraDraws = 3 * deadCount;
+      gameState.drawsRequired = (gameState.drawsRequired ?? 1) > 1 ? gameState.drawsRequired + extraDraws : (extraDraws > 0 ? extraDraws : 1);
+      passTurn(gameState);
+      return gameState;
+    }
+    case 'feed_the_dead': {
+      gameState.pendingFeedTheDead = { playerId, targetPlayerId, responses: {}, startedAt: Date.now() };
+      return gameState;
+    }
+    case 'grave_robber': {
+      gameState.pendingGraveRobber = { playerId, responses: {}, startedAt: Date.now() };
+      return gameState;
+    }
+    case 'clairvoyance':
+    case 'clairvoyance_now':
+      return gameState;
+    case 'dig_deeper': {
+      if (gameState.deck.length > 0) {
+        const firstCard = gameState.deck.pop();
+        gameState.pendingDigDeeper = { playerId, firstCard, startedAt: Date.now() };
+      }
+      return gameState;
+    }
+    case 'armageddon': {
+      if (gameState.playmat && gameState.playmat.godcat && gameState.playmat.devilcat) {
+        gameState.playmat.godcat = false;
+        gameState.playmat.devilcat = false;
+        gameState.pendingArmageddon = {
+          playerId,
+          targetPlayerId,
+          activatorCard: null,
+          targetCard: null,
+          stage: 'distribute',
+          startedAt: Date.now(),
+        };
+      }
+      return gameState;
+    }
+    case 'barking_kitten': {
+      const player = getPlayer(gameState, playerId);
+      if (!player) return gameState;
+      const otherPlayer = gameState.players.find(
+        (p) => p.userId !== playerId && p.alive && 
+        (p.hand.some((c) => c.type === 'barking_kitten') || p.barkingKittenPlayed)
+      );
+      if (otherPlayer) {
+        if (otherPlayer.barkingKittenPlayed) {
+          otherPlayer.barkingKittenPlayed = false;
+        } else {
+          removeCardFromHand(otherPlayer, 'barking_kitten');
+        }
+        const otherCard = { id: `bk-${Date.now()}`, type: 'barking_kitten' };
+        gameState.discardPile.push(otherCard);
+        const ekCard = { id: `ek-bk-${Date.now()}`, type: 'exploding_kitten' };
+        resolveExplosion(gameState, otherPlayer.userId, ekCard);
+      } else {
+        player.barkingKittenPlayed = true;
+        const playedCardIdx = gameState.discardPile.findLastIndex((c) => c.type === 'barking_kitten');
+        if (playedCardIdx >= 0) {
+          gameState.discardPile.splice(playedCardIdx, 1);
+        }
+      }
+      return gameState;
+    }
+    case 'reveal_the_future_3x':
+      return gameState;
 
     // Combo effects executed after Nope window:
     case 'combo_2': {
@@ -656,6 +730,148 @@ function resolveDefusePutBack(gameState, insertPosition) {
   return gameState;
 }
 
+function resolveFeedTheDead(gameState, giverId, cardId) {
+  if (!gameState.pendingFeedTheDead) return gameState;
+  const giver = getPlayer(gameState, giverId);
+  if (!giver) return gameState;
+
+  const idx = giver.hand.findIndex((c) => c.id === cardId);
+  if (idx >= 0) {
+    const [card] = giver.hand.splice(idx, 1);
+    gameState.pendingFeedTheDead.responses[giverId] = card;
+  }
+
+  const activatorId = gameState.pendingFeedTheDead.playerId;
+  const targetPlayerId = gameState.pendingFeedTheDead.targetPlayerId;
+  const livingNeedToRespond = gameState.players.filter((p) => p.alive && p.userId !== activatorId);
+  const allDone = livingNeedToRespond.every((p) => gameState.pendingFeedTheDead.responses[p.userId]);
+
+  if (allDone) {
+    const target = getPlayer(gameState, targetPlayerId);
+    if (target) {
+      Object.values(gameState.pendingFeedTheDead.responses).forEach((card) => {
+        target.hand.push(card);
+      });
+      checkStreakingKittenEffect(gameState, target.userId);
+    }
+    livingNeedToRespond.forEach((p) => {
+      checkStreakingKittenEffect(gameState, p.userId);
+    });
+    gameState.pendingFeedTheDead = null;
+  }
+  return gameState;
+}
+
+function resolveGraveRobber(gameState, deadPlayerId, cardId) {
+  if (!gameState.pendingGraveRobber) return gameState;
+  const player = getPlayer(gameState, deadPlayerId);
+  if (!player) return gameState;
+
+  const idx = player.hand.findIndex((c) => c.id === cardId);
+  if (idx >= 0) {
+    const [card] = player.hand.splice(idx, 1);
+    gameState.pendingGraveRobber.responses[deadPlayerId] = card;
+  }
+
+  const deadWithCards = gameState.players.filter((p) => !p.alive && p.hand.length > 0);
+  const allDone = deadWithCards.every((p) => gameState.pendingGraveRobber.responses[p.userId]);
+
+  if (allDone) {
+    Object.values(gameState.pendingGraveRobber.responses).forEach((card) => {
+      gameState.deck.push(card);
+    });
+    gameState.deck = shuffleDeck(gameState.deck);
+    gameState.pendingGraveRobber = null;
+  }
+  return gameState;
+}
+
+function resolveDigDeeper(gameState, decision) {
+  if (!gameState.pendingDigDeeper) return gameState;
+  const { playerId, firstCard } = gameState.pendingDigDeeper;
+  const player = getPlayer(gameState, playerId);
+  
+  if (player && player.alive) {
+    if (decision === 'keep') {
+      if (firstCard.type === 'exploding_kitten' || firstCard.type === 'imploding_kitten') {
+        resolveExplosion(gameState, playerId, firstCard);
+      } else {
+        player.hand.push(firstCard);
+        checkStreakingKittenEffect(gameState, playerId);
+      }
+      gameState.drawsRequired = Math.max(0, (gameState.drawsRequired ?? 1) - 1);
+      if (gameState.drawsRequired === 0 && !gameState.pendingZombie && !gameState.pendingDefuse) {
+        gameState.drawsRequired = 1;
+        passTurn(gameState);
+      }
+    } else {
+      gameState.deck.push(firstCard);
+      drawCard(gameState, playerId);
+    }
+  }
+  gameState.pendingDigDeeper = null;
+  return gameState;
+}
+
+function resolveArmageddonDistribute(gameState, choice) {
+  if (!gameState.pendingArmageddon) return gameState;
+  
+  const godcatCard = { id: `gc-${Date.now()}`, type: 'godcat' };
+  const devilcatCard = { id: `dc-${Date.now()}`, type: 'devilcat' };
+
+  if (choice === 'godcat') {
+    gameState.pendingArmageddon.activatorCard = godcatCard;
+    gameState.pendingArmageddon.targetCard = devilcatCard;
+  } else {
+    gameState.pendingArmageddon.activatorCard = devilcatCard;
+    gameState.pendingArmageddon.targetCard = godcatCard;
+  }
+  gameState.pendingArmageddon.stage = 'decision';
+  return gameState;
+}
+
+function resolveArmageddonDecision(gameState, decision) {
+  if (!gameState.pendingArmageddon) return gameState;
+  const { playerId, targetPlayerId, activatorCard, targetCard } = gameState.pendingArmageddon;
+  
+  let finalActivatorCard = activatorCard;
+  let finalTargetCard = targetCard;
+
+  if (decision === 'swap') {
+    finalActivatorCard = targetCard;
+    finalTargetCard = activatorCard;
+  }
+
+  const activator = getPlayer(gameState, playerId);
+  const target = getPlayer(gameState, targetPlayerId);
+
+  // Process Activator card
+  if (activator && activator.alive) {
+    if (finalActivatorCard.type === 'godcat') {
+      activator.hand.push(finalActivatorCard);
+      checkStreakingKittenEffect(gameState, activator.userId);
+    } else {
+      resolveExplosion(gameState, activator.userId, finalActivatorCard);
+    }
+  }
+
+  // Process Target card
+  if (target && target.alive) {
+    if (finalTargetCard.type === 'godcat') {
+      target.hand.push(finalTargetCard);
+      checkStreakingKittenEffect(gameState, target.userId);
+    } else {
+      resolveExplosion(gameState, target.userId, finalTargetCard);
+    }
+  }
+
+  if (!gameState.playmat) gameState.playmat = { godcat: false, devilcat: false };
+  gameState.playmat.devilcat = true;
+
+  gameState.pendingArmageddon = null;
+  return gameState;
+}
+
 module.exports = {
   playCard,
   executeActionEffect,
@@ -679,5 +895,10 @@ module.exports = {
   resolvePotLuck,
   resolveZombieRevive,
   resolveDefusePutBack,
+  resolveFeedTheDead,
+  resolveGraveRobber,
+  resolveDigDeeper,
+  resolveArmageddonDistribute,
+  resolveArmageddonDecision,
   checkStreakingKittenEffect,
 };

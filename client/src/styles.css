@@ -131,3 +131,16 @@ body {
 .animate-spin-ccw {
   animation: spin-counter-clockwise 10s linear infinite;
 }
+
+@keyframes brutal-shake {
+  0% { transform: translate(0, 0) rotate(0deg); }
+  20% { transform: translate(-2px, 1px) rotate(-0.5deg); }
+  40% { transform: translate(1px, -1px) rotate(0.5deg); }
+  60% { transform: translate(-1px, -1px) rotate(-0.5deg); }
+  80% { transform: translate(2px, 1px) rotate(0.5deg); }
+  100% { transform: translate(0, 0) rotate(0deg); }
+}
+.hover\:animate-shake:hover:not(:disabled) {
+  animation: brutal-shake 0.2s infinite linear;
+}
+

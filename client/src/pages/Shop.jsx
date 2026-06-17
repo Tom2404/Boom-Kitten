@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { gsap } from 'gsap';
+import { CoinIcon, GemIcon } from '../components/CoinDisplay.jsx';
 
 const RARITY_COLORS = {
   common: 'bg-slate-200 text-slate-800',
@@ -12,7 +13,8 @@ export default function Shop() {
   const [items, setItems] = useState([]);
   const [ownedItems, setOwnedItems] = useState({ ownedSkins: [], ownedEmotes: [], ownedAvatarFrames: [] });
   const [userBalance, setUserBalance] = useState({ coins: 0, gems: 0 });
-  const [selectedTab, setSelectedTab] = useState('all');
+  const [selectedTab, setSelectedTab] = useState('skin');
+
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [isError, setIsError] = useState(false);
@@ -114,44 +116,90 @@ export default function Shop() {
     return false;
   };
 
+  const getDescription = (item) => {
+    if (item.description) return item.description;
+    if (item.type === 'skin') {
+      if (item.name.toLowerCase().includes('toxic')) return 'Glows in the dark. Might mutate your fingers.';
+      if (item.name.toLowerCase().includes('basic')) return 'Boring. Reliable. Doesn\'t explode (often).';
+      if (item.name.toLowerCase().includes('king')) return 'Bow down to the meow-jesty. Shiny foil effect included.';
+      return 'Cool custom card sleeve. Might not explode.';
+    }
+    if (item.type === 'emote') return 'Show your emotions to your opponents.';
+    if (item.type === 'avatar_frame') return 'Premium frame to show off your ELO rank.';
+    return 'Special item for Kitten Arena.';
+  };
+
   return (
-    <div className="flex flex-col gap-8">
-      {/* Header with Balance */}
-      <div className="bg-white border-4 border-on-surface shadow-[6px_6px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 flex flex-col md:flex-row justify-between items-center gap-6">
-        <div>
-          <h2 className="text-2xl font-headline font-black text-on-surface uppercase">Cửa Hàng Vật Phẩm</h2>
-          <p className="text-xs font-bold text-on-surface-variant mt-1">Trang bị các loại Skin bài, Emotes và Khung Avatar cực chất.</p>
+    <div className="flex flex-col gap-8 select-none">
+      {/* Header and Balance Card */}
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+        <div className="text-left">
+          <h1 
+            className="font-headline font-black text-4xl md:text-6xl text-on-surface uppercase tracking-tight relative leading-none py-1"
+            style={{
+              WebkitTextStroke: '2.5px #1a1c1c',
+              textShadow: '4px 4px 0px #ff5722'
+            }}
+          >
+            THE BLACK MARKET
+          </h1>
+          <p className="text-xs font-bold text-on-surface-variant mt-2 max-w-lg">
+            Trade your hard-earned shiny things for cool stuff that explodes better.
+          </p>
         </div>
 
-        <div className="flex gap-4">
-          <div className="bg-yellow-100 border-2 border-on-surface px-4 py-2 rounded-2xl flex items-center gap-2 shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]">
-            <span className="text-lg">💰</span>
-            <span className="font-headline font-black text-primary">{userBalance.coins} Xu</span>
+        {/* Top-Right Stats Card */}
+        <div className="bg-white border-3 border-on-surface px-6 py-3.5 rounded-xl flex items-center gap-6 shadow-[4.5px_4.5px_0px_0px_#1a1c1c]">
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 rounded-full border-2 border-on-surface flex items-center justify-center bg-yellow-400 text-[10px] font-headline font-black text-on-surface">
+              $
+            </div>
+            <span className="font-headline font-black text-on-surface text-sm">
+              {userBalance.coins.toLocaleString()}
+            </span>
           </div>
-          <div className="bg-indigo-100 border-2 border-on-surface px-4 py-2 rounded-2xl flex items-center gap-2 shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]">
-            <span className="text-lg">💎</span>
-            <span className="font-headline font-black text-indigo-600">{userBalance.gems} Đá</span>
+          <div className="h-6 w-0.5 bg-slate-300"></div>
+          <div className="flex items-center gap-2">
+            <GemIcon className="w-5 h-5 text-indigo-600" />
+            <span className="font-headline font-black text-on-surface text-sm">
+              {userBalance.gems.toLocaleString()}
+            </span>
           </div>
+          <button 
+            onClick={() => {
+              alert("Tính năng nạp thêm Xu/Đá Quý đang được phát triển!");
+            }}
+            className="bg-[#9e1b1b] border-2 border-on-surface text-white text-[10px] font-headline font-black uppercase px-3.5 py-1.5 rounded-lg shadow-[2px_2px_0px_0px_#1a1c1c] hover:scale-105 active:scale-95 transition-all"
+          >
+            GET MORE
+          </button>
         </div>
       </div>
 
       {/* Tabs Menu */}
-      <div className="flex gap-2 flex-wrap">
-        {['all', 'skin', 'emote', 'avatar_frame'].map((tab) => (
+      <div className="flex gap-4 flex-wrap border-b-3 border-dashed border-on-surface-variant pb-4">
+        {[
+          { id: 'skin', label: 'CARD SLEEVES' },
+          { id: 'avatar_frame', label: 'AVATARS' },
+          { id: 'emote', label: 'EMOJIS' },
+        ].map((tab) => (
           <button
-            key={tab}
-            onClick={() => setSelectedTab(tab)}
-            className={`px-5 py-2.5 rounded-2xl border-3 border-on-surface font-headline font-black text-xs uppercase shadow-[2.5px_2.5px_0px_0px_rgba(26,28,28,1)] transition-all
-              ${selectedTab === tab 
-                ? 'bg-primary text-on-primary -translate-y-0.5 shadow-[4px_4px_0px_0px_rgba(26,28,28,1)]' 
-                : 'bg-white hover:bg-slate-100'}`}
+            key={tab.id}
+            onClick={() => setSelectedTab(tab.id)}
+            className={`px-6 py-3 border-3 border-on-surface font-headline font-black text-xs uppercase shadow-[4px_4px_0px_0px_#1a1c1c] transition-all rounded-lg
+              ${selectedTab === tab.id 
+                ? 'bg-[#9e1b1b] text-white -translate-y-0.5 shadow-[5px_5px_0px_0px_#1a1c1c]' 
+                : 'bg-white text-on-surface hover:bg-slate-50'}`}
           >
-            {tab === 'all' && 'Tất Cả'}
-            {tab === 'skin' && 'Skin Bài'}
-            {tab === 'emote' && 'Biểu Cảm (Emote)'}
-            {tab === 'avatar_frame' && 'Khung Avatar'}
+            {tab.label}
           </button>
         ))}
+        <button
+          disabled
+          className="px-6 py-3 border-3 border-dashed border-slate-300 bg-slate-50 text-slate-400 font-headline font-black text-xs uppercase rounded-lg cursor-not-allowed"
+        >
+          BUNDLES (LOCKED)
+        </button>
       </div>
 
       {/* Notification Toast */}
@@ -175,23 +223,34 @@ export default function Shop() {
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
           {filteredItems.map((item) => {
             const owned = isItemOwned(item);
+            const isLegendary = item.rarity === 'legendary';
+            const isEpic = item.rarity === 'epic';
+            const isHot = item.name.toLowerCase().includes('toxic') || isEpic;
+
             return (
               <div 
                 key={item._id}
-                className="shop-card card-brutalist bg-white rounded-3xl p-5 flex flex-col justify-between gap-4 h-80"
+                className="shop-card relative bg-white border-3 border-on-surface rounded-xl p-4 flex flex-col justify-between gap-4 shadow-[4px_4px_0px_0px_#1a1c1c] h-84"
               >
-                {/* Item Type & Rarity Header */}
-                <div className="flex justify-between items-center">
-                  <span className="text-[9px] font-headline font-black uppercase tracking-wider text-on-surface-variant bg-surface-container-high px-2 py-0.5 rounded-full border border-on-surface">
-                    {item.type === 'skin' ? 'Skin' : item.type === 'emote' ? 'Emote' : 'Khung'}
-                  </span>
-                  <span className={`text-[8px] font-headline font-black uppercase px-2 py-0.5 rounded-full border border-on-surface ${RARITY_COLORS[item.rarity] || 'bg-slate-200 text-slate-800'}`}>
-                    {item.rarity}
-                  </span>
-                </div>
+                {/* Ribbon labels overlay */}
+                {isLegendary && (
+                  <div className="absolute top-3.5 left-[-6px] bg-yellow-400 border-2 border-on-surface text-[8px] font-headline font-black px-2 py-0.5 shadow-[1.5px_1.5px_0px_0px_#1a1c1c] uppercase tracking-wider -rotate-6 z-10">
+                    LEGENDARY
+                  </div>
+                )}
+                {isHot && (
+                  <div className="absolute top-3.5 right-3.5 bg-rose-600 border-2 border-on-surface text-white text-[8px] font-headline font-black px-2 py-0.5 uppercase tracking-wider z-10">
+                    HOT
+                  </div>
+                )}
 
                 {/* Main Image Illustration */}
-                <div className="bg-surface-container border-2 border-on-surface rounded-2xl flex-1 flex items-center justify-center relative overflow-hidden">
+                <div className={`border-2 border-on-surface rounded-lg h-36 flex items-center justify-center relative overflow-hidden
+                  ${isLegendary 
+                    ? 'bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-400' 
+                    : isEpic 
+                      ? 'bg-gradient-to-br from-rose-50 to-rose-100 border-rose-400' 
+                      : 'bg-slate-50'}`}>
                   {item.imageUrl ? (
                     <img src={item.imageUrl} alt={item.name} className="h-full w-full object-cover" />
                   ) : (
@@ -203,48 +262,96 @@ export default function Shop() {
                   )}
                 </div>
 
-                {/* Details Footer */}
-                <div className="flex flex-col gap-1.5">
+                {/* Details Text Content */}
+                <div className="flex-grow flex flex-col justify-start text-left">
                   <h3 className="font-headline font-black text-sm uppercase text-on-surface truncate">
                     {item.name}
                   </h3>
-                  
-                  <div className="flex justify-between items-center mt-1">
-                    {/* Pricing */}
-                    <div className="flex gap-2">
-                      {item.price?.coins > 0 && (
-                        <span className="font-headline font-black text-primary text-xs">
-                          💰 {item.price.coins}
-                        </span>
-                      )}
-                      {item.price?.gems > 0 && (
-                        <span className="font-headline font-black text-indigo-600 text-xs">
-                          💎 {item.price.gems}
-                        </span>
-                      )}
-                      {item.price?.coins <= 0 && item.price?.gems <= 0 && (
-                        <span className="font-headline font-black text-emerald-600 text-xs">Miễn Phí</span>
-                      )}
-                    </div>
+                  <p className="text-[10px] text-slate-500 font-bold mt-1 line-clamp-2 leading-tight">
+                    {getDescription(item)}
+                  </p>
+                </div>
 
-                    {/* Buy / Owned Status */}
-                    {owned ? (
-                      <span className="text-[10px] font-headline font-black text-emerald-600 uppercase">Đã Sở Hữu</span>
+                {/* Price and Buy Footer Row */}
+                <div className="flex justify-between items-center pt-3 border-t border-slate-100">
+                  {/* Pricing Display */}
+                  <div className="flex gap-2">
+                    {item.price?.gems > 0 ? (
+                      <span className="font-headline font-black text-on-surface text-xs flex items-center gap-1">
+                        <GemIcon className="w-4 h-4 text-indigo-600" /> {item.price.gems.toLocaleString()}
+                      </span>
+                    ) : item.price?.coins > 0 ? (
+                      <span className="font-headline font-black text-on-surface text-xs flex items-center gap-1">
+                        <CoinIcon className="w-4 h-4 text-yellow-500" /> {item.price.coins.toLocaleString()}
+                      </span>
                     ) : (
-                      <button
-                        onClick={() => handleBuyItem(item._id)}
-                        className="btn-detonator px-4 py-1.5 rounded-xl text-xs font-headline font-black uppercase shadow-[2px_2px_0px_0px_#1a1c1c] border-2"
-                      >
-                        Mua 🛒
-                      </button>
+                      <span className="font-headline font-black text-emerald-600 text-xs">FREE</span>
                     )}
                   </div>
+
+                  {/* Action Button */}
+                  {owned ? (
+                    <div className="flex gap-1.5 items-center">
+                      <span className="bg-emerald-50 border-2 border-emerald-400 text-emerald-700 text-[9px] font-headline font-black px-2 py-0.5 rounded">
+                        OWNED
+                      </span>
+                      <button 
+                        disabled
+                        className="bg-white border-2 border-slate-200 text-[9px] font-headline font-black uppercase px-2.5 py-1 rounded cursor-not-allowed text-slate-400"
+                      >
+                        EQUIP
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => handleBuyItem(item._id)}
+                      className={`border-2 border-on-surface text-[9px] font-headline font-black uppercase px-4 py-1.5 rounded shadow-[2px_2px_0px_0px_#1a1c1c] hover:scale-105 active:scale-95 transition-all
+                        ${isLegendary 
+                          ? 'bg-yellow-400 text-slate-950 hover:bg-yellow-300' 
+                          : 'bg-[#9e1b1b] text-white hover:bg-red-800'}`}
+                    >
+                      BUY
+                    </button>
+                  )}
                 </div>
               </div>
             );
           })}
         </div>
       )}
+
+      {/* Weekend Chaos Bundle Promo Banner */}
+      <div className="bg-[#9e1b1b] border-3 border-on-surface rounded-xl p-6 md:p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 shadow-[6px_6px_0px_0px_#1a1c1c] text-white text-left relative overflow-hidden mt-6">
+        <div className="flex flex-col gap-3 max-w-xl z-10">
+          <h2 className="font-headline font-black text-2xl md:text-3xl uppercase tracking-wider text-white">
+            WEEKEND CHAOS BUNDLE
+          </h2>
+          <p className="text-xs md:text-sm font-medium text-red-100 leading-relaxed">
+            Get 10 Random Sleeves, 5 Avatars, and 1,000 Gems. Highly unstable, handle with care.
+          </p>
+          <div className="inline-block self-start bg-yellow-400 border-2 border-on-surface text-slate-950 text-[9px] font-headline font-black uppercase px-2 py-1 tracking-wider -rotate-2 mt-1 shadow-[1.5px_1.5px_0px_0px_#1a1c1c]">
+            -50% OFF UNTIL MONDAY
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row md:flex-col items-start md:items-end gap-3 z-10">
+          <span className="font-headline font-black text-4xl md:text-5xl text-white tracking-tight">
+            $9.99
+          </span>
+          <button 
+            onClick={() => alert("Hệ thống thanh toán đang bảo trì. Vui lòng thử lại sau!")}
+            className="bg-white border-3 border-on-surface text-slate-950 font-headline font-black text-xs uppercase px-6 py-3 rounded-lg shadow-[3px_3px_0px_0px_#1a1c1c] hover:scale-105 active:scale-95 transition-all text-center"
+          >
+            DETONATE WALLET
+          </button>
+        </div>
+        
+        {/* Decorative circle ornament background */}
+        <div className="absolute right-0 bottom-0 opacity-10 pointer-events-none transform translate-x-12 translate-y-12">
+          <div className="w-48 h-48 rounded-full border-8 border-white"></div>
+        </div>
+      </div>
     </div>
   );
 }
+

@@ -595,3 +595,252 @@ export function SelectTargetModal({ players, myUserId, cardType, onRespond }) {
     </div>
   );
 }
+
+// ==========================================
+// 10. FEED THE DEAD MODAL
+// ==========================================
+export function FeedTheDeadModal({ targetPlayerName, hand, onRespond }) {
+  const [selectedId, setSelectedId] = useState(null);
+
+  const handleConfirm = () => {
+    if (!selectedId) return;
+    onRespond(selectedId);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 animate-fade-in text-slate-900">
+      <div className="w-full max-w-3xl bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 md:p-8 flex flex-col gap-6">
+        <div className="text-center">
+          <h3 className="text-2xl font-headline font-black text-primary uppercase">💀 Nuôi Thây Ma (Feed the Dead)</h3>
+          <p className="text-xs font-bold text-on-surface-variant mt-1">
+            Một người chơi thây ma <strong className="text-on-surface uppercase">{targetPlayerName}</strong> cần thức ăn. Hãy chọn 1 lá bài để trao cho họ.
+          </p>
+        </div>
+
+        <div className="flex-1 overflow-x-auto flex gap-4 pb-4 pt-6 justify-start md:justify-center max-w-full custom-scrollbar px-4">
+          {hand.map((card) => {
+            const isSelected = selectedId === card.id;
+            return (
+              <div
+                key={card.id}
+                onClick={() => setSelectedId(card.id)}
+                className="transform transition-transform cursor-pointer flex-shrink-0 hover:scale-105 active:scale-95 duration-100"
+              >
+                <Card type={card.type} skinIndex={card.skinIndex ?? 0} selected={isSelected} />
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="flex justify-center mt-2">
+          <button
+            onClick={handleConfirm}
+            disabled={!selectedId}
+            className={`btn-detonator px-8 py-3 rounded-2xl font-headline font-black uppercase text-sm
+              ${!selectedId ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
+          >
+            Gửi Lá Bài Cho Thây Ma 🥩
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// 11. GRAVE ROBBER MODAL
+// ==========================================
+export function GraveRobberModal({ hand, onRespond }) {
+  const [selectedId, setSelectedId] = useState(null);
+
+  const handleConfirm = () => {
+    if (!selectedId) return;
+    onRespond(selectedId);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 animate-fade-in text-slate-900">
+      <div className="w-full max-w-3xl bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 md:p-8 flex flex-col gap-6">
+        <div className="text-center">
+          <h3 className="text-2xl font-headline font-black text-primary uppercase">🪦 Kẻ Trộm Mộ (Grave Robber)</h3>
+          <p className="text-xs font-bold text-on-surface-variant mt-1">
+            Bạn là linh hồn/thây ma. Hãy chọn 1 lá bài từ tay của bạn để trộm/đưa vào mộ (bộ bài bỏ). Lớp bảo vệ của mộ sẽ được tái tạo.
+          </p>
+        </div>
+
+        {hand.length === 0 ? (
+          <div className="text-center py-8 text-sm font-headline font-black text-on-surface-variant uppercase">
+            Bạn không có lá bài nào để trộm mộ!
+          </div>
+        ) : (
+          <div className="flex-1 overflow-x-auto flex gap-4 pb-4 pt-6 justify-start md:justify-center max-w-full custom-scrollbar px-4">
+            {hand.map((card) => {
+              const isSelected = selectedId === card.id;
+              return (
+                <div
+                  key={card.id}
+                  onClick={() => setSelectedId(card.id)}
+                  className="transform transition-transform cursor-pointer flex-shrink-0 hover:scale-105 active:scale-95 duration-100"
+                >
+                  <Card type={card.type} skinIndex={card.skinIndex ?? 0} selected={isSelected} />
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="flex justify-center mt-2">
+          <button
+            onClick={handleConfirm}
+            disabled={hand.length > 0 && !selectedId}
+            className={`btn-detonator px-8 py-3 rounded-2xl font-headline font-black uppercase text-sm
+              ${hand.length > 0 && !selectedId ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
+          >
+            Xác Nhận Đưa Vào Mộ 🪦
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// 12. DIG DEEPER MODAL
+// ==========================================
+export function DigDeeperModal({ firstCard, onRespond }) {
+  if (!firstCard) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 animate-fade-in text-slate-900">
+      <div className="w-full max-w-md bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 md:p-8 flex flex-col items-center gap-6 text-center">
+        <div>
+          <h3 className="text-2xl font-headline font-black text-primary uppercase">⛏️ Đào Sâu (Dig Deeper)</h3>
+          <p className="text-xs font-bold text-on-surface-variant mt-1">
+            Bạn đã đào được lá bài dưới đây. Hãy chọn giữ lại lá bài này vào tay, hoặc đặt lại lên đỉnh bộ bài.
+          </p>
+        </div>
+
+        <div className="py-4">
+          <Card type={firstCard.type} skinIndex={firstCard.skinIndex ?? 0} disabled={true} />
+        </div>
+
+        <div className="flex gap-4 w-full justify-center">
+          <button
+            onClick={() => onRespond('keep')}
+            className="flex-1 bg-green-500 hover:bg-green-600 text-white font-headline font-black border-4 border-on-surface shadow-[4px_4px_0px_0px_#1a1c1c] py-3 rounded-2xl uppercase transition-all duration-100 hover:scale-105 active:scale-95"
+          >
+            Lấy lá này 🤲
+          </button>
+          <button
+            onClick={() => onRespond('pass')}
+            className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-slate-900 font-headline font-black border-4 border-on-surface shadow-[4px_4px_0px_0px_#1a1c1c] py-3 rounded-2xl uppercase transition-all duration-100 hover:scale-105 active:scale-95"
+          >
+            Bỏ qua / Trả lại ↩️
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// 13. ARMAGEDDON DISTRIBUTE MODAL
+// ==========================================
+export function ArmageddonDistributeModal({ targetPlayerName, onRespond }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 animate-fade-in text-slate-900">
+      <div className="w-full max-w-xl bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 md:p-8 flex flex-col items-center gap-6 text-center">
+        <div>
+          <h3 className="text-2xl font-headline font-black text-primary uppercase">🌋 Phân Phát Armageddon</h3>
+          <p className="text-xs font-bold text-on-surface-variant mt-1">
+            Bạn đã kích hoạt Armageddon nhắm vào <strong className="text-on-surface uppercase">{targetPlayerName}</strong>. Hãy chọn lá bài bạn muốn giữ lại cho MÌNH (lá bài còn lại sẽ được đưa cho đối thủ một cách bí mật).
+          </p>
+        </div>
+
+        <div className="flex gap-6 justify-center items-center py-4 flex-wrap">
+          <button
+            onClick={() => onRespond('godcat')}
+            className="flex flex-col items-center gap-3 p-4 bg-surface border-3 border-on-surface rounded-2xl hover:scale-105 transition-all duration-100 shadow-[3px_3px_0px_0px_rgba(26,28,28,1)]"
+          >
+            <Card type="godcat" disabled={true} />
+            <span className="text-xs font-headline font-black uppercase text-green-600">Giữ Godcat</span>
+          </button>
+          
+          <button
+            onClick={() => onRespond('devilcat')}
+            className="flex flex-col items-center gap-3 p-4 bg-surface border-3 border-on-surface rounded-2xl hover:scale-105 transition-all duration-100 shadow-[3px_3px_0px_0px_rgba(26,28,28,1)]"
+          >
+            <Card type="devilcat" disabled={true} />
+            <span className="text-xs font-headline font-black uppercase text-red-600">Giữ Devilcat</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// 14. ARMAGEDDON DECISION MODAL
+// ==========================================
+export function ArmageddonDecisionModal({ activatorPlayerName, onRespond }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 animate-fade-in text-slate-900">
+      <div className="w-full max-w-md bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 md:p-8 flex flex-col items-center gap-6 text-center">
+        <div>
+          <h3 className="text-2xl font-headline font-black text-red-500 uppercase">🌋 Quyết Định Armageddon</h3>
+          <p className="text-xs font-bold text-on-surface-variant mt-1">
+            <strong className="text-on-surface uppercase">{activatorPlayerName}</strong> đã đặt một lá bài úp trước mặt bạn và một lá trước mặt họ (Một là Godcat cứu rỗi, một là Devilcat nổ tung).
+            <br />
+            Hãy chọn giữ nguyên lá bài của bạn hoặc tráo đổi với đối thủ!
+          </p>
+        </div>
+
+        <div className="flex gap-4 w-full justify-center">
+          <button
+            onClick={() => onRespond('keep')}
+            className="flex-1 bg-green-500 hover:bg-green-600 text-white font-headline font-black border-4 border-on-surface shadow-[4px_4px_0px_0px_#1a1c1c] py-3 rounded-2xl uppercase transition-all duration-100 hover:scale-105 active:scale-95"
+          >
+            Giữ Nguyên 🔒
+          </button>
+          <button
+            onClick={() => onRespond('swap')}
+            className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-slate-900 font-headline font-black border-4 border-on-surface shadow-[4px_4px_0px_0px_#1a1c1c] py-3 rounded-2xl uppercase transition-all duration-100 hover:scale-105 active:scale-95"
+          >
+            Tráo Đổi 🔁
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// 15. CLAIRVOYANCE REVEAL MODAL
+// ==========================================
+export function ClairvoyanceRevealModal({ position, onClose }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 animate-fade-in text-slate-900">
+      <div className="w-full max-w-sm bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 md:p-8 flex flex-col items-center gap-6 text-center">
+        <div>
+          <h3 className="text-2xl font-headline font-black text-primary uppercase">👁️ Thấu Thị (Clairvoyance)</h3>
+          <p className="text-xs font-bold text-on-surface-variant mt-1">
+            Lá bài Exploding Kitten vừa được người chơi chèn vào bộ bài tại vị trí:
+          </p>
+        </div>
+
+        <div className="bg-yellow-400 border-4 border-on-surface shadow-[4px_4px_0px_0px_#1a1c1c] p-6 rounded-2xl w-full">
+          <span className="text-2xl font-headline font-black text-on-surface block">
+            {position === 0 ? 'Dưới Cùng (Bottom)' : `Thứ ${position} từ dưới lên`}
+          </span>
+        </div>
+
+        <button
+          onClick={onClose}
+          className="btn-detonator px-8 py-3 rounded-2xl font-headline font-black uppercase text-sm w-full mt-2"
+        >
+          Tôi đã hiểu 🧠
+        </button>
+      </div>
+    </div>
+  );
+}

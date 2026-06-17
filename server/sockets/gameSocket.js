@@ -22,6 +22,11 @@ const {
   resolvePotLuck,
   resolveZombieRevive,
   resolveDefusePutBack,
+  resolveFeedTheDead,
+  resolveGraveRobber,
+  resolveDigDeeper,
+  resolveArmageddonDistribute,
+  resolveArmageddonDecision,
   checkStreakingKittenEffect,
 } = require('../game/gameLogic');
 const User = require('../models/User');
@@ -72,7 +77,7 @@ async function updateQuestProgress(userId, actionType, count = 1) {
 
 function sanitizePublicGameState(gameState) {
   if (!gameState) return null;
-  return {
+  const copy = {
     ...gameState,
     deckCount: gameState.deck.length,
     deck: undefined,
@@ -87,6 +92,23 @@ function sanitizePublicGameState(gameState) {
         .map((c) => ({ id: c.id, type: c.type })),
     })),
   };
+
+  if (copy.pendingDigDeeper) {
+    copy.pendingDigDeeper = {
+      ...copy.pendingDigDeeper,
+      firstCard: undefined,
+    };
+  }
+
+  if (copy.pendingArmageddon) {
+    copy.pendingArmageddon = {
+      ...copy.pendingArmageddon,
+      activatorCard: undefined,
+      targetCard: undefined,
+    };
+  }
+
+  return copy;
 }
 
 function sendHands(io, room) {
@@ -242,7 +264,11 @@ module.exports = function registerGameSocket(io) {
         if (gameState.pendingZombie && gameState.pendingZombie === currentPendingZombie) {
           const firstDead = gameState.players.find((p) => !p.alive);
           const randomPos = Math.floor(Math.random() * (gameState.deck.length + 1));
+          const clairvoyancePlayerId = gameState.pendingZombie.clairvoyancePlayerId;
           resolveZombieRevive(gameState, firstDead ? firstDead.userId : null, randomPos);
+          if (clairvoyancePlayerId) {
+            io.to(`user:${clairvoyancePlayerId}`).emit('game:clairvoyance:reveal', { position: randomPos });
+          }
           io.to(room.code).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(gameState) });
           sendHands(io, room);
           await finalizeGame(io, room);
@@ -262,7 +288,11 @@ module.exports = function registerGameSocket(io) {
       setTimeout(async () => {
         if (gameState.pendingDefuse && gameState.pendingDefuse === currentPendingDefuse) {
           const randomPos = Math.floor(Math.random() * (gameState.deck.length + 1));
+          const clairvoyancePlayerId = gameState.pendingDefuse.clairvoyancePlayerId;
           resolveDefusePutBack(gameState, randomPos);
+          if (clairvoyancePlayerId) {
+            io.to(`user:${clairvoyancePlayerId}`).emit('game:clairvoyance:reveal', { position: randomPos });
+          }
           io.to(room.code).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(gameState) });
           sendHands(io, room);
           await finalizeGame(io, room);
@@ -408,6 +438,116 @@ module.exports = function registerGameSocket(io) {
       io.to(`user:${playerId}`).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(gameState) });
     }
 
+    if (cardType === 'feed_the_dead') {
+      const pending = gameState.pendingFeedTheDead;
+      if (pending) {
+        const livingPlayers = gameState.players.filter((p) => p.alive && p.userId !== playerId);
+        livingPlayers.forEach((p) => {
+          io.to(`user:${p.userId}`).emit('game:feedTheDead:request', { targetPlayerId, timeoutMs: 15000 });
+        });
+
+        const currentPending = pending;
+        setTimeout(() => {
+          const state = room.gameState;
+          if (state.pendingFeedTheDead && state.pendingFeedTheDead === currentPending) {
+            state.players.forEach((p) => {
+              if (p.alive && p.userId !== playerId && !state.pendingFeedTheDead.responses[p.userId]) {
+                if (p.hand.length > 0) {
+                  resolveFeedTheDead(state, p.userId, p.hand[0].id);
+                }
+              }
+            });
+            io.to(room.code).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(state) });
+            sendHands(io, room);
+          }
+        }, 15000);
+      }
+    }
+
+    if (cardType === 'grave_robber') {
+      const pending = gameState.pendingGraveRobber;
+      if (pending) {
+        const deadPlayersWithCards = gameState.players.filter((p) => !p.alive && p.hand.length > 0);
+        deadPlayersWithCards.forEach((p) => {
+          io.to(`user:${p.userId}`).emit('game:graveRobber:request', { timeoutMs: 15000 });
+        });
+
+        const currentPending = pending;
+        setTimeout(() => {
+          const state = room.gameState;
+          if (state.pendingGraveRobber && state.pendingGraveRobber === currentPending) {
+            state.players.forEach((p) => {
+              if (!p.alive && p.hand.length > 0 && !state.pendingGraveRobber.responses[p.userId]) {
+                resolveGraveRobber(state, p.userId, p.hand[0].id);
+              }
+            });
+            io.to(room.code).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(state) });
+            sendHands(io, room);
+          }
+        }, 15000);
+      }
+    }
+
+    if (cardType === 'dig_deeper') {
+      const pending = gameState.pendingDigDeeper;
+      if (pending) {
+        io.to(`user:${playerId}`).emit('game:digDeeper:request', {
+          firstCard: pending.firstCard,
+          timeoutMs: 15000,
+        });
+
+        const currentPending = pending;
+        setTimeout(async () => {
+          const state = room.gameState;
+          if (state.pendingDigDeeper && state.pendingDigDeeper === currentPending) {
+            resolveDigDeeper(state, 'keep');
+            io.to(room.code).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(state) });
+            sendHands(io, room);
+            io.to(room.code).emit('game:turnChanged', {
+              currentPlayerId: state.players[state.currentPlayerIndex]?.userId,
+              drawsRequired: state.drawsRequired,
+            });
+            await finalizeGame(io, room);
+          }
+        }, 15000);
+      }
+    }
+
+    if (cardType === 'armageddon') {
+      const pending = gameState.pendingArmageddon;
+      if (pending) {
+        io.to(`user:${playerId}`).emit('game:armageddon:distributeRequest', { timeoutMs: 15000 });
+
+        const currentPending = pending;
+        setTimeout(() => {
+          const state = room.gameState;
+          if (state.pendingArmageddon && state.pendingArmageddon === currentPending && state.pendingArmageddon.stage === 'distribute') {
+            resolveArmageddonDistribute(state, 'godcat');
+            io.to(room.code).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(state) });
+
+            const nextPending = state.pendingArmageddon;
+            if (nextPending && nextPending.stage === 'decision') {
+              io.to(`user:${nextPending.targetPlayerId}`).emit('game:armageddon:decisionRequest', { timeoutMs: 15000 });
+              
+              setTimeout(async () => {
+                if (state.pendingArmageddon && state.pendingArmageddon === nextPending) {
+                  resolveArmageddonDecision(state, 'keep');
+                  io.to(room.code).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(state) });
+                  sendHands(io, room);
+                  await finalizeGame(io, room);
+                }
+              }, 15000);
+            }
+          }
+        }, 15000);
+      }
+    }
+
+    if (cardType === 'reveal_the_future_3x') {
+      const cards = gameState.deck.slice(-3).reverse();
+      io.to(room.code).emit('game:revealTheFuture', { cards });
+    }
+
     io.to(room.code).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(gameState) });
     sendHands(io, room);
     await finalizeGame(io, room);
@@ -446,14 +586,14 @@ module.exports = function registerGameSocket(io) {
       }, 200);
     }
 
-    socket.on('room:create', async ({ password, isPublic }) => {
+    socket.on('room:create', async ({ password, isPublic, edition }) => {
       try {
         let username = socket.user?.username ?? `Guest-${guestId.slice(6, 11)}`;
         if (socket.user?.id) {
           const dbUser = await User.findById(socket.user.id);
           if (dbUser) username = dbUser.username;
         }
-        const room = createRoom(userId, { password, isPublic }, username);
+        const room = createRoom(userId, { password, isPublic, edition }, username);
         socket.join(room.code);
         io.to(room.code).emit('room:updated', { room });
       } catch (error) {
@@ -551,6 +691,24 @@ module.exports = function registerGameSocket(io) {
       if (!room?.gameState) return;
 
       const state = room.gameState;
+
+      // Clairvoyance can be played out of turn during defuse or zombie revive phase
+      if (cardType === 'clairvoyance' || cardType === 'clairvoyance_now') {
+        const targetPending = state.pendingZombie || state.pendingDefuse;
+        if (targetPending) {
+          const actualCard = playCard(state, userId, cardType, targetPlayerId, options);
+          if (actualCard) {
+            targetPending.clairvoyancePlayerId = userId;
+            io.to(roomCode).emit('game:cardPlayed', { playerId: userId, cardType: actualCard, targetPlayerId });
+            io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(state) });
+            sendHands(io, room);
+            return;
+          }
+        } else {
+          socket.emit('error', { message: 'Chỉ có thể chơi Thiên Nhãn khi có người đang gỡ mìn hoặc hồi sinh!' });
+          return;
+        }
+      }
       const isNowCard = cardType.endsWith('_now');
 
       if (!isNowCard) {
@@ -952,7 +1110,11 @@ module.exports = function registerGameSocket(io) {
       const room = getRoomState(roomCode);
       if (!room?.gameState) return;
 
+      const clairvoyancePlayerId = room.gameState.pendingZombie?.clairvoyancePlayerId;
       resolveZombieRevive(room.gameState, targetPlayerId, insertPosition);
+      if (clairvoyancePlayerId) {
+        io.to(`user:${clairvoyancePlayerId}`).emit('game:clairvoyance:reveal', { position: insertPosition });
+      }
       io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
       sendHands(io, room);
       // Emit turnChanged so client unlocks after zombie revive
@@ -969,7 +1131,11 @@ module.exports = function registerGameSocket(io) {
       const room = getRoomState(roomCode);
       if (!room?.gameState) return;
 
+      const clairvoyancePlayerId = room.gameState.pendingDefuse?.clairvoyancePlayerId;
       resolveDefusePutBack(room.gameState, insertPosition);
+      if (clairvoyancePlayerId) {
+        io.to(`user:${clairvoyancePlayerId}`).emit('game:clairvoyance:reveal', { position: insertPosition });
+      }
       io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
       sendHands(io, room);
       // Emit turnChanged so client unlocks after defuse
@@ -977,6 +1143,81 @@ module.exports = function registerGameSocket(io) {
         currentPlayerId: room.gameState.players[room.gameState.currentPlayerIndex]?.userId,
         drawsRequired: room.gameState.drawsRequired,
       });
+      await finalizeGame(io, room);
+    });
+
+    socket.on('game:feedTheDead:respond', ({ cardId }) => {
+      const roomCode = [...socket.rooms].find((room) => room.length === 6);
+      if (!roomCode) return;
+      const room = getRoomState(roomCode);
+      if (!room?.gameState) return;
+
+      resolveFeedTheDead(room.gameState, userId, cardId);
+      io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
+      sendHands(io, room);
+    });
+
+    socket.on('game:graveRobber:respond', ({ cardId }) => {
+      const roomCode = [...socket.rooms].find((room) => room.length === 6);
+      if (!roomCode) return;
+      const room = getRoomState(roomCode);
+      if (!room?.gameState) return;
+
+      resolveGraveRobber(room.gameState, userId, cardId);
+      io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
+      sendHands(io, room);
+    });
+
+    socket.on('game:digDeeper:respond', async ({ decision }) => {
+      const roomCode = [...socket.rooms].find((room) => room.length === 6);
+      if (!roomCode) return;
+      const room = getRoomState(roomCode);
+      if (!room?.gameState) return;
+
+      resolveDigDeeper(room.gameState, decision);
+      io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
+      sendHands(io, room);
+      io.to(roomCode).emit('game:turnChanged', {
+        currentPlayerId: room.gameState.players[room.gameState.currentPlayerIndex]?.userId,
+        drawsRequired: room.gameState.drawsRequired,
+      });
+      await finalizeGame(io, room);
+    });
+
+    socket.on('game:armageddon:distribute', ({ choice }) => {
+      const roomCode = [...socket.rooms].find((room) => room.length === 6);
+      if (!roomCode) return;
+      const room = getRoomState(roomCode);
+      if (!room?.gameState) return;
+
+      resolveArmageddonDistribute(room.gameState, choice);
+      io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
+
+      const pending = room.gameState.pendingArmageddon;
+      if (pending && pending.stage === 'decision') {
+        io.to(`user:${pending.targetPlayerId}`).emit('game:armageddon:decisionRequest', { timeoutMs: 15000 });
+        
+        const currentPending = pending;
+        setTimeout(async () => {
+          if (room.gameState.pendingArmageddon && room.gameState.pendingArmageddon === currentPending) {
+            resolveArmageddonDecision(room.gameState, 'keep');
+            io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
+            sendHands(io, room);
+            await finalizeGame(io, room);
+          }
+        }, 15000);
+      }
+    });
+
+    socket.on('game:armageddon:decision', async ({ decision }) => {
+      const roomCode = [...socket.rooms].find((room) => room.length === 6);
+      if (!roomCode) return;
+      const room = getRoomState(roomCode);
+      if (!room?.gameState) return;
+
+      resolveArmageddonDecision(room.gameState, decision);
+      io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
+      sendHands(io, room);
       await finalizeGame(io, room);
     });
   });

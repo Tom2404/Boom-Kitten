@@ -58,9 +58,29 @@ const CAT_TYPES = [
   { type: 'defuse', label: 'Defuse' },
 ];
 
+const GODCAT_TRANSFORM_TYPES = [
+  { type: 'attack_2x', label: 'Tấn Công (Attack)' },
+  { type: 'skip', label: 'Qua Lượt (Skip)' },
+  { type: 'super_skip', label: 'Siêu Qua Lượt (Super Skip)' },
+  { type: 'favor', label: 'Xin Bài (Favor)' },
+  { type: 'shuffle', label: 'Tráo Bài (Shuffle)' },
+  { type: 'see_the_future_3', label: 'Tiên Tri (See the Future)' },
+  { type: 'alter_the_future_3', label: 'Định Đoạt (Alter the Future)' },
+  { type: 'draw_from_bottom', label: 'Rút Dưới Đáy (Draw Bottom)' },
+  { type: 'bury', label: 'Chôn Bài (Bury)' },
+  { type: 'attack_of_the_dead', label: 'Tấn Công Xác Sống (Attack of Dead)' },
+  { type: 'feed_the_dead', label: 'Nuôi Xác Sống (Feed the Dead)' },
+  { type: 'grave_robber', label: 'Kẻ Trộm Mộ (Grave Robber)' },
+  { type: 'clairvoyance_now', label: 'Thấu Thị (Clairvoyance)' },
+  { type: 'dig_deeper', label: 'Đào Sâu (Dig Deeper)' },
+  { type: 'armageddon', label: 'Tận Thế (Armageddon)' },
+  { type: 'reveal_the_future_3x', label: 'Xem Trước Tương Lai (Reveal Future)' },
+];
+
 export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, targetPlayerId, nopeWindowActive, onDiscard, maxHandSize = 10 }) {
   const [selectedIds, setSelectedIds] = useState([]);
   const [combo3Pending, setCombo3Pending] = useState(null); // { ids, targetPlayerId }
+  const [godcatPending, setGodcatPending] = useState(null); // { id }
 
   const containerRef = useRef(null);
   const isDown = useRef(false);
@@ -127,11 +147,21 @@ export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, ta
 
     if (hand.length > maxHandSize) {
       if (onDiscard) onDiscard(card.id);
+      clearSelection();
+    } else if (card.type === 'godcat') {
+      setGodcatPending({ id: card.id });
+      clearSelection();
     } else {
       // Trigger play action
       onPlayCard(card.type, targetPlayerId);
+      clearSelection();
     }
-    clearSelection();
+  };
+
+  const handleGodcatTransformConfirm = (asCardType) => {
+    if (!godcatPending) return;
+    onPlayCard('godcat', targetPlayerId, { asCardType });
+    setGodcatPending(null);
   };
 
   const handlePlayCombo = () => {
@@ -189,24 +219,24 @@ export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, ta
     if (hand.length > maxHandSize) return false; // Must discard first, no combos
     if (nopeWindowActive) return false; // No combos during Nope window
     if (!isMyTurn) return false;
+
+    // Treat 'godcat' as a wild card (like feral_cat) for combo validation
+    const wildCount = selectedTypes.filter((t) => t === 'feral_cat' || t === 'godcat').length;
+    const nonWild = selectedTypes.filter((t) => t !== 'feral_cat' && t !== 'godcat');
+    const allCatsOrWild = selectedTypes.every((t) => t.startsWith('cat_') || t === 'feral_cat' || t === 'godcat');
+
     if (selectedIds.length === 2) {
-      // 2-card combo: same cat type, OR one feral + one cat.
+      // 2-card combo: same cat type, OR one wild + one cat.
       // Requires a target opponent to steal from.
-      const nonFeral = selectedTypes.filter((t) => t !== 'feral_cat');
-      const feral = selectedTypes.filter((t) => t === 'feral_cat').length;
-      const allCats = selectedTypes.every((t) => t.startsWith('cat_') || t === 'feral_cat');
-      if (!allCats) return false;
-      return feral === 2 || feral === 1 || (nonFeral.length === 2 && nonFeral[0] === nonFeral[1]);
+      if (!allCatsOrWild) return false;
+      return wildCount === 2 || wildCount === 1 || (nonWild.length === 2 && nonWild[0] === nonWild[1]);
     }
     if (selectedIds.length === 3) {
-      // 3-card combo: all cats, with 2+ same type (or feral filling in).
-      const nonFeral = selectedTypes.filter((t) => t !== 'feral_cat');
-      const feral = selectedTypes.filter((t) => t === 'feral_cat').length;
-      const allCats = selectedTypes.every((t) => t.startsWith('cat_') || t === 'feral_cat');
-      if (!allCats) return false;
-      if (feral >= 2) return true;
-      if (feral === 1 && nonFeral.length === 2 && nonFeral[0] === nonFeral[1]) return true;
-      if (feral === 0 && nonFeral.length === 3 && nonFeral[0] === nonFeral[1] && nonFeral[1] === nonFeral[2]) return true;
+      // 3-card combo: all cats, with 2+ same type (or wild filling in).
+      if (!allCatsOrWild) return false;
+      if (wildCount >= 2) return true;
+      if (wildCount === 1 && nonWild.length === 2 && nonWild[0] === nonWild[1]) return true;
+      if (wildCount === 0 && nonWild.length === 3 && nonWild[0] === nonWild[1] && nonWild[1] === nonWild[2]) return true;
       return false;
     }
     if (selectedIds.length === 5) {
@@ -214,7 +244,7 @@ export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, ta
       const uniqueCats = new Set(selectedTypes);
       return (
         uniqueCats.size === 5 &&
-        selectedTypes.every((t) => t.startsWith('cat_') || t === 'feral_cat')
+        allCatsOrWild
       );
     }
     return false;
@@ -358,6 +388,35 @@ export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, ta
             <button
               onClick={() => setCombo3Pending(null)}
               className="px-4 py-2 text-xs font-headline font-black border-2 border-on-surface rounded-xl bg-surface hover:bg-slate-100 transition-all shadow-[1.5px_1.5px_0px_0px_#1a1c1c] uppercase"
+            >
+              Hủy
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Godcat transformation: Card Type Picker Modal */}
+      {godcatPending && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-white border-4 border-on-surface rounded-3xl shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] p-6 max-w-sm w-full mx-4 flex flex-col gap-4">
+            <div className="flex flex-col gap-1 text-slate-900">
+              <span className="text-sm font-headline font-black text-primary uppercase tracking-wide">🐱 Hóa Thân Godcat</span>
+              <p className="text-xs font-bold text-on-surface-variant">Chọn loại chức năng bạn muốn hóa thân thành:</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
+              {GODCAT_TRANSFORM_TYPES.map((ct) => (
+                <button
+                  key={ct.type}
+                  onClick={() => handleGodcatTransformConfirm(ct.type)}
+                  className="px-3 py-2.5 text-xs font-headline font-black border-2 border-on-surface rounded-xl bg-surface hover:bg-primary hover:text-on-primary transition-all shadow-[1.5px_1.5px_0px_0px_#1a1c1c] active:translate-y-0.5 active:shadow-none uppercase text-left text-slate-900"
+                >
+                  {ct.label}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setGodcatPending(null)}
+              className="px-4 py-2 text-xs font-headline font-black border-2 border-on-surface rounded-xl bg-surface hover:bg-slate-100 transition-all shadow-[1.5px_1.5px_0px_0px_#1a1c1c] uppercase text-slate-900"
             >
               Hủy
             </button>

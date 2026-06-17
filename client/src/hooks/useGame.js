@@ -16,6 +16,11 @@ export function useGame() {
   const [zombieRequest, setZombieRequest] = useState(null);
   const [defuseRequest, setDefuseRequest] = useState(null);
   const [selectTargetRequest, setSelectTargetRequest] = useState(null);
+  const [feedTheDeadRequest, setFeedTheDeadRequest] = useState(null);
+  const [graveRobberRequest, setGraveRobberRequest] = useState(null);
+  const [digDeeperRequest, setDigDeeperRequest] = useState(null);
+  const [armageddonRequest, setArmageddonRequest] = useState(null);
+  const [clairvoyanceReveal, setClairvoyanceReveal] = useState(null);
   const [gameEnded, setGameEnded] = useState(null);
   const [chatMessages, setChatMessages] = useState([]);
   const [statusMessage, setStatusMessage] = useState('');
@@ -89,6 +94,18 @@ export function useGame() {
       if (publicGameState && !publicGameState.pendingTargetSelect) {
         setSelectTargetRequest(null);
       }
+      if (publicGameState && !publicGameState.pendingFeedTheDead) {
+        setFeedTheDeadRequest(null);
+      }
+      if (publicGameState && !publicGameState.pendingGraveRobber) {
+        setGraveRobberRequest(null);
+      }
+      if (publicGameState && !publicGameState.pendingDigDeeper) {
+        setDigDeeperRequest(null);
+      }
+      if (publicGameState && !publicGameState.pendingArmageddon) {
+        setArmageddonRequest(null);
+      }
     };
 
     const onPrivateHand = ({ cards }) => {
@@ -137,6 +154,30 @@ export function useGame() {
 
     const onSelectTargetRequest = ({ cardType, timeoutMs }) => {
       setSelectTargetRequest({ cardType, timeoutMs, active: true });
+    };
+
+    const onFeedTheDeadRequest = ({ targetPlayerId, timeoutMs }) => {
+      setFeedTheDeadRequest({ targetPlayerId, timeoutMs, active: true });
+    };
+
+    const onGraveRobberRequest = ({ timeoutMs }) => {
+      setGraveRobberRequest({ timeoutMs, active: true });
+    };
+
+    const onDigDeeperRequest = ({ firstCard, timeoutMs }) => {
+      setDigDeeperRequest({ firstCard, timeoutMs, active: true });
+    };
+
+    const onArmageddonDistributeRequest = ({ timeoutMs }) => {
+      setArmageddonRequest({ stage: 'distribute', timeoutMs, active: true });
+    };
+
+    const onArmageddonDecisionRequest = ({ timeoutMs }) => {
+      setArmageddonRequest({ stage: 'decision', timeoutMs, active: true });
+    };
+
+    const onClairvoyanceReveal = ({ position }) => {
+      setClairvoyanceReveal({ position, active: true });
     };
 
     const onGameEnded = ({ winnerId, rankings }) => {
@@ -203,6 +244,12 @@ export function useGame() {
     socket.on('game:zombie:request', onZombieRequest);
     socket.on('game:defuse:request', onDefuseRequest);
     socket.on('game:selectTarget:request', onSelectTargetRequest);
+    socket.on('game:feedTheDead:request', onFeedTheDeadRequest);
+    socket.on('game:graveRobber:request', onGraveRobberRequest);
+    socket.on('game:digDeeper:request', onDigDeeperRequest);
+    socket.on('game:armageddon:distributeRequest', onArmageddonDistributeRequest);
+    socket.on('game:armageddon:decisionRequest', onArmageddonDecisionRequest);
+    socket.on('game:clairvoyance:reveal', onClairvoyanceReveal);
     socket.on('game:ended', onGameEnded);
     socket.on('game:exploded', onExploded);
     socket.on('game:cardPlayed', onCardPlayed);
@@ -225,6 +272,12 @@ export function useGame() {
       socket.off('game:zombie:request', onZombieRequest);
       socket.off('game:defuse:request', onDefuseRequest);
       socket.off('game:selectTarget:request', onSelectTargetRequest);
+      socket.off('game:feedTheDead:request', onFeedTheDeadRequest);
+      socket.off('game:graveRobber:request', onGraveRobberRequest);
+      socket.off('game:digDeeper:request', onDigDeeperRequest);
+      socket.off('game:armageddon:distributeRequest', onArmageddonDistributeRequest);
+      socket.off('game:armageddon:decisionRequest', onArmageddonDecisionRequest);
+      socket.off('game:clairvoyance:reveal', onClairvoyanceReveal);
       socket.off('game:ended', onGameEnded);
       socket.off('game:exploded', onExploded);
       socket.off('game:cardPlayed', onCardPlayed);
@@ -236,8 +289,8 @@ export function useGame() {
   }, [socket]);
 
   // Actions
-  const createRoom = (password = '', isPublic = true) => {
-    socket.emit('room:create', { password, isPublic });
+  const createRoom = (password = '', isPublic = true, edition = 'all') => {
+    socket.emit('room:create', { password, isPublic, edition });
   };
 
   const joinRoom = (roomCode, password = '') => {
@@ -316,6 +369,31 @@ export function useGame() {
     setSelectTargetRequest(null);
   };
 
+  const respondFeedTheDead = (cardId) => {
+    socket.emit('game:feedTheDead:respond', { cardId });
+    setFeedTheDeadRequest(null);
+  };
+
+  const respondGraveRobber = (cardId) => {
+    socket.emit('game:graveRobber:respond', { cardId });
+    setGraveRobberRequest(null);
+  };
+
+  const respondDigDeeper = (decision) => {
+    socket.emit('game:digDeeper:respond', { decision });
+    setDigDeeperRequest(null);
+  };
+
+  const respondArmageddonDistribute = (choice) => {
+    socket.emit('game:armageddon:distribute', { choice });
+    setArmageddonRequest(null);
+  };
+
+  const respondArmageddonDecision = (decision) => {
+    socket.emit('game:armageddon:decision', { decision });
+    setArmageddonRequest(null);
+  };
+
   const playCombo = (cards, targetPlayerId = null, stealCardType = null) => {
     const options = stealCardType ? { stealCardType } : undefined;
     socket.emit('game:combo', { cards, targetPlayerId, options });
@@ -350,6 +428,11 @@ export function useGame() {
     zombieRequest,
     defuseRequest,
     selectTargetRequest,
+    feedTheDeadRequest,
+    graveRobberRequest,
+    digDeeperRequest,
+    armageddonRequest,
+    clairvoyanceReveal,
     gameEnded,
     setGameEnded,
     chatMessages,
@@ -372,6 +455,11 @@ export function useGame() {
     respondZombie,
     respondDefuse,
     respondSelectTarget,
+    respondFeedTheDead,
+    respondGraveRobber,
+    respondDigDeeper,
+    respondArmageddonDistribute,
+    respondArmageddonDecision,
     playCombo,
     respondCombo5,
     sendChatMessage,
