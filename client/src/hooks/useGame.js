@@ -58,6 +58,9 @@ export function useGame() {
       setRoomState(room);
       if (room) {
         setGameState(room.gameState);
+        if (room.status === 'waiting') {
+          setGameEnded(null);
+        }
       } else {
         setGameState(null);
       }
@@ -180,8 +183,8 @@ export function useGame() {
       setClairvoyanceReveal({ position, active: true });
     };
 
-    const onGameEnded = ({ winnerId, rankings }) => {
-      setGameEnded({ winnerId, rankings });
+    const onGameEnded = ({ winnerId, rankings, eloChanges, pinkCoinChanges }) => {
+      setGameEnded({ winnerId, rankings, eloChanges, pinkCoinChanges });
       setStatusMessage(`Trận đấu kết thúc! Người thắng: ${winnerId}`);
     };
 
@@ -411,6 +414,10 @@ export function useGame() {
     socket.emit('game:emote', { emoteId });
   };
 
+  const playAgain = () => {
+    socket.emit('room:playAgain');
+  };
+
   return {
     socket,
     roomState,
@@ -464,5 +471,6 @@ export function useGame() {
     respondCombo5,
     sendChatMessage,
     sendEmote,
+    playAgain,
   };
 }

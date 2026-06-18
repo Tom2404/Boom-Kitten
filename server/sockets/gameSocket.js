@@ -141,6 +141,7 @@ async function finalizeGame(io, room) {
 
   // Calculate Elo Changes (Option A: Dynamic Elo)
   const eloChanges = {};
+  const pinkCoinChanges = {};
   const playersInGame = room.gameState.players.filter(p => dbUsers[p.userId]);
 
   if (playersInGame.length >= 2) {
@@ -200,6 +201,9 @@ async function finalizeGame(io, room) {
     rankings.map(async (entry) => {
       const user = dbUsers[entry.userId];
       if (!user) return;
+      
+      const gemsBefore = user.gems || 0;
+      
       const isWin = entry.result === 'win';
       const streakBonus = isWin && user.stats.currentStreak + 1 >= 3 ? 30 : 0;
       const reward = isWin ? 50 : 10;
@@ -220,6 +224,9 @@ async function finalizeGame(io, room) {
       user.eloPoints = Math.max(1000, (user.eloPoints || 1000) + eloChange);
 
       await user.save();
+      
+      const gemsAfter = user.gems || 0;
+      pinkCoinChanges[entry.userId] = gemsAfter - gemsBefore;
 
       await Transaction.create({
         userId: user._id,
@@ -261,7 +268,7 @@ async function finalizeGame(io, room) {
     playedAt: new Date(),
   });
 
-  io.to(room.code).emit('game:ended', { winnerId, rankings, eloChanges });
+  io.to(room.code).emit('game:ended', { winnerId, rankings, eloChanges, pinkCoinChanges });
 }
 
 module.exports = function registerGameSocket(io) {
@@ -714,6 +721,25 @@ module.exports = function registerGameSocket(io) {
           });
         }
       });
+    });
+
+    socket.on('room:playAgain', () => {
+      const activeRoom = findRoomByUser(userId);
+      if (activeRoom && activeRoom.status === 'finished') {
+        activeRoom.status = 'waiting';
+        activeRoom.gameState = null;
+        activeRoom.players.forEach((p) => {
+          p.hand = [];
+          p.alive = true;
+        });
+        io.to(activeRoom.code).emit('room:updated', { room: activeRoom });
+        io.to(activeRoom.code).emit('chat:message', {
+          userId: 'system',
+          username: 'Hệ Thống',
+          text: `Một trận đấu mới chuẩn bị bắt đầu! Hãy sẵn sàng!`,
+          timestamp: new Date().toISOString(),
+        });
+      }
     });
 
     socket.on('disconnect', () => {

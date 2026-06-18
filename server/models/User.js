@@ -44,6 +44,7 @@ const userSchema = new mongoose.Schema(
       default: 'Bronze IV',
     },
     eloPoints: { type: Number, default: 1000, index: true },
+    highestEloReached: { type: Number, default: 1000 },
     
     // Status and dates
     lastLoginDate: { type: Date },
@@ -65,10 +66,56 @@ function getRankFromElo(elo) {
   return `${tier} ${subdivisions[subdivisionIndex]}`;
 }
 
-// Automatically update rank when eloPoints changes
+const RANK_ORDER = [
+  'Bronze IV', 'Bronze III', 'Bronze II', 'Bronze I',
+  'Silver IV', 'Silver III', 'Silver II', 'Silver I',
+  'Gold IV', 'Gold III', 'Gold II', 'Gold I',
+  'Platinum IV', 'Platinum III', 'Platinum II', 'Platinum I',
+  'Diamond IV', 'Diamond III', 'Diamond II', 'Diamond I',
+  'Legend'
+];
+
+function getRankValue(rankName) {
+  return RANK_ORDER.indexOf(rankName);
+}
+
+function getTierFromRank(rankName) {
+  if (!rankName) return 'Bronze';
+  return rankName.split(' ')[0];
+}
+
+// Automatically update rank and award Pink Coins (gems) on rank-up
 userSchema.pre('save', function (next) {
+  if (this.highestEloReached === undefined) {
+    this.highestEloReached = 1000;
+  }
+
   if (this.isModified('eloPoints') || this.isNew) {
-    this.rank = getRankFromElo(this.eloPoints);
+    const oldRank = this.rank || 'Bronze IV';
+    const newRank = getRankFromElo(this.eloPoints);
+    this.rank = newRank;
+
+    // Award Pink Coins only if ELO exceeds historical peak
+    if (this.eloPoints > this.highestEloReached) {
+      const oldRankVal = getRankValue(oldRank);
+      const newRankVal = getRankValue(newRank);
+
+      if (newRankVal > oldRankVal) {
+        const oldTier = getTierFromRank(oldRank);
+        const newTier = getTierFromRank(newRank);
+
+        let reward = 5; // Default subdivision rank-up
+        if (newRank === 'Legend') {
+          reward = 50; // Reaching Legend
+        } else if (newTier !== oldTier) {
+          reward = 15; // Major Tier rank-up
+        }
+
+        this.gems = (this.gems || 0) + reward;
+      }
+
+      this.highestEloReached = this.eloPoints;
+    }
   }
   next();
 });

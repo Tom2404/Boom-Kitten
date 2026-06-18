@@ -188,4 +188,66 @@ router.delete('/quests/:id', async (req, res, next) => {
   }
 });
 
+// Helper to determine season end Pink Coin reward based on rank
+function getSeasonEndReward(rank) {
+  if (!rank) return 5;
+  if (rank === 'Legend') return 100;
+  if (rank.startsWith('Diamond')) return 60;
+  if (rank.startsWith('Platinum')) return 45;
+  if (rank.startsWith('Gold')) return 30;
+  if (rank.startsWith('Silver')) return 15;
+  return 5; // Bronze
+}
+
+// POST /api/admin/season-reset - Reset season, award Pink Coins based on Rank, and reset ELO
+router.post('/season-reset', async (req, res, next) => {
+  try {
+    const users = await User.find();
+    let updatedCount = 0;
+
+    await Promise.all(
+      users.map(async (user) => {
+        const currentRank = user.rank || 'Bronze IV';
+        const reward = getSeasonEndReward(currentRank);
+
+        // Grant reward
+        user.gems = (user.gems || 0) + reward;
+        
+        // Reset ELO and landmarks for next season
+        user.eloPoints = 1000;
+        user.highestEloReached = 1000;
+        
+        await user.save();
+        updatedCount++;
+
+        // Log transaction
+        await Transaction.create({
+          userId: user._id,
+          type: 'earn',
+          amount: reward,
+          currency: 'gem',
+          description: `Seasonal End Reward for rank ${currentRank}`,
+        });
+      })
+    );
+
+    // Broadcast to everyone via socket
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('server_announcement', {
+        text: 'Mùa giải đã chính thức khép lại! Điểm ELO của bạn đã được thiết lập lại. Quà thăng hạng mùa giải (Xu Hồng) đã được gửi vào hòm đồ của bạn! Hãy sẵn sàng cho mùa giải mới!',
+        sentAt: new Date().toISOString(),
+        sender: 'Hệ Thống'
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: `Season reset processed successfully. Awarded and reset ${updatedCount} users.`,
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 module.exports = router;

@@ -198,13 +198,13 @@ export default function Profile() {
 
           <div className="w-full grid grid-cols-2 gap-4 mt-6 pt-6 border-t-4 border-dashed border-on-surface-variant">
             <div className="bg-surface-container-low border-2 border-on-surface rounded-xl p-3 text-center shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] flex flex-col items-center justify-center">
-              <span className="text-[10px] font-headline font-black text-on-surface-variant uppercase block">Xu Tích Lũy</span>
+              <span className="text-[10px] font-headline font-black text-on-surface-variant uppercase block">Gold Coin (Xu Vàng)</span>
               <span className="font-headline font-black text-primary text-lg flex items-center gap-1.5 justify-center">
                 <CoinIcon className="w-5 h-5 text-primary" /> {profile.coins}
               </span>
             </div>
             <div className="bg-surface-container-low border-2 border-on-surface rounded-xl p-3 text-center shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] flex flex-col items-center justify-center">
-              <span className="text-[10px] font-headline font-black text-on-surface-variant uppercase block">Đá Quý (Gems)</span>
+              <span className="text-[10px] font-headline font-black text-on-surface-variant uppercase block">Pink Coin (Xu Hồng)</span>
               <span className="font-headline font-black text-indigo-600 text-lg flex items-center gap-1.5 justify-center">
                 <GemIcon className="w-5 h-5 text-indigo-600" /> {profile.gems}
               </span>
@@ -298,7 +298,7 @@ export default function Profile() {
                           {quest.title}
                         </span>
                         <span className="text-[10px] font-headline font-black text-indigo-600 bg-indigo-50 border-2 border-indigo-200 px-2 py-0.5 rounded-full">
-                          +{quest.reward?.coins || 0} Xu {quest.reward?.gems > 0 && `• +${quest.reward.gems} Đá`}
+                          +{quest.reward?.coins || 0} Xu Vàng {quest.reward?.gems > 0 && `• +${quest.reward.gems} Xu Hồng`}
                         </span>
                       </div>
                       

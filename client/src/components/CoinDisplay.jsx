@@ -1,47 +1,29 @@
-import React from 'react';
+import goldCoin from '../assets/currencies/gold_coin.png';
+import pinkCoin from '../assets/currencies/pink_coin.png';
 
 /**
- * Biểu tượng Xu dạng nét vẽ (Outline Coin Icon).
- * Chỉ vẽ hình dạng/đường viền, không tô màu mặc định. Có thể chỉnh size và màu stroke qua props.
+ * Biểu tượng Xu Vàng dạng ảnh hoạt họa hoạt hình (Gold Coin Image).
  */
-export function CoinIcon({ className = "w-5 h-5", strokeWidth = 2.5 }) {
+export function CoinIcon({ className = "w-5 h-5" }) {
   return (
-    <svg 
-      className={className} 
-      viewBox="0 0 24 24" 
-      fill="none" 
-      stroke="currentColor" 
-      strokeWidth={strokeWidth} 
-      strokeLinecap="round" 
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="8" />
-      <line x1="12" y1="8" x2="12" y2="16" />
-      <path d="M10 10.5h3.5a1.5 1.5 0 0 0 0-3H11" />
-      <path d="M14 13.5H10.5a1.5 1.5 0 0 0 0 3H13" />
-    </svg>
+    <img 
+      src={goldCoin} 
+      alt="Gold Coin" 
+      className={`${className} object-contain select-none`} 
+    />
   );
 }
 
 /**
- * Biểu tượng Đá quý dạng nét vẽ (Outline Gem Icon).
- * Chỉ vẽ hình dạng/đường viền, không tô màu mặc định. Có thể chỉnh size và màu stroke qua props.
+ * Biểu tượng Xu Hồng dạng ảnh hoạt họa hoạt hình (Pink Coin Image).
  */
-export function GemIcon({ className = "w-5 h-5", strokeWidth = 2.5 }) {
+export function GemIcon({ className = "w-5 h-5" }) {
   return (
-    <svg 
-      className={className} 
-      viewBox="0 0 24 24" 
-      fill="none" 
-      stroke="currentColor" 
-      strokeWidth={strokeWidth} 
-      strokeLinecap="round" 
-      strokeLinejoin="round"
-    >
-      <path d="M6 3h12l4 6-10 12L2 9z" />
-      <path d="M11 3 8 9l4 12 4-12-3-6" />
-      <path d="M2 9h20" />
-    </svg>
+    <img 
+      src={pinkCoin} 
+      alt="Pink Coin" 
+      className={`${className} object-contain select-none`} 
+    />
   );
 }
 

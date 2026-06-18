@@ -167,7 +167,7 @@ export default function Shop() {
           </div>
           <button 
             onClick={() => {
-              alert("Tính năng nạp thêm Xu/Đá Quý đang được phát triển!");
+              alert("Tính năng nạp thêm Xu Vàng/Xu Hồng đang được phát triển!");
             }}
             className="bg-[#9e1b1b] border-2 border-on-surface text-white text-[10px] font-headline font-black uppercase px-3.5 py-1.5 rounded-lg shadow-[2px_2px_0px_0px_#1a1c1c] hover:scale-105 active:scale-95 transition-all"
           >
@@ -327,7 +327,7 @@ export default function Shop() {
             WEEKEND CHAOS BUNDLE
           </h2>
           <p className="text-xs md:text-sm font-medium text-red-100 leading-relaxed">
-            Get 10 Random Sleeves, 5 Avatars, and 1,000 Gems. Highly unstable, handle with care.
+            Get 10 Random Sleeves, 5 Avatars, and 1,000 Pink Coins. Highly unstable, handle with care.
           </p>
           <div className="inline-block self-start bg-yellow-400 border-2 border-on-surface text-slate-950 text-[9px] font-headline font-black uppercase px-2 py-1 tracking-wider -rotate-2 mt-1 shadow-[1.5px_1.5px_0px_0px_#1a1c1c]">
             -50% OFF UNTIL MONDAY
