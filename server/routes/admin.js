@@ -11,6 +11,10 @@ const router = express.Router();
 router.use(authMiddleware);
 router.use(adminMiddleware);
 
+function escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 // GET /api/admin/users - List users
 router.get('/users', async (req, res, next) => {
   try {
@@ -18,8 +22,8 @@ router.get('/users', async (req, res, next) => {
     const query = search
       ? {
           $or: [
-            { username: { $regex: search, $options: 'i' } },
-            { email: { $regex: search, $options: 'i' } },
+            { username: { $regex: escapeRegExp(search), $options: 'i' } },
+            { email: { $regex: escapeRegExp(search), $options: 'i' } },
           ],
         }
       : {};

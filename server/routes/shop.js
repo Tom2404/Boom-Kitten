@@ -31,28 +31,51 @@ router.use(authMiddleware);
 router.post('/buy', async (req, res, next) => {
   try {
     const { itemId } = req.body;
-    const [user, item] = await Promise.all([User.findById(req.user.id), ShopItem.findById(itemId)]);
-    if (!user || !item) return res.status(404).json({ message: 'User or item not found' });
+    const item = await ShopItem.findById(itemId);
+    if (!item) return res.status(404).json({ message: 'Item not found' });
 
     let coinPrice = item.price?.coins ?? 0;
     if (item.type === 'skin' && coinPrice <= 0) coinPrice = rarityCoinPrice[item.rarity] ?? 200;
     if (item.type === 'emote' && coinPrice <= 0) coinPrice = 100;
     if (item.type === 'emote') coinPrice = Math.max(100, Math.min(coinPrice, 300));
     const gemPrice = item.price?.gems ?? 0;
-    if (user.coins < coinPrice || user.gems < gemPrice) {
-      return res.status(400).json({ message: 'Insufficient balance' });
+
+    const updateQuery = {
+      _id: req.user.id,
+      coins: { $gte: coinPrice },
+      gems: { $gte: gemPrice }
+    };
+
+    const updateFields = {
+      $inc: { coins: -coinPrice, gems: -gemPrice }
+    };
+
+    if (item.type === 'skin') {
+      updateQuery.ownedSkins = { $ne: item.name };
+      updateFields.$push = { ownedSkins: item.name };
+    } else if (item.type === 'emote') {
+      updateQuery.ownedEmotes = { $ne: item.name };
+      updateFields.$push = { ownedEmotes: item.name };
+    } else if (item.type === 'avatar_frame') {
+      updateQuery.ownedAvatarFrames = { $ne: item.name };
+      updateFields.$push = { ownedAvatarFrames: item.name };
     }
 
-    user.coins -= coinPrice;
-    user.gems -= gemPrice;
-    if (item.type === 'skin') {
-      user.ownedSkins.push(item.name);
-    } else if (item.type === 'emote') {
-      user.ownedEmotes.push(item.name);
-    } else if (item.type === 'avatar_frame') {
-      user.ownedAvatarFrames.push(item.name);
+    const user = await User.findOneAndUpdate(updateQuery, updateFields, { new: true });
+    if (!user) {
+      const checkUser = await User.findById(req.user.id);
+      if (!checkUser) return res.status(404).json({ message: 'User not found' });
+
+      let isOwned = false;
+      if (item.type === 'skin') isOwned = checkUser.ownedSkins.includes(item.name);
+      else if (item.type === 'emote') isOwned = checkUser.ownedEmotes.includes(item.name);
+      else if (item.type === 'avatar_frame') isOwned = checkUser.ownedAvatarFrames.includes(item.name);
+
+      if (isOwned) {
+        return res.status(400).json({ message: 'Bạn đã sở hữu vật phẩm này rồi.' });
+      }
+      return res.status(400).json({ message: 'Số dư không đủ để thực hiện giao dịch.' });
     }
-    await user.save();
 
     if (coinPrice > 0) {
       await Transaction.create({

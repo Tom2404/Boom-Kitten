@@ -34,7 +34,7 @@ router.post('/register', async (req, res, next) => {
     if (exists) return res.status(409).json({ message: 'User already exists' });
 
     const passwordHash = await bcrypt.hash(password, 10);
-    const role = email.toLowerCase().includes('admin') ? 'admin' : 'user';
+    const role = 'user';
     const user = await User.create({ username, email, passwordHash, role });
     return res.status(201).json({ id: user._id, username: user.username, email: user.email, role: user.role });
   } catch (error) {

@@ -19,6 +19,10 @@ function optionalAuth(req, res, next) {
   next();
 }
 
+function escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 router.get('/', optionalAuth, async (req, res, next) => {
   try {
     const { tier, search, limit = 20, skip = 0 } = req.query;
@@ -33,13 +37,13 @@ router.get('/', optionalAuth, async (req, res, next) => {
       if (tier === 'Legend') {
         matchQuery.rank = 'Legend';
       } else {
-        matchQuery.rank = new RegExp(`^${tier}`, 'i');
+        matchQuery.rank = new RegExp(`^${escapeRegExp(tier)}`, 'i');
       }
     }
 
     // Filter by username search
     if (search) {
-      matchQuery.username = new RegExp(search, 'i');
+      matchQuery.username = new RegExp(escapeRegExp(search), 'i');
     }
 
     // Fetch players sorted by ELO points descending, then wins descending

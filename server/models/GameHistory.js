@@ -21,5 +21,8 @@ const gameHistorySchema = new mongoose.Schema(
   { timestamps: false },
 );
 
+// Optimize query for player match history sorting by date
+gameHistorySchema.index({ 'players.userId': 1, playedAt: -1 });
+
 module.exports = mongoose.model('GameHistory', gameHistorySchema);
 

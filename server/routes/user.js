@@ -212,32 +212,46 @@ router.get('/me/quests', async (req, res, next) => {
 router.post('/me/quests/:questId/claim', async (req, res, next) => {
   try {
     const { questId } = req.params;
-    const progress = await UserQuestProgress.findOne({
-      userId: req.user.id,
-      questId: questId,
-    });
-
-    if (!progress) {
-      return res.status(404).json({ message: 'Tiến trình nhiệm vụ không tìm thấy' });
-    }
-
-    if (progress.status === 'claimed') {
-      return res.status(400).json({ message: 'Nhiệm vụ đã được nhận thưởng trước đó' });
-    }
-
     const quest = await Quest.findById(questId);
     if (!quest) return res.status(404).json({ message: 'Nhiệm vụ không tồn tại' });
 
-    if (progress.status === 'in_progress') {
-      if (progress.currentCount >= quest.targetCount) {
-        progress.status = 'completed';
-      } else {
-        return res.status(400).json({ message: 'Nhiệm vụ chưa hoàn thành' });
+    const updateQuery = {
+      userId: req.user.id,
+      questId: questId,
+      status: { $ne: 'claimed' },
+      $or: [
+        { status: 'completed' },
+        { currentCount: { $gte: quest.targetCount } }
+      ]
+    };
+
+    const progress = await UserQuestProgress.findOneAndUpdate(
+      updateQuery,
+      { $set: { status: 'claimed' } },
+      { new: false }
+    );
+
+    if (!progress) {
+      const currentProgress = await UserQuestProgress.findOne({
+        userId: req.user.id,
+        questId: questId,
+      });
+
+      if (!currentProgress) {
+        return res.status(404).json({ message: 'Tiến trình nhiệm vụ không tìm thấy' });
       }
+      if (currentProgress.status === 'claimed') {
+        return res.status(400).json({ message: 'Nhiệm vụ đã được nhận thưởng trước đó' });
+      }
+      return res.status(400).json({ message: 'Nhiệm vụ chưa hoàn thành' });
     }
 
     const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ message: 'Người chơi không tìm thấy' });
+    if (!user) {
+      // Rollback progress status if user not found
+      await UserQuestProgress.findByIdAndUpdate(progress._id, { $set: { status: progress.status } });
+      return res.status(404).json({ message: 'Người chơi không tìm thấy' });
+    }
 
     const rewardCoins = quest.reward?.coins ?? 0;
     const rewardGems = quest.reward?.gems ?? 0;
@@ -245,9 +259,6 @@ router.post('/me/quests/:questId/claim', async (req, res, next) => {
     user.coins += rewardCoins;
     user.gems += rewardGems;
     await user.save();
-
-    progress.status = 'claimed';
-    await progress.save();
 
     if (rewardCoins > 0) {
       await Transaction.create({
