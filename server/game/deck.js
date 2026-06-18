@@ -16,10 +16,11 @@ const SKIN_COUNTS = {
   cat_rainbow: 1,
   cat_potato: 1,
   exploding_kitten: 13,
+  zombie_kitten: 5,
   attack_of_the_dead: 3,
   feed_the_dead: 1,
   grave_robber: 1,
-  clairvoyance: 1,
+  clairvoyance_now: 2,
   dig_deeper: 4,
   godcat: 1,
   armageddon: 3,
@@ -43,7 +44,7 @@ const CARD_COUNTS = {
   attack_of_the_dead: 2,
   feed_the_dead: 2,
   grave_robber: 2,
-  clairvoyance: 2,
+  clairvoyance_now: 2,
   dig_deeper: 2,
   godcat: 2,
   armageddon: 2,
@@ -66,7 +67,7 @@ function shuffleDeck(deck) {
   return copy;
 }
 
-function getCardCounts(playerCount, edition = 'all') {
+function getCardCounts(playerCount, edition = 'original') {
   const counts = {};
   
   if (edition === '2_player') {
@@ -105,7 +106,7 @@ function getCardCounts(playerCount, edition = 'all') {
     return counts;
   }
   
-  // Base original cards are always included for other editions
+  // Base original cards are always included for standard and expansion editions.
   const baseTypes = [
     'nope', 'attack', 'skip', 'see_the_future_3', 'shuffle', 'favor',
     'cat_taco', 'cat_watermelon', 'cat_beard', 'cat_rainbow', 'cat_potato'
@@ -115,21 +116,13 @@ function getCardCounts(playerCount, edition = 'all') {
     counts[type] = CARD_COUNTS[type];
   });
   
-  // Add expansion cards selectively based on edition
-  if (edition === 'all') {
-    counts.attack_of_the_dead = CARD_COUNTS.attack_of_the_dead;
-    counts.feed_the_dead = CARD_COUNTS.feed_the_dead;
-    counts.grave_robber = CARD_COUNTS.grave_robber;
-    counts.dig_deeper = CARD_COUNTS.dig_deeper;
-  }
-  
-  if (edition === 'all' || edition === 'barking') {
+  if (edition === 'barking') {
     counts.barking_kitten = CARD_COUNTS.barking_kitten;
-    counts.clairvoyance = CARD_COUNTS.clairvoyance;
+    counts.clairvoyance_now = CARD_COUNTS.clairvoyance_now;
     counts.reveal_the_future_3x = CARD_COUNTS.reveal_the_future_3x;
   }
   
-  if (edition === 'all' || edition === 'good_vs_evil') {
+  if (edition === 'good_vs_evil') {
     counts.godcat = CARD_COUNTS.godcat;
     counts.armageddon = CARD_COUNTS.armageddon;
   }
@@ -137,7 +130,7 @@ function getCardCounts(playerCount, edition = 'all') {
   return counts;
 }
 
-function createDeck(playerCount, edition = 'all') {
+function createDeck(playerCount, edition = 'original') {
   const deck = [];
   const counts = getCardCounts(playerCount, edition);
   
@@ -151,7 +144,7 @@ function createDeck(playerCount, edition = 'all') {
   return shuffleDeck(deck);
 }
 
-function dealCards(deck, players, handSize = 7, edition = 'all') {
+function dealCards(deck, players, handSize = 7, edition = 'original') {
   const mutableDeck = [...deck];
   
   // Give each player their starting Defuse / Zombie Kitten card
@@ -172,7 +165,20 @@ function dealCards(deck, players, handSize = 7, edition = 'all') {
     }
   });
 
-  // Remaining defuses are excluded from the draw pile as per project rules (0 Defuses in deck)
+  if (edition === 'zombie') {
+    const remainingZombieKittens = Math.max(0, 5 - players.length);
+    for (let i = 0; i < remainingZombieKittens; i += 1) {
+      mutableDeck.push(makeCard('zombie_kitten'));
+    }
+  }
+
+  // Remaining defuses are shuffled back into the deck for standard/expansion editions using Defuse cards
+  if (edition === 'original' || edition === 'barking' || edition === 'good_vs_evil') {
+    const remainingDefuses = Math.max(0, 6 - players.length);
+    for (let i = 0; i < remainingDefuses; i += 1) {
+      mutableDeck.push(makeCard('defuse'));
+    }
+  }
 
   // Add Exploding Kittens to remaining deck
   const explodingCount = edition === '2_player' ? 1 : Math.max(0, players.length - 1);

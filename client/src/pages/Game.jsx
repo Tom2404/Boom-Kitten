@@ -179,7 +179,6 @@ const EMOTES_LIST = [
 ];
 
 const EDITION_NAMES = {
-  all: 'Tất Cả Mở Rộng 🌍',
   original: 'Bản Gốc 🐱',
   '2_player': 'Bản 2 Người 👥',
   zombie: 'Mèo Thây Ma 🧟',
@@ -254,7 +253,7 @@ export default function Game() {
   const [joinPassword, setJoinPassword] = useState('');
   const [publicRooms, setPublicRooms] = useState([]);
   const [lobbyTab, setLobbyTab] = useState('list'); // 'list' | 'create'
-  const [lobbyEdition, setLobbyEdition] = useState('all');
+  const [lobbyEdition, setLobbyEdition] = useState('original');
   const [userProfile, setUserProfile] = useState(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -319,10 +318,10 @@ export default function Game() {
           return;
         }
       }
-      createRoom('', true, 'all');
+      createRoom('', true, 'original');
     } catch (e) {
       console.error('Lỗi khi chơi nhanh:', e);
-      createRoom('', true, 'all');
+      createRoom('', true, 'original');
     }
   };
 
@@ -860,7 +859,6 @@ export default function Game() {
                     onChange={(e) => setLobbyEdition(e.target.value)}
                     className="bg-white border-2 border-on-surface px-2.5 py-1 rounded-xl text-xs font-headline font-black focus:outline-none"
                   >
-                    <option value="all">Tất cả mở rộng</option>
                     <option value="original">Bản gốc</option>
                     <option value="2_player">Bản 2 người</option>
                     <option value="zombie">Mèo Thây Ma</option>
@@ -927,7 +925,7 @@ export default function Game() {
                 </button>
               </div>
               <span className="text-[9px] font-headline font-black bg-indigo-100 border-2 border-on-surface text-indigo-700 px-2 py-1.5 rounded-xl shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)] uppercase">
-                {EDITION_NAMES[roomState.edition] || roomState.edition || EDITION_NAMES.all}
+                {EDITION_NAMES[roomState.edition] || roomState.edition || EDITION_NAMES.original}
               </span>
             </div>
           </div>

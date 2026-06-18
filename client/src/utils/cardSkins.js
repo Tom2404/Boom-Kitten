@@ -282,6 +282,13 @@ const FALLBACK_SKINS = {
     'Zombie_Kittens/Dig-Deeper-Pity-The-Zombie-With-Zero-Upper-Body-Strength.jpg',
     'Zombie_Kittens/Dig-Deeper-Tend-To-Your-Dying-Garden.jpg',
   ],
+  zombie_kitten: [
+    'Zombie_Kittens/Zombie-Kitten-Always-Land-On-Your-Feet.jpg',
+    'Zombie_Kittens/Zombie-Kitten-Become-An-Alien-Incubator.jpg',
+    'Zombie_Kittens/Zombie-Kitten-Cough-Up-A-Hairball-With-A-Hairdo.jpg',
+    'Zombie_Kittens/Zombie-Kitten-Friendship-Lasts-All-Weekend.jpg',
+    'Zombie_Kittens/Zombie-Kitten-Learn-To-Entertain-Yourself.jpg',
+  ],
   godcat: [
     'Good_vs_Evil/Godcat-The-Best-Of-The-Blessed.jpg',
   ],

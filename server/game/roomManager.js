@@ -2,6 +2,7 @@
 const { createDeck, dealCards } = require('./deck');
 
 const rooms = new Map();
+const VALID_EDITIONS = new Set(['original', '2_player', 'zombie', 'barking', 'good_vs_evil']);
 
 function makeCode() {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -12,16 +13,17 @@ function makeCode() {
 
 function createRoom(hostId, options = {}, username = 'Guest') {
   const code = makeCode();
+  const edition = VALID_EDITIONS.has(options.edition) ? options.edition : 'original';
   const room = {
     code,
     host: hostId,
     players: [{ userId: hostId, username, hand: [], alive: true }],
-    maxPlayers: options.edition === '2_player' ? 2 : 5,
+    maxPlayers: edition === '2_player' ? 2 : 5,
     maxHandSize: 10,
     status: 'waiting',
     isPublic: Boolean(options.isPublic),
     password: options.password || '',
-    edition: options.edition || 'all',
+    edition,
     gameState: null,
   };
   rooms.set(code, room);
@@ -58,7 +60,8 @@ function startGame(roomCode) {
   if (room.players.length < 2) throw new Error('Need at least 2 players');
 
   const deck = createDeck(room.players.length, room.edition);
-  const dealt = dealCards(deck, room.players, 7, room.edition);
+  const handSize = room.edition === 'original' ? 4 : 7;
+  const dealt = dealCards(deck, room.players, handSize, room.edition);
 
   room.status = 'playing';
   room.gameState = {
@@ -72,6 +75,7 @@ function startGame(roomCode) {
     pendingFavor: null,
     lastAction: null,
     maxHandSize: room.maxHandSize ?? 10,
+    edition: room.edition,
   };
 
   return room;

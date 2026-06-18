@@ -31,7 +31,9 @@ function eliminatePlayer(gameState, playerId) {
   const player = getPlayer(gameState, playerId);
   if (!player) return gameState;
   player.alive = false;
-  player.hand = [];
+  if (gameState.edition !== 'zombie') {
+    player.hand = [];
+  }
   gameState.activePlayerIds = gameState.players.filter((p) => p.alive).map((p) => p.userId);
   
   // If the current player died, pass the turn
@@ -326,8 +328,16 @@ function resolveZombieRevive(gameState, targetPlayerId, insertPosition = 0) {
 
   if (target && !target.alive && activator && activator.alive) {
     target.alive = true;
-    target.hand = [];
     gameState.activePlayerIds = gameState.players.filter((p) => p.alive).map((p) => p.userId);
+    
+    // Transfer 1 card from activator to target as per Zombie Kittens rules
+    if (activator.hand.length > 0) {
+      const randomIndex = Math.floor(Math.random() * activator.hand.length);
+      const [gift] = activator.hand.splice(randomIndex, 1);
+      target.hand.push(gift);
+      checkStreakingKittenEffect(gameState, activator.userId);
+      checkStreakingKittenEffect(gameState, target.userId);
+    }
   }
 
   // Always put the causing exploding/imploding kitten back in the deck at specified position
@@ -379,11 +389,15 @@ function handleCombo(gameState, playerId, cardIds, targetPlayerId) {
 
   if (cardsToPlay.length !== cardIds.length) return null;
 
-  // All cards must be cat cards, feral_cat, or godcat
-  if (!cardsToPlay.every((c) => c.type.startsWith('cat_') || c.type === 'feral_cat' || c.type === 'godcat')) return null;
-
   const n = cardsToPlay.length;
   if (n < 2 || (n !== 2 && n !== 3 && n !== 5)) return null;
+
+  // All cards must be cat cards, feral_cat, or godcat, unless in 2_player edition for 2-card or 3-card combos
+  const isTwoPlayer = gameState.edition === '2_player';
+  const isAllowedCombo = isTwoPlayer && (n === 2 || n === 3);
+  if (!isAllowedCombo) {
+    if (!cardsToPlay.every((c) => c.type.startsWith('cat_') || c.type === 'feral_cat' || c.type === 'godcat')) return null;
+  }
 
   const cardTypes = cardsToPlay.map((c) => c.type);
   const wildCount = cardTypes.filter((t) => t === 'feral_cat' || t === 'godcat').length;
@@ -451,7 +465,7 @@ function drawCard(gameState, playerId, fromBottom = false, onDefuse) {
       if (card) {
         // Since thief drew it, decrement drawsRequired for player
         gameState.drawsRequired = Math.max(0, (gameState.drawsRequired ?? 1) - 1);
-        if (card.type === 'exploding_kitten' || card.type === 'imploding_kitten') {
+        if (card.type === 'exploding_kitten' || card.type === 'imploding_kitten' || card.type === 'devilcat') {
           resolveExplosion(gameState, thiefId, card, onDefuse);
         } else {
           thief.hand.push(card);
@@ -476,7 +490,7 @@ function drawCard(gameState, playerId, fromBottom = false, onDefuse) {
   // Decrement drawsRequired since a card was drawn!
   gameState.drawsRequired = Math.max(0, (gameState.drawsRequired ?? 1) - 1);
 
-  if (card.type === 'exploding_kitten' || card.type === 'imploding_kitten') {
+  if (card.type === 'exploding_kitten' || card.type === 'imploding_kitten' || card.type === 'devilcat') {
     resolveExplosion(gameState, playerId, card, onDefuse);
     // If player survived (defused it and didn't die) and no pending zombie (Zombie Kitten has its own async flow)
     const p = getPlayer(gameState, playerId);
@@ -793,7 +807,7 @@ function resolveDigDeeper(gameState, decision) {
   
   if (player && player.alive) {
     if (decision === 'keep') {
-      if (firstCard.type === 'exploding_kitten' || firstCard.type === 'imploding_kitten') {
+      if (firstCard.type === 'exploding_kitten' || firstCard.type === 'imploding_kitten' || firstCard.type === 'devilcat') {
         resolveExplosion(gameState, playerId, firstCard);
       } else {
         player.hand.push(firstCard);
