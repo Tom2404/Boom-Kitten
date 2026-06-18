@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
+import Card from './Card.jsx';
 
-export default function DeckPile({ count, onDraw, isMyTurn, disabled, compact = false }) {
+export default function DeckPile({ count, topCard, onDraw, isMyTurn, disabled, compact = false }) {
   const [isOpen, setIsOpen] = useState(false);
 
   const handleDraw = () => {
@@ -38,13 +39,19 @@ export default function DeckPile({ count, onDraw, isMyTurn, disabled, compact = 
           <div className="absolute inset-0 bg-[#b7131a] border-3 border-on-surface rounded-xl translate-x-3 translate-y-3 -z-20" />
         )}
 
-        {/* Custom Spikey Starburst SVG */}
-        <div className="absolute inset-2 border-2 border-dashed border-white/20 rounded-lg flex flex-col items-center justify-center bg-[#b7131a]">
-          <svg viewBox="0 0 24 24" className="w-12 h-12 text-white fill-current drop-shadow-[2px_2px_0px_#1a1c1c]">
-            <path d="M12 2l2 4 4-2-2 4 4 2-4 2 2 4-4-2-2 4-2-4-4 2 2-4-4-2 4-2-2-4 4 2z" />
-          </svg>
-          <span className={`mt-2 ${innerTextClass} font-headline font-black text-white tracking-wider uppercase drop-shadow`}>MÈO NỔ</span>
-        </div>
+        {/* Custom Spikey Starburst SVG or Face-Up top card */}
+        {topCard && topCard.faceUp ? (
+          <div className="absolute inset-0 bg-transparent flex items-center justify-center scale-[0.95] overflow-visible">
+            <Card type={topCard.type} disabled={true} compact={compact} />
+          </div>
+        ) : (
+          <div className="absolute inset-2 border-2 border-dashed border-white/20 rounded-lg flex flex-col items-center justify-center bg-[#b7131a]">
+            <svg viewBox="0 0 24 24" className="w-12 h-12 text-white fill-current drop-shadow-[2px_2px_0px_#1a1c1c]">
+              <path d="M12 2l2 4 4-2-2 4 4 2-4 2 2 4-4-2-2 4-2-4-4 2 2-4-4-2 4-2-2-4 4 2z" />
+            </svg>
+            <span className={`mt-2 ${innerTextClass} font-headline font-black text-white tracking-wider uppercase drop-shadow`}>MÈO NỔ</span>
+          </div>
+        )}
 
         {/* Floating badge for card count - black with white text */}
         <div className="absolute -top-3.5 -right-3.5 h-9 w-9 rounded-full bg-[#1a1c1c] border-3 border-white flex items-center justify-center text-xs font-headline font-black text-white shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]">
@@ -95,13 +102,19 @@ export default function DeckPile({ count, onDraw, isMyTurn, disabled, compact = 
                   key={index}
                   className="flex flex-col items-center gap-2 p-2 bg-slate-50 border-2 border-on-surface rounded-2xl shadow-[2.5px_2.5px_0px_0px_#1a1c1c]"
                 >
-                  <div className="relative h-36 w-28 rounded-xl border-3 border-on-surface bg-[#b7131a] flex flex-col items-center justify-center select-none">
-                    <div className="absolute inset-1.5 border-2 border-dashed border-white/20 rounded-lg flex flex-col items-center justify-center bg-[#b7131a]">
-                      <svg viewBox="0 0 24 24" className="w-8 h-8 text-white fill-current">
-                        <path d="M12 2l2 4 4-2-2 4 4 2-4 2 2 4-4-2-2 4-2-4-4 2 2-4-4-2 4-2-2-4 4 2z" />
-                      </svg>
+                  {index === 0 && topCard && topCard.faceUp ? (
+                    <div className="relative h-36 w-28 scale-[0.9] overflow-visible flex items-center justify-center bg-transparent">
+                      <Card type={topCard.type} disabled={true} compact={true} />
                     </div>
-                  </div>
+                  ) : (
+                    <div className="relative h-36 w-28 rounded-xl border-3 border-on-surface bg-[#b7131a] flex flex-col items-center justify-center select-none">
+                      <div className="absolute inset-1.5 border-2 border-dashed border-white/20 rounded-lg flex flex-col items-center justify-center bg-[#b7131a]">
+                        <svg viewBox="0 0 24 24" className="w-8 h-8 text-white fill-current">
+                          <path d="M12 2l2 4 4-2-2 4 4 2-4 2 2 4-4-2-2 4-2-4-4 2 2-4-4-2 4-2-2-4 4 2z" />
+                        </svg>
+                      </div>
+                    </div>
+                  )}
                   <span className="text-[9px] font-headline font-black text-on-surface uppercase">
                     {index === 0 ? 'Lá trên cùng' : index === count - 1 ? 'Lá dưới đáy' : `Lá bài #${index + 1}`}
                   </span>

@@ -83,11 +83,18 @@ function resolveExplosion(gameState, playerId, card, onDefuse) {
     return gameState;
   }
 
-  // 2. Imploding Kitten face up cannot be defused
-  if (card.type === 'imploding_kitten' && card.faceUp) {
-    gameState.discardPile.push(card);
-    eliminatePlayer(gameState, playerId);
-    return gameState;
+  // 2. Imploding Kitten handling
+  if (card.type === 'imploding_kitten') {
+    if (card.faceUp) {
+      gameState.discardPile.push(card);
+      eliminatePlayer(gameState, playerId);
+      return gameState;
+    } else {
+      // Imploding Kitten face down: do NOT require/use Defuse card.
+      // Just trigger pendingDefuse to put it back face up.
+      gameState.pendingDefuse = { playerId, card, startedAt: Date.now() };
+      return gameState;
+    }
   }
 
   // 3. Check for Defuse or Zombie Kitten

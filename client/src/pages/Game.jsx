@@ -184,6 +184,9 @@ const EDITION_NAMES = {
   zombie: 'Mèo Thây Ma 🧟',
   barking: 'Mèo Sủa 🐶',
   good_vs_evil: 'Thiện và Ác ⚖️',
+  imploding: 'Mèo Sập Nguồn 💥🙀',
+  streaking: 'Mèo Vệt Đuôi ☄️',
+  expansion_mix: 'Đại Hỗn Chiến 🌪️',
 };
 
 export default function Game() {
@@ -254,6 +257,7 @@ export default function Game() {
   const [publicRooms, setPublicRooms] = useState([]);
   const [lobbyTab, setLobbyTab] = useState('list'); // 'list' | 'create'
   const [lobbyEdition, setLobbyEdition] = useState('original');
+  const [isEditionDropdownOpen, setIsEditionDropdownOpen] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -272,6 +276,9 @@ export default function Game() {
   });
 
   const [localClairvoyance, setLocalClairvoyance] = useState(null);
+  const [drewKittenAlert, setDrewKittenAlert] = useState(null);
+  const [nopeAlert, setNopeAlert] = useState(null);
+  const [isRedFlashActive, setIsRedFlashActive] = useState(false);
 
   const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5000';
 
@@ -580,6 +587,29 @@ export default function Game() {
     };
 
     const handleCardPlayed = ({ playerId, cardType }) => {
+      if (cardType === 'nope') {
+        // Trigger a quick sharp board shake
+        gsap.fromTo(
+          '#game-board-container',
+          { x: -6 },
+          {
+            x: 6,
+            duration: 0.04,
+            repeat: 6,
+            yoyo: true,
+            onComplete: () => {
+              gsap.set('#game-board-container', { x: 0 });
+            },
+          }
+        );
+
+        // Show large "NOPE!" text splash
+        setNopeAlert({ active: true, text: 'NOPE!' });
+        setTimeout(() => {
+          setNopeAlert(null);
+        }, 1200);
+      }
+
       setTimeout(() => {
         const targetId = playerId === myUser?.id ? 'player-hand-container' : `player-avatar-${playerId}`;
         const startPos = getRelativeCenter(targetId);
@@ -599,6 +629,35 @@ export default function Game() {
           ]);
         }
       }, 50);
+    };
+
+    const handleDrewKitten = ({ playerId, username, cardType }) => {
+      // Shake the board longer and wider
+      gsap.fromTo(
+        '#game-board-container',
+        { x: -14 },
+        {
+          x: 14,
+          duration: 0.05,
+          repeat: 16,
+          yoyo: true,
+          onComplete: () => {
+            gsap.set('#game-board-container', { x: 0 });
+          },
+        }
+      );
+
+      // Trigger red screen border flash
+      setIsRedFlashActive(true);
+      setTimeout(() => {
+        setIsRedFlashActive(false);
+      }, 1500);
+
+      // Show warning banner overlay
+      setDrewKittenAlert({ active: true, playerName: username, cardType });
+      setTimeout(() => {
+        setDrewKittenAlert(null);
+      }, 3000);
     };
 
     const handleExploded = ({ playerId }) => {
@@ -634,11 +693,13 @@ export default function Game() {
     };
 
     socket.on('game:cardDrawn', handleCardDrawn);
+    socket.on('game:drewKitten', handleDrewKitten);
     socket.on('game:cardPlayed', handleCardPlayed);
     socket.on('game:exploded', handleExploded);
 
     return () => {
       socket.off('game:cardDrawn', handleCardDrawn);
+      socket.off('game:drewKitten', handleDrewKitten);
       socket.off('game:cardPlayed', handleCardPlayed);
       socket.off('game:exploded', handleExploded);
     };
@@ -852,19 +913,43 @@ export default function Game() {
                   </select>
                 </div>
 
-                <div className="flex justify-between items-center text-xs font-bold text-on-surface">
+                <div className="flex justify-between items-center text-xs font-bold text-on-surface relative">
                   <span className="flex items-center gap-1.5"><ExtensionIcon className="w-4 h-4 text-on-surface" strokeWidth={2.5} /> Phiên bản:</span>
-                  <select 
-                    value={lobbyEdition} 
-                    onChange={(e) => setLobbyEdition(e.target.value)}
-                    className="bg-white border-2 border-on-surface px-2.5 py-1 rounded-xl text-xs font-headline font-black focus:outline-none"
-                  >
-                    <option value="original">Bản gốc</option>
-                    <option value="2_player">Bản 2 người</option>
-                    <option value="zombie">Mèo Thây Ma</option>
-                    <option value="barking">Mèo Sủa</option>
-                    <option value="good_vs_evil">Thiện và Ác</option>
-                  </select>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setIsEditionDropdownOpen(!isEditionDropdownOpen)}
+                      className="bg-white border-2 border-on-surface px-3 py-1.5 rounded-xl text-xs font-headline font-black focus:outline-none flex items-center gap-1.5 hover:bg-slate-100 transition-all shadow-[1.5px_1.5px_0px_0px_#1a1c1c] active:translate-y-0.5 active:shadow-none min-w-[155px] justify-between text-slate-950"
+                    >
+                      <span>{EDITION_NAMES[lobbyEdition]}</span>
+                      <span className={`text-[9px] transition-transform duration-200 ${isEditionDropdownOpen ? 'rotate-180' : ''}`}>▼</span>
+                    </button>
+                    {isEditionDropdownOpen && (
+                      <>
+                        <div 
+                          className="fixed inset-0 z-40" 
+                          onClick={() => setIsEditionDropdownOpen(false)}
+                        />
+                        <div className="absolute right-0 mt-2 w-60 bg-white border-2 border-on-surface rounded-2xl shadow-[4px_4px_0px_0px_#1a1c1c] z-50 overflow-hidden py-1 max-h-64 overflow-y-auto animate-fade-in custom-scrollbar">
+                          {Object.entries(EDITION_NAMES).map(([key, label]) => (
+                            <button
+                              key={key}
+                              type="button"
+                              onClick={() => {
+                                setLobbyEdition(key);
+                                setIsEditionDropdownOpen(false);
+                              }}
+                              className={`w-full text-left px-4 py-2.5 text-xs font-headline font-black hover:bg-[#b7131a] hover:text-white transition-all flex items-center justify-between uppercase tracking-wider text-slate-900
+                                ${lobbyEdition === key ? 'bg-slate-100 text-[#b7131a] border-l-4 border-[#b7131a]' : ''}`}
+                            >
+                              <span>{label}</span>
+                              {lobbyEdition === key && <span className="text-[10px]">✔</span>}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
                 
                 <div className="flex flex-col gap-1.5 text-xs font-bold text-on-surface">
@@ -1045,13 +1130,16 @@ export default function Game() {
       {/* Top Header Bar matching mockup */}
       <div className="flex justify-between items-center bg-white border-4 border-on-surface rounded-2xl px-6 py-3 shadow-[4px_4px_0px_0px_#1a1c1c] z-20">
         {/* Left: Title & Room ID */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 md:gap-4 flex-wrap">
           <h1 className="arena-title-brutal text-2xl md:text-3xl italic font-black uppercase tracking-tight">
             ARENA BATTLE
           </h1>
-          <div className="h-6 w-1 bg-on-surface/20 rounded" />
-          <span className="font-headline font-black text-lg text-on-surface/40 uppercase tracking-widest">
+          <div className="h-6 w-1 bg-on-surface/20 rounded hidden sm:block" />
+          <span className="font-headline font-black text-lg text-on-surface/40 uppercase tracking-widest hidden sm:block">
             _{roomState.code.slice(0, 3)}
+          </span>
+          <span className="text-[9px] font-headline font-black bg-indigo-50 border-2 border-on-surface text-indigo-700 px-2 py-0.5 rounded-lg shadow-[1px_1px_0px_0px_#1a1c1c] uppercase tracking-wide">
+            {EDITION_NAMES[roomState.edition] || roomState.edition || EDITION_NAMES.original}
           </span>
         </div>
 
@@ -1144,6 +1232,7 @@ export default function Game() {
               <div className="grid grid-cols-[auto_minmax(160px,220px)_auto] items-center justify-center gap-6 md:gap-8 z-10">
                 <DeckPile
                   count={gameState.deckCount ?? 0}
+                  topCard={gameState.topCard}
                   onDraw={drawCard}
                   isMyTurn={isMyTurn}
                   disabled={!!gameState.pendingFavor || !!gameState.pendingAlter || (nopeWindow && nopeWindow.active) || privateHand.length > (gameState.maxHandSize ?? 10)}
@@ -1699,6 +1788,40 @@ export default function Game() {
           />
         );
       })}
+
+      {isRedFlashActive && (
+        <div className="fixed inset-0 pointer-events-none z-[99999] border-[16px] animate-border-flash-red rounded-3xl" />
+      )}
+
+      {drewKittenAlert && drewKittenAlert.active && (() => {
+        const cleanType = drewKittenAlert.cardType.startsWith('discard_') 
+          ? drewKittenAlert.cardType.replace('discard_', '') 
+          : drewKittenAlert.cardType;
+        const cardName = cleanType === 'exploding_kitten' ? 'Mèo Nổ' : cleanType === 'imploding_kitten' ? 'Mèo Sập Nguồn' : cleanType === 'devilcat' ? 'Mèo Quỷ' : cleanType;
+        return (
+          <div className="fixed top-12 left-1/2 -translate-x-1/2 bg-[#1a1c1c] border-4 border-rose-500 text-white px-8 py-4 rounded-2xl flex items-center gap-4 shadow-[6px_6px_0px_0px_rgba(26,28,28,1)] z-[99999] animate-bounce">
+            <div className="p-2 bg-rose-500/10 rounded-xl border-2 border-rose-500">
+              <svg className="w-8 h-8 text-rose-500 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <div className="flex flex-col text-left">
+              <span className="font-headline font-black text-rose-500 uppercase text-[10px] tracking-wider">CẢNH BÁO NGUY HIỂM</span>
+              <span className="font-sans font-bold text-xs text-slate-100 mt-0.5">
+                Người chơi <strong className="text-yellow-400 font-black">{drewKittenAlert.playerName}</strong> đã bốc trúng quân <strong className="text-rose-400 font-black">{cardName}</strong>!
+              </span>
+            </div>
+          </div>
+        );
+      })()}
+
+      {nopeAlert && nopeAlert.active && (
+        <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-[99998]">
+          <div className="bg-rose-600 text-white text-7xl font-headline font-black uppercase tracking-wider px-12 py-5 rounded-3xl border-6 border-white shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] animate-nope-splash">
+            NOPE!
+          </div>
+        </div>
+      )}
 
       <CustomDialog
         isOpen={dialogState.isOpen}

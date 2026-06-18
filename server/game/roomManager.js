@@ -2,7 +2,7 @@
 const { createDeck, dealCards } = require('./deck');
 
 const rooms = new Map();
-const VALID_EDITIONS = new Set(['original', '2_player', 'zombie', 'barking', 'good_vs_evil']);
+const VALID_EDITIONS = new Set(['original', '2_player', 'zombie', 'barking', 'good_vs_evil', 'imploding', 'streaking', 'expansion_mix']);
 
 function makeCode() {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -18,7 +18,7 @@ function createRoom(hostId, options = {}, username = 'Guest') {
     code,
     host: hostId,
     players: [{ userId: hostId, username, hand: [], alive: true }],
-    maxPlayers: edition === '2_player' ? 2 : 5,
+    maxPlayers: edition === '2_player' ? 2 : (edition === 'imploding' ? 6 : 5),
     maxHandSize: 10,
     status: 'waiting',
     isPublic: Boolean(options.isPublic),

@@ -26,6 +26,21 @@ const SKIN_COUNTS = {
   armageddon: 3,
   barking_kitten: 2,
   reveal_the_future_3x: 3,
+  alter_the_future_3: 4,
+  draw_from_bottom: 1,
+  reverse: 4,
+  target_attack_2x: 3,
+  catomic_bomb: 1,
+  feral_cat: 1,
+  imploding_kitten: 1,
+  streaking_kitten: 1,
+  super_skip: 1,
+  see_the_future_1: 1,
+  see_the_future_5: 1,
+  alter_the_future_5: 1,
+  swap_top_and_bottom: 1,
+  mark: 1,
+  garbage_collection: 1,
 };
 
 // Card quantities strictly according to docs/Game rule.md
@@ -50,6 +65,21 @@ const CARD_COUNTS = {
   armageddon: 2,
   barking_kitten: 2,
   reveal_the_future_3x: 2,
+  alter_the_future_3: 3,
+  draw_from_bottom: 3,
+  reverse: 3,
+  target_attack_2x: 3,
+  catomic_bomb: 1,
+  feral_cat: 4,
+  imploding_kitten: 1,
+  streaking_kitten: 1,
+  super_skip: 1,
+  see_the_future_1: 1,
+  see_the_future_5: 1,
+  alter_the_future_5: 1,
+  swap_top_and_bottom: 1,
+  mark: 1,
+  garbage_collection: 1,
 };
 
 function makeCard(type) {
@@ -126,6 +156,42 @@ function getCardCounts(playerCount, edition = 'original') {
     counts.godcat = CARD_COUNTS.godcat;
     counts.armageddon = CARD_COUNTS.armageddon;
   }
+
+  if (edition === 'imploding') {
+    counts.alter_the_future_3 = CARD_COUNTS.alter_the_future_3;
+    counts.draw_from_bottom = CARD_COUNTS.draw_from_bottom;
+    counts.reverse = CARD_COUNTS.reverse;
+    counts.target_attack_2x = CARD_COUNTS.target_attack_2x;
+    counts.catomic_bomb = CARD_COUNTS.catomic_bomb;
+    counts.feral_cat = CARD_COUNTS.feral_cat;
+    counts.skip = CARD_COUNTS.skip + 1; // 1 additional skip card
+  }
+
+  if (edition === 'streaking') {
+    counts.streaking_kitten = CARD_COUNTS.streaking_kitten;
+    counts.super_skip = CARD_COUNTS.super_skip;
+    counts.see_the_future_5 = CARD_COUNTS.see_the_future_5;
+    counts.alter_the_future_5 = CARD_COUNTS.alter_the_future_5;
+    counts.swap_top_and_bottom = CARD_COUNTS.swap_top_and_bottom;
+    counts.catomic_bomb = CARD_COUNTS.catomic_bomb;
+    counts.mark = CARD_COUNTS.mark;
+    counts.garbage_collection = CARD_COUNTS.garbage_collection;
+  }
+
+  if (edition === 'expansion_mix') {
+    counts.imploding_kitten = CARD_COUNTS.imploding_kitten;
+    counts.barking_kitten = CARD_COUNTS.barking_kitten;
+    counts.streaking_kitten = CARD_COUNTS.streaking_kitten;
+    counts.godcat = CARD_COUNTS.godcat;
+    counts.armageddon = CARD_COUNTS.armageddon;
+    counts.alter_the_future_3 = CARD_COUNTS.alter_the_future_3;
+    counts.draw_from_bottom = CARD_COUNTS.draw_from_bottom;
+    counts.reverse = CARD_COUNTS.reverse;
+    counts.target_attack_2x = CARD_COUNTS.target_attack_2x;
+    counts.super_skip = CARD_COUNTS.super_skip;
+    counts.catomic_bomb = CARD_COUNTS.catomic_bomb;
+    counts.feral_cat = CARD_COUNTS.feral_cat;
+  }
   
   return counts;
 }
@@ -173,17 +239,25 @@ function dealCards(deck, players, handSize = 7, edition = 'original') {
   }
 
   // Remaining defuses are shuffled back into the deck for standard/expansion editions using Defuse cards
-  if (edition === 'original' || edition === 'barking' || edition === 'good_vs_evil') {
+  if (edition === 'original' || edition === 'barking' || edition === 'good_vs_evil' || edition === 'imploding' || edition === 'streaking' || edition === 'expansion_mix') {
     const remainingDefuses = Math.max(0, 6 - players.length);
     for (let i = 0; i < remainingDefuses; i += 1) {
       mutableDeck.push(makeCard('defuse'));
     }
   }
 
-  // Add Exploding Kittens to remaining deck
-  const explodingCount = edition === '2_player' ? 1 : Math.max(0, players.length - 1);
-  for (let i = 0; i < explodingCount; i += 1) {
-    mutableDeck.push(makeCard('exploding_kitten'));
+  // Add Exploding & Imploding Kittens to remaining deck
+  if (edition === 'imploding' || edition === 'expansion_mix') {
+    mutableDeck.push(makeCard('imploding_kitten'));
+    const explodingCount = players.length === 2 ? 1 : Math.max(0, players.length - 2);
+    for (let i = 0; i < explodingCount; i += 1) {
+      mutableDeck.push(makeCard('exploding_kitten'));
+    }
+  } else {
+    const explodingCount = edition === '2_player' ? 1 : Math.max(0, players.length - 1);
+    for (let i = 0; i < explodingCount; i += 1) {
+      mutableDeck.push(makeCard('exploding_kitten'));
+    }
   }
 
   const finalDeck = shuffleDeck(mutableDeck);

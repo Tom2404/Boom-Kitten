@@ -206,4 +206,23 @@ body {
   animation: draw-reveal 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
 
+/* Custom visual alert animations */
+@keyframes scale-up-fade-out {
+  0% { transform: scale(0.5) rotate(-12deg); opacity: 0; }
+  20% { transform: scale(1.15) rotate(-8deg); opacity: 1; }
+  80% { transform: scale(1) rotate(-8deg); opacity: 1; }
+  100% { transform: scale(1.2) rotate(-8deg); opacity: 0; }
+}
+.animate-nope-splash {
+  animation: scale-up-fade-out 1.2s cubic-bezier(0.19, 1, 0.22, 1) forwards;
+}
+
+@keyframes border-pulse-red {
+  0%, 100% { border-color: rgba(239, 68, 68, 0.15); box-shadow: inset 0 0 30px rgba(239, 68, 68, 0.2); }
+  50% { border-color: rgba(239, 68, 68, 0.95); box-shadow: inset 0 0 60px rgba(239, 68, 68, 0.7); }
+}
+.animate-border-flash-red {
+  animation: border-pulse-red 0.5s ease-in-out infinite;
+}
+
 

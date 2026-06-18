@@ -22,3 +22,9 @@ test('createRoom keeps supported edition-specific settings', () => {
   assert.equal(room.edition, '2_player');
   assert.equal(room.maxPlayers, 2);
 });
+
+test('createRoom sets correct maxPlayers and edition for imploding', () => {
+  const room = createRoom('host-id', { edition: 'imploding' }, 'Host');
+  assert.equal(room.edition, 'imploding');
+  assert.equal(room.maxPlayers, 6);
+});

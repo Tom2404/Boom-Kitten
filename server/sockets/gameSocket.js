@@ -1,5 +1,6 @@
 // Socket handlers for realtime room/game/chat/emote interactions.
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 const {
   createRoom,
   joinRoom,
@@ -37,6 +38,7 @@ const UserQuestProgress = require('../models/UserQuestProgress');
 
 async function updateQuestProgress(userId, actionType, count = 1) {
   try {
+    if (!userId || userId.startsWith('guest-') || !mongoose.Types.ObjectId.isValid(userId)) return;
     const activeQuests = await Quest.find({ actionType, isActive: true });
     if (!activeQuests || activeQuests.length === 0) return;
 
@@ -81,6 +83,11 @@ function sanitizePublicGameState(gameState) {
     ...gameState,
     deckCount: gameState.deck.length,
     deck: undefined,
+    topCard: gameState.deck.length > 0 ? {
+      id: gameState.deck[gameState.deck.length - 1].id,
+      type: gameState.deck[gameState.deck.length - 1].type,
+      faceUp: !!gameState.deck[gameState.deck.length - 1].faceUp,
+    } : null,
     pendingTargetSelect: gameState.pendingTargetSelect || null,
     players: gameState.players.map((player) => ({
       userId: player.userId,
@@ -128,9 +135,15 @@ async function finalizeGame(io, room) {
   const dbUsers = {};
   await Promise.all(
     room.gameState.players.map(async (p) => {
-      const dbUser = await User.findById(p.userId);
-      if (dbUser) {
-        dbUsers[p.userId] = dbUser;
+      if (p.userId && !p.userId.startsWith('guest-') && mongoose.Types.ObjectId.isValid(p.userId)) {
+        try {
+          const dbUser = await User.findById(p.userId);
+          if (dbUser) {
+            dbUsers[p.userId] = dbUser;
+          }
+        } catch (err) {
+          console.error(`Error loading database user ${p.userId}:`, err);
+        }
       }
     })
   );
@@ -330,6 +343,14 @@ module.exports = function registerGameSocket(io) {
     const gameState = room.gameState;
     const beforeAlive = gameState.players.find((p) => p.userId === playerId)?.alive;
     io.to(room.code).emit('game:cardDrawn', { playerId });
+
+    const topCard = gameState.deck[gameState.deck.length - 1];
+    const drewKitten = (topCard?.type === 'exploding_kitten' || topCard?.type === 'imploding_kitten' || topCard?.type === 'devilcat') ? topCard.type : null;
+    if (drewKitten) {
+      const pObj = gameState.players.find((p) => p.userId === playerId);
+      const username = pObj ? pObj.username : playerId;
+      io.to(room.code).emit('game:drewKitten', { playerId, username, cardType: drewKitten });
+    }
 
     drawCard(gameState, playerId, false, (pId) => {
       updateQuestProgress(pId, 'defuse_kitten', 1);
@@ -964,7 +985,12 @@ module.exports = function registerGameSocket(io) {
 
       const [nopeCard] = player.hand.splice(nopeIdx, 1);
       room.gameState.discardPile.push(nopeCard);
-      io.to(roomCode).emit('game:cardPlayed', { playerId: userId, cardType: 'nope' });
+      io.to(roomCode).emit('game:cardPlayed', { 
+        playerId: userId, 
+        cardType: 'nope',
+        targetPlayerId: pending.playerId,
+        nopedCardType: pending.cardType
+      });
 
       pending.nopeCount += 1;
       updateQuestProgress(userId, 'nope_card', 1);

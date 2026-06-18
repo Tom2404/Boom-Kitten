@@ -476,9 +476,13 @@ export function DefusePositionModal({ deckCount, onRespond, cardType }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 animate-fade-in text-slate-900">
       <div className="w-full max-w-xl bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 md:p-8 flex flex-col gap-6 text-center">
         <div>
-          <h3 className="text-2xl font-headline font-black text-primary uppercase">🛡️ Gỡ Mìn Thành Công!</h3>
+          <h3 className="text-2xl font-headline font-black text-primary uppercase">
+            {isImploding ? '🌀 Tránh Bom Thành Công!' : '🛡️ Gỡ Mìn Thành Công!'}
+          </h3>
           <p className="text-xs font-bold text-on-surface-variant mt-1">
-            Bạn đã dùng lá bài Gỡ Mìn. Hãy chọn vị trí đặt quân **{name}** ngược lại vào bộ bài bốc.
+            {isImploding 
+              ? 'Bạn vừa bốc phải Mèo Sập Nguồn (mặt úp). Hãy chọn vị trí đặt lại lá bài này (lật ngửa) vào bộ bài bốc.' 
+              : `Bạn đã dùng lá bài Gỡ Mìn. Hãy chọn vị trí đặt quân **${name}** ngược lại vào bộ bài bốc.`}
           </p>
         </div>
 
@@ -506,7 +510,7 @@ export function DefusePositionModal({ deckCount, onRespond, cardType }) {
             onClick={handleConfirm}
             className="btn-detonator px-8 py-3 rounded-2xl font-headline font-black uppercase text-sm"
           >
-            Đặt Lại Quân Bài 💣
+            {isImploding ? 'Đặt Lại Mèo Sập Nguồn 🌀' : 'Đặt Lại Quân Bài 💣'}
           </button>
         </div>
       </div>

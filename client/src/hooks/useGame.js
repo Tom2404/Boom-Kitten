@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useSocket } from './useSocket.js';
+import { CARD_THEMES } from '../components/Card.jsx';
 
 export function useGame() {
   const socket = useSocket();
@@ -199,18 +200,32 @@ export function useGame() {
       setActionLog(prev => [...prev, { id: Math.random().toString(), text: `${pName} đã bị nổ tung!`, timestamp: new Date().toLocaleTimeString() }]);
     };
 
-    const onCardPlayed = ({ playerId, cardType, targetPlayerId }) => {
+    const onCardPlayed = ({ playerId, cardType, targetPlayerId, nopedCardType }) => {
       const pName = getUsername(playerId);
       const tName = targetPlayerId ? getUsername(targetPlayerId) : null;
-      setStatusMessage(`Người chơi ${pName} đã đánh lá ${cardType}${tName ? ` nhắm vào ${tName}` : ''}`);
 
       let msg = '';
-      if (cardType.startsWith('discard_')) {
+      if (cardType === 'nope' && nopedCardType) {
+        const cleanNopedType = nopedCardType.startsWith('discard_') ? nopedCardType.replace('discard_', '') : nopedCardType;
+        const nopedCardName = CARD_THEMES[cleanNopedType]?.name || cleanNopedType;
+        msg = `${pName} đã đánh Nope lá ${nopedCardName} của ${tName}`;
+      } else if (cardType.startsWith('discard_')) {
         const cleanType = cardType.replace('discard_', '');
-        msg = `${pName} đã hủy bỏ lá bài ${cleanType}`;
+        const cardName = CARD_THEMES[cleanType]?.name || cleanType;
+        msg = `${pName} đã hủy bỏ lá bài ${cardName}`;
       } else {
-        msg = `${pName} đã đánh lá ${cardType}${tName ? ` nhắm vào ${tName}` : ''}`;
+        const cardName = CARD_THEMES[cardType]?.name || cardType;
+        msg = `${pName} đã đánh lá ${cardName}${tName ? ` nhắm vào ${tName}` : ''}`;
       }
+      setStatusMessage(msg);
+      setActionLog(prev => [...prev, { id: Math.random().toString(), text: msg, timestamp: new Date().toLocaleTimeString() }]);
+    };
+
+    const onDrewKitten = ({ playerId, cardType }) => {
+      const pName = getUsername(playerId);
+      const cardName = CARD_THEMES[cardType]?.name || cardType;
+      const msg = `CẢNH BÁO: ${pName} đã bốc trúng lá ${cardName}!`;
+      setStatusMessage(msg);
       setActionLog(prev => [...prev, { id: Math.random().toString(), text: msg, timestamp: new Date().toLocaleTimeString() }]);
     };
 
@@ -255,6 +270,7 @@ export function useGame() {
     socket.on('game:clairvoyance:reveal', onClairvoyanceReveal);
     socket.on('game:ended', onGameEnded);
     socket.on('game:exploded', onExploded);
+    socket.on('game:drewKitten', onDrewKitten);
     socket.on('game:cardPlayed', onCardPlayed);
     socket.on('game:cardDrawn', onCardDrawn);
     socket.on('game:turnChanged', onTurnChanged);
@@ -283,6 +299,7 @@ export function useGame() {
       socket.off('game:clairvoyance:reveal', onClairvoyanceReveal);
       socket.off('game:ended', onGameEnded);
       socket.off('game:exploded', onExploded);
+      socket.off('game:drewKitten', onDrewKitten);
       socket.off('game:cardPlayed', onCardPlayed);
       socket.off('game:cardDrawn', onCardDrawn);
       socket.off('game:turnChanged', onTurnChanged);

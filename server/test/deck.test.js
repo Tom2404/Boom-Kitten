@@ -84,3 +84,66 @@ test('zombie edition adds remaining zombie kittens to the draw pile after dealin
   assert.equal(deckCounts.zombie_kitten, 2);
   assert.equal(deckCounts.defuse ?? 0, 0);
 });
+
+test('createDeck has correct card counts for imploding edition', () => {
+  const deck = createDeck(4, 'imploding');
+  const counts = countTypes(deck);
+
+  assert.equal(counts.nope, 5);
+  assert.equal(counts.attack, 4);
+  assert.equal(counts.skip, 5);
+  assert.equal(counts.see_the_future_3, 5);
+  assert.equal(counts.shuffle, 4);
+  assert.equal(counts.favor, 4);
+  assert.equal(counts.cat_taco, 4);
+  assert.equal(counts.cat_watermelon, 4);
+  assert.equal(counts.cat_beard, 4);
+  assert.equal(counts.cat_rainbow, 4);
+  assert.equal(counts.cat_potato, 4);
+
+  assert.equal(counts.alter_the_future_3, 3);
+  assert.equal(counts.draw_from_bottom, 3);
+  assert.equal(counts.reverse, 3);
+  assert.equal(counts.target_attack_2x, 3);
+  assert.equal(counts.catomic_bomb, 1);
+  assert.equal(counts.feral_cat, 4);
+
+  assert.equal(counts.barking_kitten ?? 0, 0);
+  assert.equal(counts.zombie_kitten ?? 0, 0);
+  assert.equal(counts.godcat ?? 0, 0);
+  assert.equal(counts.armageddon ?? 0, 0);
+});
+
+test('dealCards deals 8 cards per player and sets kittens properly for imploding', () => {
+  const players = [
+    { userId: 'p1', hand: [], alive: true },
+    { userId: 'p2', hand: [], alive: true },
+    { userId: 'p3', hand: [], alive: true },
+    { userId: 'p4', hand: [], alive: true },
+  ];
+
+  const deck = createDeck(players.length, 'imploding');
+  const dealt = dealCards(deck, players, 7, 'imploding');
+  const deckCounts = countTypes(dealt.deck);
+
+  assert.equal(dealt.players.every((player) => player.hand.length === 8), true);
+  assert.equal(dealt.players.every((player) => player.hand.filter((card) => card.type === 'defuse').length === 1), true);
+
+  assert.equal(deckCounts.imploding_kitten, 1);
+  assert.equal(deckCounts.exploding_kitten, 2);
+  assert.equal(deckCounts.defuse, 2);
+});
+
+test('dealCards sets 1 exploding kitten and 1 imploding kitten for 2 players in imploding edition', () => {
+  const players = [
+    { userId: 'p1', hand: [], alive: true },
+    { userId: 'p2', hand: [], alive: true },
+  ];
+
+  const deck = createDeck(players.length, 'imploding');
+  const dealt = dealCards(deck, players, 7, 'imploding');
+  const deckCounts = countTypes(dealt.deck);
+
+  assert.equal(deckCounts.imploding_kitten, 1);
+  assert.equal(deckCounts.exploding_kitten, 1);
+});
