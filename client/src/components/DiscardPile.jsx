@@ -16,7 +16,7 @@ export default function DiscardPile({ discardPile = [], pendingCombo5, myUserId,
   const pileSizeClass = compact ? 'h-36 w-28' : 'h-44 w-32';
 
   return (
-    <div className="flex flex-col items-center gap-2">
+    <div className="flex flex-col items-center gap-2" onClick={(e) => e.stopPropagation()}>
       <span className="text-xs font-headline font-black text-white uppercase tracking-wider bg-on-background px-3 py-0.5 rounded-lg border-2 border-on-surface shadow-[1.5px_1.5px_0px_0px_#1a1c1c] rotate-[2deg]">BÀI ĐÃ ĐÁNH</span>
 
       <div id="discard-pile-element" className="relative">
@@ -37,9 +37,9 @@ export default function DiscardPile({ discardPile = [], pendingCombo5, myUserId,
           </div>
         )}
 
-        {/* Floating badge for pile size */}
+        {/* Floating badge for pile size - black with white text */}
         {discardPile.length > 0 && (
-          <div className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-yellow-400 border-3 border-on-surface flex items-center justify-center text-xs font-headline font-black text-slate-950 shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]">
+          <div className="absolute -top-3.5 -right-3.5 h-9 w-9 rounded-full bg-[#1a1c1c] border-3 border-white flex items-center justify-center text-xs font-headline font-black text-white shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]">
             {discardPile.length}
           </div>
         )}
@@ -56,23 +56,28 @@ export default function DiscardPile({ discardPile = [], pendingCombo5, myUserId,
         )}
       </div>
 
-      <button
-        onClick={() => setIsOpen(true)}
-        disabled={discardPile.length === 0}
-        className="text-[10px] font-headline font-black text-slate-400 hover:text-white underline disabled:opacity-50 disabled:no-underline uppercase mt-1"
-      >
-        Xem chồng bài bỏ 👁️
-      </button>
+      <div className="flex flex-col items-center">
+        <span className="text-[9px] font-headline font-black text-slate-400 text-center max-w-[120px] leading-tight uppercase mt-1">
+          DISCARD
+        </span>
+        <button
+          onClick={() => setIsOpen(true)}
+          disabled={discardPile.length === 0}
+          className="text-[10px] font-headline font-black text-slate-400 hover:text-white underline disabled:opacity-50 disabled:no-underline uppercase mt-1"
+        >
+          Xem chồng bài bỏ 👁️
+        </button>
+      </div>
 
       {/* Discard Pile Modal Viewer */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 animate-fade-in">
-          <div className="relative w-full max-w-4xl max-h-[80vh] bg-white border-4 border-on-surface rounded-3xl p-6 shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] flex flex-col gap-6">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-4 animate-fade-in text-slate-900" onClick={() => setIsOpen(false)}>
+          <div className="relative w-full max-w-4xl max-h-[80vh] bg-white border-4 border-on-surface rounded-3xl p-6 shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] flex flex-col gap-6" onClick={(e) => e.stopPropagation()}>
             
             {/* Modal Header */}
             <div className="flex justify-between items-center border-b-3 border-on-surface pb-3 flex-wrap gap-4">
               <div>
-                <h3 className="text-2xl font-headline font-black text-primary uppercase">Chồng Bài Đã Đánh</h3>
+                <h3 className="text-2xl font-headline font-black text-[#b7131a] uppercase">Chồng Bài Đã Đánh</h3>
                 <p className="text-xs font-bold text-on-surface-variant mt-1">
                   {isChoosing 
                     ? 'Bạn đã đánh combo 5 lá mèo khác nhau! Hãy CHỌN 1 lá bài dưới đây để lấy về tay.' 

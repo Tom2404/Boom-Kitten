@@ -123,13 +123,82 @@ async function finalizeGame(io, room) {
 
   room.status = 'finished';
   io.to(room.code).emit('room:updated', { room });
+
+  // Load all user objects from database first
+  const dbUsers = {};
+  await Promise.all(
+    room.gameState.players.map(async (p) => {
+      const dbUser = await User.findById(p.userId);
+      if (dbUser) {
+        dbUsers[p.userId] = dbUser;
+      }
+    })
+  );
+
   const rankings = room.gameState.players
     .map((player) => ({ userId: player.userId, result: player.userId === winnerId ? 'win' : 'lose' }))
     .sort((a, b) => (a.result === 'win' ? -1 : 1));
 
+  // Calculate Elo Changes (Option A: Dynamic Elo)
+  const eloChanges = {};
+  const playersInGame = room.gameState.players.filter(p => dbUsers[p.userId]);
+
+  if (playersInGame.length >= 2) {
+    const winnerPlayer = playersInGame.find(p => p.userId === winnerId);
+    const loserPlayers = playersInGame.filter(p => p.userId !== winnerId);
+
+    if (winnerPlayer) {
+      const winnerUser = dbUsers[winnerPlayer.userId];
+      const wElo = winnerUser.eloPoints || 1000;
+
+      // Opponents' average ELO
+      let oppEloSum = 0;
+      loserPlayers.forEach(lp => {
+        oppEloSum += dbUsers[lp.userId].eloPoints || 1000;
+      });
+      const oppEloAvg = loserPlayers.length > 0 ? (oppEloSum / loserPlayers.length) : 1000;
+
+      // Expected score for winner
+      const wExpected = 1 / (1 + Math.pow(10, (oppEloAvg - wElo) / 400));
+
+      // Winner Elo change: K=32, minimum +15
+      let wDelta = Math.round(32 * (1 - wExpected));
+      if (wDelta < 15) wDelta = 15;
+
+      // Streak bonus
+      const currentStreak = winnerUser.stats.currentStreak || 0;
+      if (currentStreak + 1 >= 3) {
+        wDelta += 10;
+      }
+
+      eloChanges[winnerPlayer.userId] = wDelta;
+
+      // Losers Elo changes: K=16, against winner
+      loserPlayers.forEach(lp => {
+        const lUser = dbUsers[lp.userId];
+        const lElo = lUser.eloPoints || 1000;
+
+        // Expected score for loser vs winner
+        const lExpected = 1 / (1 + Math.pow(10, (wElo - lElo) / 400));
+
+        // Loser Elo change: maximum loss -30, minimum loss -5
+        let lDelta = Math.round(-16 * lExpected);
+        if (lDelta < -30) lDelta = -30;
+        if (lDelta > -5) lDelta = -5;
+
+        eloChanges[lp.userId] = lDelta;
+      });
+    }
+  } else {
+    // Fallback
+    playersInGame.forEach(p => {
+      eloChanges[p.userId] = p.userId === winnerId ? 25 : -15;
+    });
+  }
+
   await Promise.all(
     rankings.map(async (entry) => {
-      const user = await User.findById(entry.userId);
+      const user = dbUsers[entry.userId];
       if (!user) return;
       const isWin = entry.result === 'win';
       const streakBonus = isWin && user.stats.currentStreak + 1 >= 3 ? 30 : 0;
@@ -145,6 +214,11 @@ async function finalizeGame(io, room) {
         user.stats.losses += 1;
         user.stats.currentStreak = 0;
       }
+
+      // Apply Elo Points change
+      const eloChange = eloChanges[entry.userId] || 0;
+      user.eloPoints = Math.max(1000, (user.eloPoints || 1000) + eloChange);
+
       await user.save();
 
       await Transaction.create({
@@ -175,14 +249,19 @@ async function finalizeGame(io, room) {
 
   await GameHistory.create({
     roomId: room.code,
-    players: rankings.map((entry, index) => ({ userId: entry.userId, rank: index + 1, result: entry.result })),
+    players: rankings.map((entry, index) => ({
+      userId: entry.userId,
+      rank: index + 1,
+      result: entry.result,
+      eloChange: eloChanges[entry.userId] || 0
+    })),
     winner: winnerId,
     duration: 0,
     cardsPlayed: room.gameState.discardPile.length,
     playedAt: new Date(),
   });
 
-  io.to(room.code).emit('game:ended', { winnerId, rankings });
+  io.to(room.code).emit('game:ended', { winnerId, rankings, eloChanges });
 }
 
 module.exports = function registerGameSocket(io) {

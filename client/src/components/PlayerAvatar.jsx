@@ -1,6 +1,7 @@
 import React from 'react';
 import { formatCardName } from '../utils/cardHelpers.js';
 import { getCardImageUrl } from '../utils/cardSkins.js';
+import { RankBadge } from './Icons.jsx';
 
 const RANK_BADGES = {
   Bronze: '🟫 BRONZE',
@@ -37,7 +38,7 @@ export default function PlayerAvatar({
     }
   };
 
-  const currentRank = rank || publicProfile?.rank || 'Bronze';
+  const currentRank = rank || publicProfile?.rank || 'Bronze IV';
   const currentElo = eloPoints || publicProfile?.eloPoints || 1000;
 
   return (
@@ -75,7 +76,7 @@ export default function PlayerAvatar({
             <span>{username ? username.slice(0, 2).toUpperCase() : '?'}</span>
           )}
         </div>
-
+ 
         {/* Dead Overlay */}
         {!alive && (
           <div className="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center">
@@ -83,18 +84,23 @@ export default function PlayerAvatar({
           </div>
         )}
       </div>
-
+ 
       {/* Name and Rank Details */}
       <div className="w-full text-center">
         <h4 className={`text-xs font-headline font-black truncate max-w-full px-1 ${isCurrentTurn && alive ? 'text-slate-950' : 'text-on-surface'}`}>
           {username || userId}
         </h4>
-        <span className={`text-[9px] font-headline font-black block tracking-wider uppercase ${isCurrentTurn && alive ? 'text-slate-800' : 'text-primary'}`}>
-          {RANK_BADGES[currentRank] || currentRank}
-        </span>
-        <span className={`text-[9px] font-mono font-bold block ${isCurrentTurn && alive ? 'text-slate-700' : 'text-on-surface-variant'}`}>
+        <div className="flex justify-center my-0.5">
+          <RankBadge rank={currentRank} className="w-4 h-4" showText={true} />
+        </div>
+        <span className={`text-[9px] font-mono font-bold block mt-0.5 ${isCurrentTurn && alive ? 'text-slate-700' : 'text-on-surface-variant'}`}>
           {currentElo} ELO
         </span>
+        {/* Mockup status dots below ELO inside the card */}
+        <div className="flex gap-1.5 justify-center mt-1.5">
+          <span className={`h-2.5 w-2.5 rounded-full border border-on-surface ${alive ? 'bg-secondary' : 'bg-slate-300'}`} />
+          <span className={`h-2.5 w-2.5 rounded-full border border-on-surface ${alive ? 'bg-secondary' : 'bg-slate-300'}`} />
+        </div>
       </div>
 
       {/* Cards remaining indicator (for opponents) */}
@@ -115,11 +121,12 @@ export default function PlayerAvatar({
         </span>
       )}
 
-      {/* Turn indicator text */}
+      {/* Turn indicator text (slanted comic sticker matching mockup) */}
       {isCurrentTurn && alive && (
-        <span className="absolute -top-4.5 left-1/2 transform -translate-x-1/2 bg-yellow-400 text-slate-950 font-headline font-black text-[10px] px-3 py-1 rounded-full uppercase tracking-wider shadow border-3 border-slate-950 animate-bounce whitespace-nowrap z-30">
-          👉 LƯỢT ĐI 🔥
-        </span>
+        <div className="absolute -top-7 -left-2 rotate-[-8deg] z-30 bg-[#b7131a] text-white border-3 border-on-surface font-headline font-black text-[9px] leading-none px-3.5 py-1.5 shadow-[2.5px_2.5px_0px_0px_rgba(26,28,28,1)] uppercase tracking-wider text-center select-none">
+          <div className="text-[6.5px] font-bold opacity-80 leading-none">CURRENT</div>
+          <div className="text-[9.5px] leading-none mt-0.5 font-black">TURN</div>
+        </div>
       )}
 
       {/* Select target indicator */}

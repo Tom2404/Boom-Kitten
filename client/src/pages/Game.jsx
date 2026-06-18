@@ -40,7 +40,13 @@ import {
   ExtensionIcon,
   ArrowForwardIcon,
   ListIcon,
+  GearIcon,
+  HelpIcon,
+  SoundIcon,
+  SmileIcon,
+  CardDrawerIcon,
 } from '../components/Icons.jsx';
+import DrawReveal from '../components/DrawReveal.jsx';
 
 
 function FlyingCard({ id, type, cardType, startPos, endPos, onComplete }) {
@@ -255,6 +261,8 @@ export default function Game() {
   
   const [chatInput, setChatInput] = useState('');
   const [myUser, setMyUser] = useState(null);
+  const [revealCard, setRevealCard] = useState(null);
+  const prevHandRef = useRef([]);
   const [rightPanelTab, setRightPanelTab] = useState('chat');
   const [dialogState, setDialogState] = useState({
     isOpen: false,
@@ -368,6 +376,22 @@ export default function Game() {
       setLocalClairvoyance(null);
     }
   }, [clairvoyanceReveal]);
+
+  useEffect(() => {
+    if (
+      prevHandRef.current.length > 0 &&
+      privateHand.length === prevHandRef.current.length + 1 &&
+      gameState
+    ) {
+      const newCard = privateHand.find(
+        (card) => !prevHandRef.current.some((prevCard) => prevCard.id === card.id)
+      );
+      if (newCard) {
+        setRevealCard({ type: newCard.type, skinIndex: newCard.skinIndex ?? 0 });
+      }
+    }
+    prevHandRef.current = privateHand;
+  }, [privateHand, gameState]);
 
   const handleLeaveConfirm = () => {
     if (gameState) {
@@ -992,155 +1016,197 @@ export default function Game() {
   };
 
   return (
-    <div ref={mainContainerRef} className="relative min-h-[82vh] grid grid-cols-1 lg:grid-cols-4 gap-6">
-      {/* Game Board (Left 3 or 4 columns depending on sidebar toggle) */}
-      <div id="game-board-container" className={`${isSidebarOpen ? 'lg:col-span-3' : 'lg:col-span-4'} flex flex-col justify-between gap-6 border-4 border-on-surface rounded-3xl shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] overflow-hidden bg-[#2f3131]`}>
-        
-        {/* Header: Room Code and Info */}
-        <div className="flex justify-between items-center bg-surface border-b-4 border-on-surface px-6 py-3.5 z-10">
-          <div className="flex items-center gap-3">
-            <span className="text-[10px] font-headline font-black text-on-surface-variant uppercase tracking-widest">Phòng chơi:</span>
-            <span className="bg-yellow-400 text-slate-950 font-headline font-black text-xs px-3 py-1 rounded-xl border-2 border-on-surface shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]">
-              {roomState.code}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {isMyTurn ? (
-              <span className="bg-yellow-400 text-slate-950 font-headline font-black text-xs px-4 py-1.5 rounded-full border-2 border-on-surface shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] animate-pulse">
-                👉 BẠN CẦN BỐC: {gameState.drawsRequired} lá nữa!
-              </span>
-            ) : (
-              gameState.drawsRequired > 1 && (
-                <span className="bg-secondary text-on-error font-headline font-black text-xs px-4 py-1.5 rounded-full border-2 border-on-surface shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] animate-bounce">
-                  ⚠️ LƯỢT DỒN BỐC: {gameState.drawsRequired} lượt!
-                </span>
-              )
-            )}
-            <button
-              onClick={() => setIsSidebarOpen(prev => !prev)}
-              className="bg-primary text-on-primary font-headline font-black border-2 border-on-surface shadow-[2.5px_2.5px_0px_0px_#1a1c1c] px-3.5 py-1.5 rounded-xl text-xs hover:scale-105 active:scale-95 transition-all uppercase"
-            >
-              {isSidebarOpen ? "Ẩn Chat" : "Hiện Chat"}
-            </button>
-            <button
-              onClick={handleLeaveConfirm}
-              className="bg-secondary text-on-error font-headline font-black border-2 border-on-surface shadow-[2.5px_2.5px_0px_0px_#1a1c1c] px-3.5 py-1.5 rounded-xl text-xs hover:scale-105 active:scale-95 transition-all uppercase"
-            >
-              Rời Phòng
-            </button>
-          </div>
+    <div ref={mainContainerRef} className="flex flex-col gap-5 w-full select-none">
+      {/* Top Header Bar matching mockup */}
+      <div className="flex justify-between items-center bg-white border-4 border-on-surface rounded-2xl px-6 py-3 shadow-[4px_4px_0px_0px_#1a1c1c] z-20">
+        {/* Left: Title & Room ID */}
+        <div className="flex items-center gap-4">
+          <h1 className="arena-title-brutal text-2xl md:text-3xl italic font-black uppercase tracking-tight">
+            ARENA BATTLE
+          </h1>
+          <div className="h-6 w-1 bg-on-surface/20 rounded" />
+          <span className="font-headline font-black text-lg text-on-surface/40 uppercase tracking-widest">
+            _{roomState.code.slice(0, 3)}
+          </span>
         </div>
 
-        {/* Game Canvas Container */}
-        <div className="flex-grow flex flex-col justify-between felt-bg p-6 relative select-none">
+        {/* Right: Header Buttons & Toggle */}
+        <div className="flex items-center gap-3">
+          <div className="hidden md:flex items-center gap-2 bg-yellow-400 text-slate-950 font-headline font-black text-xs px-3.5 py-1.5 rounded-xl border-2 border-on-surface shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]">
+            <span>ROOM: {roomState.code}</span>
+          </div>
           
-          {/* Circular Board Container */}
-          <div className="flex justify-center gap-4 flex-wrap md:flex-none md:block w-full relative min-h-[160px] md:min-h-[420px] flex-grow py-2 z-10">
-            {getOrderedOpponents().map((opp, idx) => (
-              <div key={opp.userId} className={`${getOpponentPositionClass(idx, opponents.length)} relative`}>
-                <PlayerAvatar
-                  player={opp}
-                  isCurrentTurn={activePlayerId === opp.userId}
-                  isTargetable={isOpponentTargetable(opp.userId)}
-                  isSelectedTarget={targetPlayerId === opp.userId}
-                  onSelectTarget={(id) => setTargetPlayerId(prev => prev === id ? null : id)}
-                />
-              </div>
-            ))}
+          <button
+            onClick={() => setIsSidebarOpen(prev => !prev)}
+            className="bg-white text-on-surface hover:bg-slate-50 font-headline font-black border-2 border-on-surface shadow-[2px_2px_0px_0px_#1a1c1c] px-3.5 py-1.5 rounded-xl text-xs active:translate-y-0.5 active:shadow-none transition-all uppercase"
+          >
+            {isSidebarOpen ? "Ẩn Chat" : "Hiện Chat"}
+          </button>
 
-            {/* Board Center: Deck and Discard Pile */}
-            <div className="md:absolute md:top-1/2 md:left-1/2 md:transform md:-translate-x-1/2 md:-translate-y-1/2 grid grid-cols-[auto_minmax(180px,240px)_auto] items-center justify-center gap-6 md:gap-8 py-6 z-10 w-full md:w-auto relative">
-              {/* Rotating play direction arrows background */}
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-visible">
-                <div className={`w-[20rem] h-[20rem] border-4 border-dashed border-white/5 rounded-full flex items-center justify-center transition-all duration-500 ${gameState.playDirection === -1 ? 'animate-spin-ccw border-rose-500/10' : 'animate-spin-cw border-emerald-500/10'}`}>
-                  {/* Curved arrows/pointers */}
-                  <span className={`absolute top-4 text-2xl font-black transition-colors ${gameState.playDirection === -1 ? 'text-rose-500/20' : 'text-emerald-500/20'}`}>▶</span>
-                  <span className={`absolute right-4 text-2xl font-black rotate-90 transition-colors ${gameState.playDirection === -1 ? 'text-rose-500/20' : 'text-emerald-500/20'}`}>▶</span>
-                  <span className={`absolute bottom-4 text-2xl font-black rotate-180 transition-colors ${gameState.playDirection === -1 ? 'text-rose-500/20' : 'text-emerald-500/20'}`}>▶</span>
-                  <span className={`absolute left-4 text-2xl font-black -rotate-90 transition-colors ${gameState.playDirection === -1 ? 'text-rose-500/20' : 'text-emerald-500/20'}`}>▶</span>
-                </div>
-              </div>
+          <button className="p-1.5 rounded-xl border-2 border-on-surface bg-white shadow-[2px_2px_0px_0px_#1a1c1c] hover:scale-105 active:scale-95 transition-all text-on-surface" title="Cài đặt">
+            <GearIcon className="w-5 h-5" />
+          </button>
+          <button className="p-1.5 rounded-xl border-2 border-on-surface bg-white shadow-[2px_2px_0px_0px_#1a1c1c] hover:scale-105 active:scale-95 transition-all text-on-surface" title="Hướng dẫn">
+            <HelpIcon className="w-5 h-5" />
+          </button>
+          <button className="p-1.5 rounded-xl border-2 border-on-surface bg-white shadow-[2px_2px_0px_0px_#1a1c1c] hover:scale-105 active:scale-95 transition-all text-on-surface" title="Âm thanh">
+            <SoundIcon className="w-5 h-5" />
+          </button>
 
-              <DeckPile
-                count={gameState.deckCount ?? 0}
-                onDraw={drawCard}
-                isMyTurn={isMyTurn}
-                disabled={!!gameState.pendingFavor || !!gameState.pendingAlter || (nopeWindow && nopeWindow.active) || privateHand.length > (gameState.maxHandSize ?? 10)}
-                compact
-              />
-
-              {/* Announcer and Status Message Board */}
-              <div className="flex flex-col items-center gap-3 max-w-[260px] text-center z-10">
-                <div className="bg-white border-3 border-on-surface rounded-2xl px-5 py-4 shadow-[4px_4px_0px_0px_#1a1c1c] min-w-[220px]">
-                  <span className="text-[10px] font-headline font-black text-primary uppercase tracking-widest block mb-1">
-                    Hành Động
-                  </span>
-                  <p className="text-xs font-sans font-bold text-on-surface leading-relaxed min-h-[48px] flex items-center justify-center">
-                    {getStatusDisplay()}
-                  </p>
-                </div>
-                
-                {targetPlayerId && (
-                  <div className="bg-yellow-400 border-2 border-on-surface text-slate-950 text-[9px] font-headline font-black uppercase tracking-wider px-3.5 py-1 rounded-full flex items-center gap-1.5 shadow-[2px_2px_0px_0px_#1a1c1c]">
-                    🎯 Mục tiêu: {opponents.find((o) => o.userId === targetPlayerId)?.username || targetPlayerId}
-                    <button 
-                      onClick={() => setTargetPlayerId(null)}
-                      className="hover:scale-110 ml-1.5"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              <DiscardPile
-                discardPile={gameState.discardPile}
-                pendingCombo5={gameState.pendingCombo5}
-                myUserId={myUser.id}
-                onSelectCard={respondCombo5}
-                compact
-              />
-            </div>
-          </div>
-
-          {/* Bottom Row: Player's own avatar & Player's hand */}
-          <div className="flex flex-col md:flex-row gap-6 items-stretch border-t-4 border-dashed border-on-surface-variant pt-6 z-10">
-            <div className="flex items-center justify-center bg-white/10 p-3 rounded-2xl border-2 border-dashed border-white/20">
-              {myPlayerState && (
-                <div className="flex flex-col items-center gap-2">
-                  <PlayerAvatar
-                    player={myPlayerState}
-                    isCurrentTurn={isMyTurn}
-                    isTargetable={false}
-                  />
-                  {isMyTurn && (
-                    <span className="bg-yellow-400 text-slate-950 font-headline font-black text-[10px] uppercase px-2.5 py-1 rounded-lg border-2 border-on-surface shadow-[1.5px_1.5px_0px_0px_#1a1c1c] text-center w-full">
-                      Bốc: {gameState.drawsRequired} lá
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-            
-            <div className="flex-1 overflow-x-auto hide-scroll">
-              <PlayerHand
-                hand={privateHand}
-                onPlayCard={playCard}
-                onPlayCombo={playCombo}
-                isMyTurn={isMyTurn}
-                targetPlayerId={targetPlayerId}
-                nopeWindowActive={nopeWindow && nopeWindow.active}
-                onDiscard={discardCard}
-                maxHandSize={gameState.maxHandSize ?? 10}
-              />
-            </div>
-          </div>
+          <button
+            onClick={handleLeaveConfirm}
+            className="bg-secondary text-on-error font-headline font-black border-2 border-on-surface shadow-[2px_2px_0px_0px_#1a1c1c] px-3.5 py-1.5 rounded-xl text-xs hover:scale-105 active:scale-95 transition-all uppercase"
+          >
+            Thoát
+          </button>
         </div>
       </div>
 
-      {/* Chat & Lịch Sử Panel (Right 1 column) */}
-      <div className={`lg:col-span-1 bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-5 flex flex-col justify-between h-[82vh] ${isSidebarOpen ? 'flex' : 'hidden'}`}>
+      <div className="relative min-h-[75vh] grid grid-cols-1 md:grid-cols-4 gap-6">
+        {/* Game Board (Left 3 or 4 columns depending on sidebar toggle) */}
+        <div id="game-board-container" className={`${isSidebarOpen ? 'md:col-span-3' : 'md:col-span-4'} flex flex-col justify-between gap-0 border-4 border-on-surface rounded-3xl shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] overflow-hidden bg-[#faf9f6]`}>
+          
+          {/* Subheader: Turn indicator status */}
+          <div className="flex justify-between items-center bg-slate-50 border-b-3 border-on-surface px-6 py-2.5 z-10">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[9px] font-headline font-black text-on-surface-variant uppercase tracking-widest">Trận đấu đang chơi</span>
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse border border-on-surface" />
+            </div>
+            {isMyTurn ? (
+              <span className="bg-yellow-400 text-slate-950 font-headline font-black text-[10px] px-3.5 py-1.5 rounded-full border-2 border-on-surface shadow-[1.5px_1.5px_0px_0px_#1a1c1c] animate-pulse">
+                👉 LƯỢT CỦA BẠN: CẦN BỐC {gameState.drawsRequired} LÁ!
+              </span>
+            ) : (
+              gameState.drawsRequired > 1 && (
+                <span className="bg-secondary text-on-error font-headline font-black text-[10px] px-3.5 py-1.5 rounded-full border-2 border-on-surface shadow-[1.5px_1.5px_0px_0px_#1a1c1c] animate-bounce">
+                  ⚠️ LƯỢT DỒN BỐC: {gameState.drawsRequired} LẦN!
+                </span>
+              )
+            )}
+          </div>
+
+          {/* Game Canvas Container */}
+          <div className="flex-grow flex flex-col justify-between dotted-grid-bg p-6 relative select-none min-h-[460px]">
+            
+            {/* Opponents Row at the top (Horizontal layout) */}
+            <div className="flex justify-center items-center gap-5 md:gap-10 w-[calc(100%+3rem)] -mx-6 -mt-6 py-3.5 z-10 border-b-3 border-on-surface bg-slate-50/90 shadow-sm mb-4">
+              {getOrderedOpponents().map((opp) => (
+                <div key={opp.userId} className="relative transition-transform duration-150 hover:scale-[1.02]">
+                  <PlayerAvatar
+                    player={opp}
+                    isCurrentTurn={activePlayerId === opp.userId}
+                    isTargetable={isOpponentTargetable(opp.userId)}
+                    isSelectedTarget={targetPlayerId === opp.userId}
+                    onSelectTarget={(id) => setTargetPlayerId(prev => prev === id ? null : id)}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* Board Center: Deck and Discard Pile */}
+            <div className="flex-grow flex items-center justify-center py-6 z-10 w-full relative">
+              {/* Rotating play direction arrows background */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-visible">
+                <div className={`w-[18rem] h-[18rem] border-4 border-dashed border-on-surface/5 rounded-full flex items-center justify-center transition-all duration-500 ${gameState.playDirection === -1 ? 'animate-spin-ccw border-rose-500/10' : 'animate-spin-cw border-emerald-500/10'}`}>
+                  {/* Curved arrows/pointers */}
+                  <span className={`absolute top-4 text-xl font-black transition-colors ${gameState.playDirection === -1 ? 'text-rose-500/15' : 'text-emerald-500/15'}`}>▶</span>
+                  <span className={`absolute right-4 text-xl font-black rotate-90 transition-colors ${gameState.playDirection === -1 ? 'text-rose-500/15' : 'text-emerald-500/15'}`}>▶</span>
+                  <span className={`absolute bottom-4 text-xl font-black rotate-180 transition-colors ${gameState.playDirection === -1 ? 'text-rose-500/15' : 'text-emerald-500/15'}`}>▶</span>
+                  <span className={`absolute left-4 text-xl font-black -rotate-90 transition-colors ${gameState.playDirection === -1 ? 'text-rose-500/15' : 'text-emerald-500/15'}`}>▶</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-[auto_minmax(160px,220px)_auto] items-center justify-center gap-6 md:gap-8 z-10">
+                <DeckPile
+                  count={gameState.deckCount ?? 0}
+                  onDraw={drawCard}
+                  isMyTurn={isMyTurn}
+                  disabled={!!gameState.pendingFavor || !!gameState.pendingAlter || (nopeWindow && nopeWindow.active) || privateHand.length > (gameState.maxHandSize ?? 10)}
+                  compact
+                />
+
+                {/* Announcer and Status Message Board */}
+                <div className="flex flex-col items-center gap-3 max-w-[240px] text-center z-10">
+                  <div className="bg-white border-3 border-on-surface rounded-2xl px-4 py-3.5 shadow-[4px_4px_0px_0px_#1a1c1c] min-w-[200px]">
+                    <span className="text-[9px] font-headline font-black text-primary uppercase tracking-widest block mb-1">
+                      Hành Động
+                    </span>
+                    <p className="text-xs font-sans font-bold text-on-surface leading-relaxed min-h-[44px] flex items-center justify-center">
+                      {getStatusDisplay()}
+                    </p>
+                  </div>
+                  
+                  {targetPlayerId && (
+                    <div className="bg-yellow-400 border-2 border-on-surface text-slate-950 text-[9px] font-headline font-black uppercase tracking-wider px-3.5 py-0.5 rounded-full flex items-center gap-1.5 shadow-[1.5px_1.5px_0px_0px_#1a1c1c]">
+                      🎯 Mục tiêu: {opponents.find((o) => o.userId === targetPlayerId)?.username || targetPlayerId}
+                      <button 
+                        onClick={() => setTargetPlayerId(null)}
+                        className="hover:scale-110 ml-1.5"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <DiscardPile
+                  discardPile={gameState.discardPile}
+                  pendingCombo5={gameState.pendingCombo5}
+                  myUserId={myUser.id}
+                  onSelectCard={respondCombo5}
+                  compact
+                />
+              </div>
+            </div>
+
+            {/* Bottom Row: Player avatar & Hand, nested inside the solid deep red Brutalist bar */}
+            <div className="w-[calc(100%+3rem)] -mx-6 -mb-6 bg-[#b7131a] border-t-4 border-on-surface p-5 z-10 flex flex-col md:flex-row gap-5 items-stretch justify-between shadow-[0_-4px_0px_0px_#1a1c1c]">
+              <div className="flex items-center justify-center bg-black/15 p-4 rounded-2xl border-2 border-dashed border-white/20 flex-shrink-0">
+                {myPlayerState && (
+                  <div className="flex flex-col items-center gap-4 relative">
+                    <PlayerAvatar
+                      player={myPlayerState}
+                      isCurrentTurn={isMyTurn}
+                      isTargetable={false}
+                    />
+                    {isMyTurn && (
+                      <span className="bg-yellow-400 text-slate-950 font-headline font-black text-[9px] uppercase px-2 py-0.5 rounded-lg border-2 border-on-surface shadow-[1px_1px_0px_0px_#1a1c1c] text-center w-full z-10 relative">
+                        Bốc: {gameState.drawsRequired} lá
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex-1 overflow-x-auto hide-scroll flex items-center">
+                <PlayerHand
+                  hand={privateHand}
+                  onPlayCard={playCard}
+                  onPlayCombo={playCombo}
+                  isMyTurn={isMyTurn}
+                  targetPlayerId={targetPlayerId}
+                  nopeWindowActive={nopeWindow && nopeWindow.active}
+                  onDiscard={discardCard}
+                  maxHandSize={gameState.maxHandSize ?? 10}
+                />
+              </div>
+
+              {/* Utility sidebar icons in Bottom Bar */}
+              <div className="flex md:flex-col justify-center gap-2 flex-shrink-0 self-center">
+                <button className="p-2.5 rounded-xl border-2 border-on-surface bg-white shadow-[2px_2px_0px_0px_#1a1c1c] hover:scale-110 active:scale-90 transition-all text-on-surface" title="Biểu cảm nhanh">
+                  <SmileIcon className="w-5 h-5 text-on-surface" />
+                </button>
+                <button className="p-2.5 rounded-xl border-2 border-on-surface bg-white shadow-[2px_2px_0px_0px_#1a1c1c] hover:scale-110 active:scale-90 transition-all text-on-surface" title="Xem khay bài">
+                  <CardDrawerIcon className="w-5 h-5 text-on-surface" />
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        {/* Chat & Lịch Sử Panel (Right 1 column) */}
+        <div className={`md:col-span-1 bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-5 flex flex-col justify-between h-[82vh] ${isSidebarOpen ? 'flex' : 'hidden'}`}>
         <div className="flex flex-col gap-4 flex-1 overflow-hidden">
           
           {/* Header Tab Switcher */}
@@ -1195,10 +1261,10 @@ export default function Game() {
                     return (
                       <div
                         key={index}
-                        className={`flex flex-col max-w-[85%] rounded-2xl px-3.5 py-2 text-xs border-2 border-on-surface shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]
+                        className={`flex flex-col max-w-[85%] rounded-2xl px-3.5 py-2 text-xs border-3 border-on-surface
                           ${isMe 
-                            ? 'self-end bg-primary-container text-on-primary-container rounded-tr-none' 
-                            : 'self-start bg-surface text-on-surface rounded-tl-none'}`}
+                            ? 'self-end chat-bubble-me rounded-tr-none' 
+                            : 'self-start chat-bubble-opponent rounded-tl-none'}`}
                       >
                         <span className="font-headline font-black text-[9px] text-on-surface mb-0.5 uppercase">
                           {isMe ? 'BẠN' : msg.username}
@@ -1255,6 +1321,7 @@ export default function Game() {
           </button>
         </form>
       </div>
+    </div>
 
       {/* ==========================================
           ACTION OVERLAY MODALS
@@ -1399,6 +1466,15 @@ export default function Game() {
         <ClairvoyanceRevealModal
           position={localClairvoyance.position}
           onClose={() => setLocalClairvoyance(null)}
+        />
+      )}
+
+      {/* 8.13. Draw Card Reveal Modal */}
+      {revealCard && (
+        <DrawReveal
+          type={revealCard.type}
+          skinIndex={revealCard.skinIndex}
+          onClose={() => setRevealCard(null)}
         />
       )}
 
