@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { useAuth } from '../hooks/useAuth.js';
+import { useLanguage } from '../context/LanguageContext.jsx';
 
 export default function Login({ setPage }) {
+  const { t } = useLanguage();
   const { setToken } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -17,7 +19,7 @@ export default function Login({ setPage }) {
 
     if (!email || !password) {
       setIsError(true);
-      setMessage('Vui lòng nhập Email và Mật khẩu.');
+      setMessage(t('validation_email_password'));
       return;
     }
 
@@ -30,7 +32,7 @@ export default function Login({ setPage }) {
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.message || 'Đăng nhập thất bại.');
+        throw new Error(data.message || t('login_fail'));
       }
 
       setToken(data.accessToken);
@@ -39,7 +41,7 @@ export default function Login({ setPage }) {
       }
 
       setIsError(false);
-      setMessage('Đăng nhập thành công! Đang chuyển hướng...');
+      setMessage(t('login_success'));
       setTimeout(() => {
         setPage('Game');
       }, 1000);
@@ -50,10 +52,10 @@ export default function Login({ setPage }) {
   };
 
   return (
-    <div className="max-w-md mx-auto my-12 bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-8 flex flex-col gap-6">
+    <div className="max-w-md mx-auto my-12 bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-8 flex flex-col gap-6 text-left">
       <div className="text-center flex flex-col items-center">
-        <h2 className="text-2xl font-headline font-black text-on-surface uppercase mt-4">Đăng Nhập</h2>
-        <p className="text-xs font-bold text-on-surface-variant mt-1">Đăng nhập tài khoản để vào bàn chơi.</p>
+        <h2 className="text-2xl font-headline font-black text-on-surface uppercase mt-4">{t('login_title')}</h2>
+        <p className="text-xs font-bold text-on-surface-variant mt-1">{t('login_desc')}</p>
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
@@ -67,7 +69,7 @@ export default function Login({ setPage }) {
         )}
 
         <div className="flex flex-col gap-2">
-          <label className="text-xs font-headline font-black text-on-surface uppercase tracking-wider">Email đăng nhập</label>
+          <label className="text-xs font-headline font-black text-on-surface uppercase tracking-wider">{t('email_label')}</label>
           <input
             type="email"
             placeholder="username@gmail.com"
@@ -78,7 +80,7 @@ export default function Login({ setPage }) {
         </div>
 
         <div className="flex flex-col gap-2">
-          <label className="text-xs font-headline font-black text-on-surface uppercase tracking-wider">Mật khẩu</label>
+          <label className="text-xs font-headline font-black text-on-surface uppercase tracking-wider">{t('password_label')}</label>
           <input
             type="password"
             placeholder="••••••••"
@@ -92,17 +94,17 @@ export default function Login({ setPage }) {
           type="submit"
           className="btn-detonator w-full mt-4 py-4 rounded-2xl font-headline font-black uppercase text-base"
         >
-          Khai Hỏa
+          {t('login_btn')}
         </button>
 
         <p className="text-center text-xs font-bold text-on-surface-variant mt-2">
-          Chưa có tài khoản?{' '}
+          {t('no_account')}{' '}
           <button 
             type="button" 
             onClick={() => setPage('Register')}
-            className="text-primary hover:underline"
+            className="text-primary hover:underline font-bold"
           >
-            Đăng ký ngay
+            {t('register_now')}
           </button>
         </p>
       </form>

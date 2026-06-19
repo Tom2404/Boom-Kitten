@@ -285,6 +285,8 @@ async function finalizeGame(io, room) {
 }
 
 module.exports = function registerGameSocket(io) {
+  const NOPE_WINDOW_MS = 4000;
+
   function setupNopeTimeout(room, eventId) {
     setTimeout(async () => {
       const gameState = room.gameState;
@@ -296,12 +298,26 @@ module.exports = function registerGameSocket(io) {
       if (action.nopeCount % 2 === 1) {
         // Canceled by Nope!
         gameState.lastAction = { ...gameState.lastAction, canceled: true };
+        io.to(room.code).emit('game:nopeResult', {
+          canceled: true,
+          cardType: action.cardType,
+          actingPlayerId: action.playerId,
+          nopeCount: action.nopeCount,
+        });
         io.to(room.code).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(gameState) });
         return;
       }
 
+      // Card takes effect
+      io.to(room.code).emit('game:nopeResult', {
+        canceled: false,
+        cardType: action.cardType,
+        actingPlayerId: action.playerId,
+        nopeCount: action.nopeCount,
+      });
+
       await runActionEffect(room, action);
-    }, 3000);
+    }, NOPE_WINDOW_MS);
   }
 
   // Cards that require a target selection after being played
@@ -332,7 +348,14 @@ module.exports = function registerGameSocket(io) {
       nopeCount: 0,
     };
 
-    io.to(room.code).emit('game:nopeWindow', { eventId, timeoutMs: 3000 });
+    io.to(room.code).emit('game:nopeWindow', {
+      eventId,
+      timeoutMs: NOPE_WINDOW_MS,
+      cardType: gameState.pendingAction?.cardType,
+      actingPlayerId: gameState.pendingAction?.playerId,
+      targetPlayerId: gameState.pendingAction?.targetPlayerId,
+      nopeCount: gameState.pendingAction?.nopeCount ?? 0,
+    });
     io.to(room.code).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(gameState) });
     sendHands(io, room);
 
@@ -693,14 +716,14 @@ module.exports = function registerGameSocket(io) {
       }, 200);
     }
 
-    socket.on('room:create', async ({ password, isPublic, edition }) => {
+    socket.on('room:create', async ({ password, isPublic, edition, maxPlayers }) => {
       try {
         let username = socket.user?.username ?? `Guest-${guestId.slice(6, 11)}`;
         if (socket.user?.id) {
           const dbUser = await User.findById(socket.user.id);
           if (dbUser) username = dbUser.username;
         }
-        const room = createRoom(userId, { password, isPublic, edition }, username);
+        const room = createRoom(userId, { password, isPublic, edition, maxPlayers }, username);
         socket.join(room.code);
         io.to(room.code).emit('room:updated', { room });
       } catch (error) {
@@ -916,7 +939,14 @@ module.exports = function registerGameSocket(io) {
         nopeCount: 0,
       };
 
-      io.to(roomCode).emit('game:nopeWindow', { eventId, timeoutMs: 3000 });
+      io.to(roomCode).emit('game:nopeWindow', {
+        eventId,
+        timeoutMs: NOPE_WINDOW_MS,
+        cardType: actualCardType,
+        actingPlayerId: userId,
+        targetPlayerId,
+        nopeCount: 0,
+      });
       io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
       sendHands(io, room);
 
@@ -998,7 +1028,14 @@ module.exports = function registerGameSocket(io) {
       const newEventId = `${Date.now()}-${Math.random()}`;
       pending.eventId = newEventId;
 
-      io.to(roomCode).emit('game:nopeWindow', { eventId: newEventId, timeoutMs: 3000 });
+      io.to(roomCode).emit('game:nopeWindow', {
+        eventId: newEventId,
+        timeoutMs: NOPE_WINDOW_MS,
+        cardType: pending.cardType,
+        actingPlayerId: pending.playerId,
+        targetPlayerId: pending.targetPlayerId,
+        nopeCount: pending.nopeCount,
+      });
       io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
       sendHands(io, room);
 

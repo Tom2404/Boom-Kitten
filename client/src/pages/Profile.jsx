@@ -3,8 +3,10 @@ import { PRESET_AVATARS } from '../components/PlayerAvatar.jsx';
 import { gsap } from 'gsap';
 import CustomDialog from '../components/CustomDialog.jsx';
 import { CoinIcon, GemIcon } from '../components/CoinDisplay.jsx';
+import { useLanguage } from '../context/LanguageContext.jsx';
 
 export default function Profile() {
+  const { t } = useLanguage();
   const [profile, setProfile] = useState(null);
   const [username, setUsername] = useState('');
   const [avatar, setAvatar] = useState('');
@@ -90,8 +92,8 @@ export default function Profile() {
       } else {
         setDialogState({
           isOpen: true,
-          title: 'Nhận thưởng thất bại',
-          message: data.message || 'Nhận thưởng thất bại.',
+          title: t('profile_claim_fail_title'),
+          message: data.message || t('profile_claim_fail_msg'),
           onConfirm: () => setDialogState({ isOpen: false }),
         });
       }
@@ -137,11 +139,11 @@ export default function Profile() {
         body: JSON.stringify({ username, avatar }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Cập nhật thất bại.');
+      if (!res.ok) throw new Error(data.message || t('profile_update_fail'));
 
       setProfile(data);
       setIsError(false);
-      setMessage('Cập nhật thông tin thành công!');
+      setMessage(t('profile_update_success'));
     } catch (err) {
       setIsError(true);
       setMessage(err.message);
@@ -163,7 +165,7 @@ export default function Profile() {
   if (!profile) {
     return (
       <div className="text-center py-12">
-        <p className="font-headline font-black uppercase text-xl animate-pulse">Đang tải hồ sơ của bạn...</p>
+        <p className="font-headline font-black uppercase text-xl animate-pulse">{t('profile_loading')}</p>
       </div>
     );
   }
@@ -173,7 +175,7 @@ export default function Profile() {
       {/* Left Column: Personal Info & Avatar Settings */}
       <div className="profile-left lg:col-span-1 flex flex-col gap-8">
         {/* Profile Details Card */}
-        <div className="bg-white border-4 border-on-surface shadow-[6px_6px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 flex flex-col items-center relative">
+        <div className="bg-white border-4 border-on-surface shadow-[6px_6px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 flex flex-col items-center relative text-left">
           <div className="relative h-24 w-24 mb-4">
             {profile.activeAvatarFrame && (
               <div className="absolute inset-[-8px] rounded-full border-4 border-yellow-400 animate-spin-slow pointer-events-none" />
@@ -193,18 +195,18 @@ export default function Profile() {
             {profile.username}
           </h2>
           <span className="bg-primary text-on-primary font-headline font-black text-xs px-4 py-1 rounded-full border-2 border-on-surface shadow-[2px_2px_0px_0px_#1a1c1c] uppercase mt-2">
-            🏆 {profile.rank} • {profile.eloPoints} ELO
+            🏆 {profile.rank} • {profile.eloPoints} {t('profile_elo')}
           </span>
 
           <div className="w-full grid grid-cols-2 gap-4 mt-6 pt-6 border-t-4 border-dashed border-on-surface-variant">
             <div className="bg-surface-container-low border-2 border-on-surface rounded-xl p-3 text-center shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] flex flex-col items-center justify-center">
-              <span className="text-[10px] font-headline font-black text-on-surface-variant uppercase block">Gold Coin (Xu Vàng)</span>
+              <span className="text-[10px] font-headline font-black text-on-surface-variant uppercase block">{t('profile_coins')}</span>
               <span className="font-headline font-black text-primary text-lg flex items-center gap-1.5 justify-center">
                 <CoinIcon className="w-5 h-5 text-primary" /> {profile.coins}
               </span>
             </div>
             <div className="bg-surface-container-low border-2 border-on-surface rounded-xl p-3 text-center shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] flex flex-col items-center justify-center">
-              <span className="text-[10px] font-headline font-black text-on-surface-variant uppercase block">Pink Coin (Xu Hồng)</span>
+              <span className="text-[10px] font-headline font-black text-on-surface-variant uppercase block">{t('profile_gems')}</span>
               <span className="font-headline font-black text-indigo-600 text-lg flex items-center gap-1.5 justify-center">
                 <GemIcon className="w-5 h-5 text-indigo-600" /> {profile.gems}
               </span>
@@ -213,9 +215,9 @@ export default function Profile() {
         </div>
 
         {/* Edit Info Form */}
-        <form onSubmit={handleUpdateProfile} className="bg-white border-4 border-on-surface shadow-[6px_6px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 flex flex-col gap-4">
+        <form onSubmit={handleUpdateProfile} className="bg-white border-4 border-on-surface shadow-[6px_6px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 flex flex-col gap-4 text-left">
           <h3 className="text-lg font-headline font-black text-on-surface uppercase border-b-3 border-on-surface pb-2">
-            Chỉnh Sửa Hồ Sơ
+            {t('profile_edit_title')}
           </h3>
 
           {message && (
@@ -226,7 +228,7 @@ export default function Profile() {
           )}
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-headline font-black text-on-surface uppercase tracking-wider">Tên người chơi</label>
+            <label className="text-xs font-headline font-black text-on-surface uppercase tracking-wider">{t('username_label')}</label>
             <input
               type="text"
               value={username}
@@ -236,7 +238,7 @@ export default function Profile() {
           </div>
 
           <div className="flex flex-col gap-2">
-            <label className="text-xs font-headline font-black text-on-surface uppercase tracking-wider">Chọn Avatar Mặc Định</label>
+            <label className="text-xs font-headline font-black text-on-surface uppercase tracking-wider">{t('profile_choose_avatar')}</label>
             <div className="grid grid-cols-6 gap-2">
               {Object.keys(PRESET_AVATARS).map((key) => (
                 <button
@@ -253,7 +255,7 @@ export default function Profile() {
           </div>
 
           <div className="flex flex-col gap-2 mt-2">
-            <label className="text-xs font-headline font-black text-on-surface uppercase tracking-wider">Hoặc Tải Lên Ảnh Avatar</label>
+            <label className="text-xs font-headline font-black text-on-surface uppercase tracking-wider">{t('profile_upload_avatar')}</label>
             <input
               type="file"
               accept="image/*"
@@ -263,23 +265,23 @@ export default function Profile() {
           </div>
 
           <button type="submit" className="btn-detonator w-full mt-2 py-3 rounded-2xl font-headline font-black uppercase text-sm">
-            Lưu Thay Đổi
+            {t('profile_save_btn')}
           </button>
         </form>
       </div>
 
       {/* Right Column: Statistics & Match History */}
-      <div className="profile-right lg:col-span-2 flex flex-col gap-8">
+      <div className="profile-right lg:col-span-2 flex flex-col gap-8 text-left">
         {/* Daily Quests Card */}
         <div className="bg-white border-4 border-on-surface shadow-[6px_6px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 flex flex-col gap-6">
           <h3 className="text-lg font-headline font-black text-on-surface uppercase border-b-3 border-on-surface pb-2">
-            Nhiệm Vụ Hàng Ngày
+            {t('profile_quests_title')}
           </h3>
 
           <div className="flex flex-col gap-4">
             {quests.length === 0 ? (
               <p className="text-center text-sm font-bold text-on-surface-variant py-8">
-                Không có nhiệm vụ nào hôm nay hoặc chưa đăng nhập.
+                {t('profile_no_quests')}
               </p>
             ) : (
               quests.map((quest) => {
@@ -298,7 +300,7 @@ export default function Profile() {
                           {quest.title}
                         </span>
                         <span className="text-[10px] font-headline font-black text-indigo-600 bg-indigo-50 border-2 border-indigo-200 px-2 py-0.5 rounded-full">
-                          +{quest.reward?.coins || 0} Xu Vàng {quest.reward?.gems > 0 && `• +${quest.reward.gems} Xu Hồng`}
+                          +{quest.reward?.coins || 0} {t('shop_gold')} {quest.reward?.gems > 0 && `• +${quest.reward.gems} ${t('shop_pink')}`}
                         </span>
                       </div>
                       
@@ -323,18 +325,18 @@ export default function Profile() {
                     <div className="w-full sm:w-auto flex justify-end">
                       {isClaimed ? (
                         <span className="bg-slate-100 border-2 border-slate-300 text-slate-400 font-headline font-black text-[10px] px-4 py-2 rounded-xl uppercase">
-                          Đã Nhận
+                          {t('profile_quest_claimed')}
                         </span>
                       ) : isCompleted ? (
                         <button
                           onClick={() => handleClaimQuest(quest.questId)}
                           className="w-full sm:w-auto bg-yellow-400 text-slate-950 font-headline font-black border-2 border-on-surface shadow-[2px_2px_0px_0px_#1a1c1c] px-4 py-2 rounded-xl text-[10px] hover:scale-105 active:scale-95 transition-all uppercase"
                         >
-                          Nhận Thưởng
+                          {t('profile_quest_claim')}
                         </button>
                       ) : (
                         <span className="bg-surface border-2 border-slate-300 text-on-surface-variant font-headline font-black text-[10px] px-4 py-2 rounded-xl uppercase">
-                          Chưa Đạt
+                          {t('profile_quest_locked')}
                         </span>
                       )}
                     </div>
@@ -348,39 +350,39 @@ export default function Profile() {
         {/* Statistics Grid */}
         <div className="bg-white border-4 border-on-surface shadow-[6px_6px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 flex flex-col gap-6">
           <h3 className="text-lg font-headline font-black text-on-surface uppercase border-b-3 border-on-surface pb-2">
-            Thống Kê Trận Đấu
+            {t('profile_stats_title')}
           </h3>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
             <div className="bg-surface-container border-2 border-on-surface rounded-2xl p-4 text-center shadow-[3px_3px_0px_0px_rgba(26,28,28,1)]">
-              <span className="text-[10px] font-headline font-black text-on-surface-variant uppercase block">Tổng Số Trận</span>
+              <span className="text-[10px] font-headline font-black text-on-surface-variant uppercase block">{t('profile_total_games')}</span>
               <span className="font-headline font-black text-2xl text-on-surface">{profile.stats.totalGames}</span>
             </div>
             <div className="bg-emerald-100 border-2 border-on-surface rounded-2xl p-4 text-center shadow-[3px_3px_0px_0px_rgba(26,28,28,1)]">
-              <span className="text-[10px] font-headline font-black text-emerald-800 uppercase block">Số Trận Thắng</span>
+              <span className="text-[10px] font-headline font-black text-emerald-800 uppercase block">{t('profile_wins')}</span>
               <span className="font-headline font-black text-2xl text-emerald-700">{profile.stats.wins}</span>
             </div>
             <div className="bg-rose-100 border-2 border-on-surface rounded-2xl p-4 text-center shadow-[3px_3px_0px_0px_rgba(26,28,28,1)]">
-              <span className="text-[10px] font-headline font-black text-rose-800 uppercase block">Số Trận Thua</span>
+              <span className="text-[10px] font-headline font-black text-rose-800 uppercase block">{t('profile_losses')}</span>
               <span className="font-headline font-black text-2xl text-rose-700">{profile.stats.losses}</span>
             </div>
-            <div className="bg-orange-100 border-2 border-on-surface rounded-2xl p-4 text-center shadow-[3px_3px_0px_0px_rgba(26,28,28,1)]">
-              <span className="text-[10px] font-headline font-black text-orange-800 uppercase block">Chuỗi Thắng Lớn</span>
-              <span className="font-headline font-black text-2xl text-orange-700">🔥 {profile.stats.longestStreak}</span>
+            <div className="bg-orange-100 border-2 border-on-surface rounded-2xl p-4 text-center shadow-[3px_3px_0px_0px_rgba(26,28,28,1)] flex flex-col items-center justify-center">
+              <span className="text-[10px] font-headline font-black text-orange-800 uppercase block">{t('profile_longest_streak')}</span>
+              <span className="font-headline font-black text-2xl text-orange-700 flex items-center justify-center gap-1">🔥 {profile.stats.longestStreak}</span>
             </div>
           </div>
         </div>
 
         {/* Match History */}
-        <div className="bg-white border-4 border-on-surface shadow-[6px_6px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 flex flex-col gap-6">
+        <div className="bg-white border-4 border-on-surface shadow-[6px_6px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 flex flex-col gap-6 text-left">
           <h3 className="text-lg font-headline font-black text-on-surface uppercase border-b-3 border-on-surface pb-2">
-            Lịch Sử Đấu Gần Đây
+            {t('profile_history_title')}
           </h3>
 
           <div className="flex flex-col gap-4">
             {history.length === 0 ? (
               <p className="text-center text-sm font-bold text-on-surface-variant py-8">
-                Bạn chưa tham gia trận đấu nào. Vào phòng đấu ngay!
+                {t('profile_no_history')}
               </p>
             ) : (
               history.map((game) => {
@@ -390,15 +392,15 @@ export default function Profile() {
                   <div key={game._id} className="border-3 border-on-surface rounded-2xl p-4 flex justify-between items-center shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] bg-surface">
                     <div className="flex flex-col gap-1">
                       <span className="font-headline font-black text-sm uppercase">
-                        Trận Đấu #{game._id.slice(-6).toUpperCase()}
+                        {t('profile_match_id', { id: game._id.slice(-6).toUpperCase() })}
                       </span>
                       <span className="text-[10px] text-on-surface-variant font-bold">
-                        Đã chơi: {new Date(game.playedAt).toLocaleString()}
+                        {t('profile_played_at', { date: new Date(game.playedAt).toLocaleString() })}
                       </span>
                     </div>
                     <span className={`px-4 py-1.5 rounded-full border-2 border-on-surface font-headline font-black text-xs uppercase shadow-[1.5px_1.5px_0px_0px_#1a1c1c]
                       ${isWinner ? 'bg-emerald-400 text-slate-950' : 'bg-rose-400 text-slate-950'}`}>
-                      {isWinner ? 'Thắng (Hạng 1)' : `Thua (Hạng ${myRank?.rank ?? '?'})`}
+                      {isWinner ? t('profile_history_win') : t('profile_history_lose', { rank: myRank?.rank ?? '?' })}
                     </span>
                   </div>
                 );

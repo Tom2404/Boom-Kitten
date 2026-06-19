@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Card from './Card.jsx';
+import { CheckIcon } from './Icons.jsx';
+import { useLanguage } from '../context/LanguageContext.jsx';
+import { CARD_THEMES } from './Card.jsx';
 
 // ==========================================
 // 1. SEE THE FUTURE MODAL
@@ -12,7 +15,7 @@ export function SeeFutureModal({ cards, onClose }) {
       <div className="w-full max-w-xl bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 md:p-8 flex flex-col items-center gap-6 text-center">
         <div>
           <h3 className="text-2xl font-headline font-black text-primary flex items-center justify-center gap-2 uppercase">
-            👁️ Tiên Tri (See the Future)
+            Tiên Tri (See the Future)
           </h3>
           <p className="text-xs font-bold text-on-surface-variant mt-1">
             Đây là {cards.length} lá bài trên cùng bộ bài bốc (từ trái qua phải - từ trên xuống dưới).
@@ -34,7 +37,7 @@ export function SeeFutureModal({ cards, onClose }) {
           onClick={onClose}
           className="btn-detonator px-8 py-3 rounded-2xl font-headline font-black uppercase text-sm"
         >
-          Xong, tôi đã nhớ 🧠
+          Xong, tôi đã nhớ
         </button>
       </div>
     </div>
@@ -72,7 +75,7 @@ export function AlterFutureModal({ cards, onConfirm }) {
       <div className="w-full max-w-2xl bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 md:p-8 flex flex-col items-center gap-6 text-center">
         <div>
           <h3 className="text-2xl font-headline font-black text-primary flex items-center justify-center gap-2 uppercase">
-            🌀 Định Đoạt (Alter the Future)
+            Định Đoạt (Alter the Future)
           </h3>
           <p className="text-xs font-bold text-on-surface-variant mt-1">
             Thay đổi thứ tự 3 lá bài trên cùng bộ bài bốc. Sắp xếp từ trái qua phải (lá đầu tiên nằm bên trái).
@@ -112,7 +115,7 @@ export function AlterFutureModal({ cards, onConfirm }) {
           onClick={handleConfirm}
           className="btn-detonator px-8 py-3 rounded-2xl font-headline font-black uppercase text-sm"
         >
-          Lưu & Sắp Xếp Lại 🌀
+          Lưu & Sắp Xếp Lại
         </button>
       </div>
     </div>
@@ -134,7 +137,7 @@ export function FavorRequestModal({ fromPlayerId, fromPlayerName, hand, onRespon
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 animate-fade-in">
       <div className="w-full max-w-3xl bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 md:p-8 flex flex-col gap-6">
         <div className="text-center">
-          <h3 className="text-2xl font-headline font-black text-primary uppercase">🤲 Bị Xin Bài! (Favor Request)</h3>
+          <h3 className="text-2xl font-headline font-black text-primary uppercase">Bị Xin Bài! (Favor Request)</h3>
           <p className="text-xs font-bold text-on-surface-variant mt-1">
             Người chơi <strong className="text-on-surface uppercase">{fromPlayerName || fromPlayerId}</strong> đã đánh lá Favor nhắm vào bạn. Hãy chọn 1 lá để trao cho họ.
           </p>
@@ -162,7 +165,7 @@ export function FavorRequestModal({ fromPlayerId, fromPlayerName, hand, onRespon
             className={`btn-detonator px-8 py-3 rounded-2xl font-headline font-black uppercase text-sm
               ${!selectedId ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
           >
-            Gửi Lá Bài Đã Chọn ✉️
+            Gửi Lá Bài Đã Chọn
           </button>
         </div>
       </div>
@@ -173,8 +176,9 @@ export function FavorRequestModal({ fromPlayerId, fromPlayerName, hand, onRespon
 // ==========================================
 // 4. NOPE COUNTDOWN DISPLAY
 // ==========================================
-export function NopeCountdown({ eventId, timeoutMs, hasNopeCard, onPlayNope }) {
+export function NopeCountdown({ eventId, timeoutMs, hasNopeCard, onPlayNope, actingPlayerName, cardType, targetPlayerName, nopeCount }) {
   const [timeLeft, setTimeLeft] = useState(timeoutMs);
+  const { t } = useLanguage();
 
   useEffect(() => {
     setTimeLeft(timeoutMs);
@@ -196,47 +200,225 @@ export function NopeCountdown({ eventId, timeoutMs, hasNopeCard, onPlayNope }) {
   }, [eventId, timeoutMs]);
 
   const percentage = (timeLeft / timeoutMs) * 100;
+  const isCanceled = nopeCount % 2 === 1;
+  const isCounterNope = nopeCount > 0;
+
+  // Get card display name
+  const getCardDisplayName = (type) => {
+    if (!type) return '';
+    const clean = type.replace('discard_', '');
+    const key = `card_${clean}_name`;
+    const translated = t(key);
+    if (translated !== key) return translated;
+    return CARD_THEMES[clean]?.name || clean;
+  };
+
+  const cardName = getCardDisplayName(cardType);
 
   return (
-    <div className="fixed top-24 left-1/2 transform -translate-x-1/2 z-40 bg-white border-4 border-on-surface rounded-3xl px-6 py-4 shadow-[6px_6px_0px_0px_rgba(26,28,28,1)] flex items-center gap-4 animate-bounce">
-      {/* Circle countdown visual */}
-      <div className="relative h-10 w-10 flex items-center justify-center flex-shrink-0">
-        <svg className="absolute inset-0 h-full w-full transform -rotate-90">
-          <circle
-            cx="20"
-            cy="20"
-            r="17"
-            className="stroke-slate-200 fill-transparent"
-            strokeWidth="3"
+    <div
+      className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-[9000] flex flex-col gap-0 min-w-[300px] max-w-[420px]"
+      style={{ filter: 'drop-shadow(6px 6px 0px rgba(26,28,28,1))' }}
+    >
+      {/* Main panel */}
+      <div
+        className="bg-white border-4 border-on-surface rounded-2xl overflow-hidden"
+      >
+        {/* Header strip */}
+        <div
+          className={`px-4 py-2 flex items-center justify-between ${
+            isCanceled
+              ? 'bg-rose-600'
+              : 'bg-on-surface'
+          }`}
+        >
+          <span className="font-headline font-black text-[10px] text-white uppercase tracking-widest">
+            {isCanceled
+              ? t('nope_panel_canceled')
+              : t('nope_panel_active')}
+          </span>
+          {/* Countdown */}
+          <div className="flex items-center gap-1.5">
+            <div className="relative h-7 w-7 flex items-center justify-center flex-shrink-0">
+              <svg className="absolute inset-0 h-full w-full transform -rotate-90">
+                <circle cx="14" cy="14" r="11" className="stroke-white/20 fill-transparent" strokeWidth="2.5" />
+                <circle
+                  cx="14" cy="14" r="11"
+                  className="stroke-white fill-transparent transition-all duration-75"
+                  strokeWidth="2.5"
+                  strokeDasharray={69}
+                  strokeDashoffset={69 - (69 * percentage) / 100}
+                />
+              </svg>
+              <span className="text-[8px] font-headline font-black text-white">
+                {(timeLeft / 1000).toFixed(1)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="px-4 py-3 flex items-center gap-3">
+          {/* Info block */}
+          <div className="flex flex-col flex-1 min-w-0">
+            {actingPlayerName && cardName ? (
+              <>
+                <span className="text-[9px] font-headline font-black text-on-surface-variant uppercase tracking-wider">
+                  {t('nope_panel_playing', { name: '' })}
+                </span>
+                <div className="flex items-baseline gap-1.5 flex-wrap">
+                  <span
+                    className="font-headline font-black text-xs text-on-surface uppercase truncate max-w-[100px]"
+                    style={{ color: '#0f172a' }}
+                  >
+                    {actingPlayerName}
+                  </span>
+                  <span className="font-headline font-black text-xs uppercase" style={{ color: isCanceled ? '#dc2626' : '#7c3aed' }}>
+                    {cardName}
+                  </span>
+                </div>
+                {targetPlayerName && (
+                  <span className="text-[9px] font-bold text-on-surface-variant mt-0.5">
+                    {t('nope_panel_targeting', { target: targetPlayerName })}
+                  </span>
+                )}
+              </>
+            ) : (
+              <span className="text-xs font-headline font-black text-on-surface uppercase">
+                {t('status_waiting_nope')}
+              </span>
+            )}
+            {isCounterNope && (
+              <span
+                className="text-[9px] font-headline font-black uppercase mt-1"
+                style={{ color: isCanceled ? '#dc2626' : '#059669' }}
+              >
+                {isCanceled ? 'Nope x' + nopeCount : 'Nope x' + nopeCount + ' — Co the nope lai!'}
+              </span>
+            )}
+          </div>
+
+          {/* Nope button */}
+          {hasNopeCard && (
+            <button
+              onClick={onPlayNope}
+              className="flex-shrink-0 font-headline font-black border-2 border-on-surface shadow-[2px_2px_0px_0px_#1a1c1c] px-3.5 py-2 rounded-xl text-[10px] hover:scale-105 active:scale-95 transition-all uppercase"
+              style={{
+                background: isCounterNope ? '#7c3aed' : '#dc2626',
+                color: '#ffffff',
+              }}
+            >
+              {isCounterNope ? t('nope_panel_counter_btn') : t('nope_panel_nope_btn')}
+            </button>
+          )}
+        </div>
+
+        {/* Progress bar at bottom */}
+        <div className="h-1 bg-slate-100 w-full">
+          <div
+            className="h-full transition-all duration-75"
+            style={{
+              width: `${percentage}%`,
+              background: isCanceled ? '#dc2626' : '#7c3aed',
+            }}
           />
-          <circle
-            cx="20"
-            cy="20"
-            r="17"
-            className="stroke-primary fill-transparent transition-all duration-75"
-            strokeWidth="3"
-            strokeDasharray={107}
-            strokeDashoffset={107 - (107 * percentage) / 100}
-          />
-        </svg>
-        <span className="text-[10px] font-headline font-black text-primary">
-          {(timeLeft / 1000).toFixed(1)}s
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// NOPE RESULT TOAST
+// ==========================================
+export function NopeResultToast({ canceled, cardType, actingPlayerName }) {
+  const { t } = useLanguage();
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    setVisible(true);
+    const timer = setTimeout(() => setVisible(false), 2200);
+    return () => clearTimeout(timer);
+  }, [canceled, cardType]);
+
+  if (!visible) return null;
+
+  const getCardDisplayName = (type) => {
+    if (!type) return '';
+    const clean = type.replace('discard_', '');
+    const key = `card_${clean}_name`;
+    const translated = t(key);
+    if (translated !== key) return translated;
+    return CARD_THEMES[clean]?.name || clean;
+  };
+
+  const cardName = getCardDisplayName(cardType);
+
+  return (
+    <div
+      className="fixed top-20 left-1/2 -translate-x-1/2 z-[9001] px-6 py-3 rounded-2xl border-4 border-on-surface flex items-center gap-3"
+      style={{
+        background: canceled ? '#dc2626' : '#059669',
+        boxShadow: '4px 4px 0px 0px #1a1c1c',
+        animation: 'nopeSplashIn 0.25s ease-out',
+      }}
+    >
+      <span
+        className="font-headline font-black text-sm uppercase tracking-wider"
+        style={{ color: '#ffffff' }}
+      >
+        {canceled
+          ? t('nope_result_canceled', { card: cardName })
+          : t('nope_result_executed', { card: cardName })}
+      </span>
+    </div>
+  );
+}
+
+// ==========================================
+// NOW CARD TOAST
+// ==========================================
+export function NowCardToast({ playerName, cardType }) {
+  const { t } = useLanguage();
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    setVisible(true);
+    const timer = setTimeout(() => setVisible(false), 2800);
+    return () => clearTimeout(timer);
+  }, [playerName, cardType]);
+
+  if (!visible) return null;
+
+  const getCardDisplayName = (type) => {
+    if (!type) return '';
+    const clean = type.replace('discard_', '').replace('_now', '');
+    const key = `card_${type.replace('discard_', '')}_name`;
+    const translated = t(key);
+    if (translated !== key) return translated;
+    return CARD_THEMES[clean]?.name || clean;
+  };
+
+  const cardName = getCardDisplayName(cardType);
+
+  return (
+    <div
+      className="fixed top-6 right-6 z-[9001] max-w-[280px] bg-on-surface border-4 border-on-surface rounded-2xl overflow-hidden"
+      style={{ boxShadow: '4px 4px 0px 0px rgba(124,58,237,1)' }}
+    >
+      {/* Top label strip */}
+      <div className="bg-violet-600 px-3 py-1">
+        <span className="font-headline font-black text-[9px] text-white uppercase tracking-widest">
+          NGOAI LUOT
         </span>
       </div>
-
-      <div className="flex flex-col">
-        <span className="text-xs font-headline font-black text-on-surface uppercase">Cửa sổ can thiệp</span>
-        <span className="text-[9px] text-on-surface-variant font-bold leading-tight">Chơi lá Now để phản ứng, hoặc Nope để chặn là bài vừa đánh.</span>
+      <div className="px-4 py-2.5 bg-on-surface">
+        <p className="font-headline font-black text-xs text-white leading-snug">
+          <span style={{ color: '#fbbf24' }}>{playerName}</span>
+          {' '}
+          <span style={{ color: '#a78bfa' }} className="font-black">{cardName}</span>
+        </p>
       </div>
-
-      {hasNopeCard && (
-        <button
-          onClick={onPlayNope}
-          className="bg-secondary text-on-error font-headline font-black border-2 border-on-surface shadow-[2px_2px_0px_0px_#1a1c1c] px-4 py-2 rounded-xl text-[10px] hover:scale-105 active:scale-95 transition-all uppercase"
-        >
-          Đánh NOPE!
-        </button>
-      )}
     </div>
   );
 }
@@ -257,7 +439,7 @@ export function BuryPositionModal({ hand, deckCount, onRespond }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 animate-fade-in">
       <div className="w-full max-w-3xl bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 md:p-8 flex flex-col gap-6">
         <div className="text-center">
-          <h3 className="text-2xl font-headline font-black text-primary uppercase">🪦 Chôn Bài (Bury Card)</h3>
+          <h3 className="text-2xl font-headline font-black text-primary uppercase">Chôn Bài (Bury Card)</h3>
           <p className="text-xs font-bold text-on-surface-variant mt-1">
             Chọn 1 lá bài từ tay của bạn và chọn vị trí chôn trong bộ bài bốc. Lượt chơi của bạn sẽ kết thúc.
           </p>
@@ -308,7 +490,7 @@ export function BuryPositionModal({ hand, deckCount, onRespond }) {
             className={`btn-detonator px-8 py-3 rounded-2xl font-headline font-black uppercase text-sm
               ${!selectedId ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
           >
-            Xác nhận Chôn Bài 🪦
+            Xác nhận Chôn Bài
           </button>
         </div>
       </div>
@@ -357,7 +539,7 @@ export function GarbageSelectModal({ hand, title, description, onRespond }) {
             className={`btn-detonator px-8 py-3 rounded-2xl font-headline font-black uppercase text-sm
               ${!selectedId ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
           >
-            Nộp Lá Bài Đã Chọn ✉️
+            Nộp Lá Bài Đã Chọn
           </button>
         </div>
       </div>
@@ -411,13 +593,12 @@ export function ZombieReviveModal({ players, deckCount = 0, onRespond }) {
                       : 'border-on-surface bg-surface hover:bg-slate-50'}`}
                 >
                   <div className="flex items-center gap-3">
-                    <span className="text-2xl">💀</span>
                     <div className="text-left flex flex-col">
                       <span className="text-xs font-headline font-black text-on-surface uppercase">{p.userId}</span>
                       <span className="text-[10px] font-bold text-slate-400">TRẠNG THÁI: HỒN MA</span>
                     </div>
                   </div>
-                  {isSelected && <span className="text-xl">✅</span>}
+                  {isSelected && <CheckIcon className="w-5 h-5 text-green-600" strokeWidth={3} />}
                 </div>
               );
             })}
@@ -477,7 +658,7 @@ export function DefusePositionModal({ deckCount, onRespond, cardType }) {
       <div className="w-full max-w-xl bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 md:p-8 flex flex-col gap-6 text-center">
         <div>
           <h3 className="text-2xl font-headline font-black text-primary uppercase">
-            {isImploding ? '🌀 Tránh Bom Thành Công!' : '🛡️ Gỡ Mìn Thành Công!'}
+            {isImploding ? 'Tránh Bom Thành Công!' : 'Gỡ Mìn Thành Công!'}
           </h3>
           <p className="text-xs font-bold text-on-surface-variant mt-1">
             {isImploding 
@@ -510,7 +691,7 @@ export function DefusePositionModal({ deckCount, onRespond, cardType }) {
             onClick={handleConfirm}
             className="btn-detonator px-8 py-3 rounded-2xl font-headline font-black uppercase text-sm"
           >
-            {isImploding ? 'Đặt Lại Mèo Sập Nguồn 🌀' : 'Đặt Lại Quân Bài 💣'}
+            {isImploding ? 'Đặt Lại Mèo Sập Nguồn' : 'Đặt Lại Quân Bài'}
           </button>
         </div>
       </div>
@@ -527,12 +708,12 @@ export function SelectTargetModal({ players, myUserId, cardType, onRespond }) {
   const aliveOpponents = players.filter((p) => p.alive && p.userId !== myUserId);
 
   const CARD_DISPLAY_NAMES = {
-    favor: '🤲 Xin Bài (Favor)',
-    mark: '🔖 Đánh Dấu (Mark)',
-    ill_take_that: "🫳 Tôi Lấy Đó (I'll Take That)",
-    target_attack_2x: '⚔️ Tấn Công Mục Tiêu (Target Attack)',
-    combo_2: '🐱🐱 Combo 2 Mèo',
-    combo_3: '🐱🐱🐱 Combo 3 Mèo',
+    favor: 'Xin Bài (Favor)',
+    mark: 'Đánh Dấu (Mark)',
+    ill_take_that: "Tôi Lấy Đó (I'll Take That)",
+    target_attack_2x: 'Tấn Công Mục Tiêu (Target Attack)',
+    combo_2: 'Combo 2 Mèo',
+    combo_3: 'Combo 3 Mèo',
   };
 
   const handleConfirm = () => {
@@ -545,7 +726,7 @@ export function SelectTargetModal({ players, myUserId, cardType, onRespond }) {
       <div className="w-full max-w-xl bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 md:p-8 flex flex-col gap-6 text-center">
         <div>
           <h3 className="text-2xl font-headline font-black text-primary uppercase">
-            🎯 Chọn Mục Tiêu
+            Chọn Mục Tiêu
           </h3>
           <p className="text-xs font-bold text-on-surface-variant mt-1">
             Bạn đã đánh lá <strong className="text-on-surface uppercase">{CARD_DISPLAY_NAMES[cardType] || cardType}</strong>. Hãy chọn người chơi bị tác động.
@@ -578,7 +759,7 @@ export function SelectTargetModal({ players, myUserId, cardType, onRespond }) {
                       <span className="text-[10px] font-bold text-slate-400">🃏 {p.handCount} lá bài</span>
                     </div>
                   </div>
-                  {isSelected && <span className="text-xl">✅</span>}
+                  {isSelected && <CheckIcon className="w-5 h-5 text-green-600" strokeWidth={3} />}
                 </div>
               );
             })}
@@ -592,7 +773,7 @@ export function SelectTargetModal({ players, myUserId, cardType, onRespond }) {
             className={`btn-detonator px-8 py-3 rounded-2xl font-headline font-black uppercase text-sm
               ${!selectedPlayerId ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
           >
-            Xác Nhận Mục Tiêu 🎯
+            Xác Nhận Mục Tiêu
           </button>
         </div>
       </div>
@@ -615,7 +796,7 @@ export function FeedTheDeadModal({ targetPlayerName, hand, onRespond }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 animate-fade-in text-slate-900">
       <div className="w-full max-w-3xl bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 md:p-8 flex flex-col gap-6">
         <div className="text-center">
-          <h3 className="text-2xl font-headline font-black text-primary uppercase">💀 Nuôi Thây Ma (Feed the Dead)</h3>
+          <h3 className="text-2xl font-headline font-black text-primary uppercase">Nuôi Thây Ma (Feed the Dead)</h3>
           <p className="text-xs font-bold text-on-surface-variant mt-1">
             Một người chơi thây ma <strong className="text-on-surface uppercase">{targetPlayerName}</strong> cần thức ăn. Hãy chọn 1 lá bài để trao cho họ.
           </p>
@@ -643,7 +824,7 @@ export function FeedTheDeadModal({ targetPlayerName, hand, onRespond }) {
             className={`btn-detonator px-8 py-3 rounded-2xl font-headline font-black uppercase text-sm
               ${!selectedId ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
           >
-            Gửi Lá Bài Cho Thây Ma 🥩
+            Gửi Lá Bài Cho Thây Ma
           </button>
         </div>
       </div>
@@ -666,7 +847,7 @@ export function GraveRobberModal({ hand, onRespond }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 animate-fade-in text-slate-900">
       <div className="w-full max-w-3xl bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 md:p-8 flex flex-col gap-6">
         <div className="text-center">
-          <h3 className="text-2xl font-headline font-black text-primary uppercase">🪦 Kẻ Trộm Mộ (Grave Robber)</h3>
+          <h3 className="text-2xl font-headline font-black text-primary uppercase">Kẻ Trộm Mộ (Grave Robber)</h3>
           <p className="text-xs font-bold text-on-surface-variant mt-1">
             Bạn là linh hồn/thây ma. Hãy chọn 1 lá bài từ tay của bạn để trộm/đưa vào mộ (bộ bài bỏ). Lớp bảo vệ của mộ sẽ được tái tạo.
           </p>
@@ -700,7 +881,7 @@ export function GraveRobberModal({ hand, onRespond }) {
             className={`btn-detonator px-8 py-3 rounded-2xl font-headline font-black uppercase text-sm
               ${hand.length > 0 && !selectedId ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
           >
-            Xác Nhận Đưa Vào Mộ 🪦
+            Xác Nhận Đưa Vào Mộ
           </button>
         </div>
       </div>
@@ -718,7 +899,7 @@ export function DigDeeperModal({ firstCard, onRespond }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 animate-fade-in text-slate-900">
       <div className="w-full max-w-md bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 md:p-8 flex flex-col items-center gap-6 text-center">
         <div>
-          <h3 className="text-2xl font-headline font-black text-primary uppercase">⛏️ Đào Sâu (Dig Deeper)</h3>
+          <h3 className="text-2xl font-headline font-black text-primary uppercase">Đào Sâu (Dig Deeper)</h3>
           <p className="text-xs font-bold text-on-surface-variant mt-1">
             Bạn đã đào được lá bài dưới đây. Hãy chọn giữ lại lá bài này vào tay, hoặc đặt lại lên đỉnh bộ bài.
           </p>
@@ -733,13 +914,13 @@ export function DigDeeperModal({ firstCard, onRespond }) {
             onClick={() => onRespond('keep')}
             className="flex-1 bg-green-500 hover:bg-green-600 text-white font-headline font-black border-4 border-on-surface shadow-[4px_4px_0px_0px_#1a1c1c] py-3 rounded-2xl uppercase transition-all duration-100 hover:scale-105 active:scale-95"
           >
-            Lấy lá này 🤲
+            Lấy lá này
           </button>
           <button
             onClick={() => onRespond('pass')}
             className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-slate-900 font-headline font-black border-4 border-on-surface shadow-[4px_4px_0px_0px_#1a1c1c] py-3 rounded-2xl uppercase transition-all duration-100 hover:scale-105 active:scale-95"
           >
-            Bỏ qua / Trả lại ↩️
+            Bỏ qua / Trả lại
           </button>
         </div>
       </div>
@@ -755,7 +936,7 @@ export function ArmageddonDistributeModal({ targetPlayerName, onRespond }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 animate-fade-in text-slate-900">
       <div className="w-full max-w-xl bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 md:p-8 flex flex-col items-center gap-6 text-center">
         <div>
-          <h3 className="text-2xl font-headline font-black text-primary uppercase">🌋 Phân Phát Armageddon</h3>
+          <h3 className="text-2xl font-headline font-black text-primary uppercase">Phân Phát Armageddon</h3>
           <p className="text-xs font-bold text-on-surface-variant mt-1">
             Bạn đã kích hoạt Armageddon nhắm vào <strong className="text-on-surface uppercase">{targetPlayerName}</strong>. Hãy chọn lá bài bạn muốn giữ lại cho MÌNH (lá bài còn lại sẽ được đưa cho đối thủ một cách bí mật).
           </p>
@@ -791,7 +972,7 @@ export function ArmageddonDecisionModal({ activatorPlayerName, onRespond }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 animate-fade-in text-slate-900">
       <div className="w-full max-w-md bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 md:p-8 flex flex-col items-center gap-6 text-center">
         <div>
-          <h3 className="text-2xl font-headline font-black text-red-500 uppercase">🌋 Quyết Định Armageddon</h3>
+          <h3 className="text-2xl font-headline font-black text-red-500 uppercase">Quyết Định Armageddon</h3>
           <p className="text-xs font-bold text-on-surface-variant mt-1">
             <strong className="text-on-surface uppercase">{activatorPlayerName}</strong> đã đặt một lá bài úp trước mặt bạn và một lá trước mặt họ (Một là Godcat cứu rỗi, một là Devilcat nổ tung).
             <br />
@@ -804,13 +985,13 @@ export function ArmageddonDecisionModal({ activatorPlayerName, onRespond }) {
             onClick={() => onRespond('keep')}
             className="flex-1 bg-green-500 hover:bg-green-600 text-white font-headline font-black border-4 border-on-surface shadow-[4px_4px_0px_0px_#1a1c1c] py-3 rounded-2xl uppercase transition-all duration-100 hover:scale-105 active:scale-95"
           >
-            Giữ Nguyên 🔒
+            Giữ Nguyên
           </button>
           <button
             onClick={() => onRespond('swap')}
             className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-slate-900 font-headline font-black border-4 border-on-surface shadow-[4px_4px_0px_0px_#1a1c1c] py-3 rounded-2xl uppercase transition-all duration-100 hover:scale-105 active:scale-95"
           >
-            Tráo Đổi 🔁
+            Tráo Đổi
           </button>
         </div>
       </div>
@@ -826,7 +1007,7 @@ export function ClairvoyanceRevealModal({ position, onClose }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 animate-fade-in text-slate-900">
       <div className="w-full max-w-sm bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 md:p-8 flex flex-col items-center gap-6 text-center">
         <div>
-          <h3 className="text-2xl font-headline font-black text-primary uppercase">👁️ Thấu Thị (Clairvoyance)</h3>
+          <h3 className="text-2xl font-headline font-black text-primary uppercase">Thấu Thị (Clairvoyance)</h3>
           <p className="text-xs font-bold text-on-surface-variant mt-1">
             Lá bài Exploding Kitten vừa được người chơi chèn vào bộ bài tại vị trí:
           </p>
@@ -842,7 +1023,7 @@ export function ClairvoyanceRevealModal({ position, onClose }) {
           onClick={onClose}
           className="btn-detonator px-8 py-3 rounded-2xl font-headline font-black uppercase text-sm w-full mt-2"
         >
-          Tôi đã hiểu 🧠
+          Tôi đã hiểu
         </button>
       </div>
     </div>

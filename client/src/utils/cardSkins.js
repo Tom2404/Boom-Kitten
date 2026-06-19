@@ -265,7 +265,8 @@ const FALLBACK_SKINS = {
     'Zombie_Kittens/Attack-Of-The-Dead-Release-A-Swam-Of-Zom-Bees.jpg',
   ],
   feed_the_dead: [
-    'Zombie_Kittens/feed-the-dead.png',
+    'Zombie_Kittens/Feed-The-Dead-Give-Your-Friend-A-Hand.jpg',
+    'Zombie_Kittens/Feed-The-Dead-Take-Special-Care-Of-A-Picky-Zombie.jpg',
   ],
   grave_robber: [
     'Zombie_Kittens/Grave-Robber-Return-The-Terrible-Tie-You-Were-Buried-With.jpg',

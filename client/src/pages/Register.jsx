@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
+import { useLanguage } from '../context/LanguageContext.jsx';
 
 export default function Register({ setPage }) {
+  const { t } = useLanguage();
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -16,7 +18,7 @@ export default function Register({ setPage }) {
 
     if (!username || !email || !password) {
       setIsError(true);
-      setMessage('Vui lòng điền đầy đủ thông tin.');
+      setMessage(t('validation_all_fields'));
       return;
     }
 
@@ -29,11 +31,11 @@ export default function Register({ setPage }) {
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.message || 'Đăng ký thất bại.');
+        throw new Error(data.message || t('register_fail') || 'Registration failed.');
       }
 
       setIsError(false);
-      setMessage('Đăng ký thành công! Đang chuyển hướng đến đăng nhập...');
+      setMessage(t('register_success'));
       setUsername('');
       setEmail('');
       setPassword('');
@@ -47,10 +49,10 @@ export default function Register({ setPage }) {
   };
 
   return (
-    <div className="max-w-md mx-auto my-12 bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-8 flex flex-col gap-6">
+    <div className="max-w-md mx-auto my-12 bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-8 flex flex-col gap-6 text-left">
       <div className="text-center flex flex-col items-center">
-        <h2 className="text-2xl font-headline font-black text-on-surface uppercase mt-4">Đăng Ký</h2>
-        <p className="text-xs font-bold text-on-surface-variant mt-1">Tạo tài khoản để tham gia chơi Mèo Nổ.</p>
+        <h2 className="text-2xl font-headline font-black text-on-surface uppercase mt-4">{t('register_title')}</h2>
+        <p className="text-xs font-bold text-on-surface-variant mt-1">{t('register_desc')}</p>
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
@@ -64,10 +66,10 @@ export default function Register({ setPage }) {
         )}
 
         <div className="flex flex-col gap-2">
-          <label className="text-xs font-headline font-black text-on-surface uppercase tracking-wider">Tên người chơi</label>
+          <label className="text-xs font-headline font-black text-on-surface uppercase tracking-wider">{t('username_label')}</label>
           <input
             type="text"
-            placeholder="Ví dụ: MeoNoPro"
+            placeholder="MeoNoPro"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             className="bg-surface border-3 border-on-surface rounded-xl px-4 py-3 text-xs text-on-surface font-bold focus:outline-none focus:bg-white transition-all shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]"
@@ -75,7 +77,7 @@ export default function Register({ setPage }) {
         </div>
 
         <div className="flex flex-col gap-2">
-          <label className="text-xs font-headline font-black text-on-surface uppercase tracking-wider">Email</label>
+          <label className="text-xs font-headline font-black text-on-surface uppercase tracking-wider">{t('email_label')}</label>
           <input
             type="email"
             placeholder="username@gmail.com"
@@ -86,7 +88,7 @@ export default function Register({ setPage }) {
         </div>
 
         <div className="flex flex-col gap-2">
-          <label className="text-xs font-headline font-black text-on-surface uppercase tracking-wider">Mật khẩu</label>
+          <label className="text-xs font-headline font-black text-on-surface uppercase tracking-wider">{t('password_label')}</label>
           <input
             type="password"
             placeholder="••••••••"
@@ -100,17 +102,17 @@ export default function Register({ setPage }) {
           type="submit"
           className="btn-detonator w-full mt-4 py-4 rounded-2xl font-headline font-black uppercase text-base"
         >
-          Đăng Ký Ngay
+          {t('register_btn')}
         </button>
 
         <p className="text-center text-xs font-bold text-on-surface-variant mt-2">
-          Đã có tài khoản?{' '}
+          {t('have_account')}{' '}
           <button 
             type="button" 
             onClick={() => setPage('Login')}
-            className="text-primary hover:underline"
+            className="text-primary hover:underline font-bold"
           >
-            Đăng nhập ngay
+            {t('login_now')}
           </button>
         </p>
       </form>

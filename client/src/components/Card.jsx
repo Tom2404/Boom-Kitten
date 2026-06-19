@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { getCardImageUrl } from '../utils/cardSkins.js';
+import { useLanguage } from '../context/LanguageContext.jsx';
 
 const CARD_THEMES = {
   defuse: {
@@ -324,12 +325,18 @@ const CARD_THEMES = {
 };
 
 export default function Card({ type, skinIndex = 0, selected, onClick, disabled, marked, compact = false }) {
+  const { t } = useLanguage();
   const theme = CARD_THEMES[type] || {
     name: type,
     icon: '🃏',
     color: 'bg-slate-400 text-slate-950',
     desc: 'Lá bài không xác định.',
   };
+
+  const nameKey = `card_${type}_name`;
+  const descKey = `card_${type}_desc`;
+  const cardName = t(nameKey) !== nameKey ? t(nameKey) : theme.name;
+  const cardDesc = t(descKey) !== descKey ? t(descKey) : theme.desc;
 
   const [imageError, setImageError] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -357,7 +364,7 @@ export default function Card({ type, skinIndex = 0, selected, onClick, disabled,
         {marked && (
           <span className="absolute -top-3 -left-2.5 z-30 bg-rose-500 text-white font-headline font-black text-[9px] px-2.5 py-1 rounded-full border-2 border-on-surface shadow-[1px_1px_0px_0px_#1a1c1c] uppercase tracking-wider animate-pulse flex items-center gap-1">
             <span>👁</span>
-            <span>Lộ bài</span>
+            <span>{t('card_marked')}</span>
           </span>
         )}
         {/* Info button */}
@@ -367,7 +374,7 @@ export default function Card({ type, skinIndex = 0, selected, onClick, disabled,
             setIsDetailOpen(true);
           }}
           className="absolute top-1 right-1 z-20 material-symbols-outlined text-[16px] leading-none text-slate-300 bg-slate-900/60 hover:bg-slate-900 p-1 rounded-full hover:scale-110 transition-transform cursor-pointer shadow-sm border border-white/20"
-          title="Xem chi tiết (Click đúp)"
+          title={t('card_detail_title')}
         >
           info
         </span>
@@ -377,7 +384,7 @@ export default function Card({ type, skinIndex = 0, selected, onClick, disabled,
           {cardImageUrl && !imageError ? (
             <img 
               src={cardImageUrl}
-              alt={theme.name}
+              alt={cardName}
               className={`${imageClass} object-contain drop-shadow`}
               onError={() => setImageError(true)}
             />
@@ -391,10 +398,10 @@ export default function Card({ type, skinIndex = 0, selected, onClick, disabled,
         {/* Description box at the bottom */}
         <div className={`bg-slate-900/90 text-white ${descBoxClass} flex flex-col justify-center rounded-2xl border-2 border-slate-700 shadow-[2px_2px_0px_0px_#1a1c1c] z-10 w-[95%] mx-auto mb-1`}>
           <div className="text-[9px] font-headline font-black uppercase tracking-wide truncate text-yellow-300 text-center mb-0.5">
-            {theme.name}
+            {cardName}
           </div>
           <div className="text-[7.5px] leading-tight font-sans font-bold text-center line-clamp-2 text-slate-300">
-            {theme.desc}
+            {cardDesc}
           </div>
         </div>
       </div>
@@ -414,7 +421,7 @@ export default function Card({ type, skinIndex = 0, selected, onClick, disabled,
           >
             <div className="w-full flex justify-between items-center border-b-4 border-on-surface pb-3">
               <h3 className="text-xl font-headline font-black text-on-surface uppercase flex items-center gap-2">
-                <span>{theme.icon}</span> {theme.name}
+                <span>{theme.icon}</span> {cardName}
               </h3>
               <button 
                 onClick={() => setIsDetailOpen(false)}
@@ -426,14 +433,14 @@ export default function Card({ type, skinIndex = 0, selected, onClick, disabled,
 
             <div className={`w-40 h-56 rounded-2xl border-3 border-on-surface shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] flex flex-col justify-between p-4 ${theme.color}`}>
               <div className="flex justify-between items-center">
-                <span className="text-xs font-headline font-black uppercase">{theme.name}</span>
+                <span className="text-xs font-headline font-black uppercase">{cardName}</span>
                 <span className="text-lg">{theme.icon}</span>
               </div>
               <div className="flex justify-center items-center">
                 {cardImageUrl && !imageError ? (
                   <img 
                     src={cardImageUrl}
-                    alt={theme.name}
+                    alt={cardName}
                     className="h-28 w-28 object-contain drop-shadow"
                   />
                 ) : (
@@ -445,10 +452,10 @@ export default function Card({ type, skinIndex = 0, selected, onClick, disabled,
 
             <div className="bg-slate-50 border-3 border-on-surface rounded-2xl p-4 w-full shadow-[3px_3px_0px_0px_rgba(26,28,28,1)] text-left">
               <span className="text-[10px] font-headline font-black text-primary uppercase tracking-widest block mb-1">
-                Chức Năng Quân Bài
+                {t('card_function')}
               </span>
               <p className="text-xs font-sans font-bold leading-relaxed text-on-surface">
-                {theme.desc}
+                {cardDesc}
               </p>
             </div>
 
@@ -461,7 +468,7 @@ export default function Card({ type, skinIndex = 0, selected, onClick, disabled,
                 className={`w-full py-3 rounded-xl font-headline font-black uppercase text-sm border-2 border-on-surface shadow-[2px_2px_0px_0px_#1a1c1c] mb-2
                   ${selected ? 'bg-rose-500 text-white hover:bg-rose-600' : 'bg-yellow-400 text-slate-950 hover:bg-yellow-500'}`}
               >
-                {selected ? '❌ Hủy Chọn Thẻ Bài' : '🚀 Chọn Thẻ Bài'}
+                {selected ? t('card_deselect') : t('card_select')}
               </button>
             )}
 
@@ -469,7 +476,7 @@ export default function Card({ type, skinIndex = 0, selected, onClick, disabled,
               onClick={() => setIsDetailOpen(false)}
               className="btn-detonator w-full py-3 rounded-xl font-headline font-black uppercase text-sm"
             >
-              Đóng ✕
+              {t('button_close')} ✕
             </button>
           </div>
         </div>,

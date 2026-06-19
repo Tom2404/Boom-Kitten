@@ -1,13 +1,17 @@
 import { useEffect, useState, useRef } from 'react';
 import { useSocket } from './useSocket.js';
 import { CARD_THEMES } from '../components/Card.jsx';
+import { useLanguage } from '../context/LanguageContext.jsx';
 
 export function useGame() {
   const socket = useSocket();
+  const { t } = useLanguage();
   const [roomState, setRoomState] = useState(null);
   const [gameState, setGameState] = useState(null);
   const [privateHand, setPrivateHand] = useState([]);
   const [nopeWindow, setNopeWindow] = useState(null);
+  const [nopeResult, setNopeResult] = useState(null);
+  const [nowCardToast, setNowCardToast] = useState(null);
   const [seeTheFutureCards, setSeeTheFutureCards] = useState(null);
   const [alterFutureRequest, setAlterFutureRequest] = useState(null);
   const [favorRequest, setFavorRequest] = useState(null);
@@ -54,7 +58,7 @@ export function useGame() {
 
     const onRoomUpdated = ({ room }) => {
       if (room && room.status === 'playing' && roomStateRef.current?.status !== 'playing') {
-        setActionLog([{ id: 'start', text: 'Ván đấu bắt đầu!', timestamp: new Date().toLocaleTimeString() }]);
+        setActionLog([{ id: 'start', text: t('log_game_started'), timestamp: new Date().toLocaleTimeString() }]);
       }
       setRoomState(room);
       if (room) {
@@ -116,12 +120,18 @@ export function useGame() {
       setPrivateHand(cards);
     };
 
-    const onNopeWindow = ({ eventId, timeoutMs }) => {
-      setNopeWindow({ eventId, timeoutMs, active: true });
-      setStatusMessage('Đang chờ can thiệp...');
+    const onNopeWindow = ({ eventId, timeoutMs, cardType, actingPlayerId, targetPlayerId, nopeCount }) => {
+      setNopeWindow({ eventId, timeoutMs, active: true, cardType, actingPlayerId, targetPlayerId, nopeCount: nopeCount ?? 0 });
+      setStatusMessage(t('status_waiting_nope'));
       setTimeout(() => {
         setNopeWindow(prev => prev?.eventId === eventId ? { ...prev, active: false } : prev);
       }, timeoutMs);
+    };
+
+    const onNopeResult = ({ canceled, cardType, actingPlayerId, nopeCount }) => {
+      setNopeResult({ canceled, cardType, actingPlayerId, nopeCount, timestamp: Date.now() });
+      // Auto-clear after 2.5s
+      setTimeout(() => setNopeResult(null), 2500);
     };
 
     const onSeeTheFuture = ({ cards }) => {
@@ -184,9 +194,17 @@ export function useGame() {
       setClairvoyanceReveal({ position, active: true });
     };
 
+    const getCardName = (type) => {
+      const clean = type.startsWith('discard_') ? type.replace('discard_', '') : type;
+      const key = `card_${clean}_name`;
+      const translated = t(key);
+      if (translated !== key) return translated;
+      return CARD_THEMES[clean]?.name || clean;
+    };
+
     const onGameEnded = ({ winnerId, rankings, eloChanges, pinkCoinChanges }) => {
       setGameEnded({ winnerId, rankings, eloChanges, pinkCoinChanges });
-      setStatusMessage(`Trận đấu kết thúc! Người thắng: ${winnerId}`);
+      setStatusMessage(t('log_game_ended', { winner: getUsername(winnerId) }));
     };
 
     const getUsername = (pId) => {
@@ -196,26 +214,34 @@ export function useGame() {
 
     const onExploded = ({ playerId }) => {
       const pName = getUsername(playerId);
-      setStatusMessage(`Người chơi ${pName} đã bị nổ tung!`);
-      setActionLog(prev => [...prev, { id: Math.random().toString(), text: `${pName} đã bị nổ tung!`, timestamp: new Date().toLocaleTimeString() }]);
+      setStatusMessage(t('log_exploded', { name: pName }));
+      setActionLog(prev => [...prev, { id: Math.random().toString(), text: t('log_exploded', { name: pName }), timestamp: new Date().toLocaleTimeString() }]);
     };
 
     const onCardPlayed = ({ playerId, cardType, targetPlayerId, nopedCardType }) => {
       const pName = getUsername(playerId);
       const tName = targetPlayerId ? getUsername(targetPlayerId) : null;
 
+      // Detect Now cards and set toast
+      if (cardType && cardType.endsWith('_now') && cardType !== 'clairvoyance_now') {
+        setNowCardToast({ playerName: pName, cardType, timestamp: Date.now() });
+        setTimeout(() => setNowCardToast(null), 3000);
+      }
+
       let msg = '';
       if (cardType === 'nope' && nopedCardType) {
-        const cleanNopedType = nopedCardType.startsWith('discard_') ? nopedCardType.replace('discard_', '') : nopedCardType;
-        const nopedCardName = CARD_THEMES[cleanNopedType]?.name || cleanNopedType;
-        msg = `${pName} đã đánh Nope lá ${nopedCardName} của ${tName}`;
+        const nopedCardName = getCardName(nopedCardType);
+        msg = t('log_noped', { name: pName, card: nopedCardName, target: tName });
       } else if (cardType.startsWith('discard_')) {
-        const cleanType = cardType.replace('discard_', '');
-        const cardName = CARD_THEMES[cleanType]?.name || cleanType;
-        msg = `${pName} đã hủy bỏ lá bài ${cardName}`;
+        const cardName = getCardName(cardType);
+        msg = t('log_discarded', { name: pName, card: cardName });
       } else {
-        const cardName = CARD_THEMES[cardType]?.name || cardType;
-        msg = `${pName} đã đánh lá ${cardName}${tName ? ` nhắm vào ${tName}` : ''}`;
+        const cardName = getCardName(cardType);
+        if (tName) {
+          msg = t('log_played_target', { name: pName, card: cardName, target: tName });
+        } else {
+          msg = t('log_played', { name: pName, card: cardName });
+        }
       }
       setStatusMessage(msg);
       setActionLog(prev => [...prev, { id: Math.random().toString(), text: msg, timestamp: new Date().toLocaleTimeString() }]);
@@ -223,21 +249,21 @@ export function useGame() {
 
     const onDrewKitten = ({ playerId, cardType }) => {
       const pName = getUsername(playerId);
-      const cardName = CARD_THEMES[cardType]?.name || cardType;
-      const msg = `CẢNH BÁO: ${pName} đã bốc trúng lá ${cardName}!`;
+      const cardName = getCardName(cardType);
+      const msg = t('log_drew_kitten', { name: pName, card: cardName });
       setStatusMessage(msg);
       setActionLog(prev => [...prev, { id: Math.random().toString(), text: msg, timestamp: new Date().toLocaleTimeString() }]);
     };
 
     const onCardDrawn = ({ playerId }) => {
       const pName = getUsername(playerId);
-      setActionLog(prev => [...prev, { id: Math.random().toString(), text: `${pName} đã bốc 1 lá bài`, timestamp: new Date().toLocaleTimeString() }]);
+      setActionLog(prev => [...prev, { id: Math.random().toString(), text: t('log_drew_card', { name: pName }), timestamp: new Date().toLocaleTimeString() }]);
       setStatusMessage('');
     };
 
     const onTurnChanged = ({ currentPlayerId, drawsRequired }) => {
       const pName = getUsername(currentPlayerId);
-      setActionLog(prev => [...prev, { id: Math.random().toString(), text: `Đến lượt của ${pName} (Cần bốc: ${drawsRequired} lá)`, timestamp: new Date().toLocaleTimeString() }]);
+      setActionLog(prev => [...prev, { id: Math.random().toString(), text: t('log_turn_changed', { name: pName, draws: drawsRequired }), timestamp: new Date().toLocaleTimeString() }]);
       setStatusMessage('');
     };
 
@@ -246,13 +272,14 @@ export function useGame() {
     };
 
     const onError = ({ message }) => {
-      setStatusMessage(`Lỗi: ${message}`);
+      setStatusMessage(t('log_error', { message }));
     };
 
     socket.on('room:updated', onRoomUpdated);
     socket.on('game:stateUpdate', onStateUpdate);
     socket.on('game:privateHand', onPrivateHand);
     socket.on('game:nopeWindow', onNopeWindow);
+    socket.on('game:nopeResult', onNopeResult);
     socket.on('game:seeTheFuture', onSeeTheFuture);
     socket.on('game:alterFuture:request', onAlterFutureRequest);
     socket.on('game:favor:request', onFavorRequest);
@@ -282,6 +309,7 @@ export function useGame() {
       socket.off('game:stateUpdate', onStateUpdate);
       socket.off('game:privateHand', onPrivateHand);
       socket.off('game:nopeWindow', onNopeWindow);
+    socket.off('game:nopeResult', onNopeResult);
       socket.off('game:seeTheFuture', onSeeTheFuture);
       socket.off('game:alterFuture:request', onAlterFutureRequest);
       socket.off('game:favor:request', onFavorRequest);
@@ -308,9 +336,8 @@ export function useGame() {
     };
   }, [socket]);
 
-  // Actions
-  const createRoom = (password = '', isPublic = true, edition = 'all') => {
-    socket.emit('room:create', { password, isPublic, edition });
+  const createRoom = (password = '', isPublic = true, edition = 'all', maxPlayers = 5) => {
+    socket.emit('room:create', { password, isPublic, edition, maxPlayers });
   };
 
   const joinRoom = (roomCode, password = '') => {
@@ -442,6 +469,8 @@ export function useGame() {
     gameState,
     privateHand,
     nopeWindow,
+    nopeResult,
+    nowCardToast,
     seeTheFutureCards,
     setSeeTheFutureCards,
     alterFutureRequest,

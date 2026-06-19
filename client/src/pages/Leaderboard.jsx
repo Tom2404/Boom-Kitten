@@ -2,13 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { PRESET_AVATARS } from '../components/PlayerAvatar.jsx';
 import { RankBadge } from '../components/Icons.jsx';
 import { gsap } from 'gsap';
+import { useLanguage } from '../context/LanguageContext.jsx';
 
 function PodiumCard({ player, position }) {
+  const { t } = useLanguage();
   if (!player) {
     return (
       <div className="flex-grow flex-shrink-0 flex flex-col items-center justify-center p-5 rounded-2xl w-full sm:w-44 text-center border-4 border-dashed border-on-surface-variant opacity-40 bg-surface-container h-[180px] select-none shadow-[4px_4px_0px_0px_rgba(26,28,28,0.2)]">
         <span className="text-3xl mb-2">😿</span>
-        <span className="font-headline font-black text-xs text-on-surface-variant uppercase">Vị Trí Trống</span>
+        <span className="font-headline font-black text-xs text-on-surface-variant uppercase">{t('leaderboard_empty_slot')}</span>
       </div>
     );
   }
@@ -53,7 +55,7 @@ function PodiumCard({ player, position }) {
           🔥 {player.eloPoints} ELO
         </span>
         <span className="text-[10px] font-headline font-black text-emerald-600 uppercase mt-0.5">
-          🏆 {player.stats?.wins ?? player.wins ?? 0} thắng
+          🏆 {player.stats?.wins ?? player.wins ?? 0} {t('leaderboard_wins_suffix')}
         </span>
       </div>
     </div>
@@ -61,6 +63,7 @@ function PodiumCard({ player, position }) {
 }
 
 export default function Leaderboard() {
+  const { t } = useLanguage();
   const [players, setPlayers] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [selectedTier, setSelectedTier] = useState('ALL');
@@ -137,16 +140,16 @@ export default function Leaderboard() {
   const isCurrentUserVisible = players.some(p => p.username === currentUser?.username);
 
   return (
-    <div className="max-w-4xl mx-auto flex flex-col gap-6">
+    <div className="max-w-4xl mx-auto flex flex-col gap-6 text-left">
       
       {/* Title Header */}
       <div className="text-center flex flex-col items-center">
         <span className="text-6xl animate-bounce">🏆</span>
         <h2 className="arena-title-brutal text-4xl md:text-5xl font-black uppercase mt-4">
-          BẢNG XẾP HẠNG CAO THỦ
+          {t('leaderboard_title')}
         </h2>
         <p className="text-xs font-bold text-on-surface-variant mt-2 tracking-wider bg-surface border-2 border-on-surface px-4 py-1.5 rounded-full shadow-[2px_2px_0px_0px_#1a1c1c] uppercase">
-          Vinh danh những chiến binh mèo nổ quả cảm nhất đấu trường!
+          {t('leaderboard_desc')}
         </p>
       </div>
 
@@ -184,7 +187,7 @@ export default function Leaderboard() {
             </span>
             <input
               type="text"
-              placeholder="SEARCH PLAYERS..."
+              placeholder={t('leaderboard_search_placeholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-11 pr-4 py-3 font-headline font-black uppercase text-xs border-3 border-on-surface rounded-2xl shadow-[4px_4px_0px_0px_#1a1c1c] focus:outline-none focus:bg-amber-50 placeholder:text-on-surface-variant/60 placeholder:font-black"
@@ -223,22 +226,22 @@ export default function Leaderboard() {
         </div>
 
         {/* Players List Table */}
-        <div className="overflow-x-auto border-3 border-on-surface rounded-2xl shadow-[4px_4px_0px_0px_#1a1c1c] bg-surface mt-2">
+        <div className="overflow-x-auto border-3 border-on-surface rounded-2xl shadow-[4px_4px_0px_0px_#1a1c1c] bg-surface mt-2 w-full">
           <table className="w-full border-collapse text-left text-xs md:text-sm">
             <thead>
               <tr className="bg-slate-950 text-white font-headline font-black uppercase tracking-wider text-left border-b-3 border-on-surface select-none">
-                <th className="px-4 py-3 text-center w-16 border-r-3 border-on-surface">RANK</th>
-                <th className="px-4 py-3 border-r-3 border-on-surface">PLAYER</th>
-                <th className="px-4 py-3 border-r-3 border-on-surface">TIER</th>
-                <th className="px-4 py-3 border-r-3 border-on-surface text-center">ELO</th>
-                <th className="px-4 py-3 text-center">WINS</th>
+                <th className="px-4 py-3 text-center w-16 border-r-3 border-on-surface">{t('col_rank')}</th>
+                <th className="px-4 py-3 border-r-3 border-on-surface">{t('col_player')}</th>
+                <th className="px-4 py-3 border-r-3 border-on-surface">{t('col_tier')}</th>
+                <th className="px-4 py-3 border-r-3 border-on-surface text-center">{t('col_elo')}</th>
+                <th className="px-4 py-3 text-center">{t('col_wins')}</th>
               </tr>
             </thead>
             <tbody>
               {players.length === 0 ? (
                 <tr>
                   <td colSpan="5" className="text-center py-12 font-headline font-black uppercase text-on-surface-variant text-base bg-surface-container/30">
-                    😿 Không tìm thấy chiến binh nào!
+                    😿 {t('leaderboard_no_players')}
                   </td>
                 </tr>
               ) : (
@@ -299,7 +302,7 @@ export default function Leaderboard() {
                           )}
                         </div>
                         <span className="font-headline font-black text-rose-700 text-xs md:text-sm">
-                          YOU ({currentUser.username})
+                          {t('leaderboard_you_highlight', { username: currentUser.username })}
                         </span>
                       </td>
                       <td className="px-4 py-3.5 border-r-3 border-on-surface">
@@ -326,7 +329,7 @@ export default function Leaderboard() {
               onClick={handleLoadMore}
               className="relative bg-orange-500 text-white font-headline font-black text-xs md:text-sm uppercase tracking-wider border-3 border-on-surface shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] px-6 py-3 rounded-2xl active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0px_0px_rgba(26,28,28,1)] hover:scale-102 hover:-translate-y-0.5 transition-all duration-100 rotate-[-1deg]"
             >
-              🍖 SHOW MORE MEAT 🍖
+              {t('leaderboard_load_more')}
             </button>
           </div>
         )}
@@ -334,7 +337,7 @@ export default function Leaderboard() {
         {/* Loader inside Table */}
         {loading && (
           <p className="text-center font-headline font-black text-xs uppercase text-on-surface-variant py-4 animate-pulse">
-            🥩 Đang lấy danh sách chiến mèo...
+            {t('leaderboard_loading')}
           </p>
         )}
 

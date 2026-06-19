@@ -5,6 +5,7 @@ import PlayerHand from '../components/PlayerHand.jsx';
 import DeckPile from '../components/DeckPile.jsx';
 import DiscardPile from '../components/DiscardPile.jsx';
 import Card from '../components/Card.jsx';
+import { getCardImageUrl } from '../utils/cardSkins.js';
 import gsap from 'gsap';
 import {
   SeeFutureModal,
@@ -22,6 +23,8 @@ import {
   ArmageddonDistributeModal,
   ArmageddonDecisionModal,
   ClairvoyanceRevealModal,
+  NopeResultToast,
+  NowCardToast,
 } from '../components/ActionModals.jsx';
 import CustomDialog from '../components/CustomDialog.jsx';
 import { CoinIcon, GemIcon } from '../components/CoinDisplay.jsx';
@@ -93,7 +96,10 @@ function FlyingCard({ id, type, cardType, startPos, endPos, onComplete }) {
       {type === 'draw' ? (
         <div className="h-full w-full rounded-xl border-3 border-on-surface bg-primary-container flex items-center justify-center p-3 select-none shadow-xl">
           <div className="absolute inset-1.5 border-2 border-dashed border-on-primary-container/30 rounded-lg flex flex-col items-center justify-center">
-            <span className="text-3xl">🐾</span>
+            <svg className="w-10 h-10 text-on-primary-container/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="5" y="3" width="14" height="18" rx="2" ry="2" />
+              <path d="M12 8v8M8 12h8" strokeDasharray="2 2" />
+            </svg>
           </div>
         </div>
       ) : (
@@ -167,6 +173,8 @@ function ParticleExplosion({ startPos, onComplete }) {
   );
 }
 
+import { useLanguage } from '../context/LanguageContext.jsx';
+
 const EMOTES_LIST = [
   { id: 'emote_smile', char: '😀' },
   { id: 'emote_laugh', char: '😂' },
@@ -178,16 +186,225 @@ const EMOTES_LIST = [
   { id: 'emote_cry', char: '😭' },
 ];
 
-const EDITION_NAMES = {
-  original: 'Bản Gốc 🐱',
-  '2_player': 'Bản 2 Người 👥',
-  zombie: 'Mèo Thây Ma 🧟',
-  barking: 'Mèo Sủa 🐶',
-  good_vs_evil: 'Thiện và Ác ⚖️',
-  imploding: 'Mèo Sập Nguồn 💥🙀',
-  streaking: 'Mèo Vệt Đuôi ☄️',
-  expansion_mix: 'Đại Hỗn Chiến 🌪️',
+const EDITIONS_MAP = {
+  original: {
+    badge: { vi: 'BẢN GỐC', en: 'BASE DECK' },
+    badgeColor: 'bg-rose-500 text-white',
+    rules: {
+      vi: ['MÈO NỔ CƠ BẢN', 'GỠ MÌN BẮT BUỘC', 'TIÊN TRI TƯƠNG LAI'],
+      en: ['EXPLODING KITTENS', 'DEFUSE KITS', 'FUTURE SIGHT']
+    },
+    exclusiveCards: [
+      { type: 'defuse', name: { vi: 'GỠ MÌN BẰNG LASER', en: 'TACTICAL DEFUSE' } },
+      { type: 'see_the_future_3', name: { vi: 'NHÌN THẤU TƯƠNG LAI', en: 'SEE THE FUTURE' } },
+      { type: 'cat_taco', name: { vi: 'MÈO TACO THƯỜNG', en: 'CAT TACO' } },
+      { type: 'skip', name: { vi: 'BỎ QUA LƯỢT CHƠI', en: 'EXTREME SKIP' } }
+    ],
+    icon: (
+      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="14.5" y1="17.5" x2="3" y2="6" />
+        <line x1="3" y1="3" x2="6" y2="3" />
+        <line x1="17.5" y1="14.5" x2="21" y2="21" />
+        <polyline points="14 19 19 14" />
+      </svg>
+    )
+  },
+  '2_player': {
+    badge: { vi: 'ĐỐI ĐẦU', en: 'DUEL PACK' },
+    badgeColor: 'bg-sky-500 text-white',
+    rules: {
+      vi: ['ĐỐI KHÁNG TAY ĐÔI', 'BÀI SIÊU TINH GỌN', 'TỰ TẤN CÔNG'],
+      en: ['HEAD TO HEAD', 'STREAMLINED DECK', 'PERSONAL ATTACK']
+    },
+    exclusiveCards: [
+      { type: 'defuse', name: { vi: 'GỠ MÌN KHẨN CẤP', en: 'EMERGENCY DEFUSE' } },
+      { type: 'personal_attack', name: { vi: 'TỰ TẤN CÔNG NHANH', en: 'PERSONAL ATTACK' } },
+      { type: 'see_the_future_1', name: { vi: 'TIÊN TRI THU GỌN', en: 'FUTURE PEEK' } },
+      { type: 'feral_cat', name: { vi: 'MÈO HOANG DÃ DỊ HÌNH', en: 'FERAL CAT' } }
+    ],
+    icon: (
+      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </svg>
+    )
+  },
+  zombie: {
+    badge: { vi: 'THÂY MA', en: 'STANDALONE' },
+    badgeColor: 'bg-emerald-500 text-white',
+    rules: {
+      vi: ['HỒI SINH TỪ CÕI CHẾT', 'CHƠI KHÔNG CẦN SỐNG', 'KỀ TRẠM MỘ & CÚNG'],
+      en: ['ZOMBIE REVIVE', 'PLAY AFTER EXPLODING', 'GRAVE ROBBERS & FEEDS']
+    },
+    exclusiveCards: [
+      { type: 'zombie_kitten', name: { vi: 'MÈO THÂY MA HỒI SINH', en: 'ZOMBIE KITTEN' } },
+      { type: 'grave_robber', name: { vi: 'KẺ TRỘM MỘ BÀI BỎ', en: 'GRAVE ROBBER' } },
+      { type: 'feed_the_dead', name: { vi: 'CÚNG CÔ HỒN ĐẮT GIÁ', en: 'FEED THE DEAD' } },
+      { type: 'attack_of_the_dead', name: { vi: 'XÁC SỐNG TẤN CÔNG', en: 'ATTACK OF DEAD' } }
+    ],
+    icon: (
+      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M9 12h6M12 2C6.5 2 2 6.5 2 12c0 3.5 1.5 6 4.5 7.5V22h11v-2.5c3-1.5 4.5-4 4.5-7.5 0-5.5-4.5-10-10-10z" />
+        <circle cx="8" cy="10" r="1" fill="currentColor" />
+        <circle cx="16" cy="10" r="1" fill="currentColor" />
+      </svg>
+    )
+  },
+  barking: {
+    badge: { vi: 'MÈO SỦA', en: 'EXPANSION' },
+    badgeColor: 'bg-amber-500 text-white',
+    rules: {
+      vi: ['MÈO SỦA GHÉP CẶP', 'THIÊN NHÃN NHÌN BÀI', 'ĐỊNH ĐOẠT TƯƠNG LAI'],
+      en: ['BARKING CAT COOPERATION', 'CLAIRVOYANCE SIGHT', 'FUTURE ALTERATION']
+    },
+    exclusiveCards: [
+      { type: 'barking_kitten', name: { vi: 'MÈO SỦA ỒN ÀO', en: 'BARKING KITTEN' } },
+      { type: 'clairvoyance', name: { vi: 'THIÊN NHÃN SẮC BÉN', en: 'CLAIRVOYANCE' } },
+      { type: 'see_the_future_3_and_share', name: { vi: 'TIÊN TRI VÀ CHIA SẺ', en: 'SEE & SHARE FUTURE' } },
+      { type: 'alter_the_future_3', name: { vi: 'ĐỊNH ĐOẠT 3 LÁ BÀI', en: 'ALTER THE FUTURE' } }
+    ],
+    icon: (
+      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 16v-2a8 8 0 1 1 16 0v2M2 12h2M20 12h2" />
+        <circle cx="8" cy="12" r="1" fill="currentColor" />
+        <circle cx="16" cy="12" r="1" fill="currentColor" />
+        <path d="M9 16a3 3 0 0 0 6 0H9z" />
+      </svg>
+    )
+  },
+  good_vs_evil: {
+    badge: { vi: 'THIỆN ÁC', en: 'STANDALONE' },
+    badgeColor: 'bg-purple-500 text-white',
+    rules: {
+      vi: ['BẢN ĐỒ NGÀY TẬN THẾ', 'THẦN MÈO VẠN NĂNG', 'MÈO QUỶ HỦY DIỆT'],
+      en: ['ARMAGEDDON SHOWDOWN', 'GODCAT COPY UTILITY', 'DEVILCAT TRAP']
+    },
+    exclusiveCards: [
+      { type: 'godcat', name: { vi: 'THẦN MÈO VẠN NĂNG', en: 'GODCAT' } },
+      { type: 'devilcat', name: { vi: 'MÈO QUỶ ĐỊA NGỤC', en: 'DEVILCAT' } },
+      { type: 'armageddon', name: { vi: 'NGÀY TẬN THẾ ĐỐI ĐẦU', en: 'ARMAGEDDON' } },
+      { type: 'reveal_the_future_3x', name: { vi: 'PHƠI BÀY TƯƠNG LAI', en: 'REVEAL THE FUTURE' } }
+    ],
+    icon: (
+      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <path d="M12 2v20" />
+        <path d="M12 7a5 5 0 0 1 0 10" fill="currentColor" fillOpacity="0.3" />
+      </svg>
+    )
+  },
+  imploding: {
+    badge: { vi: 'SẬP NGUỒN', en: 'EXPANSION' },
+    badgeColor: 'bg-pink-500 text-white',
+    rules: {
+      vi: ['MÈO SẬP NGUỒN KHÔNG THỂ GỠ', 'ĐẢO CHIỀU VÒNG CHƠI', 'TẤN CÔNG ĐỊNH HƯỚNG'],
+      en: ['IMPLODING BOMB UN-DEFUSABLE', 'REVERSE PLAY ORDER', 'TARGETED ATTACK']
+    },
+    exclusiveCards: [
+      { type: 'imploding_kitten', name: { vi: 'MÈO SẬP NGUỒN VĨNH VIỄN', en: 'IMPLODING KITTEN' } },
+      { type: 'reverse', name: { vi: 'ĐẢO CHIỀU CHƠI HỖN LOẠN', en: 'REVERSE PLAY' } },
+      { type: 'target_attack_2x', name: { vi: 'TẤN CÔNG ĐỊNH HƯỚNG', en: 'TARGETED ATTACK' } },
+      { type: 'catomic_bomb', name: { vi: 'BOM NGUYÊN TỬ MÈO', en: 'CATOMIC BOMB' } }
+    ],
+    icon: (
+      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15.5h-2v-2h2v2zm0-4.5h-2V7h2v6z" />
+      </svg>
+    )
+  },
+  streaking: {
+    badge: { vi: 'VỆT ĐUÔI', en: 'EXPANSION' },
+    badgeColor: 'bg-yellow-400 text-black',
+    rules: {
+      vi: ['GIỮ BOM TRONG TAY', 'THU GOM RÁC THẢI', 'ĐỔI ĐỔI ĐẦU ĐUÔI BỘ BÀI'],
+      en: ['HOLD BOMB IN HAND', 'GARBAGE COLLECTION', 'SWAP TOP & BOTTOM']
+    },
+    exclusiveCards: [
+      { type: 'streaking_kitten', name: { vi: 'MÈO VỆT ĐUÔI GIỮ BOMB', en: 'STREAKING KITTEN' } },
+      { type: 'garbage_collection', name: { vi: 'THU GOM RÁC THẢI', en: 'GARBAGE COLLECTION' } },
+      { type: 'mark', name: { vi: 'ĐÁNH DẤU LỘ DIỆN BÀI', en: 'MARK OPPONENT' } },
+      { type: 'swap_top_and_bottom', name: { vi: 'ĐỔI ĐẦU ĐUÔI BỘ BÀI', en: 'SWAP TOP & BOTTOM' } }
+    ],
+    icon: (
+      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+      </svg>
+    )
+  },
+  expansion_mix: {
+    badge: { vi: 'HỖN CHIẾN', en: 'PARTY PACK' },
+    badgeColor: 'bg-indigo-500 text-white',
+    rules: {
+      vi: ['TRỘN TẤT CẢ PHIÊN BẢN', 'CƠ CHẾ ĐA DẠNG HACK NÃO', 'THỬ THÁCH THỰC SỰ'],
+      en: ['ALL EXPANSIONS MIXED', 'ULTIMATE MECHANICS', 'CHAOTIC CHALLENGE']
+    },
+    exclusiveCards: [
+      { type: 'imploding_kitten', name: { vi: 'MÈO SẬP NGUỒN TỬ THẦN', en: 'IMPLODING KITTEN' } },
+      { type: 'streaking_kitten', name: { vi: 'MÈO VỆT ĐUÔI GIỮ BOMB', en: 'STREAKING KITTEN' } },
+      { type: 'zombie_kitten', name: { vi: 'MÈO THÂY MA HỒI SINH', en: 'ZOMBIE KITTEN' } },
+      { type: 'godcat', name: { vi: 'THẦN MÈO VẠN NĂNG', en: 'GODCAT' } }
+    ],
+    icon: (
+      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <path d="M8 12a4 4 0 1 1 8 0" />
+        <path d="M12 22v-6" />
+        <circle cx="12" cy="14" r="1" fill="currentColor" />
+      </svg>
+    )
+  }
 };
+
+function ExclusiveCard({ cardType, name, skinIndex = 0 }) {
+  const imageUrl = getCardImageUrl(cardType, skinIndex);
+  const { t } = useLanguage();
+  const desc = t(`card_${cardType}_desc`) || '';
+
+  return (
+    <div className="relative w-full aspect-[3/4] bg-slate-950 border-3 border-on-surface rounded-xl shadow-[3px_3px_0px_0px_rgba(26,28,28,1)] transition-all duration-300 ease-out hover:-translate-y-3 hover:scale-105 hover:shadow-[0_12px_24px_rgba(255,87,34,0.35)] hover:border-[#ff5722] hover:z-30 group cursor-pointer">
+      {/* Main card wrapper (clipped with rounded corners) */}
+      <div className="w-full h-full flex flex-col justify-between overflow-hidden rounded-lg">
+        <div className="flex-grow w-full overflow-hidden flex items-center justify-center p-2 bg-slate-900">
+          {imageUrl ? (
+            <img
+              src={imageUrl}
+              alt={name}
+              className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-110"
+            />
+          ) : (
+            <div className="text-white/20 font-headline font-black text-2xl tracking-widest select-none">BK</div>
+          )}
+        </div>
+        <div className="bg-slate-950 border-t-2 border-on-surface py-2.5 px-1.5 text-center flex items-center justify-center min-h-[44px]">
+          <span className="font-headline font-black text-[9px] tracking-wider text-white uppercase line-clamp-2 leading-tight">
+            {name}
+          </span>
+        </div>
+      </div>
+
+      {/* Hover Info Tooltip (positioned outside overflow-hidden) */}
+      <div className="absolute bottom-[108%] left-1/2 transform -translate-x-1/2 w-60 bg-white border-3 border-on-surface rounded-xl p-3 shadow-[4px_4px_0px_0px_#1a1c1c] z-50 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-200 flex flex-col gap-2 scale-90 group-hover:scale-100 origin-bottom">
+        {imageUrl && (
+          <div className="w-full aspect-[4/3] overflow-hidden rounded-lg border-2 border-on-surface bg-slate-900 flex items-center justify-center p-1">
+            <img src={imageUrl} alt={name} className="w-full h-full object-contain" />
+          </div>
+        )}
+        <div className="flex flex-col gap-1 text-left">
+          <span className="font-headline font-black text-[10px] text-on-surface uppercase tracking-wide leading-tight">
+            {name}
+          </span>
+          {desc && (
+            <p className="text-[9px] font-sans font-bold text-on-surface-variant leading-relaxed">
+              {desc}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function Game() {
   const {
@@ -196,6 +413,8 @@ export default function Game() {
     gameState,
     privateHand,
     nopeWindow,
+    nopeResult,
+    nowCardToast,
     seeTheFutureCards,
     setSeeTheFutureCards,
     alterFutureRequest,
@@ -245,6 +464,32 @@ export default function Game() {
     playAgain,
   } = useGame();
 
+  const { t, language } = useLanguage();
+
+  const editionsList = [
+    'original',
+    '2_player',
+    'zombie',
+    'barking',
+    'good_vs_evil',
+    'imploding',
+    'streaking',
+    'expansion_mix'
+  ];
+
+  const getEditionDetails = (key) => {
+    return {
+      name: t(`edition_${key}_name`),
+      description: t(`edition_${key}_desc`),
+      rules: t(`edition_${key}_rules`),
+      features: [
+        t(`edition_${key}_feat1`),
+        t(`edition_${key}_feat2`),
+        t(`edition_${key}_feat3`),
+      ]
+    };
+  };
+
   const [roomInput, setRoomInput] = useState('');
   const [targetPlayerId, setTargetPlayerId] = useState(null);
 
@@ -262,6 +507,11 @@ export default function Game() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isCreatingRoom, setIsCreatingRoom] = useState(false);
+  const [hoveredEdition, setHoveredEdition] = useState(null);
+  const [showPasswordInput, setShowPasswordInput] = useState(false);
+  const [cosmeticRoomTitle, setCosmeticRoomTitle] = useState('MEOW MIXER #' + Math.floor(10 + Math.random() * 90));
+  const [voiceChatEnabled, setVoiceChatEnabled] = useState(false);
   
   const [chatInput, setChatInput] = useState('');
   const [myUser, setMyUser] = useState(null);
@@ -708,7 +958,7 @@ export default function Game() {
   if (!myUser) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center gap-6 bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-8 max-w-md mx-auto">
-        <span className="text-6xl animate-bounce">🔒</span>
+        <LockIcon className="w-16 h-16 text-on-surface animate-bounce" strokeWidth={2.5} />
         <h2 className="text-2xl font-headline font-black text-on-surface uppercase">Yêu Cầu Đăng Nhập</h2>
         <p className="text-xs font-bold text-on-surface-variant max-w-sm">
           Bạn cần đăng nhập tài khoản để có thể tạo phòng hoặc tham gia chơi bài Mèo Nổ.
@@ -724,6 +974,378 @@ export default function Game() {
   // VIEW 1: JOIN / CREATE ROOM (LOBBY UPGRADE)
   // ==========================================
   if (!roomState) {
+    if (isCreatingRoom) {
+      return (
+        <div className="w-full max-w-5xl mx-auto my-6 flex flex-col gap-6 animate-fade-in text-left">
+          {/* Inject Neo-brutalist Custom Slider & Scrollbar CSS */}
+          <style>{`
+            .brutal-slider {
+              -webkit-appearance: none;
+              width: 100%;
+              height: 12px;
+              background: #ffffff;
+              border: 3px solid #1a1c1c;
+              border-radius: 6px;
+              outline: none;
+              box-shadow: 1.5px 1.5px 0px #1a1c1c;
+            }
+            .brutal-slider::-webkit-slider-thumb {
+              -webkit-appearance: none;
+              appearance: none;
+              width: 18px;
+              height: 28px;
+              background: #ff5722;
+              border: 3px solid #1a1c1c;
+              border-radius: 4px;
+              cursor: pointer;
+              box-shadow: 2px 2px 0px #1a1c1c;
+              transition: transform 0.15s ease-out;
+            }
+            .brutal-slider::-webkit-slider-thumb:hover {
+              transform: scale(1.1) translateY(-1px);
+            }
+            .brutal-slider::-webkit-slider-thumb:active {
+              transform: scale(0.95);
+            }
+            .brutal-slider::-moz-range-thumb {
+              width: 14px;
+              height: 24px;
+              background: #ff5722;
+              border: 3px solid #1a1c1c;
+              border-radius: 4px;
+              cursor: pointer;
+              box-shadow: 2px 2px 0px #1a1c1c;
+            }
+            .scrollbar-hidden::-webkit-scrollbar {
+              display: none;
+            }
+            .scrollbar-hidden {
+              -ms-overflow-style: none;
+              scrollbar-width: none;
+            }
+          `}</style>
+
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b-4 border-on-surface pb-4 gap-4">
+            <div>
+              <div className="flex items-center gap-3">
+                <h1 className="font-headline font-black text-4xl md:text-6xl text-on-surface uppercase tracking-tight py-1 select-none">
+                  CREATE
+                </h1>
+                <div 
+                  className="font-headline font-black text-4xl md:text-6xl bg-[#ff5722] text-white px-4 py-1.5 rounded-xl border-3 border-on-surface shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] tracking-tight transform -rotate-2 select-none"
+                  style={{ textShadow: '2px 2px 0px #1a1c1c' }}
+                >
+                  ROOM
+                </div>
+              </div>
+              <p className="text-xs font-bold text-on-surface-variant mt-3 max-w-xl leading-relaxed">
+                {language === 'vi' 
+                  ? 'Tập hợp các chiến binh mèo của bạn và chuẩn bị cho sự hỗn loạn bùng nổ. Chọn phiên bản hủy diệt bên dưới.' 
+                  : 'Assemble your feline warriors and prepare for explosive chaos. Choose your flavor of destruction below.'}
+              </p>
+            </div>
+            <button
+              onClick={() => setIsCreatingRoom(false)}
+              className="bg-white text-on-surface border-3 border-on-surface px-5 py-3 rounded-2xl flex items-center gap-2 shadow-[3px_3px_0px_0px_#1a1c1c] text-xs font-headline font-black hover:translate-y-[-2px] hover:shadow-[4.5px_4.5px_0px_0px_#1a1c1c] active:translate-y-0.5 active:shadow-none transition-all uppercase"
+            >
+              {t('back_to_lobby')}
+            </button>
+          </div>
+
+          {/* Grid Edition Selection (No Scrollbar) */}
+          <div className="flex flex-col gap-2">
+            <span className="font-headline font-black text-xs text-on-surface-variant uppercase tracking-wider">
+              {t('choose_edition')}
+            </span>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-1 select-none">
+              {editionsList.map((key) => {
+                const isSelected = lobbyEdition === key;
+                const details = getEditionDetails(key);
+                const meta = EDITIONS_MAP[key] || EDITIONS_MAP.original;
+                
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => {
+                      setLobbyEdition(key);
+                      // Adjust default player count if it exceeds new edition limits
+                      const maxLimit = key === '2_player' ? 2 : (key === 'imploding' ? 6 : 5);
+                      if (lobbyMaxPlayers > maxLimit || key === '2_player') {
+                        setLobbyMaxPlayers(maxLimit);
+                      }
+                    }}
+                    onMouseEnter={() => setHoveredEdition(key)}
+                    onMouseLeave={() => setHoveredEdition(null)}
+                    className={`w-full p-4 rounded-2xl border-3 border-on-surface text-left flex flex-col justify-between gap-3 h-32 cursor-pointer transition-all duration-150 relative
+                      ${isSelected 
+                        ? 'bg-[#ff5722] text-white shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] translate-y-0.5' 
+                        : 'bg-white text-on-surface shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] hover:translate-y-[-2px] hover:shadow-[5px_5px_0px_0px_rgba(26,28,28,1)] active:translate-y-0.5 active:shadow-none'
+                      }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className={`flex-shrink-0 ${isSelected ? 'text-white' : 'text-on-surface'}`}>
+                        {meta.icon}
+                      </span>
+                      <h3 className="font-headline font-black text-xs uppercase tracking-wider leading-none">
+                        {details.name}
+                      </h3>
+                    </div>
+                    <p className={`text-[10px] font-bold opacity-90 line-clamp-2 leading-snug ${isSelected ? 'text-white/95' : 'text-on-surface-variant'}`}>
+                      {details.description}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Split Columns Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            {/* Left Column: Active Edition Showcase */}
+            <div className="lg:col-span-7 bg-white border-3 border-on-surface shadow-[4.5px_4.5px_0px_0px_rgba(26,28,28,1)] rounded-2xl p-6 relative flex flex-col gap-6 text-left">
+              {(() => {
+                const activeKey = hoveredEdition || lobbyEdition;
+                const details = getEditionDetails(activeKey);
+                const meta = EDITIONS_MAP[activeKey] || EDITIONS_MAP.original;
+                return (
+                  <>
+                    {/* Rotated Slanted Type Badge */}
+                    <div className="absolute top-5 right-5 rotate-6 z-10 select-none">
+                      <div className={`font-headline font-black text-[9px] px-3.5 py-1.5 rounded-lg border-2 border-on-surface shadow-[2px_2px_0px_0px_#1a1c1c] uppercase tracking-wider ${meta.badgeColor}`}>
+                        {language === 'vi' ? meta.badge.vi : meta.badge.en}
+                      </div>
+                    </div>
+
+                    {/* Title & Description */}
+                    <div className="border-b-2 border-slate-100 pb-4 pr-24">
+                      <h3 className="font-headline font-black text-2xl text-on-surface uppercase tracking-tight">
+                        {details.name}
+                      </h3>
+                      <p className="text-xs font-bold text-on-surface-variant mt-2 leading-relaxed">
+                        {details.description}
+                      </p>
+                    </div>
+
+                    {/* Special Rules */}
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center gap-2">
+                        <svg className="w-4 h-4 text-[#ff5722]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="4" y1="21" x2="4" y2="14" />
+                          <line x1="4" y1="10" x2="4" y2="3" />
+                          <line x1="12" y1="21" x2="12" y2="12" />
+                          <line x1="12" y1="8" x2="12" y2="3" />
+                          <line x1="20" y1="21" x2="20" y2="16" />
+                          <line x1="20" y1="12" x2="20" y2="3" />
+                          <line x1="1" y1="14" x2="7" y2="14" />
+                          <line x1="9" y1="8" x2="15" y2="8" />
+                          <line x1="17" y1="16" x2="23" y2="16" />
+                        </svg>
+                        <span className="font-headline font-black text-xs text-on-surface uppercase tracking-wider">
+                          {language === 'vi' ? 'LUẬT CHƠI ĐẶC TRƯNG' : 'SPECIAL RULES'}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-2.5 mt-1 select-none">
+                        {meta.rules[language].map((ruleText, idx) => {
+                          const tilts = ['-rotate-2', 'rotate-1', '-rotate-1', 'rotate-2'];
+                          const tilt = tilts[idx % tilts.length];
+                          return (
+                            <span 
+                              key={idx} 
+                              className={`inline-block bg-[#fdf2f8] text-slate-900 border-2 border-on-surface px-3 py-1.5 rounded-lg text-[9px] font-headline font-black uppercase shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)] transform ${tilt}`}
+                            >
+                              {ruleText}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Exclusive Cards Row */}
+                    <div className="flex flex-col gap-3 border-t-2 border-slate-100 pt-4">
+                      <span className="font-headline font-black text-xs text-on-surface uppercase tracking-wider">
+                        {language === 'vi' ? 'THẺ BÀI ĐỘC QUYỀN' : 'EXCLUSIVE CARDS'}
+                      </span>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-1">
+                        {meta.exclusiveCards.map((card, idx) => (
+                          <ExclusiveCard 
+                            key={idx} 
+                            cardType={card.type} 
+                            name={language === 'vi' ? card.name.vi : card.name.en} 
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+
+            {/* Right Column: Lobby Settings Card */}
+            <div className="lg:col-span-5 flex flex-col gap-6">
+              <div className="bg-white border-3 border-on-surface shadow-[4.5px_4.5px_0px_0px_rgba(26,28,28,1)] rounded-2xl p-6 flex flex-col gap-5 text-left">
+                <div className="border-b-3 border-on-surface pb-3">
+                  <h3 className="font-headline font-black text-xl text-on-surface uppercase tracking-tight">
+                    {t('lobby_settings')}
+                  </h3>
+                </div>
+
+                {/* Visibility Toggle */}
+                <div className="flex flex-col gap-2">
+                  <span className="font-headline font-black text-xs text-on-surface uppercase tracking-wider">
+                    {t('room_accessibility')}
+                  </span>
+                  <div className="grid grid-cols-2 border-3 border-on-surface rounded-xl overflow-hidden shadow-[2.5px_2.5px_0px_0px_rgba(26,28,28,1)] bg-white">
+                    <button
+                      type="button"
+                      onClick={() => setLobbyIsPublic(true)}
+                      className={`py-3.5 text-xs font-headline font-black uppercase tracking-wider transition-all
+                        ${lobbyIsPublic
+                          ? 'bg-[#ff5722] text-white border-r-3 border-on-surface'
+                          : 'bg-white text-on-surface hover:bg-slate-50 border-r-3 border-on-surface'
+                        }`}
+                    >
+                      {t('public_label')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLobbyIsPublic(false)}
+                      className={`py-3.5 text-xs font-headline font-black uppercase tracking-wider transition-all
+                        ${!lobbyIsPublic
+                          ? 'bg-[#ff5722] text-white'
+                          : 'bg-white text-on-surface hover:bg-slate-50'
+                        }`}
+                    >
+                      {t('private_label')}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Player count Custom Slider */}
+                <div className="flex flex-col gap-2">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="font-headline font-black text-xs text-on-surface uppercase tracking-wider">
+                      {t('max_players')}
+                    </span>
+                    <div 
+                      className="font-headline font-black text-2xl text-[#ff5722] transform -rotate-12 bg-white border-2 border-on-surface px-2.5 py-0.5 rounded shadow-[2px_2px_0px_0px_#1a1c1c] select-none"
+                      style={{ textShadow: '1px 1px 0px #1a1c1c' }}
+                    >
+                      {lobbyMaxPlayers}
+                    </div>
+                  </div>
+                  {(() => {
+                    const minLimit = 2;
+                    const maxLimit = lobbyEdition === '2_player' ? 2 : (lobbyEdition === 'imploding' ? 6 : 5);
+                    const isLocked = minLimit === maxLimit;
+                    
+                    return (
+                      <div className="flex flex-col gap-2 mt-1">
+                        <input
+                          type="range"
+                          min={minLimit}
+                          max={maxLimit}
+                          disabled={isLocked}
+                          value={lobbyMaxPlayers}
+                          onChange={(e) => setLobbyMaxPlayers(Number(e.target.value))}
+                          className={`brutal-slider ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        />
+                        {/* Tick indicators */}
+                        <div className="flex justify-between px-1 text-[10px] font-headline font-black text-on-surface-variant">
+                          {Array.from({ length: maxLimit - minLimit + 1 }).map((_, idx) => {
+                            const val = minLimit + idx;
+                            return (
+                              <span key={val} className={lobbyMaxPlayers === val ? 'text-[#ff5722] scale-110' : ''}>
+                                {val}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* Room Title / Password field */}
+                {lobbyIsPublic ? (
+                  <div className="flex flex-col gap-2">
+                    <span className="font-headline font-black text-xs text-on-surface uppercase tracking-wider">
+                      {t('room_title_label')}
+                    </span>
+                    <input
+                      type="text"
+                      value={cosmeticRoomTitle}
+                      onChange={(e) => setCosmeticRoomTitle(e.target.value)}
+                      className="bg-white border-3 border-on-surface px-4 py-3.5 rounded-xl text-xs font-bold focus:outline-none focus:bg-slate-50 transition-all w-full shadow-[2.5px_2.5px_0px_0px_rgba(26,28,28,1)] text-on-surface uppercase tracking-wide font-headline"
+                      placeholder="E.g. MEOW MIXER #42"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    <span className="font-headline font-black text-xs text-on-surface uppercase tracking-wider">
+                      {t('room_password')}
+                    </span>
+                    <div className="relative flex items-center">
+                      <input
+                        type={showPasswordInput ? "text" : "password"}
+                        placeholder={t('enter_password')}
+                        value={createPassword}
+                        onChange={(e) => setCreatePassword(e.target.value)}
+                        maxLength={20}
+                        className="bg-white border-3 border-on-surface px-4 py-3.5 rounded-xl text-xs font-bold focus:outline-none focus:bg-slate-50 transition-all w-full pr-16 shadow-[2.5px_2.5px_0px_0px_rgba(26,28,28,1)]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPasswordInput(!showPasswordInput)}
+                        className="absolute right-3 bg-slate-100 hover:bg-slate-200 border-2 border-on-surface px-2.5 py-1.5 rounded-lg text-[9px] font-headline font-black text-on-surface shadow-[1px_1px_0px_0px_#1a1c1c] active:translate-y-0.5 active:shadow-none"
+                      >
+                        {showPasswordInput ? t('button_hide') : t('button_show')}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Voice Chat toggle */}
+                <div className="flex justify-between items-center border-t-2 border-dashed border-slate-100 pt-4 mt-2">
+                  <div className="flex flex-col text-left">
+                    <span className="font-headline font-black text-xs text-on-surface uppercase tracking-wider">
+                      {t('voice_chat')}
+                    </span>
+                    <span className="text-[10px] font-bold text-on-surface-variant font-sans">
+                      {language === 'vi' ? 'Kích hoạt đàm thoại nhóm' : 'Enable in-game group voice'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setVoiceChatEnabled(!voiceChatEnabled)}
+                    className={`w-14 h-8 rounded-lg border-3 border-on-surface relative transition-all duration-200 shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] active:translate-y-0.5 active:shadow-none
+                      ${voiceChatEnabled ? 'bg-[#ff5722]' : 'bg-white'}`}
+                  >
+                    <div 
+                      className="absolute top-0.5 w-5 h-5 rounded border-2 border-on-surface bg-white shadow-[1px_1px_0px_rgba(0,0,0,0.15)] transition-all duration-200" 
+                      style={{ left: voiceChatEnabled ? '26px' : '3px' }}
+                    />
+                  </button>
+                </div>
+              </div>
+
+              {/* Start Lobby DETONATE button */}
+              <button
+                onClick={() => {
+                  createRoom(createPassword, lobbyIsPublic, lobbyEdition, lobbyMaxPlayers);
+                  setIsCreatingRoom(false);
+                }}
+                className="w-full bg-[#ff5722] hover:bg-[#e64a19] text-white border-3 border-on-surface py-4.5 rounded-2xl font-headline font-black uppercase text-base tracking-wider shadow-[4.5px_4.5px_0px_0px_rgba(26,28,28,1)] hover:translate-y-[-2px] hover:shadow-[6px_6px_0px_0px_rgba(26,28,28,1)] active:translate-y-0.5 active:shadow-none transition-all duration-150"
+              >
+                {t('start_lobby')}
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="w-full max-w-5xl mx-auto my-6 flex flex-col gap-6 animate-fade-in">
         {/* Header with Coins and Gems */}
@@ -766,7 +1388,13 @@ export default function Game() {
 
           {/* Card 2: CREATE PRIVATE ROOM */}
           <button
-            onClick={() => setIsCreateModalOpen(true)}
+            onClick={() => {
+              setIsCreatingRoom(true);
+              setLobbyEdition('original');
+              setLobbyMaxPlayers(5);
+              setLobbyIsPublic(true);
+              setCreatePassword('');
+            }}
             className="card-brutalist bg-gradient-to-br from-secondary-container to-secondary border-3 border-on-surface p-6 rounded-2xl shadow-[4px_4px_0px_0px_#1a1c1c] flex flex-col items-center justify-center text-center gap-4 group cursor-pointer hover:scale-[1.03] active:scale-[0.98] transition-all text-white h-48"
           >
             <KeyIcon className="w-16 h-16 text-white" strokeWidth={2} />
@@ -921,7 +1549,7 @@ export default function Game() {
                       onClick={() => setIsEditionDropdownOpen(!isEditionDropdownOpen)}
                       className="bg-white border-2 border-on-surface px-3 py-1.5 rounded-xl text-xs font-headline font-black focus:outline-none flex items-center gap-1.5 hover:bg-slate-100 transition-all shadow-[1.5px_1.5px_0px_0px_#1a1c1c] active:translate-y-0.5 active:shadow-none min-w-[155px] justify-between text-slate-950"
                     >
-                      <span>{EDITION_NAMES[lobbyEdition]}</span>
+                      <span>{t('edition_' + lobbyEdition + '_name')}</span>
                       <span className={`text-[9px] transition-transform duration-200 ${isEditionDropdownOpen ? 'rotate-180' : ''}`}>▼</span>
                     </button>
                     {isEditionDropdownOpen && (
@@ -931,7 +1559,7 @@ export default function Game() {
                           onClick={() => setIsEditionDropdownOpen(false)}
                         />
                         <div className="absolute right-0 mt-2 w-60 bg-white border-2 border-on-surface rounded-2xl shadow-[4px_4px_0px_0px_#1a1c1c] z-50 overflow-hidden py-1 max-h-64 overflow-y-auto animate-fade-in custom-scrollbar">
-                          {Object.entries(EDITION_NAMES).map(([key, label]) => (
+                          {editionsList.map((key) => (
                             <button
                               key={key}
                               type="button"
@@ -942,8 +1570,8 @@ export default function Game() {
                               className={`w-full text-left px-4 py-2.5 text-xs font-headline font-black hover:bg-[#b7131a] hover:text-white transition-all flex items-center justify-between uppercase tracking-wider text-slate-900
                                 ${lobbyEdition === key ? 'bg-slate-100 text-[#b7131a] border-l-4 border-[#b7131a]' : ''}`}
                             >
-                              <span>{label}</span>
-                              {lobbyEdition === key && <span className="text-[10px]">✔</span>}
+                              <span>{t('edition_' + key + '_name')}</span>
+                              {lobbyEdition === key && <CheckIcon className="w-3.5 h-3.5 text-[#b7131a]" strokeWidth={3.5} />}
                             </button>
                           ))}
                         </div>
@@ -1010,7 +1638,7 @@ export default function Game() {
                 </button>
               </div>
               <span className="text-[9px] font-headline font-black bg-indigo-100 border-2 border-on-surface text-indigo-700 px-2 py-1.5 rounded-xl shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)] uppercase">
-                {EDITION_NAMES[roomState.edition] || roomState.edition || EDITION_NAMES.original}
+                {t('edition_' + roomState.edition + '_name') || roomState.edition}
               </span>
             </div>
           </div>
@@ -1467,13 +2095,16 @@ export default function Game() {
         />
       )}
 
-      {/* 4. Nope Countdown Banner */}
       {nopeWindow && nopeWindow.active && (
         <NopeCountdown
           eventId={nopeWindow.eventId}
           timeoutMs={nopeWindow.timeoutMs}
           hasNopeCard={hasNopeCard}
           onPlayNope={() => playNope(nopeWindow.eventId)}
+          actingPlayerName={getPlayerDisplayName(nopeWindow.actingPlayerId)}
+          cardType={nopeWindow.cardType}
+          targetPlayerName={nopeWindow.targetPlayerId ? getPlayerDisplayName(nopeWindow.targetPlayerId) : null}
+          nopeCount={nopeWindow.nopeCount ?? 0}
         />
       )}
 
@@ -1580,6 +2211,25 @@ export default function Game() {
         <ClairvoyanceRevealModal
           position={localClairvoyance.position}
           onClose={() => setLocalClairvoyance(null)}
+        />
+      )}
+
+      {/* Nope Result Toast */}
+      {nopeResult && (
+        <NopeResultToast
+          key={nopeResult.timestamp}
+          canceled={nopeResult.canceled}
+          cardType={nopeResult.cardType}
+          actingPlayerName={getPlayerDisplayName(nopeResult.actingPlayerId)}
+        />
+      )}
+
+      {/* Now Card Toast */}
+      {nowCardToast && (
+        <NowCardToast
+          key={nowCardToast.timestamp}
+          playerName={nowCardToast.playerName}
+          cardType={nowCardToast.cardType}
         />
       )}
 

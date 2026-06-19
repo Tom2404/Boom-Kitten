@@ -14,11 +14,15 @@ function makeCode() {
 function createRoom(hostId, options = {}, username = 'Guest') {
   const code = makeCode();
   const edition = VALID_EDITIONS.has(options.edition) ? options.edition : 'original';
+  const maxLimit = edition === '2_player' ? 2 : (edition === 'imploding' ? 6 : 5);
+  const requestedMax = parseInt(options.maxPlayers, 10);
+  const maxPlayers = (!isNaN(requestedMax) && requestedMax >= 2 && requestedMax <= maxLimit) ? requestedMax : maxLimit;
+
   const room = {
     code,
     host: hostId,
     players: [{ userId: hostId, username, hand: [], alive: true }],
-    maxPlayers: edition === '2_player' ? 2 : (edition === 'imploding' ? 6 : 5),
+    maxPlayers,
     maxHandSize: 10,
     status: 'waiting',
     isPublic: Boolean(options.isPublic),

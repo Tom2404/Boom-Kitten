@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { gsap } from 'gsap';
 import { CoinIcon, GemIcon } from '../components/CoinDisplay.jsx';
+import { useLanguage } from '../context/LanguageContext.jsx';
 
 const RARITY_COLORS = {
   common: 'bg-slate-200 text-slate-800',
@@ -10,6 +11,7 @@ const RARITY_COLORS = {
 };
 
 export default function Shop() {
+  const { t } = useLanguage();
   const [items, setItems] = useState([]);
   const [ownedItems, setOwnedItems] = useState({ ownedSkins: [], ownedEmotes: [], ownedAvatarFrames: [] });
   const [userBalance, setUserBalance] = useState({ coins: 0, gems: 0 });
@@ -79,7 +81,7 @@ export default function Shop() {
     const token = localStorage.getItem('accessToken');
     if (!token) {
       setIsError(true);
-      setMessage('Bạn cần đăng nhập để mua vật phẩm.');
+      setMessage(t('shop_login_required'));
       return;
     }
 
@@ -95,11 +97,11 @@ export default function Shop() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.message || 'Giao dịch thất bại.');
+        throw new Error(data.message || t('shop_buy_fail'));
       }
 
       setIsError(false);
-      setMessage('Mua vật phẩm thành công!');
+      setMessage(t('shop_buy_success'));
       
       // Refresh balance and inventory
       fetchShopData();
@@ -130,7 +132,7 @@ export default function Shop() {
   };
 
   return (
-    <div className="flex flex-col gap-8 select-none">
+    <div className="flex flex-col gap-8 select-none text-left">
       {/* Header and Balance Card */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
         <div className="text-left">
@@ -141,10 +143,10 @@ export default function Shop() {
               textShadow: '4px 4px 0px #ff5722'
             }}
           >
-            THE BLACK MARKET
+            {t('shop_title')}
           </h1>
           <p className="text-xs font-bold text-on-surface-variant mt-2 max-w-lg">
-            Trade your hard-earned shiny things for cool stuff that explodes better.
+            {t('shop_desc')}
           </p>
         </div>
 
@@ -167,11 +169,11 @@ export default function Shop() {
           </div>
           <button 
             onClick={() => {
-              alert("Tính năng nạp thêm Xu Vàng/Xu Hồng đang được phát triển!");
+              alert(t('shop_get_more_alert'));
             }}
             className="bg-[#9e1b1b] border-2 border-on-surface text-white text-[10px] font-headline font-black uppercase px-3.5 py-1.5 rounded-lg shadow-[2px_2px_0px_0px_#1a1c1c] hover:scale-105 active:scale-95 transition-all"
           >
-            GET MORE
+            {t('shop_get_more')}
           </button>
         </div>
       </div>
@@ -179,9 +181,9 @@ export default function Shop() {
       {/* Tabs Menu */}
       <div className="flex gap-4 flex-wrap border-b-3 border-dashed border-on-surface-variant pb-4">
         {[
-          { id: 'skin', label: 'CARD SLEEVES' },
-          { id: 'avatar_frame', label: 'AVATARS' },
-          { id: 'emote', label: 'EMOJIS' },
+          { id: 'skin', label: t('shop_tab_skins') },
+          { id: 'avatar_frame', label: t('shop_tab_avatars') },
+          { id: 'emote', label: t('shop_tab_emotes') },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -198,7 +200,7 @@ export default function Shop() {
           disabled
           className="px-6 py-3 border-3 border-dashed border-slate-300 bg-slate-50 text-slate-400 font-headline font-black text-xs uppercase rounded-lg cursor-not-allowed"
         >
-          BUNDLES (LOCKED)
+          {t('shop_bundles_locked')}
         </button>
       </div>
 
@@ -212,15 +214,15 @@ export default function Shop() {
 
       {/* Item Catalog Grid */}
       {loading ? (
-        <p className="text-center font-headline font-black text-lg py-12 animate-pulse">Đang tải cửa hàng...</p>
+        <p className="text-center font-headline font-black text-lg py-12 animate-pulse">{t('shop_loading')}</p>
       ) : filteredItems.length === 0 ? (
-        <div className="text-center py-16 bg-white border-4 border-on-surface shadow-[6px_6px_0px_0px_rgba(26,28,28,1)] rounded-3xl">
+        <div className="text-center py-16 bg-white border-4 border-on-surface shadow-[6px_6px_0px_0px_rgba(26,28,28,1)] rounded-3xl w-full">
           <span className="text-5xl">🛒</span>
-          <p className="font-headline font-black uppercase mt-4 text-on-surface">Cửa hàng trống!</p>
-          <p className="text-xs text-on-surface-variant font-bold mt-1">Không tìm thấy vật phẩm nào trong mục này.</p>
+          <p className="font-headline font-black uppercase mt-4 text-on-surface">{t('shop_empty_title')}</p>
+          <p className="text-xs text-on-surface-variant font-bold mt-1">{t('shop_empty_desc')}</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8 w-full">
           {filteredItems.map((item) => {
             const owned = isItemOwned(item);
             const isLegendary = item.rarity === 'legendary';
@@ -235,12 +237,12 @@ export default function Shop() {
                 {/* Ribbon labels overlay */}
                 {isLegendary && (
                   <div className="absolute top-3.5 left-[-6px] bg-yellow-400 border-2 border-on-surface text-[8px] font-headline font-black px-2 py-0.5 shadow-[1.5px_1.5px_0px_0px_#1a1c1c] uppercase tracking-wider -rotate-6 z-10">
-                    LEGENDARY
+                    {t('shop_legendary')}
                   </div>
                 )}
                 {isHot && (
                   <div className="absolute top-3.5 right-3.5 bg-rose-600 border-2 border-on-surface text-white text-[8px] font-headline font-black px-2 py-0.5 uppercase tracking-wider z-10">
-                    HOT
+                    {t('shop_hot')}
                   </div>
                 )}
 
@@ -293,13 +295,13 @@ export default function Shop() {
                   {owned ? (
                     <div className="flex gap-1.5 items-center">
                       <span className="bg-emerald-50 border-2 border-emerald-400 text-emerald-700 text-[9px] font-headline font-black px-2 py-0.5 rounded">
-                        OWNED
+                        {t('shop_owned')}
                       </span>
                       <button 
                         disabled
                         className="bg-white border-2 border-slate-200 text-[9px] font-headline font-black uppercase px-2.5 py-1 rounded cursor-not-allowed text-slate-400"
                       >
-                        EQUIP
+                        {t('shop_equip')}
                       </button>
                     </div>
                   ) : (
@@ -310,7 +312,7 @@ export default function Shop() {
                           ? 'bg-yellow-400 text-slate-950 hover:bg-yellow-300' 
                           : 'bg-[#9e1b1b] text-white hover:bg-red-800'}`}
                     >
-                      BUY
+                      {t('shop_buy')}
                     </button>
                   )}
                 </div>
@@ -321,16 +323,16 @@ export default function Shop() {
       )}
 
       {/* Weekend Chaos Bundle Promo Banner */}
-      <div className="bg-[#9e1b1b] border-3 border-on-surface rounded-xl p-6 md:p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 shadow-[6px_6px_0px_0px_#1a1c1c] text-white text-left relative overflow-hidden mt-6">
+      <div className="bg-[#9e1b1b] border-3 border-on-surface rounded-xl p-6 md:p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 shadow-[6px_6px_0px_0px_#1a1c1c] text-white text-left relative overflow-hidden mt-6 w-full">
         <div className="flex flex-col gap-3 max-w-xl z-10">
           <h2 className="font-headline font-black text-2xl md:text-3xl uppercase tracking-wider text-white">
-            WEEKEND CHAOS BUNDLE
+            {t('shop_promo_title')}
           </h2>
           <p className="text-xs md:text-sm font-medium text-red-100 leading-relaxed">
-            Get 10 Random Sleeves, 5 Avatars, and 1,000 Pink Coins. Highly unstable, handle with care.
+            {t('shop_promo_desc')}
           </p>
           <div className="inline-block self-start bg-yellow-400 border-2 border-on-surface text-slate-950 text-[9px] font-headline font-black uppercase px-2 py-1 tracking-wider -rotate-2 mt-1 shadow-[1.5px_1.5px_0px_0px_#1a1c1c]">
-            -50% OFF UNTIL MONDAY
+            {t('shop_promo_discount')}
           </div>
         </div>
 
@@ -339,10 +341,10 @@ export default function Shop() {
             $9.99
           </span>
           <button 
-            onClick={() => alert("Hệ thống thanh toán đang bảo trì. Vui lòng thử lại sau!")}
+            onClick={() => alert(t('shop_payment_maintenance_alert'))}
             className="bg-white border-3 border-on-surface text-slate-950 font-headline font-black text-xs uppercase px-6 py-3 rounded-lg shadow-[3px_3px_0px_0px_#1a1c1c] hover:scale-105 active:scale-95 transition-all text-center"
           >
-            DETONATE WALLET
+            {t('shop_promo_buy')}
           </button>
         </div>
         
