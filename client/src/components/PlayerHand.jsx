@@ -77,9 +77,23 @@ const GODCAT_TRANSFORM_TYPES = [
   { type: 'reveal_the_future_3x', label: 'Xem Trước Tương Lai (Reveal Future)' },
 ];
 
-export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, targetPlayerId, nopeWindowActive, onDiscard, maxHandSize = 10 }) {
+const isCatCardType = (type) => type.startsWith('cat_') || type === 'feral_cat' || type === 'godcat';
+
+export default function PlayerHand({ 
+  hand, 
+  onPlayCard, 
+  onPlayCombo, 
+  isMyTurn, 
+  targetPlayerId, 
+  nopeWindowActive, 
+  onDiscard, 
+  maxHandSize = 10,
+  players = [],
+  myUserId
+}) {
   const [selectedIds, setSelectedIds] = useState([]);
   const [combo3Pending, setCombo3Pending] = useState(null); // { ids, targetPlayerId }
+  const [combo3Step, setCombo3Step] = useState('target'); // 'target' | 'card'
   const [godcatPending, setGodcatPending] = useState(null); // { id }
 
   const containerRef = useRef(null);
@@ -127,9 +141,28 @@ export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, ta
   };
 
   const toggleSelectCard = (cardId) => {
-    setSelectedIds((prev) =>
-      prev.includes(cardId) ? prev.filter((id) => id !== cardId) : [...prev, cardId]
-    );
+    const clickedCard = hand.find((c) => c.id === cardId);
+    if (!clickedCard) return;
+
+    const clickedIsCat = isCatCardType(clickedCard.type);
+
+    setSelectedIds((prev) => {
+      if (prev.includes(cardId)) {
+        return prev.filter((id) => id !== cardId);
+      }
+
+      if (clickedIsCat) {
+        // Filter out any non-cat cards from previous selection
+        const prevCats = prev.filter(id => {
+          const c = hand.find(card => card.id === id);
+          return c && isCatCardType(c.type);
+        });
+        return [...prevCats, cardId];
+      } else {
+        // Action card: clear all and select only this one
+        return [cardId];
+      }
+    });
   };
 
   const clearSelection = () => {
@@ -167,8 +200,9 @@ export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, ta
   const handlePlayCombo = () => {
     if (selectedIds.length < 2) return;
     if (selectedIds.length === 3) {
-      // 3-card combo: need to pick the card type to steal
-      setCombo3Pending({ ids: selectedIds });
+      // 3-card combo: need to pick the target and card type to steal
+      setCombo3Pending({ ids: selectedIds, targetPlayerId: null });
+      setCombo3Step('target');
       clearSelection();
       return;
     }
@@ -176,11 +210,15 @@ export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, ta
     clearSelection();
   };
 
+  const handleSelectTarget = (opponentId) => {
+    setCombo3Pending(prev => ({ ...prev, targetPlayerId: opponentId }));
+    setCombo3Step('card');
+  };
+
   const handleCombo3StealConfirm = (stealType) => {
-    if (!combo3Pending) return;
-    // Send combo with stealCardType in options via a custom event
-    // Target will be selected after playing via SelectTargetModal
-    onPlayCombo(combo3Pending.ids, null, stealType);
+    if (!combo3Pending || !combo3Pending.targetPlayerId) return;
+    // Send combo with targetPlayerId and stealCardType directly
+    onPlayCombo(combo3Pending.ids, combo3Pending.targetPlayerId, stealType);
     setCombo3Pending(null);
   };
 
@@ -250,8 +288,66 @@ export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, ta
     return false;
   };
 
+  const canPerformAction = useMemo(() => {
+    if (hand.length > maxHandSize) {
+      return selectedIds.length === 1;
+    }
+    const selected = hand.filter((c) => selectedIds.includes(c.id));
+    if (selected.length === 0) return false;
+
+    const firstCard = selected[0];
+    const isCat = isCatCardType(firstCard.type);
+
+    if (isCat) {
+      return isComboPlayable();
+    } else {
+      return isSinglePlayable();
+    }
+  }, [selectedIds, hand, maxHandSize, isComboPlayable, isSinglePlayable]);
+
+  const buttonText = useMemo(() => {
+    if (hand.length > maxHandSize) {
+      return "Bỏ Bài";
+    }
+    if (selectedIds.length === 0) {
+      return "Đánh Bài";
+    }
+    const selected = hand.filter((c) => selectedIds.includes(c.id));
+    const firstCard = selected[0];
+    const isCat = isCatCardType(firstCard.type);
+
+    if (isCat) {
+      return `Combo ${selected.length} Lá Mèo`;
+    } else {
+      return "Đánh Bài";
+    }
+  }, [selectedIds, hand, maxHandSize]);
+
+  const handleButtonClick = () => {
+    if (!canPerformAction) return;
+
+    if (hand.length > maxHandSize) {
+      if (selectedIds.length !== 1) return;
+      if (onDiscard) onDiscard(selectedIds[0]);
+      clearSelection();
+    } else {
+      const selected = hand.filter((c) => selectedIds.includes(c.id));
+      const firstCard = selected[0];
+      const isCat = isCatCardType(firstCard.type);
+
+      if (isCat) {
+        handlePlayCombo();
+      } else {
+        handlePlaySingle();
+      }
+    }
+  };
+
   return (
-    <div className="w-full bg-white border-4 border-on-surface shadow-[6px_6px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-5 flex flex-col gap-4">
+    <div className={`w-full bg-white border-4 rounded-3xl p-5 flex flex-col gap-4 transition-all duration-300
+      ${hand.length > maxHandSize 
+        ? 'border-rose-500 shadow-[6px_6px_0px_0px_rgba(239,68,68,1)]' 
+        : 'border-on-surface shadow-[6px_6px_0px_0px_rgba(26,28,28,1)]'}`}>
       {/* Control Actions Bar */}
       <div className="flex justify-between items-center border-b-3 border-on-surface pb-3 flex-wrap gap-4">
         <div className="flex items-center gap-2">
@@ -283,19 +379,15 @@ export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, ta
           )}
 
           <button
-            onClick={handlePlaySingle}
-            disabled={!isSinglePlayable()}
-            className="btn-detonator px-5 py-1.5 rounded-xl text-xs font-headline font-black uppercase shadow-[2px_2px_0px_0px_#1a1c1c]"
+            onClick={handleButtonClick}
+            disabled={!canPerformAction}
+            className={`rounded-xl font-headline font-black uppercase transition-all duration-100 relative
+              ${hand.length > maxHandSize
+                ? 'px-7 py-2.5 text-sm bg-rose-500 text-white border-3 border-on-surface border-b-[6px] shadow-[4px_4px_0px_0px_#1a1c1c] hover:scale-105 hover:-translate-y-0.5 active:translate-x-1 active:translate-y-1 active:border-b-3 active:shadow-none animate-bounce z-30'
+                : 'btn-detonator px-5 py-1.5 text-xs'
+              }`}
           >
-            {hand.length > maxHandSize ? "Bỏ Bớt Bài 🗑️" : "Đánh Bài"}
-          </button>
-
-          <button
-            onClick={handlePlayCombo}
-            disabled={!isComboPlayable()}
-            className="btn-detonator px-5 py-1.5 rounded-xl text-xs font-headline font-black uppercase bg-indigo-400 text-slate-950 shadow-[2px_2px_0px_0px_#1a1c1c]"
-          >
-            Combo ({selectedIds.length}) Mèo
+            {buttonText}
           </button>
         </div>
       </div>
@@ -366,41 +458,97 @@ export default function PlayerHand({ hand, onPlayCard, onPlayCombo, isMyTurn, ta
         </div>
       )}
 
-      {/* 3-Cat Combo: Card Type Picker Modal */}
-      {combo3Pending && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-white border-4 border-on-surface rounded-3xl shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] p-6 max-w-sm w-full mx-4 flex flex-col gap-4">
-            <div className="flex flex-col gap-1">
-              <span className="text-sm font-headline font-black text-on-surface uppercase tracking-wide">3 Mèo Combo</span>
-              <p className="text-xs font-bold text-on-surface-variant">Chọn loại bài muốn lấy từ đối thủ:</p>
-            </div>
-            <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
-              {CAT_TYPES.map((ct) => (
+      {/* 3-Cat Combo: Target & Card Picker Wizard Modal */}
+      {combo3Pending && (() => {
+        const aliveOpponents = players.filter((p) => p.alive && p.userId !== myUserId);
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <div className="bg-white border-4 border-on-surface rounded-3xl shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] p-6 max-w-xl w-full mx-4 flex flex-col gap-4 text-slate-900">
+              {combo3Step === 'target' ? (
+                <>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-lg font-headline font-black text-primary uppercase tracking-wide">3 Mèo Combo: Bước 1</span>
+                    <p className="text-xs font-bold text-slate-500">Chọn mục tiêu để lấy bài:</p>
+                  </div>
+                  <div className="flex flex-col gap-2 max-h-60 overflow-y-auto pr-1">
+                    {aliveOpponents.length === 0 ? (
+                      <div className="text-center py-4 text-xs font-bold text-slate-400">Không có đối thủ nào khả dụng.</div>
+                    ) : (
+                      aliveOpponents.map((opp) => (
+                        <button
+                          key={opp.userId}
+                          onClick={() => handleSelectTarget(opp.userId)}
+                          className="flex items-center justify-between p-3 border-2 border-on-surface rounded-xl bg-surface hover:bg-yellow-50/50 transition-all shadow-[1.5px_1.5px_0px_0px_#1a1c1c] active:translate-y-0.5 active:shadow-none text-left"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="h-8 w-8 rounded-full bg-indigo-100 border border-on-surface flex items-center justify-center text-xs font-headline font-black uppercase text-indigo-700 animate-pulse">
+                              {opp.username ? opp.username.slice(0, 2).toUpperCase() : opp.userId.slice(0, 2).toUpperCase()}
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-xs font-headline font-black text-on-surface uppercase">{opp.username || opp.userId}</span>
+                              <span className="text-[9px] font-bold text-slate-400">{opp.handCount} lá bài</span>
+                            </div>
+                          </div>
+                          <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-lg uppercase">Chọn</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-lg font-headline font-black text-primary uppercase tracking-wide">3 Mèo Combo: Bước 2</span>
+                    <p className="text-xs font-bold text-slate-500">
+                      Chọn loại bài muốn lấy từ <span className="text-indigo-600 font-bold uppercase">{players.find(p => p.userId === combo3Pending.targetPlayerId)?.username || 'đối thủ'}</span>:
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[360px] overflow-y-auto p-2 bg-slate-50 rounded-2xl border border-slate-200">
+                    {CAT_TYPES.map((ct) => (
+                      <div
+                        key={ct.type}
+                        onClick={() => handleCombo3StealConfirm(ct.type)}
+                        className="group flex flex-col items-center justify-center p-2 rounded-2xl border-2 border-on-surface bg-white shadow-[2px_2px_0px_0px_#1a1c1c] hover:scale-[1.03] hover:bg-yellow-50/50 transition-all cursor-pointer select-none"
+                      >
+                        <div className="scale-90 pointer-events-none origin-center mb-1">
+                          <Card type={ct.type} compact={true} disabled={true} />
+                        </div>
+                        <span className="text-[10px] font-headline font-black text-on-surface uppercase group-hover:text-primary transition-colors text-center px-1">
+                          {ct.label}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              <div className="flex justify-between items-center mt-2 gap-3">
+                {combo3Step === 'card' && (
+                  <button
+                    onClick={() => setCombo3Step('target')}
+                    className="px-4 py-2 text-xs font-headline font-black border-2 border-on-surface rounded-xl bg-slate-100 hover:bg-slate-200 transition-all shadow-[1.5px_1.5px_0px_0px_#1a1c1c] uppercase"
+                  >
+                    Quay lại
+                  </button>
+                )}
                 <button
-                  key={ct.type}
-                  onClick={() => handleCombo3StealConfirm(ct.type)}
-                  className="px-3 py-2.5 text-xs font-headline font-black border-2 border-on-surface rounded-xl bg-surface hover:bg-primary hover:text-on-primary transition-all shadow-[1.5px_1.5px_0px_0px_#1a1c1c] active:translate-y-0.5 active:shadow-none uppercase text-left"
+                  onClick={() => setCombo3Pending(null)}
+                  className="px-4 py-2 text-xs font-headline font-black border-2 border-on-surface rounded-xl bg-white hover:bg-red-50 text-red-600 border-red-600 transition-all shadow-[1.5px_1.5px_0px_0px_rgba(220,38,38,1)] uppercase ml-auto"
                 >
-                  {ct.label}
+                  Hủy
                 </button>
-              ))}
+              </div>
             </div>
-            <button
-              onClick={() => setCombo3Pending(null)}
-              className="px-4 py-2 text-xs font-headline font-black border-2 border-on-surface rounded-xl bg-surface hover:bg-slate-100 transition-all shadow-[1.5px_1.5px_0px_0px_#1a1c1c] uppercase"
-            >
-              Hủy
-            </button>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Godcat transformation: Card Type Picker Modal */}
       {godcatPending && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="bg-white border-4 border-on-surface rounded-3xl shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] p-6 max-w-sm w-full mx-4 flex flex-col gap-4">
             <div className="flex flex-col gap-1 text-slate-900">
-              <span className="text-sm font-headline font-black text-primary uppercase tracking-wide">🐱 Hóa Thân Godcat</span>
+              <span className="text-sm font-headline font-black text-primary uppercase tracking-wide">Hóa Thân Godcat</span>
               <p className="text-xs font-bold text-on-surface-variant">Chọn loại chức năng bạn muốn hóa thân thành:</p>
             </div>
             <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">

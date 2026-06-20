@@ -270,6 +270,7 @@ function resolveGarbageCollection(gameState, playerId, cardId) {
     const [card] = player.hand.splice(idx, 1);
     gameState.deck.push(card);
     gameState.pendingGarbage.responses[playerId] = cardId;
+    checkStreakingKittenEffect(gameState, playerId);
   }
 
   const activeWithCards = gameState.players.filter((p) => p.alive && p.hand.length > 0);
@@ -296,6 +297,7 @@ function resolvePotLuck(gameState, playerId, cardId) {
   if (idx >= 0) {
     const [card] = player.hand.splice(idx, 1);
     gameState.pendingPotLuck.responses[playerId] = card;
+    checkStreakingKittenEffect(gameState, playerId);
   }
 
   const activeWithCards = gameState.players.filter((p) => p.alive && p.hand.length > 0);
@@ -379,6 +381,7 @@ function resolveCombo5(gameState, cardId) {
   if (index >= 0) {
     const [card] = gameState.discardPile.splice(index, 1);
     player.hand.push(card);
+    checkStreakingKittenEffect(gameState, player.userId);
   }
   gameState.pendingCombo5 = null;
   return gameState;

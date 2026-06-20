@@ -225,4 +225,46 @@ body {
   animation: border-pulse-red 0.5s ease-in-out infinite;
 }
 
+/* Active Turn UX Upgrade animations */
+@keyframes comic-float {
+  0%, 100% {
+    transform: translateY(0) rotate(-8deg);
+  }
+  50% {
+    transform: translateY(-6px) rotate(-8deg);
+  }
+}
+.animate-comic-float {
+  animation: comic-float 2s ease-in-out infinite;
+}
+
+@keyframes brutal-glow {
+  0%, 100% {
+    box-shadow: 6px 6px 0px 0px #1a1c1c;
+    border-color: #1a1c1c;
+  }
+  50% {
+    box-shadow: 6px 6px 14px rgba(234, 179, 8, 0.6), 6px 6px 0px 0px #1a1c1c;
+    border-color: #eab308;
+  }
+}
+.animate-brutal-glow {
+  animation: brutal-glow 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-gold-glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(234, 179, 8, 0.3);
+    border-color: rgba(234, 179, 8, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(234, 179, 8, 0.8);
+    border-color: rgba(234, 179, 8, 1);
+  }
+}
+.animate-pulse-gold-glow {
+  animation: pulse-gold-glow 2s infinite ease-in-out;
+}
+
+
 

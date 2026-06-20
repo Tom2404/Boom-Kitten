@@ -50,12 +50,11 @@ export default function DiscardPile({ discardPile = [], pendingCombo5, myUserId,
             onClick={() => setIsOpen(true)}
             className="absolute inset-0 rounded-xl bg-purple-500/30 border-3 border-purple-500 animate-pulse flex flex-col items-center justify-center gap-2 text-center p-2"
           >
-            <span className="text-3xl">⚡</span>
             <span className="text-[10px] font-headline font-black text-white uppercase tracking-wider bg-purple-600 px-2 py-0.5 rounded border border-on-surface shadow">Chọn Bài (Combo 5)</span>
           </button>
         )}
       </div>
-
+ 
       <div className="flex flex-col items-center">
         <span className="text-[9px] font-headline font-black text-slate-400 text-center max-w-[120px] leading-tight uppercase mt-1">
           DISCARD
@@ -65,7 +64,7 @@ export default function DiscardPile({ discardPile = [], pendingCombo5, myUserId,
           disabled={discardPile.length === 0}
           className="text-[10px] font-headline font-black text-slate-400 hover:text-white underline disabled:opacity-50 disabled:no-underline uppercase mt-1"
         >
-          Xem chồng bài bỏ 👁️
+          Xem chồng bài bỏ
         </button>
       </div>
 

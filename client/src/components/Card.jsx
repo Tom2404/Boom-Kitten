@@ -363,7 +363,6 @@ export default function Card({ type, skinIndex = 0, selected, onClick, disabled,
       >
         {marked && (
           <span className="absolute -top-3 -left-2.5 z-30 bg-rose-500 text-white font-headline font-black text-[9px] px-2.5 py-1 rounded-full border-2 border-on-surface shadow-[1px_1px_0px_0px_#1a1c1c] uppercase tracking-wider animate-pulse flex items-center gap-1">
-            <span>👁</span>
             <span>{t('card_marked')}</span>
           </span>
         )}

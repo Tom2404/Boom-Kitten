@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useGame } from '../hooks/useGame.js';
-import PlayerAvatar from '../components/PlayerAvatar.jsx';
+import PlayerAvatar, { PRESET_AVATARS } from '../components/PlayerAvatar.jsx';
 import PlayerHand from '../components/PlayerHand.jsx';
 import DeckPile from '../components/DeckPile.jsx';
 import DiscardPile from '../components/DiscardPile.jsx';
@@ -529,6 +529,7 @@ export default function Game() {
   const [drewKittenAlert, setDrewKittenAlert] = useState(null);
   const [nopeAlert, setNopeAlert] = useState(null);
   const [isRedFlashActive, setIsRedFlashActive] = useState(false);
+  const [isImplodingActive, setIsImplodingActive] = useState(false);
 
   const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5000';
 
@@ -897,11 +898,18 @@ export default function Game() {
         }
       );
 
-      // Trigger red screen border flash
-      setIsRedFlashActive(true);
-      setTimeout(() => {
-        setIsRedFlashActive(false);
-      }, 1500);
+      if (cardType === 'imploding_kitten') {
+        setIsImplodingActive(true);
+        setTimeout(() => {
+          setIsImplodingActive(false);
+        }, 2500);
+      } else {
+        // Trigger red screen border flash
+        setIsRedFlashActive(true);
+        setTimeout(() => {
+          setIsRedFlashActive(false);
+        }, 1500);
+      }
 
       // Show warning banner overlay
       setDrewKittenAlert({ active: true, playerName: username, cardType });
@@ -1475,7 +1483,7 @@ export default function Game() {
                         <td className="py-4 px-6">{room.players[0]?.username || 'Ẩn danh'}</td>
                         <td className="py-4 px-6">
                           <span className="text-[9px] font-headline font-black text-indigo-600 bg-indigo-50 border-2 border-indigo-200 px-2.5 py-0.5 rounded-lg">
-                            {EDITION_NAMES[room.edition] || room.edition}
+                            {t('edition_' + room.edition + '_name') || room.edition}
                           </span>
                         </td>
                         <td className="py-4 px-6 text-center">
@@ -1767,7 +1775,7 @@ export default function Game() {
             _{roomState.code.slice(0, 3)}
           </span>
           <span className="text-[9px] font-headline font-black bg-indigo-50 border-2 border-on-surface text-indigo-700 px-2 py-0.5 rounded-lg shadow-[1px_1px_0px_0px_#1a1c1c] uppercase tracking-wide">
-            {EDITION_NAMES[roomState.edition] || roomState.edition || EDITION_NAMES.original}
+            {t('edition_' + roomState.edition + '_name') || roomState.edition}
           </span>
         </div>
 
@@ -1815,12 +1823,12 @@ export default function Game() {
             </div>
             {isMyTurn ? (
               <span className="bg-yellow-400 text-slate-950 font-headline font-black text-[10px] px-3.5 py-1.5 rounded-full border-2 border-on-surface shadow-[1.5px_1.5px_0px_0px_#1a1c1c] animate-pulse">
-                👉 LƯỢT CỦA BẠN: CẦN BỐC {gameState.drawsRequired} LÁ!
+                LƯỢT CỦA BẠN: CẦN BỐC {gameState.drawsRequired} LÁ!
               </span>
             ) : (
               gameState.drawsRequired > 1 && (
                 <span className="bg-secondary text-on-error font-headline font-black text-[10px] px-3.5 py-1.5 rounded-full border-2 border-on-surface shadow-[1.5px_1.5px_0px_0px_#1a1c1c] animate-bounce">
-                  ⚠️ LƯỢT DỒN BỐC: {gameState.drawsRequired} LẦN!
+                  LƯỢT DỒN BỐC: {gameState.drawsRequired} LẦN!
                 </span>
               )
             )}
@@ -1880,7 +1888,7 @@ export default function Game() {
                   
                   {targetPlayerId && (
                     <div className="bg-yellow-400 border-2 border-on-surface text-slate-950 text-[9px] font-headline font-black uppercase tracking-wider px-3.5 py-0.5 rounded-full flex items-center gap-1.5 shadow-[1.5px_1.5px_0px_0px_#1a1c1c]">
-                      🎯 Mục tiêu: {opponents.find((o) => o.userId === targetPlayerId)?.username || targetPlayerId}
+                      Mục tiêu: {opponents.find((o) => o.userId === targetPlayerId)?.username || targetPlayerId}
                       <button 
                         onClick={() => setTargetPlayerId(null)}
                         className="hover:scale-110 ml-1.5"
@@ -1902,7 +1910,10 @@ export default function Game() {
             </div>
 
             {/* Bottom Row: Player avatar & Hand, nested inside the solid deep red Brutalist bar */}
-            <div className="w-[calc(100%+3rem)] -mx-6 -mb-6 bg-[#b7131a] border-t-4 border-on-surface p-5 z-10 flex flex-col md:flex-row gap-5 items-stretch justify-between shadow-[0_-4px_0px_0px_#1a1c1c]">
+            <div className={`w-[calc(100%+3rem)] -mx-6 -mb-6 bg-[#b7131a] border-t-4 p-5 z-10 flex flex-col md:flex-row gap-5 items-stretch justify-between transition-all duration-300
+              ${isMyTurn 
+                ? 'border-yellow-400 animate-pulse-gold-glow' 
+                : 'border-on-surface shadow-[0_-4px_0px_0px_#1a1c1c]'}`}>
               <div className="flex items-center justify-center bg-black/15 p-4 rounded-2xl border-2 border-dashed border-white/20 flex-shrink-0">
                 {myPlayerState && (
                   <div className="flex flex-col items-center gap-4 relative">
@@ -1930,6 +1941,8 @@ export default function Game() {
                   nopeWindowActive={nopeWindow && nopeWindow.active}
                   onDiscard={discardCard}
                   maxHandSize={gameState.maxHandSize ?? 10}
+                  players={gameState?.players || []}
+                  myUserId={myUser.id}
                 />
               </div>
 
@@ -1960,7 +1973,7 @@ export default function Game() {
                   ? 'bg-primary text-on-primary -translate-y-0.5 shadow-[2.5px_2.5px_0px_0px_rgba(26,28,28,1)]' 
                   : 'bg-surface hover:bg-slate-100'}`}
             >
-              Chat 💬
+              Chat
             </button>
             <button
               onClick={() => setRightPanelTab('log')}
@@ -1969,7 +1982,7 @@ export default function Game() {
                   ? 'bg-primary text-on-primary -translate-y-0.5 shadow-[2.5px_2.5px_0px_0px_rgba(26,28,28,1)]' 
                   : 'bg-surface hover:bg-slate-100'}`}
             >
-              Lịch sử 📜
+              Lịch sử
             </button>
           </div>
 
@@ -2121,7 +2134,7 @@ export default function Game() {
       {garbageRequest && garbageRequest.active && (
         <GarbageSelectModal
           hand={privateHand}
-          title="🗑️ Thu Gom Rác (Garbage Collection)"
+          title="Thu Gom Rác (Garbage Collection)"
           description="Hãy chọn 1 lá bài từ tay của bạn để bỏ ngược lại vào bộ bài bốc."
           onRespond={respondGarbage}
         />
@@ -2131,7 +2144,7 @@ export default function Game() {
       {potLuckRequest && potLuckRequest.active && (
         <GarbageSelectModal
           hand={privateHand}
-          title="🍲 Góp Nồi (Pot Luck)"
+          title="Góp Nồi (Pot Luck)"
           description="Hãy chọn 1 lá bài từ tay của bạn để đặt lên đầu bộ bài bốc."
           onRespond={respondPotLuck}
         />
@@ -2262,7 +2275,7 @@ export default function Game() {
         const winnerAvatar = winnerPlayer?.avatar || '';
 
         return (
-          <div className="fixed inset-0 z-50 overflow-y-auto bg-[#faf9f6] flex flex-col items-center justify-between p-6 md:p-8 animate-fade-in select-none">
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-[#faf9f6] flex flex-col items-center justify-between p-6 md:p-8 animate-fade-in select-none ended-overlay-anim">
             {/* Confetti Container */}
             <div id="confetti-container" className="fixed inset-0 pointer-events-none z-[999] overflow-hidden" />
 
@@ -2320,7 +2333,7 @@ export default function Game() {
                 <div className="bg-white border-4 border-slate-950 shadow-[6px_6px_0px_0px_#1a1c1c] rounded-3xl p-6 flex flex-col justify-between">
                   <div>
                     <h3 className="font-headline font-black text-base md:text-lg text-slate-950 uppercase mb-4 flex items-center gap-1.5 pb-2 border-b-3 border-on-surface">
-                      📋 MATCH SUMMARY
+                      MATCH SUMMARY
                     </h3>
                     <div className="flex flex-col gap-3 font-headline text-xs md:text-sm">
                       <div className="flex justify-between items-center py-1">
@@ -2345,7 +2358,7 @@ export default function Game() {
                 <div className="bg-white border-4 border-slate-950 shadow-[6px_6px_0px_0px_#1a1c1c] rounded-3xl p-6 flex flex-col justify-between gap-4">
                   <div>
                     <h3 className="font-headline font-black text-base md:text-lg text-slate-950 uppercase mb-4 flex items-center gap-1.5 pb-2 border-b-3 border-on-surface">
-                      🎁 LOOT EARNED
+                      LOOT EARNED
                     </h3>
                     <div className={`grid gap-4 w-full ${pinkCoinEarned > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
                       {/* Coins Card */}
@@ -2357,8 +2370,7 @@ export default function Game() {
 
                       {/* ELO Card */}
                       <div className="bg-cyan-50 border-3 border-slate-950 shadow-[3px_3px_0px_0px_#1a1c1c] p-3 rounded-2xl flex flex-col items-center justify-center text-center">
-                        <span className="text-2xl mb-1">🔥</span>
-                        <span className={`font-headline font-black text-[11px] uppercase ${eloChange >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        <span className={`font-headline font-black text-[11px] uppercase mt-2 ${eloChange >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                           {eloChange >= 0 ? `+${eloChange}` : eloChange}
                         </span>
                         <span className="text-[9px] font-bold text-on-surface-variant uppercase mt-0.5">Elo Change</span>
@@ -2385,7 +2397,7 @@ export default function Game() {
                     </div>
                     {pinkCoinEarned > 0 && (
                       <div className="bg-pink-500 text-white font-headline font-black text-[9px] md:text-[10px] text-center py-1.5 px-3 rounded-lg border-2 border-slate-950 shadow-[1.5px_1.5px_0px_0px_#1a1c1c] uppercase tracking-wider animate-pulse flex items-center justify-center gap-1">
-                        🎉 RANK UP REWARD: +{pinkCoinEarned} PINK COINS!
+                        RANK UP REWARD: +{pinkCoinEarned} PINK COINS!
                       </div>
                     )}
                   </div>
@@ -2399,7 +2411,7 @@ export default function Game() {
                   onClick={playAgain}
                   className="flex-1 bg-orange-500 text-white font-headline font-black text-sm uppercase py-3.5 rounded-2xl border-3 border-slate-950 shadow-[4px_4px_0px_0px_#1a1c1c] active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0px_0px_#1a1c1c] hover:-translate-y-0.5 transition-all duration-100 flex items-center justify-center gap-2"
                 >
-                  🚀 PLAY AGAIN
+                  PLAY AGAIN
                 </button>
                 <button
                   onClick={() => {
@@ -2408,7 +2420,7 @@ export default function Game() {
                   }}
                   className="flex-1 bg-white text-slate-950 font-headline font-black text-sm uppercase py-3.5 rounded-2xl border-3 border-slate-950 shadow-[4px_4px_0px_0px_#1a1c1c] active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0px_0px_#1a1c1c] hover:-translate-y-0.5 transition-all duration-100 flex items-center justify-center gap-2"
                 >
-                  🏠 RETURN TO LOBBY
+                  RETURN TO LOBBY
                 </button>
               </div>
 
@@ -2441,6 +2453,41 @@ export default function Game() {
 
       {isRedFlashActive && (
         <div className="fixed inset-0 pointer-events-none z-[99999] border-[16px] animate-border-flash-red rounded-3xl" />
+      )}
+
+      {isImplodingActive && (
+        <div className="fixed inset-0 pointer-events-none z-[999999] flex items-center justify-center bg-slate-950/70 backdrop-blur-md animate-fade-in">
+          <div className="relative flex flex-col items-center justify-center gap-4">
+            <svg
+              className="w-56 h-56 text-purple-500 animate-spin-ccw filter drop-shadow-[0_0_20px_rgba(168,85,247,0.5)]"
+              viewBox="0 0 100 100"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M50 5C25.1 5 5 25.1 5 50s20.1 45 45 45 45-20.1 45-45S74.9 5 50 5zm0 80c-19.3 0-35-15.7-35-35s15.7-35 35-35 35 15.7 35 35-15.7 35-35 35z"
+                fill="currentColor"
+                className="opacity-10"
+              />
+              <path
+                d="M50 15C30.7 15 15 30.7 15 50c0 9.7 3.9 18.4 10.2 24.8l7.1-7.1C27.2 62.7 25 56.6 25 50c0-13.8 11.2-25 25-25v-10z"
+                fill="currentColor"
+              />
+              <path
+                d="M50 25C36.2 25 25 36.2 25 50c0 6.9 2.8 13.1 7.3 17.7l7.1-7.1C37.3 58.7 35 54.6 35 50c0-8.3 6.7-15 15-15v-10z"
+                fill="currentColor"
+                className="opacity-70"
+              />
+            </svg>
+            <div className="absolute flex flex-col items-center">
+              <span className="text-white font-headline font-black text-5xl italic uppercase tracking-widest text-center select-none [-webkit-text-stroke:2px_#1a1c1c] drop-shadow-[4px_4px_0px_#7c3aed]">
+                IMPLODING!
+              </span>
+              <span className="text-purple-300 font-sans font-bold text-xs uppercase tracking-widest mt-2 animate-pulse">
+                Sập nguồn vũ trụ
+              </span>
+            </div>
+          </div>
+        </div>
       )}
 
       {drewKittenAlert && drewKittenAlert.active && (() => {

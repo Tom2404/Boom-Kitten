@@ -144,7 +144,7 @@ export default function App() {
             onClick={() => navigateWithConfirm('Home')}
             className="font-headline text-2xl md:text-3xl italic font-black text-primary uppercase tracking-tighter hover:scale-105 hover:-translate-y-1 transition-all duration-100"
           >
-            EXPLODING KITTENS 💣
+            EXPLODING KITTENS
           </button>
           
           <div className="flex gap-4 md:gap-8 items-center flex-wrap">

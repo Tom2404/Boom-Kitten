@@ -15,6 +15,8 @@ export default function DeckPile({ count, topCard, onDraw, isMyTurn, disabled, c
   const sizeClass = compact ? 'h-36 w-28' : 'h-44 w-32';
   const innerTextClass = compact ? 'text-[9px]' : 'text-[10px]';
 
+  const hasFaceUpCard = topCard && topCard.faceUp;
+
   return (
     <div className="flex flex-col items-center gap-2">
       <span className="text-xs font-headline font-black text-white uppercase tracking-wider bg-on-background px-3 py-0.5 rounded-lg border-2 border-on-surface shadow-[1.5px_1.5px_0px_0px_#1a1c1c] rotate-[-2deg]">BÀI BỐC</span>
@@ -26,10 +28,14 @@ export default function DeckPile({ count, topCard, onDraw, isMyTurn, disabled, c
           e.stopPropagation();
           setIsOpen(true);
         }}
-        className={`relative ${sizeClass} rounded-xl border-3 border-on-surface bg-[#b7131a] flex flex-col items-center justify-center p-3 select-none transition-all duration-100
-          ${isClickable 
-            ? 'cursor-pointer hover:-translate-y-2 hover:shadow-[6px_6px_0px_0px_rgba(26,28,28,1)] shadow-[4px_4px_0px_0px_rgba(26,28,28,1)]' 
-            : 'border-slate-800 cursor-pointer hover:-translate-y-1 shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]'}`}
+        className={`relative ${sizeClass} select-none transition-all duration-100 rounded-xl
+          ${hasFaceUpCard 
+            ? 'bg-transparent border-0 ' + (isClickable 
+                ? 'cursor-pointer hover:-translate-y-2' 
+                : 'cursor-pointer hover:-translate-y-1')
+            : 'border-3 border-on-surface bg-[#b7131a] p-3 ' + (isClickable 
+                ? 'cursor-pointer hover:-translate-y-2 hover:shadow-[6px_6px_0px_0px_rgba(26,28,28,1)] shadow-[4px_4px_0px_0px_rgba(26,28,28,1)]' 
+                : 'border-slate-800 cursor-pointer hover:-translate-y-1 shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]')}`}
       >
         {/* Stack effect */}
         {count > 1 && (
@@ -40,9 +46,9 @@ export default function DeckPile({ count, topCard, onDraw, isMyTurn, disabled, c
         )}
 
         {/* Custom Spikey Starburst SVG or Face-Up top card */}
-        {topCard && topCard.faceUp ? (
-          <div className="absolute inset-0 bg-transparent flex items-center justify-center scale-[0.95] overflow-visible">
-            <Card type={topCard.type} disabled={true} compact={compact} />
+        {hasFaceUpCard ? (
+          <div className="absolute inset-0 bg-transparent flex items-center justify-center overflow-visible pointer-events-none">
+            <Card type={topCard.type} disabled={false} compact={compact} />
           </div>
         ) : (
           <div className="absolute inset-2 border-2 border-dashed border-white/20 rounded-lg flex flex-col items-center justify-center bg-[#b7131a]">
@@ -70,7 +76,7 @@ export default function DeckPile({ count, topCard, onDraw, isMyTurn, disabled, c
           }}
           className="text-[10px] font-headline font-black text-slate-400 hover:text-white underline uppercase mt-1"
         >
-          Xem xấp bài bốc 👁️
+          Xem xấp bài bốc
         </button>
       </div>
 

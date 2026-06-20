@@ -131,156 +131,169 @@ async function finalizeGame(io, room) {
   room.status = 'finished';
   io.to(room.code).emit('room:updated', { room });
 
-  // Load all user objects from database first
-  const dbUsers = {};
-  await Promise.all(
-    room.gameState.players.map(async (p) => {
-      if (p.userId && !p.userId.startsWith('guest-') && mongoose.Types.ObjectId.isValid(p.userId)) {
-        try {
-          const dbUser = await User.findById(p.userId);
-          if (dbUser) {
-            dbUsers[p.userId] = dbUser;
-          }
-        } catch (err) {
-          console.error(`Error loading database user ${p.userId}:`, err);
-        }
-      }
-    })
-  );
-
   const rankings = room.gameState.players
     .map((player) => ({ userId: player.userId, result: player.userId === winnerId ? 'win' : 'lose' }))
     .sort((a, b) => (a.result === 'win' ? -1 : 1));
 
-  // Calculate Elo Changes (Option A: Dynamic Elo)
   const eloChanges = {};
   const pinkCoinChanges = {};
-  const playersInGame = room.gameState.players.filter(p => dbUsers[p.userId]);
 
-  if (playersInGame.length >= 2) {
-    const winnerPlayer = playersInGame.find(p => p.userId === winnerId);
-    const loserPlayers = playersInGame.filter(p => p.userId !== winnerId);
+  try {
+    // Load all user objects from database first
+    const dbUsers = {};
+    await Promise.all(
+      room.gameState.players.map(async (p) => {
+        if (p.userId && !p.userId.startsWith('guest-') && mongoose.Types.ObjectId.isValid(p.userId)) {
+          try {
+            const dbUser = await User.findById(p.userId);
+            if (dbUser) {
+              dbUsers[p.userId] = dbUser;
+            }
+          } catch (err) {
+            console.error(`Error loading database user ${p.userId}:`, err);
+          }
+        }
+      })
+    );
 
-    if (winnerPlayer) {
-      const winnerUser = dbUsers[winnerPlayer.userId];
-      const wElo = winnerUser.eloPoints || 1000;
+    const playersInGame = room.gameState.players.filter(p => dbUsers[p.userId]);
 
-      // Opponents' average ELO
-      let oppEloSum = 0;
-      loserPlayers.forEach(lp => {
-        oppEloSum += dbUsers[lp.userId].eloPoints || 1000;
-      });
-      const oppEloAvg = loserPlayers.length > 0 ? (oppEloSum / loserPlayers.length) : 1000;
+    if (playersInGame.length >= 2) {
+      const winnerPlayer = playersInGame.find(p => p.userId === winnerId);
+      const loserPlayers = playersInGame.filter(p => p.userId !== winnerId);
 
-      // Expected score for winner
-      const wExpected = 1 / (1 + Math.pow(10, (oppEloAvg - wElo) / 400));
+      if (winnerPlayer) {
+        const winnerUser = dbUsers[winnerPlayer.userId];
+        const wElo = winnerUser.eloPoints || 1000;
 
-      // Winner Elo change: K=32, minimum +15
-      let wDelta = Math.round(32 * (1 - wExpected));
-      if (wDelta < 15) wDelta = 15;
+        // Opponents' average ELO
+        let oppEloSum = 0;
+        loserPlayers.forEach(lp => {
+          oppEloSum += dbUsers[lp.userId].eloPoints || 1000;
+        });
+        const oppEloAvg = loserPlayers.length > 0 ? (oppEloSum / loserPlayers.length) : 1000;
 
-      // Streak bonus
-      const currentStreak = winnerUser.stats.currentStreak || 0;
-      if (currentStreak + 1 >= 3) {
-        wDelta += 10;
+        // Expected score for winner
+        const wExpected = 1 / (1 + Math.pow(10, (oppEloAvg - wElo) / 400));
+
+        // Winner Elo change: K=32, minimum +15
+        let wDelta = Math.round(32 * (1 - wExpected));
+        if (wDelta < 15) wDelta = 15;
+
+        // Streak bonus
+        const currentStreak = winnerUser.stats.currentStreak || 0;
+        if (currentStreak + 1 >= 3) {
+          wDelta += 10;
+        }
+
+        eloChanges[winnerPlayer.userId] = wDelta;
+
+        // Losers Elo changes: K=16, against winner
+        loserPlayers.forEach(lp => {
+          const lUser = dbUsers[lp.userId];
+          const lElo = lUser.eloPoints || 1000;
+
+          // Expected score for loser vs winner
+          const lExpected = 1 / (1 + Math.pow(10, (wElo - lElo) / 400));
+
+          // Loser Elo change: maximum loss -30, minimum loss -5
+          let lDelta = Math.round(-16 * lExpected);
+          if (lDelta < -30) lDelta = -30;
+          if (lDelta > -5) lDelta = -5;
+
+          eloChanges[lp.userId] = lDelta;
+        });
       }
-
-      eloChanges[winnerPlayer.userId] = wDelta;
-
-      // Losers Elo changes: K=16, against winner
-      loserPlayers.forEach(lp => {
-        const lUser = dbUsers[lp.userId];
-        const lElo = lUser.eloPoints || 1000;
-
-        // Expected score for loser vs winner
-        const lExpected = 1 / (1 + Math.pow(10, (wElo - lElo) / 400));
-
-        // Loser Elo change: maximum loss -30, minimum loss -5
-        let lDelta = Math.round(-16 * lExpected);
-        if (lDelta < -30) lDelta = -30;
-        if (lDelta > -5) lDelta = -5;
-
-        eloChanges[lp.userId] = lDelta;
+    } else {
+      // Fallback
+      playersInGame.forEach(p => {
+        eloChanges[p.userId] = p.userId === winnerId ? 25 : -15;
       });
     }
-  } else {
-    // Fallback
-    playersInGame.forEach(p => {
-      eloChanges[p.userId] = p.userId === winnerId ? 25 : -15;
-    });
-  }
 
-  await Promise.all(
-    rankings.map(async (entry) => {
-      const user = dbUsers[entry.userId];
-      if (!user) return;
-      
-      const gemsBefore = user.gems || 0;
-      
-      const isWin = entry.result === 'win';
-      const streakBonus = isWin && user.stats.currentStreak + 1 >= 3 ? 30 : 0;
-      const reward = isWin ? 50 : 10;
+    await Promise.all(
+      rankings.map(async (entry) => {
+        const user = dbUsers[entry.userId];
+        if (!user) return;
+        
+        const gemsBefore = user.gems || 0;
+        
+        const isWin = entry.result === 'win';
+        const streakBonus = isWin && user.stats.currentStreak + 1 >= 3 ? 30 : 0;
+        const reward = isWin ? 50 : 10;
 
-      user.coins += reward + streakBonus;
-      user.stats.totalGames += 1;
-      if (isWin) {
-        user.stats.wins += 1;
-        user.stats.currentStreak += 1;
-        user.stats.longestStreak = Math.max(user.stats.longestStreak, user.stats.currentStreak);
-      } else {
-        user.stats.losses += 1;
-        user.stats.currentStreak = 0;
-      }
+        user.coins += reward + streakBonus;
+        user.stats.totalGames += 1;
+        if (isWin) {
+          user.stats.wins += 1;
+          user.stats.currentStreak += 1;
+          user.stats.longestStreak = Math.max(user.stats.longestStreak, user.stats.currentStreak);
+        } else {
+          user.stats.losses += 1;
+          user.stats.currentStreak = 0;
+        }
 
-      // Apply Elo Points change
-      const eloChange = eloChanges[entry.userId] || 0;
-      user.eloPoints = Math.max(1000, (user.eloPoints || 1000) + eloChange);
+        // Apply Elo Points change
+        const eloChange = eloChanges[entry.userId] || 0;
+        user.eloPoints = Math.max(1000, (user.eloPoints || 1000) + eloChange);
 
-      await user.save();
-      
-      const gemsAfter = user.gems || 0;
-      pinkCoinChanges[entry.userId] = gemsAfter - gemsBefore;
+        await user.save();
+        
+        const gemsAfter = user.gems || 0;
+        pinkCoinChanges[entry.userId] = gemsAfter - gemsBefore;
 
-      await Transaction.create({
-        userId: user._id,
-        type: 'earn',
-        amount: reward,
-        currency: 'coin',
-        description: isWin ? 'Win reward' : 'Loss participation reward',
-      });
-
-      if (streakBonus > 0) {
         await Transaction.create({
           userId: user._id,
           type: 'earn',
-          amount: streakBonus,
+          amount: reward,
           currency: 'coin',
-          description: 'Win streak bonus',
+          description: isWin ? 'Win reward' : 'Loss participation reward',
         });
-      }
 
-      // Update quests progress
-      await updateQuestProgress(entry.userId, 'play_game', 1);
-      if (isWin) {
-        await updateQuestProgress(entry.userId, 'win_game', 1);
-      }
-    }),
-  );
+        if (streakBonus > 0) {
+          await Transaction.create({
+            userId: user._id,
+            type: 'earn',
+            amount: streakBonus,
+            currency: 'coin',
+            description: 'Win streak bonus',
+          });
+        }
 
-  await GameHistory.create({
-    roomId: room.code,
-    players: rankings.map((entry, index) => ({
-      userId: entry.userId,
-      rank: index + 1,
-      result: entry.result,
-      eloChange: eloChanges[entry.userId] || 0
-    })),
-    winner: winnerId,
-    duration: 0,
-    cardsPlayed: room.gameState.discardPile.length,
-    playedAt: new Date(),
-  });
+        // Update quests progress
+        await updateQuestProgress(entry.userId, 'play_game', 1);
+        if (isWin) {
+          await updateQuestProgress(entry.userId, 'win_game', 1);
+        }
+      }),
+    );
 
+    // Save GameHistory only if winner and players have valid MongoDB ObjectIds (guests won't be saved to GameHistory, which is correct)
+    const validWinner = mongoose.Types.ObjectId.isValid(winnerId);
+    const validPlayers = rankings
+      .filter((entry) => mongoose.Types.ObjectId.isValid(entry.userId))
+      .map((entry, index) => ({
+        userId: entry.userId,
+        rank: index + 1,
+        result: entry.result,
+        eloChange: eloChanges[entry.userId] || 0,
+      }));
+
+    if (validWinner && validPlayers.length > 0) {
+      await GameHistory.create({
+        roomId: room.code,
+        players: validPlayers,
+        winner: winnerId,
+        duration: 0,
+        cardsPlayed: room.gameState.discardPile.length,
+        playedAt: new Date(),
+      });
+    }
+  } catch (err) {
+    console.error('Critical database write error in finalizeGame:', err);
+  }
+
+  // Ensure game:ended is ALWAYS sent to the room, even if db writes failed or players are guests
   io.to(room.code).emit('game:ended', { winnerId, rankings, eloChanges, pinkCoinChanges });
 }
 
@@ -362,27 +375,9 @@ module.exports = function registerGameSocket(io) {
     setupNopeTimeout(room, eventId);
   }
 
-  async function executeDraw(room, playerId) {
+  function checkAndHandlePendingDefuseOrZombie(room) {
     const gameState = room.gameState;
-    const beforeAlive = gameState.players.find((p) => p.userId === playerId)?.alive;
-    io.to(room.code).emit('game:cardDrawn', { playerId });
-
-    const topCard = gameState.deck[gameState.deck.length - 1];
-    const drewKitten = (topCard?.type === 'exploding_kitten' || topCard?.type === 'imploding_kitten' || topCard?.type === 'devilcat') ? topCard.type : null;
-    if (drewKitten) {
-      const pObj = gameState.players.find((p) => p.userId === playerId);
-      const username = pObj ? pObj.username : playerId;
-      io.to(room.code).emit('game:drewKitten', { playerId, username, cardType: drewKitten });
-    }
-
-    drawCard(gameState, playerId, false, (pId) => {
-      updateQuestProgress(pId, 'defuse_kitten', 1);
-    });
-    const afterAlive = gameState.players.find((p) => p.userId === playerId)?.alive;
-
-    if (beforeAlive && !afterAlive) {
-      io.to(room.code).emit('game:exploded', { playerId });
-    }
+    if (!gameState) return false;
 
     // Check if zombie kitten is pending
     if (gameState.pendingZombie) {
@@ -391,19 +386,20 @@ module.exports = function registerGameSocket(io) {
       
       const currentPendingZombie = gameState.pendingZombie;
       setTimeout(async () => {
-        if (gameState.pendingZombie && gameState.pendingZombie === currentPendingZombie) {
-          const firstDead = gameState.players.find((p) => !p.alive);
-          const randomPos = Math.floor(Math.random() * (gameState.deck.length + 1));
-          const clairvoyancePlayerId = gameState.pendingZombie.clairvoyancePlayerId;
-          resolveZombieRevive(gameState, firstDead ? firstDead.userId : null, randomPos);
+        if (room.gameState && room.gameState.pendingZombie && room.gameState.pendingZombie === currentPendingZombie) {
+          const firstDead = room.gameState.players.find((p) => !p.alive);
+          const randomPos = Math.floor(Math.random() * (room.gameState.deck.length + 1));
+          const clairvoyancePlayerId = room.gameState.pendingZombie.clairvoyancePlayerId;
+          resolveZombieRevive(room.gameState, firstDead ? firstDead.userId : null, randomPos);
           if (clairvoyancePlayerId) {
             io.to(`user:${clairvoyancePlayerId}`).emit('game:clairvoyance:reveal', { position: randomPos });
           }
-          io.to(room.code).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(gameState) });
+          io.to(room.code).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
           sendHands(io, room);
           await finalizeGame(io, room);
         }
       }, 15000);
+      return true;
     }
 
     // Check if standard defuse is pending
@@ -416,22 +412,42 @@ module.exports = function registerGameSocket(io) {
       
       const currentPendingDefuse = gameState.pendingDefuse;
       setTimeout(async () => {
-        if (gameState.pendingDefuse && gameState.pendingDefuse === currentPendingDefuse) {
-          const randomPos = Math.floor(Math.random() * (gameState.deck.length + 1));
-          const clairvoyancePlayerId = gameState.pendingDefuse.clairvoyancePlayerId;
-          resolveDefusePutBack(gameState, randomPos);
+        if (room.gameState && room.gameState.pendingDefuse && room.gameState.pendingDefuse === currentPendingDefuse) {
+          const randomPos = Math.floor(Math.random() * (room.gameState.deck.length + 1));
+          const clairvoyancePlayerId = room.gameState.pendingDefuse.clairvoyancePlayerId;
+          resolveDefusePutBack(room.gameState, randomPos);
           if (clairvoyancePlayerId) {
             io.to(`user:${clairvoyancePlayerId}`).emit('game:clairvoyance:reveal', { position: randomPos });
           }
-          io.to(room.code).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(gameState) });
+          io.to(room.code).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
           sendHands(io, room);
           await finalizeGame(io, room);
         }
       }, 15000);
+      return true;
     }
 
-    // If neither zombie nor defuse is pending, change the turn
-    if (!gameState.pendingZombie && !gameState.pendingDefuse) {
+    return false;
+  }
+
+  async function afterGameStateChanged(room, playersBefore, turnBefore) {
+    const gameState = room.gameState;
+    if (!gameState) return;
+
+    // Check if anyone died
+    playersBefore.forEach((pBefore) => {
+      const pAfter = gameState.players.find((p) => p.userId === pBefore.userId);
+      if (pBefore.alive && pAfter && !pAfter.alive) {
+        io.to(room.code).emit('game:exploded', { playerId: pBefore.userId });
+      }
+    });
+
+    // Check and handle pending defuse or zombie
+    const pendingHandled = checkAndHandlePendingDefuseOrZombie(room);
+
+    // If turn index changed and no pending defuse/zombie block, notify client
+    const turnAfter = gameState.currentPlayerIndex;
+    if (turnBefore !== turnAfter && !pendingHandled) {
       io.to(room.code).emit('game:turnChanged', {
         currentPlayerId: gameState.players[gameState.currentPlayerIndex]?.userId,
         drawsRequired: gameState.drawsRequired,
@@ -443,9 +459,47 @@ module.exports = function registerGameSocket(io) {
     await finalizeGame(io, room);
   }
 
+  async function executeDraw(room, playerId) {
+    const gameState = room.gameState;
+    const beforeAlive = gameState.players.find((p) => p.userId === playerId)?.alive;
+    const turnBefore = gameState.currentPlayerIndex;
+    io.to(room.code).emit('game:cardDrawn', { playerId });
+
+    const topCard = gameState.deck[gameState.deck.length - 1];
+    let drewKitten = (topCard?.type === 'exploding_kitten' || topCard?.type === 'imploding_kitten' || topCard?.type === 'devilcat') ? topCard.type : null;
+    
+    // Suppress drawing alert if protected by Streaking Kitten
+    if (drewKitten === 'exploding_kitten') {
+      const pObj = gameState.players.find((p) => p.userId === playerId);
+      if (pObj) {
+        const streakingCount = pObj.hand.filter((c) => c.type === 'streaking_kitten').length;
+        const explodingCount = pObj.hand.filter((c) => c.type === 'exploding_kitten').length;
+        if (explodingCount < streakingCount) {
+          drewKitten = null; // Do not alert room
+        }
+      }
+    }
+
+    if (drewKitten) {
+      const pObj = gameState.players.find((p) => p.userId === playerId);
+      const username = pObj ? pObj.username : playerId;
+      io.to(room.code).emit('game:drewKitten', { playerId, username, cardType: drewKitten });
+    }
+
+    drawCard(gameState, playerId, false, (pId) => {
+      updateQuestProgress(pId, 'defuse_kitten', 1);
+    });
+
+    const playersBefore = [{ userId: playerId, alive: beforeAlive }];
+    await afterGameStateChanged(room, playersBefore, turnBefore);
+  }
+
   async function runActionEffect(room, action) {
     const gameState = room.gameState;
     const { playerId, cardType, targetPlayerId, options } = action;
+
+    const playersBefore = gameState.players.map(p => ({ userId: p.userId, alive: p.alive }));
+    const turnBefore = gameState.currentPlayerIndex;
 
     executeActionEffect(gameState, cardType, playerId, targetPlayerId, options, (pId, defuseType) => {
       updateQuestProgress(pId, 'defuse_kitten', 1);
@@ -469,25 +523,31 @@ module.exports = function registerGameSocket(io) {
         timeoutMs: 15000,
       });
 
-      setTimeout(() => {
+      setTimeout(async () => {
         const pending = gameState.pendingAlter;
         if (!pending || pending.playerId !== playerId) return;
+        
+        const innerPlayersBefore = gameState.players.map(p => ({ userId: p.userId, alive: p.alive }));
+        const innerTurnBefore = gameState.currentPlayerIndex;
+
         resolveAlterTheFuture(gameState, []);
-        io.to(room.code).emit('game:stateUpdate', {
-          publicGameState: sanitizePublicGameState(gameState),
-        });
-        sendHands(io, room);
+        
+        await afterGameStateChanged(room, innerPlayersBefore, innerTurnBefore);
       }, 15000);
     }
 
     if (cardType === 'favor' && targetPlayerId) {
       io.to(`user:${targetPlayerId}`).emit('game:favor:request', { fromPlayerId: playerId, timeoutMs: 15000 });
 
-      setTimeout(() => {
+      setTimeout(async () => {
         const pending = gameState.pendingFavor;
         if (!pending || pending.targetPlayerId !== targetPlayerId) return;
         const giver = gameState.players.find((p) => p.userId === targetPlayerId);
         const receiver = gameState.players.find((p) => p.userId === playerId);
+        
+        const innerPlayersBefore = gameState.players.map(p => ({ userId: p.userId, alive: p.alive }));
+        const innerTurnBefore = gameState.currentPlayerIndex;
+
         if (giver?.hand?.length && receiver) {
           const idx = Math.floor(Math.random() * giver.hand.length);
           const [gift] = giver.hand.splice(idx, 1);
@@ -496,29 +556,29 @@ module.exports = function registerGameSocket(io) {
           checkStreakingKittenEffect(gameState, receiver.userId);
         }
         gameState.pendingFavor = null;
-        io.to(room.code).emit('game:stateUpdate', {
-          publicGameState: sanitizePublicGameState(gameState),
-        });
-        sendHands(io, room);
+        
+        await afterGameStateChanged(room, innerPlayersBefore, innerTurnBefore);
       }, 15000);
     }
 
     if (cardType === 'bury') {
       io.to(`user:${playerId}`).emit('game:bury:request', { timeoutMs: 15000 });
 
-      setTimeout(() => {
+      setTimeout(async () => {
         const pending = gameState.pendingBury;
         if (!pending || pending.playerId !== playerId) return;
         const player = gameState.players.find((p) => p.userId === playerId);
+        
+        const innerPlayersBefore = gameState.players.map(p => ({ userId: p.userId, alive: p.alive }));
+        const innerTurnBefore = gameState.currentPlayerIndex;
+
         if (player?.hand?.length) {
           resolveBury(gameState, player.hand[0].id, 0);
         } else {
           gameState.pendingBury = null;
         }
-        io.to(room.code).emit('game:stateUpdate', {
-          publicGameState: sanitizePublicGameState(gameState),
-        });
-        sendHands(io, room);
+        
+        await afterGameStateChanged(room, innerPlayersBefore, innerTurnBefore);
       }, 15000);
     }
 
@@ -528,18 +588,20 @@ module.exports = function registerGameSocket(io) {
         io.to(`user:${p.userId}`).emit('game:garbage:request', { timeoutMs: 15000 });
       });
 
-      setTimeout(() => {
+      setTimeout(async () => {
         const pending = gameState.pendingGarbage;
         if (!pending) return;
+        
+        const innerPlayersBefore = gameState.players.map(p => ({ userId: p.userId, alive: p.alive }));
+        const innerTurnBefore = gameState.currentPlayerIndex;
+
         gameState.players.forEach((p) => {
           if (p.alive && p.hand.length > 0 && !pending.responses[p.userId]) {
             resolveGarbageCollection(gameState, p.userId, p.hand[0].id);
           }
         });
-        io.to(room.code).emit('game:stateUpdate', {
-          publicGameState: sanitizePublicGameState(gameState),
-        });
-        sendHands(io, room);
+        
+        await afterGameStateChanged(room, innerPlayersBefore, innerTurnBefore);
       }, 15000);
     }
 
@@ -549,18 +611,20 @@ module.exports = function registerGameSocket(io) {
         io.to(`user:${p.userId}`).emit('game:potLuck:request', { timeoutMs: 15000 });
       });
 
-      setTimeout(() => {
+      setTimeout(async () => {
         const pending = gameState.pendingPotLuck;
         if (!pending) return;
+        
+        const innerPlayersBefore = gameState.players.map(p => ({ userId: p.userId, alive: p.alive }));
+        const innerTurnBefore = gameState.currentPlayerIndex;
+
         gameState.players.forEach((p) => {
           if (p.alive && p.hand.length > 0 && !pending.responses[p.userId]) {
             resolvePotLuck(gameState, p.userId, p.hand[0].id);
           }
         });
-        io.to(room.code).emit('game:stateUpdate', {
-          publicGameState: sanitizePublicGameState(gameState),
-        });
-        sendHands(io, room);
+        
+        await afterGameStateChanged(room, innerPlayersBefore, innerTurnBefore);
       }, 15000);
     }
 
@@ -577,9 +641,12 @@ module.exports = function registerGameSocket(io) {
         });
 
         const currentPending = pending;
-        setTimeout(() => {
+        setTimeout(async () => {
           const state = room.gameState;
           if (state.pendingFeedTheDead && state.pendingFeedTheDead === currentPending) {
+            const innerPlayersBefore = state.players.map(p => ({ userId: p.userId, alive: p.alive }));
+            const innerTurnBefore = state.currentPlayerIndex;
+
             state.players.forEach((p) => {
               if (p.alive && p.userId !== playerId && !state.pendingFeedTheDead.responses[p.userId]) {
                 if (p.hand.length > 0) {
@@ -587,8 +654,8 @@ module.exports = function registerGameSocket(io) {
                 }
               }
             });
-            io.to(room.code).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(state) });
-            sendHands(io, room);
+            
+            await afterGameStateChanged(room, innerPlayersBefore, innerTurnBefore);
           }
         }, 15000);
       }
@@ -603,16 +670,19 @@ module.exports = function registerGameSocket(io) {
         });
 
         const currentPending = pending;
-        setTimeout(() => {
+        setTimeout(async () => {
           const state = room.gameState;
           if (state.pendingGraveRobber && state.pendingGraveRobber === currentPending) {
+            const innerPlayersBefore = state.players.map(p => ({ userId: p.userId, alive: p.alive }));
+            const innerTurnBefore = state.currentPlayerIndex;
+
             state.players.forEach((p) => {
               if (!p.alive && p.hand.length > 0 && !state.pendingGraveRobber.responses[p.userId]) {
                 resolveGraveRobber(state, p.userId, p.hand[0].id);
               }
             });
-            io.to(room.code).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(state) });
-            sendHands(io, room);
+            
+            await afterGameStateChanged(room, innerPlayersBefore, innerTurnBefore);
           }
         }, 15000);
       }
@@ -630,14 +700,12 @@ module.exports = function registerGameSocket(io) {
         setTimeout(async () => {
           const state = room.gameState;
           if (state.pendingDigDeeper && state.pendingDigDeeper === currentPending) {
+            const innerPlayersBefore = state.players.map(p => ({ userId: p.userId, alive: p.alive }));
+            const innerTurnBefore = state.currentPlayerIndex;
+
             resolveDigDeeper(state, 'keep');
-            io.to(room.code).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(state) });
-            sendHands(io, room);
-            io.to(room.code).emit('game:turnChanged', {
-              currentPlayerId: state.players[state.currentPlayerIndex]?.userId,
-              drawsRequired: state.drawsRequired,
-            });
-            await finalizeGame(io, room);
+            
+            await afterGameStateChanged(room, innerPlayersBefore, innerTurnBefore);
           }
         }, 15000);
       }
@@ -661,10 +729,12 @@ module.exports = function registerGameSocket(io) {
               
               setTimeout(async () => {
                 if (state.pendingArmageddon && state.pendingArmageddon === nextPending) {
+                  const innerPlayersBefore = state.players.map(p => ({ userId: p.userId, alive: p.alive }));
+                  const innerTurnBefore = state.currentPlayerIndex;
+
                   resolveArmageddonDecision(state, 'keep');
-                  io.to(room.code).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(state) });
-                  sendHands(io, room);
-                  await finalizeGame(io, room);
+                  
+                  await afterGameStateChanged(room, innerPlayersBefore, innerTurnBefore);
                 }
               }, 15000);
             }
@@ -678,9 +748,7 @@ module.exports = function registerGameSocket(io) {
       io.to(room.code).emit('game:revealTheFuture', { cards });
     }
 
-    io.to(room.code).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(gameState) });
-    sendHands(io, room);
-    await finalizeGame(io, room);
+    await afterGameStateChanged(room, playersBefore, turnBefore);
   }
   io.use((socket, next) => {
     const rawToken = socket.handshake.auth?.token;
@@ -1042,7 +1110,7 @@ module.exports = function registerGameSocket(io) {
       setupNopeTimeout(room, newEventId);
     });
 
-    socket.on('game:favor:respond', ({ cardId }) => {
+    socket.on('game:favor:respond', async ({ cardId }) => {
       console.log('game:favor:respond received cardId:', cardId, 'from userId:', userId);
       const roomCode = [...socket.rooms].find((room) => room.length === 6);
       if (!roomCode) {
@@ -1064,6 +1132,9 @@ module.exports = function registerGameSocket(io) {
         return;
       }
 
+      const playersBefore = room.gameState.players.map(p => ({ userId: p.userId, alive: p.alive }));
+      const turnBefore = room.gameState.currentPlayerIndex;
+
       console.log('giver hand before splice:', giver.hand.map(c => ({ id: c.id, type: c.type })));
       const idx = giver.hand.findIndex((card) => card.id === cardId);
       console.log('giver hand findIndex:', idx);
@@ -1080,8 +1151,7 @@ module.exports = function registerGameSocket(io) {
       }
 
       room.gameState.pendingFavor = null;
-      io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
-      sendHands(io, room);
+      await afterGameStateChanged(room, playersBefore, turnBefore);
     });
 
     socket.on('game:emote', ({ emoteId }) => {
@@ -1228,15 +1298,18 @@ module.exports = function registerGameSocket(io) {
       sendHands(io, room);
     });
 
-    socket.on('game:combo5:respond', ({ cardId }) => {
+    socket.on('game:combo5:respond', async ({ cardId }) => {
       const roomCode = [...socket.rooms].find((room) => room.length === 6);
       if (!roomCode) return;
       const room = getRoomState(roomCode);
       if (!room?.gameState) return;
 
+      const playersBefore = room.gameState.players.map(p => ({ userId: p.userId, alive: p.alive }));
+      const turnBefore = room.gameState.currentPlayerIndex;
+
       resolveCombo5(room.gameState, cardId);
-      io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
-      sendHands(io, room);
+
+      await afterGameStateChanged(room, playersBefore, turnBefore);
     });
 
     socket.on('game:bury:respond', ({ cardId, insertPosition }) => {
@@ -1250,26 +1323,32 @@ module.exports = function registerGameSocket(io) {
       sendHands(io, room);
     });
 
-    socket.on('game:garbage:respond', ({ cardId }) => {
+    socket.on('game:garbage:respond', async ({ cardId }) => {
       const roomCode = [...socket.rooms].find((room) => room.length === 6);
       if (!roomCode) return;
       const room = getRoomState(roomCode);
       if (!room?.gameState) return;
+
+      const playersBefore = room.gameState.players.map(p => ({ userId: p.userId, alive: p.alive }));
+      const turnBefore = room.gameState.currentPlayerIndex;
 
       resolveGarbageCollection(room.gameState, userId, cardId);
-      io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
-      sendHands(io, room);
+
+      await afterGameStateChanged(room, playersBefore, turnBefore);
     });
 
-    socket.on('game:potLuck:respond', ({ cardId }) => {
+    socket.on('game:potLuck:respond', async ({ cardId }) => {
       const roomCode = [...socket.rooms].find((room) => room.length === 6);
       if (!roomCode) return;
       const room = getRoomState(roomCode);
       if (!room?.gameState) return;
 
+      const playersBefore = room.gameState.players.map(p => ({ userId: p.userId, alive: p.alive }));
+      const turnBefore = room.gameState.currentPlayerIndex;
+
       resolvePotLuck(room.gameState, userId, cardId);
-      io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
-      sendHands(io, room);
+
+      await afterGameStateChanged(room, playersBefore, turnBefore);
     });
 
     socket.on('game:zombie:respond', async ({ targetPlayerId, insertPosition }) => {
@@ -1314,15 +1393,18 @@ module.exports = function registerGameSocket(io) {
       await finalizeGame(io, room);
     });
 
-    socket.on('game:feedTheDead:respond', ({ cardId }) => {
+    socket.on('game:feedTheDead:respond', async ({ cardId }) => {
       const roomCode = [...socket.rooms].find((room) => room.length === 6);
       if (!roomCode) return;
       const room = getRoomState(roomCode);
       if (!room?.gameState) return;
 
+      const playersBefore = room.gameState.players.map(p => ({ userId: p.userId, alive: p.alive }));
+      const turnBefore = room.gameState.currentPlayerIndex;
+
       resolveFeedTheDead(room.gameState, userId, cardId);
-      io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
-      sendHands(io, room);
+
+      await afterGameStateChanged(room, playersBefore, turnBefore);
     });
 
     socket.on('game:graveRobber:respond', ({ cardId }) => {
