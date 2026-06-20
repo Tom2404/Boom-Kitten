@@ -324,7 +324,7 @@ const CARD_THEMES = {
   },
 };
 
-export default function Card({ type, skinIndex = 0, selected, onClick, disabled, marked, compact = false }) {
+export default function Card({ type, skinIndex = 0, selected, onClick, disabled, marked, compact = false, hideInfo = false }) {
   const { t } = useLanguage();
   const theme = CARD_THEMES[type] || {
     name: type,
@@ -367,16 +367,18 @@ export default function Card({ type, skinIndex = 0, selected, onClick, disabled,
           </span>
         )}
         {/* Info button */}
-        <span
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsDetailOpen(true);
-          }}
-          className="absolute top-1 right-1 z-20 material-symbols-outlined text-[16px] leading-none text-slate-300 bg-slate-900/60 hover:bg-slate-900 p-1 rounded-full hover:scale-110 transition-transform cursor-pointer shadow-sm border border-white/20"
-          title={t('card_detail_title')}
-        >
-          info
-        </span>
+        {!hideInfo && (
+          <span
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsDetailOpen(true);
+            }}
+            className="absolute top-1 right-1 z-20 material-symbols-outlined text-[16px] leading-none text-slate-300 bg-slate-900/60 hover:bg-slate-900 p-1 rounded-full hover:scale-110 transition-transform cursor-pointer shadow-sm border border-white/20"
+            title={t('card_detail_title')}
+          >
+            info
+          </span>
+        )}
 
         {/* Main Image Area - filling the middle */}
         <div className="flex-grow flex items-center justify-center p-1 relative min-h-[90px] w-full">

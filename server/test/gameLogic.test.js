@@ -7,6 +7,7 @@ const {
   drawCard,
   checkStreakingKittenEffect,
   checkWinCondition,
+  resolveDefusePutBack,
 } = require('../game/gameLogic');
 
 test('eliminatePlayer does not clear hand in zombie edition', () => {
@@ -211,4 +212,56 @@ test('drawCard with exploding_kitten and no defuse passes turn and updates playe
   const winner = checkWinCondition(newState);
   assert.equal(winner, null);
 });
+
+test('drawCard drawing 11th card does not pass turn when drawsRequired becomes 0', () => {
+  const gameState = {
+    edition: 'original',
+    players: [
+      { userId: 'p1', username: 'P1', hand: Array(10).fill({ id: 'c', type: 'nope' }), alive: true },
+      { userId: 'p2', username: 'P2', hand: [], alive: true },
+    ],
+    currentPlayerIndex: 0,
+    deck: [{ id: 'c11', type: 'nope' }],
+    discardPile: [],
+    drawsRequired: 1,
+  };
+
+  const newState = drawCard(gameState, 'p1', false, null);
+  // Hand should have 11 cards
+  assert.equal(newState.players[0].hand.length, 11);
+  // drawsRequired is 0 (completed)
+  assert.equal(newState.drawsRequired, 0);
+  // Turn should NOT have passed to p2 (still 0)
+  assert.equal(newState.currentPlayerIndex, 0);
+});
+
+test('resolveDefusePutBack with hand size > 10 does not pass turn when drawsRequired is 0', () => {
+  const gameState = {
+    edition: 'original',
+    players: [
+      { userId: 'p1', username: 'P1', hand: Array(11).fill({ id: 'c', type: 'nope' }), alive: true },
+      { userId: 'p2', username: 'P2', hand: [], alive: true },
+    ],
+    currentPlayerIndex: 0,
+    deck: [],
+    discardPile: [],
+    drawsRequired: 0,
+    pendingDefuse: {
+      playerId: 'p1',
+      card: { id: 'ek1', type: 'exploding_kitten' },
+      startedAt: Date.now(),
+    },
+  };
+
+  const newState = resolveDefusePutBack(gameState, 0);
+  // pendingDefuse should be cleared
+  assert.equal(newState.pendingDefuse, null);
+  // Exploding kitten is put back in deck
+  assert.equal(newState.deck[0].type, 'exploding_kitten');
+  // drawsRequired is still 0
+  assert.equal(newState.drawsRequired, 0);
+  // Turn should NOT have passed to p2 (still 0)
+  assert.equal(newState.currentPlayerIndex, 0);
+});
+
 

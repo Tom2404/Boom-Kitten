@@ -69,63 +69,97 @@ export default function DiscardPile({ discardPile = [], pendingCombo5, myUserId,
       </div>
 
       {/* Discard Pile Modal Viewer */}
-      {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-4 animate-fade-in text-slate-900" onClick={() => setIsOpen(false)}>
-          <div className="relative w-full max-w-4xl max-h-[80vh] bg-white border-4 border-on-surface rounded-3xl p-6 shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] flex flex-col gap-6" onClick={(e) => e.stopPropagation()}>
-            
-            {/* Modal Header */}
-            <div className="flex justify-between items-center border-b-3 border-on-surface pb-3 flex-wrap gap-4">
-              <div>
-                <h3 className="text-2xl font-headline font-black text-[#b7131a] uppercase">Chồng Bài Đã Đánh</h3>
-                <p className="text-xs font-bold text-on-surface-variant mt-1">
-                  {isChoosing 
-                    ? 'Bạn đã đánh combo 5 lá mèo khác nhau! Hãy CHỌN 1 lá bài dưới đây để lấy về tay.' 
-                    : 'Danh sách các lá bài đã được đánh trong ván đấu này.'}
-                </p>
+      {isOpen && (() => {
+        const typeCounts = discardPile.reduce((acc, card) => {
+          acc[card.type] = (acc[card.type] || 0) + 1;
+          return acc;
+        }, {});
+
+        const reversedPile = [...discardPile].reverse();
+
+        return (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-4 animate-fade-in text-slate-900" onClick={() => setIsOpen(false)}>
+            <div className="relative w-full max-w-4xl max-h-[80vh] bg-white border-4 border-on-surface rounded-3xl p-6 shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] flex flex-col gap-5" onClick={(e) => e.stopPropagation()}>
+              
+              {/* Modal Header */}
+              <div className="flex justify-between items-center border-b-3 border-on-surface pb-3 flex-wrap gap-4">
+                <div>
+                  <h3 className="text-2xl font-headline font-black text-[#b7131a] uppercase">Chồng Bài Đã Đánh</h3>
+                  <p className="text-xs font-bold text-on-surface-variant mt-1">
+                    {isChoosing 
+                      ? 'Bạn đã đánh combo 5 lá mèo khác nhau! Hãy CHỌN 1 lá bài dưới đây để lấy về tay.' 
+                      : 'Danh sách các lá bài đã được đánh trong ván đấu này (Mới nhất hiển thị trước).'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="h-8 w-8 rounded-lg bg-surface border-2 border-on-surface hover:bg-slate-100 text-on-surface flex items-center justify-center transition-all shadow-[1px_1px_0px_0px_#1a1c1c] active:translate-y-0.5 active:shadow-none"
+                >
+                  ✕
+                </button>
               </div>
-              <button
-                onClick={() => setIsOpen(false)}
-                className="h-8 w-8 rounded-lg bg-surface border-2 border-on-surface hover:bg-slate-100 text-on-surface flex items-center justify-center transition-all shadow-[1px_1px_0px_0px_#1a1c1c] active:translate-y-0.5 active:shadow-none"
-              >
-                ✕
-              </button>
-            </div>
 
-            {/* Modal Grid of Cards */}
-            <div className="flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-6 p-2 hide-scroll">
-              {discardPile.map((card, index) => {
-                return (
-                  <div
-                    key={card.id || index}
-                    className={`relative p-1 rounded-xl transition-all duration-100
-                      ${isChoosing ? 'hover:scale-105 cursor-pointer' : ''}`}
-                    onClick={isChoosing ? () => handleSelect(card.id) : undefined}
-                  >
-                    <Card type={card.type} skinIndex={card.skinIndex ?? 0} disabled={true} />
-                    {isChoosing && (
-                      <div className="absolute inset-0 bg-purple-500/10 hover:bg-transparent rounded-xl flex items-end justify-center pb-4 pointer-events-none">
-                        <span className="bg-purple-600 text-[9px] font-headline font-black uppercase tracking-wider px-2 py-0.5 rounded text-white shadow-[1.5px_1.5px_0px_0px_#1a1c1c] border border-on-surface">
-                          Lấy Lá Này
-                        </span>
-                      </div>
-                    )}
+              {/* Statistics Bar */}
+              {discardPile.length > 0 && (
+                <div className="flex flex-col gap-1.5 bg-slate-50 border-3 border-on-surface p-3 rounded-2xl shadow-[2px_2px_0px_0px_#1a1c1c]">
+                  <span className="text-[10px] font-headline font-black text-slate-500 uppercase tracking-wider">Thống kê bài đã đánh:</span>
+                  <div className="flex flex-wrap gap-2 max-h-[100px] overflow-y-auto custom-scrollbar p-0.5">
+                    {Object.entries(typeCounts).map(([type, count]) => {
+                      const theme = CARD_THEMES[type] || { name: type, icon: '🃏', color: 'bg-slate-300 text-slate-950' };
+                      return (
+                        <div key={type} className={`text-[10px] font-headline font-black uppercase px-2.5 py-1 rounded-lg border-2 border-on-surface shadow-[1.5px_1.5px_0px_0px_#1a1c1c] flex items-center gap-1.5 ${theme.color}`}>
+                          <span>{theme.icon}</span>
+                          <span>{theme.name}: {count}</span>
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              )}
 
-            {/* Footer close button */}
-            <div className="flex justify-end border-t-3 border-on-surface pt-3">
-              <button
-                onClick={() => setIsOpen(false)}
-                className="btn-detonator px-6 py-2 rounded-xl text-xs font-headline font-black uppercase"
-              >
-                Đóng ✕
-              </button>
+              {/* Modal Grid of Cards */}
+              <div className="flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-6 p-2 hide-scroll">
+                {reversedPile.map((card, index) => {
+                  return (
+                    <div
+                      key={card.id || index}
+                      className={`relative p-1 rounded-xl transition-all duration-100
+                        ${isChoosing ? 'hover:scale-105 cursor-pointer' : ''}`}
+                      onClick={isChoosing ? () => handleSelect(card.id) : undefined}
+                    >
+                      {/* Newest Badge for the top card (first element of reversed pile) */}
+                      {index === 0 && !isChoosing && (
+                        <span className="absolute -top-1.5 -left-1.5 z-10 bg-rose-600 text-white border-2 border-on-surface text-[9px] font-headline font-black px-2 py-0.5 rounded-lg shadow-[1.5px_1.5px_0px_0px_#1a1c1c] rotate-[-4deg]">
+                          MỚI NHẤT
+                        </span>
+                      )}
+
+                      <Card type={card.type} skinIndex={card.skinIndex ?? 0} disabled={false} hideInfo={true} />
+                      {isChoosing && (
+                        <div className="absolute inset-0 bg-purple-500/10 hover:bg-transparent rounded-xl flex items-end justify-center pb-4 pointer-events-none">
+                          <span className="bg-purple-600 text-[9px] font-headline font-black uppercase tracking-wider px-2 py-0.5 rounded text-white shadow-[1.5px_1.5px_0px_0px_#1a1c1c] border border-on-surface">
+                            Lấy Lá Này
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Footer close button */}
+              <div className="flex justify-end border-t-3 border-on-surface pt-3">
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="btn-detonator px-6 py-2 rounded-xl text-xs font-headline font-black uppercase"
+                >
+                  Đóng ✕
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

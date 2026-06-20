@@ -359,8 +359,12 @@ function resolveZombieRevive(gameState, targetPlayerId, insertPosition = 0) {
 
   gameState.pendingZombie = null;
   if (gameState.drawsRequired === 0) {
-    gameState.drawsRequired = 1;
-    passTurn(gameState);
+    if (activator && activator.alive && activator.hand.length > 10) {
+      // Do not pass turn yet, player must discard first
+    } else {
+      gameState.drawsRequired = 1;
+      passTurn(gameState);
+    }
   }
   return gameState;
 }
@@ -485,8 +489,13 @@ function drawCard(gameState, playerId, fromBottom = false, onDefuse) {
         const t = getPlayer(gameState, thiefId);
         if (t && t.alive && !gameState.pendingZombie && !gameState.pendingDefuse) {
           if (gameState.drawsRequired === 0) {
-            gameState.drawsRequired = 1;
-            passTurn(gameState);
+            const activePlayer = getPlayer(gameState, playerId);
+            if (activePlayer && activePlayer.alive && activePlayer.hand.length > 10) {
+              // Do not pass turn yet
+            } else {
+              gameState.drawsRequired = 1;
+              passTurn(gameState);
+            }
           }
         }
       }
@@ -506,8 +515,12 @@ function drawCard(gameState, playerId, fromBottom = false, onDefuse) {
     const p = getPlayer(gameState, playerId);
     if (p && p.alive && !gameState.pendingZombie) {
       if (gameState.drawsRequired === 0) {
-        gameState.drawsRequired = 1;
-        passTurn(gameState);
+        if (p.hand.length > 10) {
+          // Do not pass turn yet
+        } else {
+          gameState.drawsRequired = 1;
+          passTurn(gameState);
+        }
       }
     }
     return gameState;
@@ -515,8 +528,12 @@ function drawCard(gameState, playerId, fromBottom = false, onDefuse) {
 
   player.hand.push(card);
   if (gameState.drawsRequired === 0) {
-    gameState.drawsRequired = 1;
-    passTurn(gameState);
+    if (player.hand.length > 10) {
+      // Do not pass turn yet
+    } else {
+      gameState.drawsRequired = 1;
+      passTurn(gameState);
+    }
   }
   return gameState;
 }
@@ -740,6 +757,7 @@ function executeActionEffect(gameState, cardType, playerId, targetPlayerId, opti
 function resolveDefusePutBack(gameState, insertPosition) {
   if (!gameState.pendingDefuse) return gameState;
   const card = gameState.pendingDefuse.card;
+  const playerId = gameState.pendingDefuse.playerId;
   const pos = Math.max(0, Math.min(insertPosition, gameState.deck.length));
   if (card.type === 'imploding_kitten') {
     card.faceUp = true;
@@ -748,8 +766,13 @@ function resolveDefusePutBack(gameState, insertPosition) {
   gameState.pendingDefuse = null;
 
   if (gameState.drawsRequired === 0) {
-    gameState.drawsRequired = 1;
-    passTurn(gameState);
+    const player = getPlayer(gameState, playerId);
+    if (player && player.alive && player.hand.length > 10) {
+      // Do not pass turn yet
+    } else {
+      gameState.drawsRequired = 1;
+      passTurn(gameState);
+    }
   }
   return gameState;
 }
@@ -825,8 +848,12 @@ function resolveDigDeeper(gameState, decision) {
       }
       gameState.drawsRequired = Math.max(0, (gameState.drawsRequired ?? 1) - 1);
       if (gameState.drawsRequired === 0 && !gameState.pendingZombie && !gameState.pendingDefuse) {
-        gameState.drawsRequired = 1;
-        passTurn(gameState);
+        if (player && player.alive && player.hand.length > 10) {
+          // Do not pass turn yet
+        } else {
+          gameState.drawsRequired = 1;
+          passTurn(gameState);
+        }
       }
     } else {
       gameState.deck.push(firstCard);
@@ -903,6 +930,7 @@ module.exports = {
   handleNope,
   handleDefuse,
   handleAttack,
+  passTurn,
   handleSkip,
   handleSuperSkip,
   handleSeeTheFuture,

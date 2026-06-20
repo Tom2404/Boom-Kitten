@@ -4,7 +4,7 @@ import PlayerAvatar, { PRESET_AVATARS } from '../components/PlayerAvatar.jsx';
 import PlayerHand from '../components/PlayerHand.jsx';
 import DeckPile from '../components/DeckPile.jsx';
 import DiscardPile from '../components/DiscardPile.jsx';
-import Card from '../components/Card.jsx';
+import Card, { CARD_THEMES } from '../components/Card.jsx';
 import { getCardImageUrl } from '../utils/cardSkins.js';
 import gsap from 'gsap';
 import {
@@ -52,48 +52,112 @@ import {
 import DrawReveal from '../components/DrawReveal.jsx';
 
 
-function FlyingCard({ id, type, cardType, startPos, endPos, onComplete }) {
+function FlyingCard({ id, type, cardType, startPos, endPos, centerPos, onComplete, playerName }) {
   const elementRef = useRef(null);
+  const [isAtCenter, setIsAtCenter] = useState(false);
+  const { t, language } = useLanguage();
 
   useEffect(() => {
     if (!elementRef.current) return;
 
-    // Set initial state
-    gsap.set(elementRef.current, {
-      x: startPos.x - 64, // center horizontally (w-32 is 128px)
-      y: startPos.y - 88, // center vertically (h-44 is 176px)
-      scale: 0.2,
-      opacity: 0,
-      rotation: type === 'draw' ? 90 : 0,
-    });
+    if (type === 'draw') {
+      // Set initial state for draw
+      gsap.set(elementRef.current, {
+        x: startPos.x - 64, // center horizontally (w-32 is 128px)
+        y: startPos.y - 88, // center vertically (h-44 is 176px)
+        scale: 0.2,
+        opacity: 0,
+        rotation: 90,
+      });
 
-    // Animate to end position
-    gsap.to(elementRef.current, {
-      x: endPos.x - 64,
-      y: endPos.y - 88,
-      scale: 1,
-      opacity: 1,
-      rotation: type === 'draw' ? 0 : Math.random() * 30 - 15,
-      duration: 0.55,
-      ease: 'power2.out',
-      onComplete: () => {
-        gsap.to(elementRef.current, {
-          opacity: 0,
-          scale: type === 'draw' ? 0.8 : 1.15,
-          duration: 0.15,
-          onComplete,
-        });
-      },
-    });
-  }, [startPos, endPos, type, onComplete]);
+      // Animate draw to end position
+      gsap.to(elementRef.current, {
+        x: endPos.x - 64,
+        y: endPos.y - 88,
+        scale: 1,
+        opacity: 1,
+        rotation: 0,
+        duration: 0.55,
+        ease: 'power2.out',
+        onComplete: () => {
+          gsap.to(elementRef.current, {
+            opacity: 0,
+            scale: 0.8,
+            duration: 0.15,
+            onComplete,
+          });
+        },
+      });
+    } else {
+      // Create timeline for multi-stage play animation
+      const tl = gsap.timeline({
+        onComplete: () => {
+          onComplete();
+        }
+      });
 
-  return (
-    <div
-      ref={elementRef}
-      className="absolute pointer-events-none z-[9999]"
-      style={{ width: '128px', height: '176px' }}
-    >
-      {type === 'draw' ? (
+      // 1. Initial set at start position (hand/avatar)
+      tl.set(elementRef.current, {
+        x: startPos.x - 64,
+        y: startPos.y - 88,
+        scale: 0.2,
+        opacity: 0,
+        rotation: 0,
+      });
+
+      // 2. Fly to center and zoom in
+      const targetCenter = centerPos || { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+      tl.to(elementRef.current, {
+        x: targetCenter.x - 64,
+        y: targetCenter.y - 88,
+        scale: 1.3,
+        opacity: 1,
+        rotation: 0,
+        duration: 0.3,
+        ease: 'power2.out',
+        onComplete: () => {
+          setIsAtCenter(true);
+        },
+      });
+
+      // 3. Hover float effect in center (0.5s)
+      tl.to(elementRef.current, {
+        y: targetCenter.y - 88 - 8,
+        yoyo: true,
+        repeat: 1,
+        duration: 0.25,
+        ease: 'sine.inOut',
+      });
+
+      // 4. Fly to discard pile and shrink
+      tl.to(elementRef.current, {
+        x: endPos.x - 64,
+        y: endPos.y - 88,
+        scale: 1.0,
+        rotation: Math.random() * 30 - 15,
+        duration: 0.35,
+        ease: 'power2.inOut',
+        onStart: () => {
+          setIsAtCenter(false);
+        },
+      });
+
+      // 5. Fade out at discard pile
+      tl.to(elementRef.current, {
+        opacity: 0,
+        scale: 1.1,
+        duration: 0.1,
+      });
+    }
+  }, [startPos, endPos, centerPos, type, onComplete]);
+
+  if (type === 'draw') {
+    return (
+      <div
+        ref={elementRef}
+        className="absolute pointer-events-none z-[9999]"
+        style={{ width: '128px', height: '176px' }}
+      >
         <div className="h-full w-full rounded-xl border-3 border-on-surface bg-primary-container flex items-center justify-center p-3 select-none shadow-xl">
           <div className="absolute inset-1.5 border-2 border-dashed border-on-primary-container/30 rounded-lg flex flex-col items-center justify-center">
             <svg className="w-10 h-10 text-on-primary-container/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -102,11 +166,50 @@ function FlyingCard({ id, type, cardType, startPos, endPos, onComplete }) {
             </svg>
           </div>
         </div>
-      ) : (
-        <div className="scale-90 shadow-2xl">
-          <Card type={cardType} disabled={true} />
-        </div>
+      </div>
+    );
+  }
+
+  const theme = CARD_THEMES[cardType] || { name: cardType, icon: '🃏', color: 'bg-slate-300 text-slate-950' };
+  const nameKey = `card_${cardType}_name`;
+  const cardName = t(nameKey) !== nameKey ? t(nameKey) : theme.name;
+
+  const getGlowColor = () => {
+    if (cardType === 'defuse') return 'rgba(16, 185, 129, 0.6)'; // emerald
+    if (cardType === 'nope') return 'rgba(244, 63, 94, 0.6)'; // rose
+    if (cardType?.startsWith('attack')) return 'rgba(249, 115, 22, 0.6)'; // orange
+    if (cardType === 'skip') return 'rgba(56, 189, 248, 0.6)'; // sky
+    if (cardType === 'super_skip') return 'rgba(129, 140, 248, 0.6)'; // indigo
+    if (cardType?.startsWith('see_the_future')) return 'rgba(168, 85, 247, 0.6)'; // fuchsia/purple
+    if (cardType?.startsWith('alter_the_future')) return 'rgba(244, 114, 182, 0.6)'; // pink
+    if (cardType === 'shuffle') return 'rgba(245, 158, 11, 0.6)'; // amber
+    if (cardType === 'draw_from_bottom') return 'rgba(20, 184, 166, 0.6)'; // teal
+    if (cardType === 'favor') return 'rgba(234, 179, 8, 0.6)'; // yellow
+    if (cardType === 'zombie_kitten') return 'rgba(34, 197, 94, 0.6)'; // green
+    return 'rgba(100, 116, 139, 0.6)'; // slate fallback
+  };
+  const glowColor = getGlowColor();
+
+  return (
+    <div
+      ref={elementRef}
+      className="absolute pointer-events-none z-[9999]"
+      style={{ width: '128px', height: '176px' }}
+    >
+      {/* Glow Effect behind the card */}
+      {isAtCenter && (
+        <div 
+          className="absolute inset-[-60px] rounded-full filter blur-xl opacity-80 animate-pulse pointer-events-none z-[-1]"
+          style={{
+            background: `radial-gradient(circle, ${glowColor} 0%, transparent 70%)`
+          }}
+        />
       )}
+
+      {/* The actual Card component */}
+      <div className="scale-90 shadow-2xl relative select-none">
+        <Card type={cardType} disabled={false} hideInfo={true} />
+      </div>
     </div>
   );
 }
@@ -865,17 +968,21 @@ export default function Game() {
         const targetId = playerId === myUser?.id ? 'player-hand-container' : `player-avatar-${playerId}`;
         const startPos = getRelativeCenter(targetId);
         const endPos = getRelativeCenter('discard-pile-element');
+        const centerPos = getRelativeCenter('board-center-target');
+        const playerName = gameState?.players?.find(p => p.userId === playerId)?.username || playerId;
         
         if (startPos && endPos) {
           const animId = `${Date.now()}-${Math.random()}`;
           setAnimations((prev) => [
-            ...prev,
+            ...prev.filter((a) => a.type !== 'play'),
             {
               id: animId,
               type: 'play',
               cardType,
               startPos,
               endPos,
+              centerPos,
+              playerName,
             },
           ]);
         }
@@ -1737,6 +1844,11 @@ export default function Game() {
   const opponents = gameState.players.filter((p) => p.userId !== myUser.id);
   const activePlayerId = gameState.players[gameState.currentPlayerIndex]?.userId;
   const isMyTurn = activePlayerId === myUser.id;
+
+  const numPlayAnims = animations.filter((a) => a.type === 'play').length;
+  const displayedDiscardPile = (gameState.discardPile && numPlayAnims > 0)
+    ? gameState.discardPile.slice(0, Math.max(0, gameState.discardPile.length - numPlayAnims))
+    : (gameState.discardPile || []);
   const getPlayerDisplayName = (playerId) => {
     if (playerId === myUser.id) return myUser.username || 'Bạn';
     const player =
@@ -1762,7 +1874,7 @@ export default function Game() {
   };
 
   return (
-    <div ref={mainContainerRef} className="flex flex-col gap-5 w-full select-none">
+    <div ref={mainContainerRef} className="relative flex flex-col gap-5 w-full select-none">
       {/* Top Header Bar matching mockup */}
       <div className="flex justify-between items-center bg-white border-4 border-on-surface rounded-2xl px-6 py-3 shadow-[4px_4px_0px_0px_#1a1c1c] z-20">
         {/* Left: Title & Room ID */}
@@ -1865,7 +1977,8 @@ export default function Game() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-[auto_minmax(160px,220px)_auto] items-center justify-center gap-6 md:gap-8 z-10">
+              <div className="grid grid-cols-[auto_minmax(160px,220px)_auto] items-center justify-center gap-6 md:gap-8 z-10 relative">
+                <div id="board-center-target" className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-0 h-0 pointer-events-none" />
                 <DeckPile
                   count={gameState.deckCount ?? 0}
                   topCard={gameState.topCard}
@@ -1900,7 +2013,7 @@ export default function Game() {
                 </div>
 
                 <DiscardPile
-                  discardPile={gameState.discardPile}
+                  discardPile={displayedDiscardPile}
                   pendingCombo5={gameState.pendingCombo5}
                   myUserId={myUser.id}
                   onSelectCard={respondCombo5}
@@ -2446,6 +2559,8 @@ export default function Game() {
             cardType={anim.cardType}
             startPos={anim.startPos}
             endPos={anim.endPos}
+            centerPos={anim.centerPos}
+            playerName={anim.playerName}
             onComplete={() => setAnimations((prev) => prev.filter((a) => a.id !== anim.id))}
           />
         );

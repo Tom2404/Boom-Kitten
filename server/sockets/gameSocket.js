@@ -29,6 +29,7 @@ const {
   resolveArmageddonDistribute,
   resolveArmageddonDecision,
   checkStreakingKittenEffect,
+  passTurn,
 } = require('../game/gameLogic');
 const User = require('../models/User');
 const GameHistory = require('../models/GameHistory');
@@ -298,7 +299,7 @@ async function finalizeGame(io, room) {
 }
 
 module.exports = function registerGameSocket(io) {
-  const NOPE_WINDOW_MS = 4000;
+  const NOPE_WINDOW_MS = 3000;
 
   function setupNopeTimeout(room, eventId) {
     setTimeout(async () => {
@@ -1050,7 +1051,7 @@ module.exports = function registerGameSocket(io) {
       await executeDraw(room, userId);
     });
 
-    socket.on('game:discard', ({ cardId }) => {
+    socket.on('game:discard', async ({ cardId }) => {
       const roomCode = [...socket.rooms].find((room) => room.length === 6);
       if (!roomCode) return;
       const room = getRoomState(roomCode);
@@ -1062,11 +1063,21 @@ module.exports = function registerGameSocket(io) {
 
       const idx = player.hand.findIndex((c) => c.id === cardId);
       if (idx >= 0) {
+        const turnBefore = room.gameState.currentPlayerIndex;
         const [card] = player.hand.splice(idx, 1);
         room.gameState.discardPile.push(card);
         io.to(roomCode).emit('game:cardPlayed', { playerId: userId, cardType: `discard_${card.type}` });
-        io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
-        sendHands(io, room);
+
+        // If the player has finished drawing for their turn and discarded back down to 10 cards, pass the turn.
+        const isCurrentPlayer = room.gameState.currentPlayerIndex === room.gameState.players.indexOf(player);
+        if (isCurrentPlayer && room.gameState.drawsRequired === 0 && player.hand.length <= 10) {
+          if (!room.gameState.pendingDefuse && !room.gameState.pendingZombie) {
+            room.gameState.drawsRequired = 1;
+            passTurn(room.gameState);
+          }
+        }
+
+        await afterGameStateChanged(room, [{ userId, alive: player.alive }], turnBefore);
       }
     });
 
@@ -1264,7 +1275,7 @@ module.exports = function registerGameSocket(io) {
         nopeCount: 0,
       };
 
-      io.to(roomCode).emit('game:nopeWindow', { eventId, timeoutMs: 3000 });
+      io.to(roomCode).emit('game:nopeWindow', { eventId, timeoutMs: NOPE_WINDOW_MS });
       io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
       sendHands(io, room);
 
