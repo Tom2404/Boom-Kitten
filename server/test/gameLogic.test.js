@@ -8,6 +8,7 @@ const {
   checkStreakingKittenEffect,
   checkWinCondition,
   resolveDefusePutBack,
+  playCard,
 } = require('../game/gameLogic');
 
 test('eliminatePlayer does not clear hand in zombie edition', () => {
@@ -406,6 +407,34 @@ test('curse_of_the_cat_butt sets blinded state, allows play by ID, and is resolv
 
   defuseState = resolveDefusePutBack(defuseState, 0);
   assert.equal(defuseState.players[1].blinded, false); // Lifted after defuse put back!
+});
+
+test('playCard for feed_the_dead or grave_robber is rejected if there are no dead players', () => {
+  const gameState = {
+    edition: 'zombie',
+    players: [
+      { userId: 'p1', username: 'P1', hand: [{ id: 'c1', type: 'feed_the_dead' }, { id: 'c2', type: 'grave_robber' }], alive: true },
+      { userId: 'p2', username: 'P2', hand: [], alive: true },
+    ],
+    activePlayerIds: ['p1', 'p2'],
+    currentPlayerIndex: 0,
+    discardPile: [],
+    lastAction: null,
+  };
+
+  // Playing when no dead players should return null
+  const result1 = playCard(gameState, 'p1', 'feed_the_dead', null, { cardId: 'c1' });
+  assert.equal(result1, null);
+
+  const result2 = playCard(gameState, 'p1', 'grave_robber', null, { cardId: 'c2' });
+  assert.equal(result2, null);
+
+  // Mark one player as dead
+  gameState.players[1].alive = false;
+
+  // Now playing should succeed
+  const result3 = playCard(gameState, 'p1', 'feed_the_dead', null, { cardId: 'c1' });
+  assert.equal(result3, 'feed_the_dead');
 });
 
 

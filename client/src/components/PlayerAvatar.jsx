@@ -27,6 +27,7 @@ export default function PlayerAvatar({
   isSelectedTarget,
   onSelectTarget,
   publicProfile,
+  edition,
 }) {
   const { userId, username, alive, handCount, avatar, activeAvatarFrame, eloPoints, rank, markedCards, pendingTakeFrom } = player;
   const visibleMarkedCards = markedCards?.slice(0, 3) ?? [];
@@ -52,7 +53,9 @@ export default function PlayerAvatar({
             ? (isCurrentTurn 
                 ? 'bg-yellow-300 text-slate-950 border-4 scale-105 animate-brutal-glow' 
                 : 'bg-surface text-on-surface border-3 border-on-surface shadow-[4px_4px_0px_0px_rgba(26,28,28,1)]') 
-            : 'bg-surface-dim opacity-50 text-on-surface border-3 border-on-surface shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]'}
+            : (edition === 'zombie'
+                ? 'bg-[#1a2e22] text-[#d1fae5] border-3 border-[#047857] shadow-[2px_2px_0px_0px_#0f0f0f] opacity-80'
+                : 'bg-surface-dim opacity-50 text-on-surface border-3 border-on-surface shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]')}
           ${isTargetable && alive 
             ? 'cursor-pointer border-dashed border-indigo-400 hover:-translate-y-1 hover:border-yellow-400 shadow-[4px_4px_0px_0px_rgba(99,102,241,0.5)]' 
             : ''}
@@ -82,35 +85,42 @@ export default function PlayerAvatar({
           </div>
         )}
         {/* Player Frame & Image Container */}
-        <div className="relative h-16 w-16 mb-2">
-          {/* Avatar Frame (if any) */}
-          {activeAvatarFrame && alive && (
-            <div className="absolute inset-[-6px] rounded-full border-4 border-yellow-400 animate-spin-slow pointer-events-none z-10" />
-          )}
-          
-          {/* Profile Image / Initials */}
-          <div className={`h-full w-full rounded-full flex items-center justify-center text-xl font-headline font-black bg-primary-fixed border-2 border-on-surface overflow-hidden shadow-inner
-            ${!alive ? 'grayscale' : ''}`}>
-            {avatar && PRESET_AVATARS[avatar] ? (
-              <span className="text-3xl">{PRESET_AVATARS[avatar]}</span>
-            ) : avatar ? (
-              <img src={avatar} alt={username} className="h-full w-full object-cover" />
-            ) : (
-              <span>{username ? username.slice(0, 2).toUpperCase() : '?'}</span>
-            )}
-          </div>
-    
-          {/* Dead Overlay */}
-          {!alive && (
-            <div className="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center">
-              <span className="text-2xl filter drop-shadow">💀</span>
-            </div>
+        <div className="relative h-16 w-16 mb-2 flex items-center justify-center">
+          {alive ? (
+            <>
+              {/* Avatar Frame (if any) */}
+              {activeAvatarFrame && (
+                <div className="absolute inset-[-6px] rounded-full border-4 border-yellow-400 animate-spin-slow pointer-events-none z-10" />
+              )}
+              
+              {/* Profile Image / Initials */}
+              <div className="h-full w-full rounded-full flex items-center justify-center text-xl font-headline font-black bg-primary-fixed border-2 border-on-surface overflow-hidden shadow-inner">
+                {avatar && PRESET_AVATARS[avatar] ? (
+                  <span className="text-3xl">{PRESET_AVATARS[avatar]}</span>
+                ) : avatar ? (
+                  <img src={avatar} alt={username} className="h-full w-full object-cover" />
+                ) : (
+                  <span>{username ? username.slice(0, 2).toUpperCase() : '?'}</span>
+                )}
+              </div>
+            </>
+          ) : (
+            /* Custom Tombstone SVG for dead players (Zombies) - Zero Emojis */
+            <svg viewBox="0 0 64 64" className="w-16 h-16 drop-shadow-[2px_2px_0px_#0f0f0f]" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 56V22C12 13 20 6 32 6C44 6 52 13 52 22V56H12Z" fill="#9ca3af" stroke="#1a1a1a" strokeWidth="3" strokeLinejoin="round" />
+              <path d="M24 14L28 20L26 26" stroke="#1a1a1a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+              <text x="32" y="38" textAnchor="middle" fill="#1a1a1a" fontSize="12" fontWeight="900" fontFamily="monospace">R.I.P</text>
+              <path d="M6 56H58" stroke="#1a1a1a" strokeWidth="3" strokeLinecap="round" />
+            </svg>
           )}
         </div>
     
         {/* Name and Rank Details */}
         <div className="w-full text-center">
-          <h4 className={`text-xs font-headline font-black truncate max-w-full px-1 ${isCurrentTurn && alive ? 'text-slate-950' : 'text-on-surface'}`}>
+          <h4 className={`text-xs font-headline font-black truncate max-w-full px-1 
+            ${isCurrentTurn && alive 
+              ? 'text-slate-950' 
+              : (edition === 'zombie' && !alive ? 'text-[#a7f3d0]' : 'text-on-surface')}`}>
             {username || userId}
           </h4>
           <div className="flex justify-center my-0.5">
@@ -139,8 +149,8 @@ export default function PlayerAvatar({
   
         {/* Dead Tag */}
         {!alive && (
-          <span className="mt-2 px-2 py-0.5 bg-secondary text-on-error border-2 border-on-surface rounded text-[9px] font-headline font-black uppercase tracking-wider shadow-[1px_1px_0px_0px_rgba(26,28,28,1)]">
-            ĐÃ LOẠI
+          <span className="mt-2 px-2 py-0.5 bg-emerald-800 text-white border-2 border-slate-900 rounded-none text-[9px] font-headline font-black uppercase tracking-wider shadow-[1.5px_1.5px_0px_0px_#0f0f0f]">
+            {edition === 'zombie' ? 'ZOMBIE' : 'ĐÃ LOẠI'}
           </span>
         )}
   

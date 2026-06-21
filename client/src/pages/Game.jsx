@@ -611,6 +611,7 @@ export default function Game() {
   const [nopeAlert, setNopeAlert] = useState(null);
   const [isRedFlashActive, setIsRedFlashActive] = useState(false);
   const [isImplodingActive, setIsImplodingActive] = useState(false);
+  const [zombieFog, setZombieFog] = useState(false);
 
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
   const prevMessagesLength = useRef(chatMessages.length);
@@ -897,19 +898,730 @@ export default function Game() {
     }
   }, [gameEnded, myUser]);
 
-  const [animations, setAnimations] = useState([]);
+  const [numPlayAnims, setNumPlayAnims] = useState(0);
+  const [nopeStamp, setNopeStamp] = useState(null);
+  const canvasRef = useRef(null);
   const mainContainerRef = useRef(null);
+  const particlesRef = useRef([]);
+  const animFrameIdRef = useRef(null);
 
-  const getRelativeCenter = (targetId) => {
-    if (!mainContainerRef.current) return null;
-    const target = document.getElementById(targetId);
-    if (!target) return null;
-    const targetRect = target.getBoundingClientRect();
-    const parentRect = mainContainerRef.current.getBoundingClientRect();
-    return {
-      x: targetRect.left - parentRect.left + targetRect.width / 2,
-      y: targetRect.top - parentRect.top + targetRect.height / 2,
+  // Clean up canvas animations on unmount
+  useEffect(() => {
+    return () => {
+      if (animFrameIdRef.current) {
+        cancelAnimationFrame(animFrameIdRef.current);
+      }
     };
+  }, []);
+
+  // Canvas Particle System
+  const spawnParticles = (x, y, paletteType) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+
+    const palettes = {
+      defuse: ['#10b981', '#34d399', '#6ee7b7', '#ffffff'],
+      catomic: ['#84cc16', '#a3e635', '#d9f99d', '#fbbf24'],
+      nope: ['#ef4444', '#f87171', '#fca5a5', '#1a1a1a'],
+      zombie_revive: ['#10b981', '#047857', '#a3e635', '#ffffff'],
+      dig_earth: ['#78350f', '#b45309', '#facc15', '#a16207']
+    };
+    const palette = palettes[paletteType] || ['#ffffff'];
+    const numParticles = 40;
+
+    for (let i = 0; i < numParticles; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 2 + Math.random() * 8;
+      particlesRef.current.push({
+        x: x,
+        y: y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - (1 + Math.random() * 2),
+        life: 1.0,
+        decay: 0.015 + Math.random() * 0.02,
+        size: 5 + Math.random() * 12,
+        color: palette[Math.floor(Math.random() * palette.length)],
+        type: Math.random() > 0.5 ? 'star' : 'circle'
+      });
+    }
+
+    const draw = () => {
+      const currentCanvas = canvasRef.current;
+      if (!currentCanvas) return;
+      const currentCtx = currentCanvas.getContext('2d');
+      if (!currentCtx) return;
+
+      currentCtx.clearRect(0, 0, currentCanvas.width, currentCanvas.height);
+      let active = false;
+
+      particlesRef.current.forEach(p => {
+        if (p.life > 0) {
+          active = true;
+          currentCtx.beginPath();
+          currentCtx.fillStyle = p.color;
+          currentCtx.strokeStyle = '#1a1a1a';
+          currentCtx.lineWidth = 2.5;
+
+          if (p.type === 'star') {
+            const r = p.size * p.life;
+            currentCtx.moveTo(p.x, p.y - r);
+            currentCtx.lineTo(p.x + r * 0.3, p.y - r * 0.3);
+            currentCtx.lineTo(p.x + r, p.y);
+            currentCtx.lineTo(p.x + r * 0.3, p.y + r * 0.3);
+            currentCtx.lineTo(p.x, p.y + r);
+            currentCtx.lineTo(p.x - r * 0.3, p.y + r * 0.3);
+            currentCtx.lineTo(p.x - r, p.y);
+            currentCtx.lineTo(p.x - r * 0.3, p.y - r * 0.3);
+            currentCtx.closePath();
+            currentCtx.fill();
+            currentCtx.stroke();
+          } else {
+            const r = (p.size / 2) * p.life;
+            currentCtx.arc(p.x, p.y, r, 0, Math.PI * 2);
+            currentCtx.fill();
+            currentCtx.stroke();
+          }
+
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vy += 0.15;
+          p.life -= p.decay;
+        }
+      });
+
+      particlesRef.current = particlesRef.current.filter(p => p.life > 0);
+
+      if (particlesRef.current.length > 0) {
+        animFrameIdRef.current = requestAnimationFrame(draw);
+      } else {
+        currentCtx.clearRect(0, 0, currentCanvas.width, currentCanvas.height);
+        animFrameIdRef.current = null;
+      }
+    };
+
+    if (!animFrameIdRef.current) {
+      animFrameIdRef.current = requestAnimationFrame(draw);
+    }
+  };
+
+  const getNextAlivePlayerId = () => {
+    if (!gameState || !gameState.players) return null;
+    const len = gameState.players.length;
+    let idx = gameState.currentPlayerIndex;
+    const dir = gameState.playDirection || 1;
+    for (let i = 0; i < len; i++) {
+      idx = (idx + dir + len) % len;
+      if (gameState.players[idx].alive) {
+        return gameState.players[idx].userId;
+      }
+    }
+    return null;
+  };
+
+  const playZombieReviveAnimation = (targetUserId, activatorPlayerId) => {
+    triggerScreenShake('light');
+
+    const discardEl = document.getElementById('discard-pile-element');
+    const targetEl = document.getElementById(`player-avatar-${targetUserId}`);
+    if (!targetEl) return;
+
+    const targetRect = targetEl.getBoundingClientRect();
+    const targetX = targetRect.left + targetRect.width / 2;
+    const targetY = targetRect.top + targetRect.height / 2;
+
+    spawnParticles(targetX, targetY, 'zombie_revive');
+
+    const overlay = document.createElement('div');
+    overlay.style.position = 'fixed';
+    overlay.style.top = `${targetRect.top}px`;
+    overlay.style.left = `${targetRect.left}px`;
+    overlay.style.width = `${targetRect.width}px`;
+    overlay.style.height = `${targetRect.height}px`;
+    overlay.style.zIndex = '150';
+    overlay.style.pointerEvents = 'none';
+    overlay.style.display = 'flex';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+
+    overlay.innerHTML = `
+      <div class="relative w-20 h-20 flex items-center justify-center">
+        <svg viewBox="0 0 64 64" class="w-full h-full drop-shadow-[4px_4px_0px_#1a1a1a] absolute" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 56V22C12 13 20 6 32 6C44 6 52 13 52 22V56H12Z" fill="#4b5563" stroke="#1a1a1a" stroke-width="3" stroke-linejoin="round" />
+          <path d="M24 14L28 20L26 26" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round" />
+          <text x="32" y="38" text-anchor="middle" fill="#f3f4f6" font-size="9" font-weight="900" font-family="monospace">REVIVED</text>
+          <path d="M6 56H58" stroke="#1a1a1a" stroke-width="3" stroke-linecap="round" />
+        </svg>
+        <div class="zombie-hand-container absolute bottom-4" style="width: 40px; height: 50px; overflow: visible;">
+          <svg viewBox="0 0 40 50" class="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <g stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 48V30" />
+              <path d="M15 48V35" />
+              <path d="M12 32C10 28 8 20 12 15" />
+              <path d="M17 30C16 24 15 12 18 8" />
+              <path d="M22 30C22 24 23 10 25 8" />
+              <path d="M27 31C28 26 31 16 33 14" />
+              <path d="M32 35C35 32 38 24 37 20" />
+            </g>
+            <g stroke="#1a1a1a" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 48V30" />
+              <path d="M15 48V35" />
+              <path d="M12 32C10 28 8 20 12 15" />
+              <path d="M17 30C16 24 15 12 18 8" />
+              <path d="M22 30C22 24 23 10 25 8" />
+              <path d="M27 31C28 26 31 16 33 14" />
+              <path d="M32 35C35 32 38 24 37 20" />
+            </g>
+          </svg>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    const hand = overlay.querySelector('.zombie-hand-container');
+    gsap.fromTo(hand, 
+      { y: 50, scaleY: 0.1, rotation: -10 },
+      { 
+        y: 0, 
+        scaleY: 1, 
+        rotation: 0,
+        duration: 0.8, 
+        ease: 'back.out(1.7)',
+        onComplete: () => {
+          gsap.to(overlay, {
+            opacity: 0,
+            scale: 0.8,
+            duration: 0.5,
+            delay: 0.8,
+            ease: 'power2.in',
+            onComplete: () => {
+              if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+            }
+          });
+        }
+      }
+    );
+
+    if (discardEl) {
+      const discardRect = discardEl.getBoundingClientRect();
+      const discX = discardRect.left + discardRect.width / 2;
+      const discY = discardRect.top + discardRect.height / 2;
+
+      for (let i = 0; i < 8; i++) {
+        setTimeout(() => {
+          const blob = document.createElement('div');
+          blob.className = 'absolute rounded-full border border-slate-950';
+          blob.style.left = `${discX}px`;
+          blob.style.top = `${discY}px`;
+          blob.style.width = '12px';
+          blob.style.height = '12px';
+          const colors = ['#10b981', '#047857', '#a3e635', '#34d399'];
+          blob.style.backgroundColor = colors[i % colors.length];
+          blob.style.zIndex = '145';
+          blob.style.boxShadow = '2px 2px 0px #1a1a1a';
+          document.body.appendChild(blob);
+
+          const midX = (discX + targetX) / 2 + (Math.random() - 0.5) * 150;
+          const midY = (discY + targetY) / 2 - 100 - Math.random() * 50;
+
+          const pathObj = { t: 0 };
+          gsap.to(pathObj, {
+            t: 1,
+            duration: 0.6 + Math.random() * 0.3,
+            ease: 'power2.out',
+            onUpdate: () => {
+              const t = pathObj.t;
+              const curX = (1 - t) * (1 - t) * discX + 2 * (1 - t) * t * midX + t * t * targetX;
+              const curY = (1 - t) * (1 - t) * discY + 2 * (1 - t) * t * midY + t * t * targetY;
+              blob.style.left = `${curX}px`;
+              blob.style.top = `${curY}px`;
+            },
+            onComplete: () => {
+              if (blob.parentNode) blob.parentNode.removeChild(blob);
+              spawnParticles(targetX, targetY, 'zombie_revive');
+            }
+          });
+        }, i * 80);
+      }
+    }
+  };
+
+  const playHordeAttackAnimation = (sourceUserIds, targetUserId) => {
+    triggerScreenShake('heavy');
+    setZombieFog(true);
+    setTimeout(() => setZombieFog(false), 1250);
+
+    const targetEl = document.getElementById(targetUserId === myUser?.id ? 'player-hand-container' : `player-avatar-${targetUserId}`);
+    if (!targetEl) return;
+    const targetRect = targetEl.getBoundingClientRect();
+    const targetX = targetRect.left + targetRect.width / 2;
+    const targetY = targetRect.top + targetRect.height / 2;
+
+    let sources = sourceUserIds || [];
+    if (sources.length === 0 && gameState?.players) {
+      sources = gameState.players.filter(p => !p.alive).map(p => p.userId);
+    }
+    
+    if (sources.length === 0) {
+      sources = ['deck-pile-element'];
+    }
+
+    sources.forEach((srcId) => {
+      const srcEl = document.getElementById(srcId.startsWith('player-avatar-') || srcId === 'deck-pile-element' ? srcId : `player-avatar-${srcId}`);
+      if (!srcEl) return;
+      const srcRect = srcEl.getBoundingClientRect();
+      const srcX = srcRect.left + srcRect.width / 2;
+      const srcY = srcRect.top + srcRect.height / 2;
+
+      for (let i = 0; i < 2; i++) {
+        setTimeout(() => {
+          const skull = document.createElement('div');
+          skull.style.position = 'fixed';
+          skull.style.left = `${srcX - 24}px`;
+          skull.style.top = `${srcY - 24}px`;
+          skull.style.width = '48px';
+          skull.style.height = '48px';
+          skull.style.zIndex = '145';
+          skull.style.pointerEvents = 'none';
+
+          skull.innerHTML = `
+            <svg viewBox="0 0 64 64" class="w-full h-full drop-shadow-[3px_3px_0px_#1a1a1a]" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M16 28C16 18 24 10 32 10C40 10 48 18 48 28C48 36 42 42 42 48H22C22 42 16 36 16 28Z" fill="#a3e635" stroke="#1a1a1a" stroke-width="3.5" />
+              <path d="M26 48V54H38V48" fill="#a3e635" stroke="#1a1a1a" stroke-width="3.5" />
+              <rect x="22" y="24" width="8" height="8" rx="2" fill="#1a1a1a" />
+              <rect x="34" y="24" width="8" height="8" rx="2" fill="#1a1a1a" />
+              <path d="M30 36L32 33L34 36H30Z" fill="#1a1a1a" />
+            </svg>
+          `;
+
+          document.body.appendChild(skull);
+
+          const midX = (srcX + targetX) / 2 + (Math.random() - 0.5) * 200;
+          const midY = (srcY + targetY) / 2 - 150 - Math.random() * 100;
+
+          const obj = { t: 0 };
+          gsap.to(obj, {
+            t: 1,
+            duration: 0.7 + Math.random() * 0.3,
+            ease: 'power2.inOut',
+            onUpdate: () => {
+              const t = obj.t;
+              const curX = (1 - t) * (1 - t) * srcX + 2 * (1 - t) * t * midX + t * t * targetX;
+              const curY = (1 - t) * (1 - t) * srcY + 2 * (1 - t) * t * midY + t * t * targetY;
+              gsap.set(skull, {
+                x: curX - srcX,
+                y: curY - srcY,
+                rotation: Math.sin(t * Math.PI * 2) * 15,
+                scale: 1.0 + Math.sin(t * Math.PI) * 0.2
+              });
+            },
+            onComplete: () => {
+              if (skull.parentNode) skull.parentNode.removeChild(skull);
+              spawnParticles(targetX, targetY, 'catomic');
+            }
+          });
+        }, i * 200);
+      }
+    });
+  };
+
+  const playFeedTheDeadAnimation = (sourceUserIds, targetUserId) => {
+    const targetEl = document.getElementById(`player-avatar-${targetUserId}`);
+    if (!targetEl) return;
+    const targetRect = targetEl.getBoundingClientRect();
+    const targetX = targetRect.left + targetRect.width / 2;
+    const targetY = targetRect.top + targetRect.height / 2;
+
+    let sources = sourceUserIds || [];
+    if (sources.length === 0 && gameState?.players) {
+      sources = gameState.players.filter(p => p.alive).map(p => p.userId);
+    }
+
+    sources.forEach((srcId) => {
+      const srcEl = document.getElementById(srcId === myUser?.id ? 'player-hand-container' : `player-avatar-${srcId}`);
+      if (!srcEl) return;
+      const srcRect = srcEl.getBoundingClientRect();
+      const srcX = srcRect.left + srcRect.width / 2;
+      const srcY = srcRect.top + srcRect.height / 2;
+
+      const cardClone = document.createElement('div');
+      cardClone.style.position = 'fixed';
+      cardClone.style.left = `${srcX - 32}px`;
+      cardClone.style.top = `${srcY - 44}px`;
+      cardClone.style.width = '64px';
+      cardClone.style.height = '88px';
+      cardClone.style.zIndex = '145';
+      cardClone.style.pointerEvents = 'none';
+
+      cardClone.innerHTML = `
+        <div class="h-full w-full rounded-none border-2 border-slate-900 bg-white flex flex-col justify-between p-1.5 shadow-[2px_2px_0px_#1a1a1a]">
+          <div class="flex justify-between items-center border-b border-slate-900">
+            <span class="text-[6px] font-black uppercase text-slate-900">GIFT</span>
+            <span class="text-[6px] font-bold text-slate-500">🎁</span>
+          </div>
+          <div class="flex-grow flex items-center justify-center">
+            <div class="w-6 h-6 border border-slate-900 bg-orange-400 flex items-center justify-center font-black text-xs text-slate-900 shadow-[1px_1px_0px_#1a1a1a]">
+              ☠️
+            </div>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(cardClone);
+
+      const midX = (srcX + targetX) / 2;
+      const midY = (srcY + targetY) / 2 - 80;
+
+      const obj = { t: 0 };
+      gsap.to(obj, {
+        t: 1,
+        duration: 0.65,
+        ease: 'power2.out',
+        onUpdate: () => {
+          const t = obj.t;
+          const curX = (1 - t) * (1 - t) * srcX + 2 * (1 - t) * t * midX + t * t * targetX;
+          const curY = (1 - t) * (1 - t) * srcY + 2 * (1 - t) * t * midY + t * t * targetY;
+          gsap.set(cardClone, {
+            x: curX - srcX,
+            y: curY - srcY,
+            rotation: t * 180,
+            scale: 1.0 - t * 0.3
+          });
+        },
+        onComplete: () => {
+          if (cardClone.parentNode) cardClone.parentNode.removeChild(cardClone);
+          spawnParticles(targetX, targetY, 'catomic');
+        }
+      });
+    });
+  };
+
+  const playGraveRobberAnimation = (sourceUserIds) => {
+    const deckEl = document.getElementById('deck-pile-element');
+    if (!deckEl) return;
+    const deckRect = deckEl.getBoundingClientRect();
+    const deckX = deckRect.left + deckRect.width / 2;
+    const deckY = deckRect.top + deckRect.height / 2;
+
+    let sources = sourceUserIds || [];
+    if (sources.length === 0 && gameState?.players) {
+      sources = gameState.players.filter(p => !p.alive).map(p => p.userId);
+    }
+
+    if (sources.length === 0) {
+      sources = ['board-center-target'];
+    }
+
+    sources.forEach((srcId) => {
+      const srcEl = document.getElementById(`player-avatar-${srcId}`);
+      if (!srcEl) return;
+      const srcRect = srcEl.getBoundingClientRect();
+      const srcX = srcRect.left + srcRect.width / 2;
+      const srcY = srcRect.top + srcRect.height / 2;
+
+      const card = document.createElement('div');
+      card.style.position = 'fixed';
+      card.style.left = `${srcX - 32}px`;
+      card.style.top = `${srcY - 44}px`;
+      card.style.width = '64px';
+      card.style.height = '88px';
+      card.style.zIndex = '145';
+      card.style.pointerEvents = 'none';
+
+      card.innerHTML = `
+        <div class="h-full w-full rounded-none border-2 border-slate-900 bg-emerald-500 flex items-center justify-center p-1.5 shadow-[2px_2px_0px_#1a1a1a]">
+          <span class="text-xs font-black text-white">🪦</span>
+        </div>
+      `;
+
+      document.body.appendChild(card);
+
+      const obj = { t: 0 };
+      gsap.to(obj, {
+        t: 1,
+        duration: 0.85,
+        ease: 'power2.inOut',
+        onUpdate: () => {
+          const t = obj.t;
+          const baseX = (1 - t) * srcX + t * deckX;
+          const baseY = (1 - t) * srcY + t * deckY;
+          
+          const angle = t * Math.PI * 4;
+          const radius = (1 - t) * 60;
+          const curX = baseX + Math.cos(angle) * radius;
+          const curY = baseY + Math.sin(angle) * radius;
+
+          gsap.set(card, {
+            x: curX - srcX,
+            y: curY - srcY,
+            rotation: t * 360,
+            scale: 1.0 - t * 0.4
+          });
+        },
+        onComplete: () => {
+          if (card.parentNode) card.parentNode.removeChild(card);
+          spawnParticles(deckX, deckY, 'catomic');
+        }
+      });
+    });
+  };
+
+  const playDigDeeperAnimation = () => {
+    const deckEl = document.getElementById('deck-pile-element');
+    if (!deckEl) return;
+    const deckRect = deckEl.getBoundingClientRect();
+    const deckX = deckRect.left + deckRect.width / 2;
+    const deckY = deckRect.top + deckRect.height / 2;
+
+    const shovel = document.createElement('div');
+    shovel.style.position = 'fixed';
+    shovel.style.left = `${deckX - 24}px`;
+    shovel.style.top = `${deckY - 80}px`;
+    shovel.style.width = '48px';
+    shovel.style.height = '48px';
+    shovel.style.zIndex = '150';
+    shovel.style.pointerEvents = 'none';
+
+    shovel.innerHTML = `
+      <svg viewBox="0 0 64 64" class="w-full h-full drop-shadow-[3px_3px_0px_#1a1a1a]" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M48 16L32 32" stroke="#b45309" stroke-width="5" stroke-linecap="round" />
+        <path d="M44 12L52 20" stroke="#b45309" stroke-width="5" stroke-linecap="round" />
+        <path d="M28 28L12 44C12 44 14 50 20 50L36 34" fill="#9ca3af" stroke="#1a1a1a" stroke-width="3" stroke-linejoin="round" />
+        <path d="M12 44L20 52" stroke="#1a1a1a" stroke-width="3" stroke-linecap="round" />
+      </svg>
+    `;
+
+    document.body.appendChild(shovel);
+
+    const tl = gsap.timeline({
+      onComplete: () => {
+        if (shovel.parentNode) shovel.parentNode.removeChild(shovel);
+      }
+    });
+
+    tl.to(shovel, {
+      y: 30,
+      x: -15,
+      rotation: -25,
+      duration: 0.35,
+      ease: 'power2.in',
+      onComplete: () => {
+        spawnParticles(deckX - 10, deckY + 10, 'dig_earth');
+        triggerScreenShake('light');
+      }
+    })
+    .to(shovel, {
+      y: -10,
+      x: 10,
+      rotation: 15,
+      duration: 0.3,
+      ease: 'power2.out'
+    })
+    .to(shovel, {
+      opacity: 0,
+      y: -30,
+      duration: 0.25,
+      ease: 'power2.in'
+    });
+  };
+
+  // Flying Card Clone animation
+  const playFlyingCard = (sourceId, targetId, cardType) => {
+    const sourceEl = document.getElementById(sourceId);
+    const targetEl = document.getElementById(targetId);
+    if (!sourceEl || !targetEl) return;
+
+    const sourceRect = sourceEl.getBoundingClientRect();
+    const targetRect = targetEl.getBoundingClientRect();
+
+    const clone = document.createElement('div');
+    clone.style.position = 'fixed';
+    clone.style.top = `${sourceRect.top}px`;
+    clone.style.left = `${sourceRect.left}px`;
+    clone.style.width = '128px';
+    clone.style.height = '176px';
+    clone.style.zIndex = '140';
+    clone.style.pointerEvents = 'none';
+
+    const theme = CARD_THEMES[cardType] || { name: cardType, icon: '🃏', color: 'bg-slate-300 text-slate-950', desc: '' };
+    clone.innerHTML = `
+      <div class="h-full w-full rounded-none border-3 border-slate-900 bg-white flex flex-col justify-between p-3 shadow-[4px_4px_0px_0px_#1a1a1a] scale-90 select-none">
+        <div class="flex justify-between items-center border-b-2 border-slate-900 pb-1">
+          <span class="text-[9px] font-headline font-black uppercase text-slate-900 truncate max-w-[90px]">${theme.name}</span>
+          <span class="text-[9px] font-headline font-black text-slate-900">[${cardType.slice(0, 2).toUpperCase()}]</span>
+        </div>
+        <div class="flex-grow flex items-center justify-center my-2">
+          <div class="w-12 h-12 border-2 border-slate-900 flex items-center justify-center font-headline font-black text-xl text-slate-900 bg-yellow-400 shadow-[2px_2px_0px_0px_#1a1a1a] rounded-none">
+            ${theme.name.slice(0, 1).toUpperCase()}
+          </div>
+        </div>
+        <div class="text-[7px] font-bold text-slate-500 leading-tight border-t-2 border-dashed border-slate-200 pt-1 text-center truncate">
+          ${theme.desc || ''}
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(clone);
+
+    const x1 = sourceRect.left + sourceRect.width / 2 - 64;
+    const y1 = sourceRect.top + sourceRect.height / 2 - 88;
+    const x2 = targetRect.left + targetRect.width / 2 - 64;
+    const y2 = targetRect.top + targetRect.height / 2 - 88;
+
+    const midX = (x1 + x2) / 2;
+    const midY = (y1 + y2) / 2;
+    const controlY = midY - (150 + Math.random() * 100);
+
+    let trailColor = '#db2777';
+    if (cardType?.startsWith('attack')) trailColor = '#f97316';
+    else if (cardType === 'favor') trailColor = '#eab308';
+    else if (cardType === 'nope') trailColor = '#db2777';
+
+    setNumPlayAnims(p => p + 1);
+
+    const obj = { t: 0 };
+    const trailInterval = setInterval(() => {
+      const tVal = obj.t;
+      const currX = (1 - tVal) * (1 - tVal) * x1 + 2 * (1 - tVal) * tVal * midX + tVal * tVal * x2;
+      const currY = (1 - tVal) * (1 - tVal) * y1 + 2 * (1 - tVal) * tVal * controlY + tVal * tVal * y2;
+
+      const trail = document.createElement('div');
+      trail.style.position = 'fixed';
+      trail.style.left = `${currX + 64 - 4}px`;
+      trail.style.top = `${currY + 88 - 4}px`;
+      trail.style.width = '8px';
+      trail.style.height = '8px';
+      trail.style.borderRadius = '50%';
+      trail.style.backgroundColor = trailColor;
+      trail.style.zIndex = '139';
+      trail.style.pointerEvents = 'none';
+      trail.style.opacity = '0.6';
+      trail.style.transition = 'opacity 300ms, transform 300ms';
+      document.body.appendChild(trail);
+
+      setTimeout(() => {
+        trail.style.opacity = '0';
+        trail.style.transform = 'scale(0.1)';
+        setTimeout(() => {
+          if (trail.parentNode) trail.parentNode.removeChild(trail);
+        }, 300);
+      }, 50);
+    }, 40);
+
+    gsap.to(obj, {
+      t: 1,
+      duration: 0.55,
+      ease: 'power2.inOut',
+      onUpdate: () => {
+        const tVal = obj.t;
+        const currX = (1 - tVal) * (1 - tVal) * x1 + 2 * (1 - tVal) * tVal * midX + tVal * tVal * x2;
+        const currY = (1 - tVal) * (1 - tVal) * y1 + 2 * (1 - tVal) * tVal * controlY + tVal * tVal * y2;
+
+        let rotation = 0;
+        if (tVal < 0.5) {
+          rotation = (tVal / 0.5) * 15;
+        } else {
+          const subT = (tVal - 0.5) / 0.5;
+          rotation = 15 - subT * 23;
+          if (subT > 0.8) {
+            rotation = -8 + ((subT - 0.8) / 0.2) * 8;
+          }
+        }
+
+        gsap.set(clone, {
+          x: currX - x1,
+          y: currY - y1,
+          rotation: rotation,
+          scale: 1.0 + Math.sin(tVal * Math.PI) * 0.3
+        });
+      },
+      onComplete: () => {
+        clearInterval(trailInterval);
+        if (clone.parentNode) {
+          clone.parentNode.removeChild(clone);
+        }
+        setNumPlayAnims(p => Math.max(0, p - 1));
+
+        const centerTargetX = targetRect.left + targetRect.width / 2;
+        const centerTargetY = targetRect.top + targetRect.height / 2;
+        spawnParticles(centerTargetX, centerTargetY, cardType === 'nope' ? 'nope' : (cardType === 'catomic_bomb' ? 'catomic' : 'defuse'));
+      }
+    });
+  };
+
+  // Flying Draw Card animation
+  const playDrawCard = (playerId) => {
+    const startEl = document.getElementById('deck-pile-element');
+    const targetId = playerId === myUser?.id ? 'player-hand-container' : `player-avatar-${playerId}`;
+    const targetEl = document.getElementById(targetId);
+    if (!startEl || !targetEl) return;
+
+    const startRect = startEl.getBoundingClientRect();
+    const targetRect = targetEl.getBoundingClientRect();
+
+    const clone = document.createElement('div');
+    clone.style.position = 'fixed';
+    clone.style.top = `${startRect.top}px`;
+    clone.style.left = `${startRect.left}px`;
+    clone.style.width = '128px';
+    clone.style.height = '176px';
+    clone.style.zIndex = '140';
+    clone.style.pointerEvents = 'none';
+
+    clone.innerHTML = `
+      <div class="h-full w-full rounded-none border-3 border-slate-900 bg-indigo-500 flex items-center justify-center p-3 select-none shadow-[4px_4px_0px_0px_#1a1a1a] scale-90">
+        <div class="absolute inset-1.5 border-2 border-dashed border-white/20 rounded-none flex flex-col items-center justify-center">
+          <svg class="w-10 h-10 text-white/40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+          </svg>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(clone);
+
+    const x1 = startRect.left + startRect.width / 2 - 64;
+    const y1 = startRect.top + startRect.height / 2 - 88;
+    const x2 = targetRect.left + targetRect.width / 2 - 64;
+    const y2 = targetRect.top + targetRect.height / 2 - 88;
+
+    gsap.to(clone, {
+      x: x2 - x1,
+      y: y2 - y1,
+      scale: 0.6,
+      rotation: 90,
+      duration: 0.55,
+      ease: 'power2.out',
+      onComplete: () => {
+        if (clone.parentNode) {
+          clone.parentNode.removeChild(clone);
+        }
+      }
+    });
+  };
+
+  // Screen Shake Wrapper Helper
+  const triggerScreenShake = (type) => {
+    const wrapper = document.getElementById('game-board-wrapper');
+    if (!wrapper) return;
+
+    wrapper.classList.remove('shake-heavy', 'shake-light');
+    void wrapper.offsetWidth; // force reflow
+
+    wrapper.classList.add(type === 'heavy' ? 'shake-heavy' : 'shake-light');
+
+    const onShakeEnd = () => {
+      wrapper.classList.remove('shake-heavy', 'shake-light');
+      wrapper.removeEventListener('animationend', onShakeEnd);
+    };
+    wrapper.addEventListener('animationend', onShakeEnd);
   };
 
   useEffect(() => {
@@ -917,89 +1629,67 @@ export default function Game() {
 
     const handleCardDrawn = ({ playerId }) => {
       setTimeout(() => {
-        const startPos = getRelativeCenter('deck-pile-element');
-        const targetId = playerId === myUser?.id ? 'player-hand-container' : `player-avatar-${playerId}`;
-        const endPos = getRelativeCenter(targetId);
-        
-        if (startPos && endPos) {
-          const animId = `${Date.now()}-${Math.random()}`;
-          setAnimations((prev) => [
-            ...prev,
-            {
-              id: animId,
-              type: 'draw',
-              startPos,
-              endPos,
-            },
-          ]);
-        }
+        playDrawCard(playerId);
       }, 50);
     };
 
-    const handleCardPlayed = ({ playerId, cardType }) => {
+    const handleCardPlayed = ({ playerId, cardType, targetPlayerId }) => {
       if (cardType === 'nope') {
-        // Trigger a quick sharp board shake
-        gsap.fromTo(
-          '#game-board-container',
-          { x: -6 },
-          {
-            x: 6,
-            duration: 0.04,
-            repeat: 6,
-            yoyo: true,
-            onComplete: () => {
-              gsap.set('#game-board-container', { x: 0 });
-            },
-          }
-        );
+        triggerScreenShake('heavy');
 
-        // Show large "NOPE!" text splash
-        setNopeAlert({ active: true, text: 'NOPE!' });
+        setNopeStamp({ active: true, id: Date.now() });
         setTimeout(() => {
-          setNopeAlert(null);
-        }, 1200);
+          setNopeStamp(null);
+        }, 750);
+      } else if (cardType?.startsWith('attack') || cardType === 'skip') {
+        triggerScreenShake('light');
       }
 
       setTimeout(() => {
-        const targetId = playerId === myUser?.id ? 'player-hand-container' : `player-avatar-${playerId}`;
-        const startPos = getRelativeCenter(targetId);
-        const endPos = getRelativeCenter('discard-pile-element');
-        const centerPos = getRelativeCenter('board-center-target');
-        const playerName = gameState?.players?.find(p => p.userId === playerId)?.username || playerId;
-        
-        if (startPos && endPos) {
-          const animId = `${Date.now()}-${Math.random()}`;
-          setAnimations((prev) => [
-            ...prev.filter((a) => a.type !== 'play'),
-            {
-              id: animId,
-              type: 'play',
-              cardType,
-              startPos,
-              endPos,
-              centerPos,
-              playerName,
-            },
-          ]);
+        const sourceId = playerId === myUser?.id ? 'player-hand-container' : `player-avatar-${playerId}`;
+        const targetId = 'discard-pile-element';
+        playFlyingCard(sourceId, targetId, cardType);
+      }, 50);
+
+      // Special animations for Zombie Kitten edition cards
+      if (cardType === 'attack_of_the_dead') {
+        const nextTargetId = getNextAlivePlayerId();
+        if (nextTargetId) {
+          setTimeout(() => {
+            playHordeAttackAnimation([], nextTargetId);
+          }, 350);
         }
+      } else if (cardType === 'grave_robber') {
+        setTimeout(() => {
+          playGraveRobberAnimation([]);
+        }, 350);
+      } else if (cardType === 'dig_deeper') {
+        setTimeout(() => {
+          playDigDeeperAnimation();
+        }, 350);
+      } else if (cardType === 'feed_the_dead' && targetPlayerId) {
+        setTimeout(() => {
+          playFeedTheDeadAnimation([], targetPlayerId);
+        }, 350);
+      }
+    };
+
+    const handleZombieRevived = ({ revivedPlayerId, activatorPlayerId }) => {
+      setTimeout(() => {
+        playZombieReviveAnimation(revivedPlayerId, activatorPlayerId);
       }, 50);
     };
 
+    const handleNopeWindowForAnim = ({ cardType, targetPlayerId }) => {
+      if (cardType === 'feed_the_dead' && targetPlayerId) {
+        setTimeout(() => {
+          playFeedTheDeadAnimation([], targetPlayerId);
+        }, 50);
+      }
+    };
+
     const handleDrewKitten = ({ playerId, username, cardType }) => {
-      // Shake the board longer and wider
-      gsap.fromTo(
-        '#game-board-container',
-        { x: -14 },
-        {
-          x: 14,
-          duration: 0.05,
-          repeat: 16,
-          yoyo: true,
-          onComplete: () => {
-            gsap.set('#game-board-container', { x: 0 });
-          },
-        }
-      );
+      triggerScreenShake('heavy');
 
       if (cardType === 'imploding_kitten') {
         setIsImplodingActive(true);
@@ -1007,14 +1697,12 @@ export default function Game() {
           setIsImplodingActive(false);
         }, 2500);
       } else {
-        // Trigger red screen border flash
         setIsRedFlashActive(true);
         setTimeout(() => {
           setIsRedFlashActive(false);
         }, 1500);
       }
 
-      // Show warning banner overlay
       setDrewKittenAlert({ active: true, playerName: username, cardType });
       setTimeout(() => {
         setDrewKittenAlert(null);
@@ -1022,33 +1710,16 @@ export default function Game() {
     };
 
     const handleExploded = ({ playerId }) => {
-      gsap.fromTo(
-        '#game-board-container',
-        { x: -12 },
-        {
-          x: 12,
-          duration: 0.05,
-          repeat: 12,
-          yoyo: true,
-          onComplete: () => {
-            gsap.set('#game-board-container', { x: 0 });
-          },
-        }
-      );
+      triggerScreenShake('heavy');
 
       setTimeout(() => {
         const targetId = playerId === myUser?.id ? 'player-hand-container' : `player-avatar-${playerId}`;
-        const startPos = getRelativeCenter(targetId);
-        if (startPos) {
-          const animId = `${Date.now()}-${Math.random()}`;
-          setAnimations((prev) => [
-            ...prev,
-            {
-              id: animId,
-              type: 'explosion',
-              startPos,
-            },
-          ]);
+        const targetEl = document.getElementById(targetId);
+        if (targetEl) {
+          const rect = targetEl.getBoundingClientRect();
+          const x = rect.left + rect.width / 2;
+          const y = rect.top + rect.height / 2;
+          spawnParticles(x, y, 'nope');
         }
       }, 50);
     };
@@ -1057,12 +1728,16 @@ export default function Game() {
     socket.on('game:drewKitten', handleDrewKitten);
     socket.on('game:cardPlayed', handleCardPlayed);
     socket.on('game:exploded', handleExploded);
+    socket.on('game:zombieRevived', handleZombieRevived);
+    socket.on('game:nopeWindow', handleNopeWindowForAnim);
 
     return () => {
       socket.off('game:cardDrawn', handleCardDrawn);
       socket.off('game:drewKitten', handleDrewKitten);
       socket.off('game:cardPlayed', handleCardPlayed);
       socket.off('game:exploded', handleExploded);
+      socket.off('game:zombieRevived', handleZombieRevived);
+      socket.off('game:nopeWindow', handleNopeWindowForAnim);
     };
   }, [socket, myUser]);
 
@@ -1841,7 +2516,6 @@ export default function Game() {
   const activePlayerId = gameState.players[gameState.currentPlayerIndex]?.userId;
   const isMyTurn = activePlayerId === myUser.id;
 
-  const numPlayAnims = animations.filter((a) => a.type === 'play').length;
   const displayedDiscardPile = (gameState.discardPile && numPlayAnims > 0)
     ? gameState.discardPile.slice(0, Math.max(0, gameState.discardPile.length - numPlayAnims))
     : (gameState.discardPile || []);
@@ -1856,7 +2530,11 @@ export default function Game() {
   const isOpponentTargetable = (oppId) => {
     if (!isMyTurn) return false;
     const opp = opponents.find((o) => o.userId === oppId);
-    return opp && opp.alive;
+    if (!opp) return false;
+    if (gameState?.edition === 'zombie' && !opp.alive) {
+      return true;
+    }
+    return opp.alive;
   };
 
   const hasNopeCard = privateHand.some((c) => c.type === 'nope');
@@ -1970,6 +2648,7 @@ export default function Game() {
                     isTargetable={isOpponentTargetable(opp.userId)}
                     isSelectedTarget={targetPlayerId === opp.userId}
                     onSelectTarget={(id) => setTargetPlayerId(prev => prev === id ? null : id)}
+                    edition={gameState?.edition}
                   />
                 </div>
               ))}
@@ -2045,6 +2724,7 @@ export default function Game() {
                       player={myPlayerState}
                       isCurrentTurn={isMyTurn}
                       isTargetable={false}
+                      edition={gameState?.edition}
                     />
                     {isMyTurn && (
                       <span className="bg-yellow-400 text-slate-950 font-headline font-black text-[9px] uppercase px-2 py-0.5 rounded-lg border-2 border-on-surface shadow-[1px_1px_0px_0px_#1a1c1c] text-center w-full z-10 relative">
@@ -2232,7 +2912,7 @@ export default function Game() {
         />
       )}
 
-      {nopeWindow && nopeWindow.active && (
+      {nopeWindow && nopeWindow.active && (!nopeWindow.isNowOnly || activePlayerId !== myUser.id || nopeWindow.actingPlayerId !== myUser.id) && (
         <NopeCountdown
           eventId={nopeWindow.eventId}
           timeoutMs={nopeWindow.timeoutMs}
@@ -2243,6 +2923,9 @@ export default function Game() {
           cardType={nopeWindow.cardType}
           targetPlayerName={nopeWindow.targetPlayerId ? getPlayerDisplayName(nopeWindow.targetPlayerId) : null}
           nopeCount={nopeWindow.nopeCount ?? 0}
+          isNowOnly={nopeWindow.isNowOnly}
+          hand={privateHand}
+          onPlayNow={(card) => playCard(card.id)}
         />
       )}
 
@@ -2553,37 +3236,26 @@ export default function Game() {
           </div>
         );
       })()}
-      {animations.map((anim) => {
-        if (anim.type === 'explosion') {
-          return (
-            <ParticleExplosion
-              key={anim.id}
-              startPos={anim.startPos}
-              onComplete={() => setAnimations((prev) => prev.filter((a) => a.id !== anim.id))}
-            />
-          );
-        }
-        return (
-          <FlyingCard
-            key={anim.id}
-            id={anim.id}
-            type={anim.type}
-            cardType={anim.cardType}
-            startPos={anim.startPos}
-            endPos={anim.endPos}
-            centerPos={anim.centerPos}
-            playerName={anim.playerName}
-            onComplete={() => setAnimations((prev) => prev.filter((a) => a.id !== anim.id))}
-          />
-        );
-      })}
+      <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-[150]" />
+
+      {nopeStamp && nopeStamp.active && (
+        <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-[120]">
+          <div className="nope-stamp animate-nope-stamp">
+            NOPE
+          </div>
+        </div>
+      )}
 
       {isRedFlashActive && (
-        <div className="fixed inset-0 pointer-events-none z-[99999] border-[16px] animate-border-flash-red rounded-3xl" />
+        <div className="fixed inset-0 pointer-events-none z-[130] border-[16px] animate-border-flash-red rounded-3xl" />
+      )}
+
+      {zombieFog && (
+        <div className="zombie-fog-overlay" />
       )}
 
       {isImplodingActive && (
-        <div className="fixed inset-0 pointer-events-none z-[999999] flex items-center justify-center bg-slate-950/70 backdrop-blur-md animate-fade-in">
+        <div className="fixed inset-0 pointer-events-none z-[135] flex items-center justify-center bg-slate-950/70 backdrop-blur-md animate-fade-in">
           <div className="relative flex flex-col items-center justify-center gap-4">
             <svg
               className="w-56 h-56 text-purple-500 animate-spin-ccw filter drop-shadow-[0_0_20px_rgba(168,85,247,0.5)]"

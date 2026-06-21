@@ -305,10 +305,10 @@ async function finalizeGame(io, room) {
 }
 
 module.exports = function registerGameSocket(io) {
-  const NOPE_WINDOW_MS = 2000;
+  const NOPE_WINDOW_MS = 3000;
 
   function getNowWindowTimeout() {
-    return 2000;
+    return 3000;
   }
 
   function startNopeWindow(room, action) {
@@ -375,10 +375,11 @@ module.exports = function registerGameSocket(io) {
         });
 
         await runActionEffect(room, action);
-      }
-
-      if (action.parentAction) {
-        startNopeWindow(room, action.parentAction);
+        startNowOnlyWindow(room, action);
+      } else {
+        if (action.parentAction) {
+          startNopeWindow(room, action.parentAction);
+        }
       }
     }
   }
@@ -394,8 +395,49 @@ module.exports = function registerGameSocket(io) {
     }, action.timeoutMs || 3000);
   }
 
+  function startNowOnlyWindow(room, resolvedAction) {
+    const timeoutMs = 3000;
+    const eventId = `${Date.now()}-${Math.random()}`;
+    const pendingNow = {
+      eventId,
+      timeoutMs,
+      startedAt: Date.now(),
+      resolvedAction,
+    };
+    room.gameState.pendingNowOnlyWindow = pendingNow;
+
+    io.to(room.code).emit('game:nowOnlyWindow', {
+      eventId,
+      timeoutMs,
+      resolvedCardType: resolvedAction.cardType,
+      actingPlayerId: resolvedAction.playerId,
+    });
+    io.to(room.code).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
+    sendHands(io, room);
+
+    setupNowOnlyTimeout(room, eventId);
+  }
+
+  function setupNowOnlyTimeout(room, eventId) {
+    setTimeout(async () => {
+      const gameState = room.gameState;
+      if (!gameState || !gameState.pendingNowOnlyWindow || gameState.pendingNowOnlyWindow.eventId !== eventId) return;
+
+      const pendingNow = gameState.pendingNowOnlyWindow;
+      gameState.pendingNowOnlyWindow = null;
+      io.to(room.code).emit('game:nowOnlyWindow:end', { eventId });
+
+      const action = pendingNow.resolvedAction;
+      if (action && action.parentAction) {
+        startNopeWindow(room, action.parentAction);
+      } else {
+        io.to(room.code).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(gameState) });
+      }
+    }, 3000);
+  }
+
   // Cards that require a target selection after being played
-  const CARDS_REQUIRING_TARGET = ['favor', 'mark', 'ill_take_that', 'target_attack_2x'];
+  const CARDS_REQUIRING_TARGET = ['favor', 'mark', 'ill_take_that', 'target_attack_2x', 'feed_the_dead'];
 
   function resolveTargetSelect(room, targetPlayerId) {
     const gameState = room.gameState;
@@ -438,9 +480,13 @@ module.exports = function registerGameSocket(io) {
       setTimeout(async () => {
         if (room.gameState && room.gameState.pendingZombie && room.gameState.pendingZombie === currentPendingZombie) {
           const firstDead = room.gameState.players.find((p) => !p.alive);
+          const revivedPlayerId = firstDead ? firstDead.userId : null;
           const randomPos = Math.floor(Math.random() * (room.gameState.deck.length + 1));
           const clairvoyancePlayerId = room.gameState.pendingZombie.clairvoyancePlayerId;
-          resolveZombieRevive(room.gameState, firstDead ? firstDead.userId : null, randomPos);
+          resolveZombieRevive(room.gameState, revivedPlayerId, randomPos);
+          if (revivedPlayerId) {
+            io.to(room.code).emit('game:zombieRevived', { revivedPlayerId, activatorPlayerId: activatorId });
+          }
           if (clairvoyancePlayerId) {
             io.to(`user:${clairvoyancePlayerId}`).emit('game:clairvoyance:reveal', { position: randomPos });
           }
@@ -1011,21 +1057,29 @@ module.exports = function registerGameSocket(io) {
       }
       const isNowCard = cardType.endsWith('_now');
 
-      if (!isNowCard) {
-        if (state.pendingAction || state.pendingFavor || state.pendingAlter || state.pendingBury || state.pendingGarbage || state.pendingPotLuck || state.pendingZombie || state.pendingDefuse || state.pendingTargetSelect) {
-          socket.emit('error', { message: 'Không thể đánh bài vào lúc này!' });
+      if (state.pendingNowOnlyWindow) {
+        if (!isNowCard) {
+          socket.emit('error', { message: 'Chỉ có thể đánh các lá bài NOW vào lúc này!' });
           return;
         }
-
-        const activePlayer = state.players[state.currentPlayerIndex];
-        if (!activePlayer || activePlayer.userId !== userId) {
-          socket.emit('error', { message: 'Không phải lượt của bạn!' });
-          return;
-        }
+        state.pendingNowOnlyWindow = null;
       } else {
-        if (state.pendingFavor || state.pendingAlter || state.pendingBury || state.pendingGarbage || state.pendingPotLuck || state.pendingZombie || state.pendingDefuse || state.pendingTargetSelect) {
-          socket.emit('error', { message: 'Không thể đánh bài vào lúc này!' });
-          return;
+        if (!isNowCard) {
+          if (state.pendingAction || state.pendingFavor || state.pendingAlter || state.pendingBury || state.pendingGarbage || state.pendingPotLuck || state.pendingZombie || state.pendingDefuse || state.pendingTargetSelect) {
+            socket.emit('error', { message: 'Không thể đánh bài vào lúc này!' });
+            return;
+          }
+
+          const activePlayer = state.players[state.currentPlayerIndex];
+          if (!activePlayer || activePlayer.userId !== userId) {
+            socket.emit('error', { message: 'Không phải lượt của bạn!' });
+            return;
+          }
+        } else {
+          if (state.pendingFavor || state.pendingAlter || state.pendingBury || state.pendingGarbage || state.pendingPotLuck || state.pendingZombie || state.pendingDefuse || state.pendingTargetSelect) {
+            socket.emit('error', { message: 'Không thể đánh bài vào lúc này!' });
+            return;
+          }
         }
       }
 
@@ -1036,19 +1090,55 @@ module.exports = function registerGameSocket(io) {
         return;
       }
 
-      const actualCardType = playCard(room.gameState, userId, cardType, targetPlayerId, options);
+      // Check Zombie edition card rules
+      if (cardType === 'feed_the_dead' || cardType === 'grave_robber') {
+        const deadCount = state.players.filter(p => !p.alive).length;
+        if (deadCount === 0) {
+          socket.emit('error', { message: 'Không thể đánh lá bài này khi chưa có Zombie (người chơi đã chết)!' });
+          return;
+        }
+      }
+
+      let finalTargetPlayerId = targetPlayerId;
+      if (cardType === 'feed_the_dead' && !finalTargetPlayerId) {
+        const deadPlayers = state.players.filter(p => !p.alive);
+        if (deadPlayers.length === 1) {
+          finalTargetPlayerId = deadPlayers[0].userId;
+        }
+      }
+
+      if (finalTargetPlayerId) {
+        const target = state.players.find(p => p.userId === finalTargetPlayerId);
+        if (!target) {
+          socket.emit('error', { message: 'Người chơi mục tiêu không tồn tại!' });
+          return;
+        }
+        if (cardType === 'feed_the_dead') {
+          if (target.alive) {
+            socket.emit('error', { message: 'Mục tiêu của Feed the Dead phải là người chơi đã chết!' });
+            return;
+          }
+        } else {
+          if (!target.alive) {
+            socket.emit('error', { message: 'Không thể nhắm vào người chơi đã chết!' });
+            return;
+          }
+        }
+      }
+
+      const actualCardType = playCard(room.gameState, userId, cardType, finalTargetPlayerId, options);
       if (!actualCardType) return; // Invalid play
 
-      io.to(roomCode).emit('game:cardPlayed', { playerId: userId, cardType: actualCardType, targetPlayerId });
+      io.to(roomCode).emit('game:cardPlayed', { playerId: userId, cardType: actualCardType, targetPlayerId: finalTargetPlayerId });
 
       // Run checkStreakingKittenEffect whenever cards change hands or are played
       checkStreakingKittenEffect(room.gameState, userId);
-      if (targetPlayerId) {
-        checkStreakingKittenEffect(room.gameState, targetPlayerId);
+      if (finalTargetPlayerId) {
+        checkStreakingKittenEffect(room.gameState, finalTargetPlayerId);
       }
 
       // If this card requires a target and none was provided, prompt player to select
-      if (CARDS_REQUIRING_TARGET.includes(actualCardType) && !targetPlayerId) {
+      if (CARDS_REQUIRING_TARGET.includes(actualCardType) && !finalTargetPlayerId) {
         room.gameState.pendingTargetSelect = {
           playerId: userId,
           cardType: actualCardType,
@@ -1061,13 +1151,14 @@ module.exports = function registerGameSocket(io) {
           timeoutMs: 15000,
         });
 
-        // Timeout: auto-select random alive opponent
+        // Timeout: auto-select random target opponent
         const currentPending = room.gameState.pendingTargetSelect;
         setTimeout(() => {
           if (room.gameState.pendingTargetSelect && room.gameState.pendingTargetSelect === currentPending) {
-            const aliveOpponents = room.gameState.players.filter(p => p.alive && p.userId !== userId);
-            if (aliveOpponents.length > 0) {
-              const randomTarget = aliveOpponents[Math.floor(Math.random() * aliveOpponents.length)];
+            const isFeed = actualCardType === 'feed_the_dead';
+            const possibleOpponents = room.gameState.players.filter(p => (isFeed ? !p.alive : p.alive) && p.userId !== userId);
+            if (possibleOpponents.length > 0) {
+              const randomTarget = possibleOpponents[Math.floor(Math.random() * possibleOpponents.length)];
               resolveTargetSelect(room, randomTarget.userId);
             } else {
               room.gameState.pendingTargetSelect = null;
@@ -1104,7 +1195,7 @@ module.exports = function registerGameSocket(io) {
       if (!room?.gameState) return;
 
       const state = room.gameState;
-      if (state.pendingAction || state.pendingFavor || state.pendingAlter || state.pendingBury || state.pendingGarbage || state.pendingPotLuck || state.pendingZombie || state.pendingDefuse || state.pendingTargetSelect) {
+      if (state.pendingAction || state.pendingNowOnlyWindow || state.pendingFavor || state.pendingAlter || state.pendingBury || state.pendingGarbage || state.pendingPotLuck || state.pendingZombie || state.pendingDefuse || state.pendingTargetSelect) {
         socket.emit('error', { message: 'Không thể bốc bài vào lúc này!' });
         return;
       }
@@ -1275,7 +1366,7 @@ module.exports = function registerGameSocket(io) {
       if (!room?.gameState) return;
 
       const state = room.gameState;
-      if (state.pendingAction || state.pendingFavor || state.pendingAlter || state.pendingBury || state.pendingGarbage || state.pendingPotLuck || state.pendingZombie || state.pendingTargetSelect) {
+      if (state.pendingAction || state.pendingNowOnlyWindow || state.pendingFavor || state.pendingAlter || state.pendingBury || state.pendingGarbage || state.pendingPotLuck || state.pendingZombie || state.pendingTargetSelect) {
         socket.emit('error', { message: 'Không thể đánh bài vào lúc này!' });
         return;
       }
@@ -1378,8 +1469,9 @@ module.exports = function registerGameSocket(io) {
       const pending = room.gameState.pendingTargetSelect;
       if (!pending || pending.playerId !== userId) return;
 
-      // Validate target is alive opponent
-      const target = room.gameState.players.find(p => p.userId === targetPlayerId && p.alive && p.userId !== userId);
+      // Validate target (must be dead for feed_the_dead, alive for others)
+      const isFeed = pending.cardType === 'feed_the_dead';
+      const target = room.gameState.players.find(p => p.userId === targetPlayerId && (isFeed ? !p.alive : p.alive) && p.userId !== userId);
       if (!target) return;
 
       resolveTargetSelect(room, targetPlayerId);
@@ -1457,6 +1549,9 @@ module.exports = function registerGameSocket(io) {
 
       const clairvoyancePlayerId = room.gameState.pendingZombie?.clairvoyancePlayerId;
       resolveZombieRevive(room.gameState, targetPlayerId, insertPosition);
+      if (targetPlayerId) {
+        io.to(roomCode).emit('game:zombieRevived', { revivedPlayerId: targetPlayerId, activatorPlayerId: userId });
+      }
       if (clairvoyancePlayerId) {
         io.to(`user:${clairvoyancePlayerId}`).emit('game:clairvoyance:reveal', { position: insertPosition });
       }

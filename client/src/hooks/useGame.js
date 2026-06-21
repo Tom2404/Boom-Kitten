@@ -74,9 +74,9 @@ export function useGame() {
     const onStateUpdate = ({ publicGameState }) => {
       setGameState(publicGameState);
       // Clean up local modal states if their triggers are no longer in server state
-      if (publicGameState && !publicGameState.pendingAction) {
+      if (publicGameState && !publicGameState.pendingAction && !publicGameState.pendingNowOnlyWindow) {
         setNopeWindow(null);
-        setStatusMessage(prev => prev === 'Đang chờ Nope...' ? '' : prev);
+        setStatusMessage(prev => (prev === 'Đang chờ Nope...' || prev === 'Đang chờ Now...') ? '' : prev);
       }
       if (publicGameState && !publicGameState.pendingFavor) {
         setFavorRequest(null);
@@ -121,11 +121,32 @@ export function useGame() {
     };
 
     const onNopeWindow = ({ eventId, timeoutMs, cardType, actingPlayerId, targetPlayerId, nopeCount }) => {
-      setNopeWindow({ eventId, timeoutMs, active: true, cardType, actingPlayerId, targetPlayerId, nopeCount: nopeCount ?? 0 });
+      setNopeWindow({ eventId, timeoutMs, active: true, cardType, actingPlayerId, targetPlayerId, nopeCount: nopeCount ?? 0, isNowOnly: false });
       setStatusMessage(t('status_waiting_nope'));
       setTimeout(() => {
         setNopeWindow(prev => prev?.eventId === eventId ? { ...prev, active: false } : prev);
       }, timeoutMs);
+    };
+
+    const onNowOnlyWindow = ({ eventId, timeoutMs, resolvedCardType, actingPlayerId }) => {
+      setNopeWindow({
+        eventId,
+        timeoutMs,
+        active: true,
+        cardType: resolvedCardType,
+        actingPlayerId,
+        targetPlayerId: null,
+        nopeCount: 0,
+        isNowOnly: true,
+      });
+      setStatusMessage('Đang chờ Now...');
+      setTimeout(() => {
+        setNopeWindow(prev => prev?.eventId === eventId ? { ...prev, active: false } : prev);
+      }, timeoutMs);
+    };
+
+    const onNowOnlyWindowEnd = ({ eventId }) => {
+      setNopeWindow(prev => prev?.eventId === eventId ? null : prev);
     };
 
     const onNopeResult = ({ canceled, cardType, actingPlayerId, nopeCount }) => {
@@ -279,6 +300,8 @@ export function useGame() {
     socket.on('game:stateUpdate', onStateUpdate);
     socket.on('game:privateHand', onPrivateHand);
     socket.on('game:nopeWindow', onNopeWindow);
+    socket.on('game:nowOnlyWindow', onNowOnlyWindow);
+    socket.on('game:nowOnlyWindow:end', onNowOnlyWindowEnd);
     socket.on('game:nopeResult', onNopeResult);
     socket.on('game:seeTheFuture', onSeeTheFuture);
     socket.on('game:alterFuture:request', onAlterFutureRequest);
@@ -309,7 +332,9 @@ export function useGame() {
       socket.off('game:stateUpdate', onStateUpdate);
       socket.off('game:privateHand', onPrivateHand);
       socket.off('game:nopeWindow', onNopeWindow);
-    socket.off('game:nopeResult', onNopeResult);
+      socket.off('game:nowOnlyWindow', onNowOnlyWindow);
+      socket.off('game:nowOnlyWindow:end', onNowOnlyWindowEnd);
+      socket.off('game:nopeResult', onNopeResult);
       socket.off('game:seeTheFuture', onSeeTheFuture);
       socket.off('game:alterFuture:request', onAlterFutureRequest);
       socket.off('game:favor:request', onFavorRequest);

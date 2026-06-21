@@ -605,6 +605,19 @@ function playCard(gameState, playerId, cardType, targetPlayerId, options = {}) {
   const player = getPlayer(gameState, playerId);
   if (!player || !player.alive) return null;
 
+  let checkType = options.cardId ? (player.hand.find(c => c.id === options.cardId)?.type || cardType) : cardType;
+  if (checkType === 'godcat' && options.asCardType) {
+    checkType = options.asCardType;
+  }
+  if (checkType === 'clone' && gameState.lastAction && !gameState.lastAction.canceled) {
+    checkType = gameState.lastAction.cardType;
+  }
+
+  if (checkType === 'feed_the_dead' || checkType === 'grave_robber') {
+    const deadPlayers = gameState.players.filter(p => !p.alive);
+    if (deadPlayers.length === 0) return null;
+  }
+
   let card;
   let actualCardType = cardType;
 
