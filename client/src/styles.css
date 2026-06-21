@@ -266,5 +266,18 @@ body {
   animation: pulse-gold-glow 2s infinite ease-in-out;
 }
 
-
-
+@keyframes brutal-chat-blink {
+  0%, 100% {
+    background-color: #f59e0b; /* amber-500 */
+    color: #0f172a;
+    box-shadow: 2px 2px 0px 0px #1a1c1c;
+  }
+  50% {
+    background-color: #ef4444; /* red-500 */
+    color: #ffffff;
+    box-shadow: 2px 2px 10px rgba(239, 68, 68, 0.8), 2px 2px 0px 0px #1a1c1c;
+  }
+}
+.animate-chat-blink {
+  animation: brutal-chat-blink 1s infinite;
+}

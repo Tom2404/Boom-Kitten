@@ -213,6 +213,13 @@ const BOOM_KITTEN_SKINS = {
     'Boom/Exploing-Kitten-Pepper.jpg',
   ],
   imploding_kitten: ['Imploding_Kitten/Imploding-Kitten.jpg'],
+  curse_of_the_cat_butt: [
+    'Blind/1-Curse-of-the-Cat-Butt.jpg',
+    'Blind/2-Blind-As-A-Bat.jpg',
+  ],
+  hidden: [
+    'Blind/2-Blind-As-A-Bat.jpg',
+  ],
   clairvoyance_now: [
     'Blind/1-Curse-of-the-Cat-Butt.jpg',
     'Blind/2-Blind-As-A-Bat.jpg',

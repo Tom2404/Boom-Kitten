@@ -130,7 +130,7 @@ test('dealCards deals 8 cards per player and sets kittens properly for imploding
   assert.equal(dealt.players.every((player) => player.hand.filter((card) => card.type === 'defuse').length === 1), true);
 
   assert.equal(deckCounts.imploding_kitten, 1);
-  assert.equal(deckCounts.exploding_kitten, 2);
+  assert.equal(deckCounts.exploding_kitten, 3);
   assert.equal(deckCounts.defuse, 2);
 });
 

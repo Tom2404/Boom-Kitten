@@ -372,6 +372,11 @@ export function useGame() {
     setNopeWindow(prev => prev?.eventId === originalEventId ? { ...prev, active: false } : prev);
   };
 
+  const passNope = (originalEventId) => {
+    socket.emit('game:nopeWindow:pass', { originalEventId });
+    setNopeWindow(prev => prev?.eventId === originalEventId ? { ...prev, active: false } : prev);
+  };
+
   const discardCard = (cardId) => {
     socket.emit('game:discard', { cardId });
   };
@@ -499,6 +504,7 @@ export function useGame() {
     drawCard,
     playCard,
     playNope,
+    passNope,
     discardCard,
     respondFavor,
     respondAlterFuture,

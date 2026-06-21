@@ -176,7 +176,7 @@ export function FavorRequestModal({ fromPlayerId, fromPlayerName, hand, onRespon
 // ==========================================
 // 4. NOPE COUNTDOWN DISPLAY
 // ==========================================
-export function NopeCountdown({ eventId, timeoutMs, hasNopeCard, onPlayNope, actingPlayerName, cardType, targetPlayerName, nopeCount }) {
+export function NopeCountdown({ eventId, timeoutMs, hasNopeCard, onPlayNope, onPass, actingPlayerName, cardType, targetPlayerName, nopeCount }) {
   const [timeLeft, setTimeLeft] = useState(timeoutMs);
   const { t } = useLanguage();
 
@@ -298,19 +298,30 @@ export function NopeCountdown({ eventId, timeoutMs, hasNopeCard, onPlayNope, act
             )}
           </div>
 
-          {/* Nope button */}
-          {hasNopeCard && (
+          {/* Action buttons group */}
+          <div className="flex gap-2 flex-shrink-0">
+            {/* Pass button */}
             <button
-              onClick={onPlayNope}
-              className="flex-shrink-0 font-headline font-black border-2 border-on-surface shadow-[2px_2px_0px_0px_#1a1c1c] px-3.5 py-2 rounded-xl text-[10px] hover:scale-105 active:scale-95 transition-all uppercase"
-              style={{
-                background: isCounterNope ? '#7c3aed' : '#dc2626',
-                color: '#ffffff',
-              }}
+              onClick={onPass}
+              className="font-headline font-black border-2 border-on-surface shadow-[2px_2px_0px_0px_#1a1c1c] px-3.5 py-2 rounded-xl text-[10px] bg-slate-200 hover:bg-slate-300 hover:scale-105 active:scale-95 transition-all uppercase text-slate-850"
             >
-              {isCounterNope ? t('nope_panel_counter_btn') : t('nope_panel_nope_btn')}
+              Pass
             </button>
-          )}
+
+            {/* Nope button */}
+            {hasNopeCard && (
+              <button
+                onClick={onPlayNope}
+                className="font-headline font-black border-2 border-on-surface shadow-[2px_2px_0px_0px_#1a1c1c] px-3.5 py-2 rounded-xl text-[10px] hover:scale-105 active:scale-95 transition-all uppercase"
+                style={{
+                  background: isCounterNope ? '#7c3aed' : '#dc2626',
+                  color: '#ffffff',
+                }}
+              >
+                {isCounterNope ? t('nope_panel_counter_btn') : t('nope_panel_nope_btn')}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Progress bar at bottom */}

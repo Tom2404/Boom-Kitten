@@ -123,6 +123,7 @@ export default function App() {
   };
 
   const Page = useMemo(() => PAGES[page] ?? Home, [page]);
+  const isInMatch = page === 'Game' && activeRoom !== null;
 
   return (
     <div className="min-h-screen bg-background text-on-background flex flex-col">
@@ -138,7 +139,8 @@ export default function App() {
       )}
 
       {/* Navigation Header */}
-      <nav className="sticky top-0 w-full z-40 border-b-4 border-on-surface bg-surface shadow-[4px_4px_0px_0px_#1a1c1c]">
+      {!isInMatch && (
+        <nav className="sticky top-0 w-full z-40 border-b-4 border-on-surface bg-surface shadow-[4px_4px_0px_0px_#1a1c1c]">
         <div className="flex justify-between items-center px-4 md:px-12 py-4 max-w-7xl mx-auto flex-wrap gap-4">
           <button 
             onClick={() => navigateWithConfirm('Home')}
@@ -222,15 +224,17 @@ export default function App() {
             </button>
           </div>
         </div>
-      </nav>
+        </nav>
+      )}
 
       {/* Main Page Area */}
-      <main className="flex-grow p-4 md:p-8 max-w-7xl mx-auto w-full">
+      <main className={`flex-grow ${isInMatch ? 'p-4 w-full max-w-none' : 'p-4 md:p-8 max-w-7xl mx-auto w-full'}`}>
         <Page setPage={setPage} />
       </main>
 
       {/* Footer */}
-      <footer className="w-full border-t-4 border-on-surface py-8 bg-surface-container mt-auto">
+      {!isInMatch && (
+        <footer className="w-full border-t-4 border-on-surface py-8 bg-surface-container mt-auto">
         <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-4 text-center md:text-left">
           <div className="font-headline font-black italic text-primary uppercase tracking-tighter">
             Exploding Kittens
@@ -242,7 +246,8 @@ export default function App() {
             }
           </p>
         </div>
-      </footer>
+        </footer>
+      )}
 
       <CustomDialog
         isOpen={dialogState.isOpen}

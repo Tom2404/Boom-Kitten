@@ -119,9 +119,15 @@ function sanitizePublicGameState(gameState) {
   return copy;
 }
 
+function getPrivateHandCards(player) {
+  return player.blinded
+    ? player.hand.map((c) => ({ id: c.id, skinIndex: c.skinIndex, type: 'hidden', marked: c.marked }))
+    : player.hand;
+}
+
 function sendHands(io, room) {
   room.gameState.players.forEach((player) => {
-    io.to(`user:${player.userId}`).emit('game:privateHand', { cards: player.hand });
+    io.to(`user:${player.userId}`).emit('game:privateHand', { cards: getPrivateHandCards(player) });
   });
 }
 
@@ -299,39 +305,93 @@ async function finalizeGame(io, room) {
 }
 
 module.exports = function registerGameSocket(io) {
-  const NOPE_WINDOW_MS = 3000;
+  const NOPE_WINDOW_MS = 2000;
 
-  function setupNopeTimeout(room, eventId) {
-    setTimeout(async () => {
-      const gameState = room.gameState;
-      if (!gameState || !gameState.pendingAction || gameState.pendingAction.eventId !== eventId) return;
+  function getNowWindowTimeout() {
+    return 2000;
+  }
 
-      const action = gameState.pendingAction;
-      gameState.pendingAction = null;
+  function startNopeWindow(room, action) {
+    const timeoutMs = getNowWindowTimeout();
+    action.timeoutMs = timeoutMs;
+    action.passedPlayers = [];
+    room.gameState.pendingAction = action;
 
-      if (action.nopeCount % 2 === 1) {
-        // Canceled by Nope!
-        gameState.lastAction = { ...gameState.lastAction, canceled: true };
-        io.to(room.code).emit('game:nopeResult', {
-          canceled: true,
-          cardType: action.cardType,
-          actingPlayerId: action.playerId,
-          nopeCount: action.nopeCount,
-        });
-        io.to(room.code).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(gameState) });
-        return;
-      }
+    io.to(room.code).emit('game:nopeWindow', {
+      eventId: action.eventId,
+      timeoutMs,
+      cardType: action.cardType,
+      actingPlayerId: action.playerId,
+      targetPlayerId: action.targetPlayerId,
+      nopeCount: action.nopeCount || 0,
+    });
+    io.to(room.code).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
+    sendHands(io, room);
 
-      // Card takes effect
+    setupNopeTimeout(room, action.eventId);
+  }
+
+  async function resolvePendingActionEarly(room, eventId) {
+    const gameState = room.gameState;
+    if (!gameState || !gameState.pendingAction || gameState.pendingAction.eventId !== eventId) return;
+
+    const action = gameState.pendingAction;
+    gameState.pendingAction = null;
+
+    if (action.nopeCount && action.nopeCount % 2 === 1) {
+      gameState.lastAction = { ...gameState.lastAction, canceled: true };
       io.to(room.code).emit('game:nopeResult', {
-        canceled: false,
+        canceled: true,
         cardType: action.cardType,
         actingPlayerId: action.playerId,
         nopeCount: action.nopeCount,
       });
 
-      await runActionEffect(room, action);
-    }, NOPE_WINDOW_MS);
+      if (action.parentAction) {
+        startNopeWindow(room, action.parentAction);
+      } else {
+        io.to(room.code).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(gameState) });
+      }
+      return;
+    }
+
+    if (action.type === 'draw_completed') {
+      await afterGameStateChanged(room, action.playersBefore, action.turnBefore);
+    } else if (action.type === 'kitten_drawn') {
+      await afterGameStateChanged(room, [{ userId: action.playerId, alive: true }], room.gameState.currentPlayerIndex);
+    } else if (action.type === 'defuse_completed') {
+      io.to(room.code).emit('game:turnChanged', {
+        currentPlayerId: gameState.players[gameState.currentPlayerIndex]?.userId,
+        drawsRequired: gameState.drawsRequired,
+      });
+      await finalizeGame(io, room);
+    } else {
+      if (action.cardType) {
+        io.to(room.code).emit('game:nopeResult', {
+          canceled: false,
+          cardType: action.cardType,
+          actingPlayerId: action.playerId,
+          nopeCount: action.nopeCount,
+        });
+
+        await runActionEffect(room, action);
+      }
+
+      if (action.parentAction) {
+        startNopeWindow(room, action.parentAction);
+      }
+    }
+  }
+
+  function setupNopeTimeout(room, eventId) {
+    const gameState = room.gameState;
+    if (!gameState || !gameState.pendingAction || gameState.pendingAction.eventId !== eventId) return;
+    const action = gameState.pendingAction;
+
+    setTimeout(async () => {
+      if (!room.gameState || !room.gameState.pendingAction || room.gameState.pendingAction.eventId !== eventId) return;
+      await resolvePendingActionEarly(room, eventId);
+    }, action.timeoutMs || 3000);
   }
 
   // Cards that require a target selection after being played
@@ -353,7 +413,7 @@ module.exports = function registerGameSocket(io) {
     // Create pendingAction and start Nope timer
     const actualCardType = comboSize ? `combo_${comboSize}` : cardType;
     const eventId = `${Date.now()}-${Math.random()}`;
-    gameState.pendingAction = {
+    const action = {
       eventId,
       playerId,
       cardType: actualCardType,
@@ -362,18 +422,7 @@ module.exports = function registerGameSocket(io) {
       nopeCount: 0,
     };
 
-    io.to(room.code).emit('game:nopeWindow', {
-      eventId,
-      timeoutMs: NOPE_WINDOW_MS,
-      cardType: gameState.pendingAction?.cardType,
-      actingPlayerId: gameState.pendingAction?.playerId,
-      targetPlayerId: gameState.pendingAction?.targetPlayerId,
-      nopeCount: gameState.pendingAction?.nopeCount ?? 0,
-    });
-    io.to(room.code).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(gameState) });
-    sendHands(io, room);
-
-    setupNopeTimeout(room, eventId);
+    startNopeWindow(room, action);
   }
 
   function checkAndHandlePendingDefuseOrZombie(room) {
@@ -492,7 +541,40 @@ module.exports = function registerGameSocket(io) {
     });
 
     const playersBefore = [{ userId: playerId, alive: beforeAlive }];
-    await afterGameStateChanged(room, playersBefore, turnBefore);
+    
+    // Check if player exploded immediately (no defuse, no zombie revival)
+    const pAfter = gameState.players.find((p) => p.userId === playerId);
+    if (pAfter && !pAfter.alive) {
+      await afterGameStateChanged(room, playersBefore, turnBefore);
+      return;
+    }
+
+    // If player needs to defuse/revive
+    if (gameState.pendingDefuse || gameState.pendingZombie) {
+      const eventId = `${Date.now()}-${Math.random()}`;
+      const action = {
+        eventId,
+        playerId,
+        cardType: drewKitten || 'exploding_kitten',
+        type: 'kitten_drawn',
+        nopeCount: 0,
+      };
+      startNopeWindow(room, action);
+      return;
+    }
+
+    // Normal draw: open a reaction window before turn transition
+    const eventId = `${Date.now()}-${Math.random()}`;
+    const action = {
+      eventId,
+      playerId,
+      cardType: 'draw',
+      type: 'draw_completed',
+      playersBefore,
+      turnBefore,
+      nopeCount: 0,
+    };
+    startNopeWindow(room, action);
   }
 
   async function runActionEffect(room, action) {
@@ -512,7 +594,7 @@ module.exports = function registerGameSocket(io) {
       io.to(`user:${playerId}`).emit('game:seeTheFuture', {
         cards: gameState.deck.slice(-count).reverse(),
       });
-      if (player) io.to(`user:${playerId}`).emit('game:privateHand', { cards: player.hand });
+      if (player) io.to(`user:${playerId}`).emit('game:privateHand', { cards: getPrivateHandCards(player) });
     }
 
     if (cardType.startsWith('alter_the_future')) {
@@ -779,7 +861,7 @@ module.exports = function registerGameSocket(io) {
           socket.emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(activeRoom.gameState) });
           const player = activeRoom.gameState.players.find((p) => p.userId === userId);
           if (player) {
-            socket.emit('game:privateHand', { cards: player.hand });
+            socket.emit('game:privateHand', { cards: getPrivateHandCards(player) });
           }
         }
       }, 200);
@@ -957,7 +1039,7 @@ module.exports = function registerGameSocket(io) {
       const actualCardType = playCard(room.gameState, userId, cardType, targetPlayerId, options);
       if (!actualCardType) return; // Invalid play
 
-      io.to(roomCode).emit('game:cardPlayed', { playerId: userId, cardType, targetPlayerId });
+      io.to(roomCode).emit('game:cardPlayed', { playerId: userId, cardType: actualCardType, targetPlayerId });
 
       // Run checkStreakingKittenEffect whenever cards change hands or are played
       checkStreakingKittenEffect(room.gameState, userId);
@@ -998,28 +1080,21 @@ module.exports = function registerGameSocket(io) {
         return;
       }
 
+      const isNowCardActual = actualCardType.endsWith('_now');
+      const oldPending = isNowCardActual ? room.gameState.pendingAction : null;
+
       const eventId = `${Date.now()}-${Math.random()}`;
-      room.gameState.pendingAction = {
+      const action = {
         eventId,
         playerId: userId,
         cardType: actualCardType,
         targetPlayerId,
         options,
         nopeCount: 0,
+        parentAction: oldPending || undefined,
       };
 
-      io.to(roomCode).emit('game:nopeWindow', {
-        eventId,
-        timeoutMs: NOPE_WINDOW_MS,
-        cardType: actualCardType,
-        actingPlayerId: userId,
-        targetPlayerId,
-        nopeCount: 0,
-      });
-      io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
-      sendHands(io, room);
-
-      setupNopeTimeout(room, eventId);
+      startNopeWindow(room, action);
     });
 
     socket.on('game:drawCard', async () => {
@@ -1106,19 +1181,31 @@ module.exports = function registerGameSocket(io) {
 
       const newEventId = `${Date.now()}-${Math.random()}`;
       pending.eventId = newEventId;
+      startNopeWindow(room, pending);
+    });
 
-      io.to(roomCode).emit('game:nopeWindow', {
-        eventId: newEventId,
-        timeoutMs: NOPE_WINDOW_MS,
-        cardType: pending.cardType,
-        actingPlayerId: pending.playerId,
-        targetPlayerId: pending.targetPlayerId,
-        nopeCount: pending.nopeCount,
-      });
-      io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
-      sendHands(io, room);
+    socket.on('game:nopeWindow:pass', ({ eventId }) => {
+      const roomCode = [...socket.rooms].find((room) => room.length === 6);
+      if (!roomCode) return;
+      const room = getRoomState(roomCode);
+      const pending = room?.gameState?.pendingAction;
+      if (!pending || pending.eventId !== eventId) return;
 
-      setupNopeTimeout(room, newEventId);
+      if (!pending.passedPlayers) {
+        pending.passedPlayers = [];
+      }
+
+      if (!pending.passedPlayers.includes(userId)) {
+        pending.passedPlayers.push(userId);
+      }
+
+      const activePlayers = room.gameState.players.filter(
+        (p) => p.alive && p.userId !== pending.playerId
+      );
+
+      if (pending.passedPlayers.length >= activePlayers.length) {
+        resolvePendingActionEarly(room, eventId);
+      }
     });
 
     socket.on('game:favor:respond', async ({ cardId }) => {
@@ -1375,12 +1462,16 @@ module.exports = function registerGameSocket(io) {
       }
       io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
       sendHands(io, room);
-      // Emit turnChanged so client unlocks after zombie revive
-      io.to(roomCode).emit('game:turnChanged', {
-        currentPlayerId: room.gameState.players[room.gameState.currentPlayerIndex]?.userId,
-        drawsRequired: room.gameState.drawsRequired,
-      });
-      await finalizeGame(io, room);
+      // Open a reaction window after zombie revive completed
+      const eventId = `${Date.now()}-${Math.random()}`;
+      const action = {
+        eventId,
+        playerId: userId,
+        cardType: 'zombie_resolved',
+        type: 'defuse_completed',
+        nopeCount: 0,
+      };
+      startNopeWindow(room, action);
     });
 
     socket.on('game:defuse:respond', async ({ insertPosition }) => {
@@ -1396,12 +1487,16 @@ module.exports = function registerGameSocket(io) {
       }
       io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
       sendHands(io, room);
-      // Emit turnChanged so client unlocks after defuse
-      io.to(roomCode).emit('game:turnChanged', {
-        currentPlayerId: room.gameState.players[room.gameState.currentPlayerIndex]?.userId,
-        drawsRequired: room.gameState.drawsRequired,
-      });
-      await finalizeGame(io, room);
+      // Open a reaction window after defuse completed
+      const eventId = `${Date.now()}-${Math.random()}`;
+      const action = {
+        eventId,
+        playerId: userId,
+        cardType: 'defuse_resolved',
+        type: 'defuse_completed',
+        nopeCount: 0,
+      };
+      startNopeWindow(room, action);
     });
 
     socket.on('game:feedTheDead:respond', async ({ cardId }) => {

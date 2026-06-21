@@ -144,6 +144,12 @@ export default function PlayerHand({
     const clickedCard = hand.find((c) => c.id === cardId);
     if (!clickedCard) return;
 
+    const isBlinded = hand.some((c) => c.type === 'hidden');
+    if (isBlinded) {
+      setSelectedIds([cardId]);
+      return;
+    }
+
     const clickedIsCat = isCatCardType(clickedCard.type);
 
     setSelectedIds((prev) => {
@@ -186,7 +192,7 @@ export default function PlayerHand({
       clearSelection();
     } else {
       // Trigger play action
-      onPlayCard(card.type, targetPlayerId);
+      onPlayCard(card.type, targetPlayerId, { cardId: card.id });
       clearSelection();
     }
   };
@@ -397,49 +403,72 @@ export default function PlayerHand({
         <div className="h-44 flex items-center justify-center text-on-surface-variant text-sm border-3 border-dashed border-on-surface rounded-2xl bg-surface font-headline font-black uppercase">
           Không có lá bài nào trên tay. Hãy bốc bài!
         </div>
-      ) : (
-        <div
-          ref={containerRef}
-          id="player-hand-container"
-          onMouseDown={handleMouseDown}
-          onMouseLeave={handleMouseLeave}
-          onMouseUp={handleMouseUp}
-          onMouseMove={handleMouseMove}
-          className="flex gap-4 overflow-x-auto pb-4 pt-6 px-2 custom-scrollbar max-w-full cursor-grab active:cursor-grabbing select-none"
-        >
-          <AnimatePresence mode="popLayout">
-            {sortedHand.map((card, index) => {
-              const isSelected = selectedIds.includes(card.id);
-              // Detect type boundary → add visual gap between groups
-              const isNewGroup = index > 0 && sortedHand[index - 1].type !== card.type;
-              return (
-                <motion.div
-                  key={card.id}
-                  layout
-                  initial={{ opacity: 0, x: 200, y: 150, scale: 0.3, rotate: 45 }}
-                  animate={{
-                    opacity: 1,
-                    x: 0,
-                    y: 0,
-                    scale: 1,
-                    rotate: 0,
-                    transition: { type: 'spring', stiffness: 150, damping: 18 }
-                  }}
-                  exit={{
-                    opacity: 0,
-                    y: -100,
-                    scale: 0.5,
-                    rotate: -15,
-                    transition: { duration: 0.2 }
-                  }}
-                  whileHover={{
-                    y: isSelected ? -20 : -4,
-                    scale: 1.02,
-                    transition: { duration: 0.1 }
-                  }}
-                  style={{ zIndex: isSelected ? 20 : 10 + index }}
-                  className={`flex-shrink-0${isNewGroup ? ' ml-4' : ''}`}
-                >
+      ) : (() => {
+        const totalCards = sortedHand.length;
+        const midIndex = (totalCards - 1) / 2;
+        const overlap = totalCards > 1 ? Math.min(40, 12 + (totalCards - 2) * 3) : 0;
+        const justifyClass = totalCards <= 6
+          ? 'justify-center'
+          : (totalCards <= 11 ? 'justify-start md:justify-center' : 'justify-start');
+
+        return (
+          <div
+            ref={containerRef}
+            id="player-hand-container"
+            onMouseDown={handleMouseDown}
+            onMouseLeave={handleMouseLeave}
+            onMouseUp={handleMouseUp}
+            onMouseMove={handleMouseMove}
+            className={`flex ${justifyClass} overflow-x-auto pb-8 pt-12 px-6 custom-scrollbar max-w-full cursor-grab active:cursor-grabbing select-none`}
+          >
+            <AnimatePresence mode="popLayout">
+              {sortedHand.map((card, index) => {
+                const isSelected = selectedIds.includes(card.id);
+                // Detect type boundary → add visual gap between groups
+                const isNewGroup = index > 0 && sortedHand[index - 1].type !== card.type;
+
+                const diff = index - midIndex;
+                const maxRotation = Math.min(18, (totalCards - 1) * 2.5);
+                const arcHeight = Math.min(20, (totalCards - 1) * 2.5);
+
+                const baseRotate = totalCards > 1 ? (diff / (midIndex || 1)) * maxRotation : 0;
+                const baseY = totalCards > 1 ? (Math.pow(diff, 2) / Math.pow(midIndex || 1, 2)) * arcHeight : 0;
+
+                const cardStyle = {
+                  marginLeft: index > 0 ? (isNewGroup ? `-${overlap - 16}px` : `-${overlap}px`) : '0px',
+                };
+
+                return (
+                  <motion.div
+                    key={card.id}
+                    layout
+                    initial={{ opacity: 0, x: 200, y: 150, scale: 0.3, rotate: 45 }}
+                    animate={{
+                      opacity: 1,
+                      x: 0,
+                      y: isSelected ? baseY - 24 : baseY,
+                      rotate: isSelected ? 0 : baseRotate,
+                      scale: isSelected ? 1.05 : 1,
+                      zIndex: isSelected ? 100 : 10 + index,
+                      transition: { type: 'spring', stiffness: 150, damping: 18 }
+                    }}
+                    exit={{
+                      opacity: 0,
+                      y: -100,
+                      scale: 0.5,
+                      rotate: -15,
+                      transition: { duration: 0.2 }
+                    }}
+                    whileHover={{
+                      y: baseY - 42,
+                      rotate: 0,
+                      scale: 1.15,
+                      zIndex: 200,
+                      transition: { duration: 0.15, ease: 'easeOut' }
+                    }}
+                    style={cardStyle}
+                    className="flex-shrink-0"
+                  >
                   <Card
                     type={card.type}
                     skinIndex={card.skinIndex ?? 0}
@@ -456,7 +485,8 @@ export default function PlayerHand({
             })}
           </AnimatePresence>
         </div>
-      )}
+      );
+    })()}
 
       {/* 3-Cat Combo: Target & Card Picker Wizard Modal */}
       {combo3Pending && (() => {

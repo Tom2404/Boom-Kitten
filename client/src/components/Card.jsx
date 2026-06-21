@@ -322,6 +322,12 @@ const CARD_THEMES = {
     color: 'bg-cyan-500 text-slate-950',
     desc: 'Bí mật nhìn thấy vị trí mà đối thủ vừa chèn Mèo Nổ vào bộ bài.',
   },
+  hidden: {
+    name: 'Bài Ẩn',
+    icon: '❓',
+    color: 'bg-slate-800 text-slate-300 border-2 border-slate-700',
+    desc: 'Bạn đang bị Lời nguyền Mông Mèo! Hãy click chọn một lá bất kỳ để đánh mù.',
+  },
 };
 
 export default function Card({ type, skinIndex = 0, selected, onClick, disabled, marked, compact = false, hideInfo = false }) {
@@ -361,6 +367,9 @@ export default function Card({ type, skinIndex = 0, selected, onClick, disabled,
           ${disabled ? 'opacity-40 cursor-not-allowed pointer-events-none' : ''}
           ${marked ? 'rounded-xl ring-4 ring-rose-500/90 drop-shadow-[0_0_12px_rgba(244,63,94,0.55)]' : ''}`}
       >
+        {selected && (
+          <div className="absolute inset-[-12px] rounded-2xl bg-gradient-to-r from-yellow-400 via-amber-300 to-yellow-500 opacity-60 filter blur-lg animate-pulse pointer-events-none z-[-1]" />
+        )}
         {marked && (
           <span className="absolute -top-3 -left-2.5 z-30 bg-rose-500 text-white font-headline font-black text-[9px] px-2.5 py-1 rounded-full border-2 border-on-surface shadow-[1px_1px_0px_0px_#1a1c1c] uppercase tracking-wider animate-pulse flex items-center gap-1">
             <span>{t('card_marked')}</span>

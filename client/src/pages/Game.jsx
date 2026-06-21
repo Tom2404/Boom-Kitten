@@ -428,33 +428,11 @@ const EDITIONS_MAP = {
       { type: 'streaking_kitten', name: { vi: 'MÈO VỆT ĐUÔI GIỮ BOMB', en: 'STREAKING KITTEN' } },
       { type: 'garbage_collection', name: { vi: 'THU GOM RÁC THẢI', en: 'GARBAGE COLLECTION' } },
       { type: 'mark', name: { vi: 'ĐÁNH DẤU LỘ DIỆN BÀI', en: 'MARK OPPONENT' } },
-      { type: 'swap_top_and_bottom', name: { vi: 'ĐỔI ĐẦU ĐUÔI BỘ BÀI', en: 'SWAP TOP & BOTTOM' } }
+      { type: 'curse_of_the_cat_butt', name: { vi: 'LỜI NGUYỀN MÔNG MÈO', en: 'CURSE OF CAT BUTT' } }
     ],
     icon: (
       <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
         <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-      </svg>
-    )
-  },
-  expansion_mix: {
-    badge: { vi: 'HỖN CHIẾN', en: 'PARTY PACK' },
-    badgeColor: 'bg-indigo-500 text-white',
-    rules: {
-      vi: ['TRỘN TẤT CẢ PHIÊN BẢN', 'CƠ CHẾ ĐA DẠNG HACK NÃO', 'THỬ THÁCH THỰC SỰ'],
-      en: ['ALL EXPANSIONS MIXED', 'ULTIMATE MECHANICS', 'CHAOTIC CHALLENGE']
-    },
-    exclusiveCards: [
-      { type: 'imploding_kitten', name: { vi: 'MÈO SẬP NGUỒN TỬ THẦN', en: 'IMPLODING KITTEN' } },
-      { type: 'streaking_kitten', name: { vi: 'MÈO VỆT ĐUÔI GIỮ BOMB', en: 'STREAKING KITTEN' } },
-      { type: 'zombie_kitten', name: { vi: 'MÈO THÂY MA HỒI SINH', en: 'ZOMBIE KITTEN' } },
-      { type: 'godcat', name: { vi: 'THẦN MÈO VẠN NĂNG', en: 'GODCAT' } }
-    ],
-    icon: (
-      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="10" />
-        <path d="M8 12a4 4 0 1 1 8 0" />
-        <path d="M12 22v-6" />
-        <circle cx="12" cy="14" r="1" fill="currentColor" />
       </svg>
     )
   }
@@ -545,6 +523,7 @@ export default function Game() {
     drawCard,
     playCard,
     playNope,
+    passNope,
     discardCard,
     respondFavor,
     respondAlterFuture,
@@ -576,8 +555,7 @@ export default function Game() {
     'barking',
     'good_vs_evil',
     'imploding',
-    'streaking',
-    'expansion_mix'
+    'streaking'
   ];
 
   const getEditionDetails = (key) => {
@@ -596,7 +574,7 @@ export default function Game() {
   const [roomInput, setRoomInput] = useState('');
   const [targetPlayerId, setTargetPlayerId] = useState(null);
 
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [lobbyMaxPlayers, setLobbyMaxPlayers] = useState(5);
   const [lobbyMaxHandSize, setLobbyMaxHandSize] = useState(10);
   const [lobbyIsPublic, setLobbyIsPublic] = useState(true);
@@ -633,6 +611,24 @@ export default function Game() {
   const [nopeAlert, setNopeAlert] = useState(null);
   const [isRedFlashActive, setIsRedFlashActive] = useState(false);
   const [isImplodingActive, setIsImplodingActive] = useState(false);
+
+  const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
+  const prevMessagesLength = useRef(chatMessages.length);
+
+  useEffect(() => {
+    if (isSidebarOpen && rightPanelTab === 'chat') {
+      setHasUnreadMessages(false);
+    }
+  }, [isSidebarOpen, rightPanelTab]);
+
+  useEffect(() => {
+    if (chatMessages.length > prevMessagesLength.current) {
+      if (!isSidebarOpen || rightPanelTab !== 'chat') {
+        setHasUnreadMessages(true);
+      }
+    }
+    prevMessagesLength.current = chatMessages.length;
+  }, [chatMessages, isSidebarOpen, rightPanelTab]);
 
   const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5000';
 
@@ -1898,10 +1894,25 @@ export default function Game() {
           </div>
           
           <button
-            onClick={() => setIsSidebarOpen(prev => !prev)}
-            className="bg-white text-on-surface hover:bg-slate-50 font-headline font-black border-2 border-on-surface shadow-[2px_2px_0px_0px_#1a1c1c] px-3.5 py-1.5 rounded-xl text-xs active:translate-y-0.5 active:shadow-none transition-all uppercase"
+            onClick={() => {
+              setIsSidebarOpen(prev => !prev);
+              if (!isSidebarOpen) {
+                setRightPanelTab('chat');
+              }
+            }}
+            className={`relative font-headline font-black border-2 border-on-surface shadow-[2px_2px_0px_0px_#1a1c1c] px-3.5 py-1.5 rounded-xl text-xs active:translate-y-0.5 active:shadow-none transition-all uppercase ${
+              hasUnreadMessages && !isSidebarOpen
+                ? 'animate-chat-blink' 
+                : 'bg-white text-on-surface hover:bg-slate-50'
+            }`}
           >
             {isSidebarOpen ? "Ẩn Chat" : "Hiện Chat"}
+            {hasUnreadMessages && !isSidebarOpen && (
+              <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500 border border-on-surface"></span>
+              </span>
+            )}
           </button>
 
           <button className="p-1.5 rounded-xl border-2 border-on-surface bg-white shadow-[2px_2px_0px_0px_#1a1c1c] hover:scale-105 active:scale-95 transition-all text-on-surface" title="Cài đặt">
@@ -2227,6 +2238,7 @@ export default function Game() {
           timeoutMs={nopeWindow.timeoutMs}
           hasNopeCard={hasNopeCard}
           onPlayNope={() => playNope(nopeWindow.eventId)}
+          onPass={() => passNope(nopeWindow.eventId)}
           actingPlayerName={getPlayerDisplayName(nopeWindow.actingPlayerId)}
           cardType={nopeWindow.cardType}
           targetPlayerName={nopeWindow.targetPlayerId ? getPlayerDisplayName(nopeWindow.targetPlayerId) : null}

@@ -41,6 +41,7 @@ const SKIN_COUNTS = {
   swap_top_and_bottom: 1,
   mark: 1,
   garbage_collection: 1,
+  curse_of_the_cat_butt: 2,
 };
 
 // Card quantities strictly according to docs/Game rule.md
@@ -80,6 +81,7 @@ const CARD_COUNTS = {
   swap_top_and_bottom: 1,
   mark: 1,
   garbage_collection: 1,
+  curse_of_the_cat_butt: 2,
 };
 
 function makeCard(type) {
@@ -176,23 +178,9 @@ function getCardCounts(playerCount, edition = 'original') {
     counts.catomic_bomb = CARD_COUNTS.catomic_bomb;
     counts.mark = CARD_COUNTS.mark;
     counts.garbage_collection = CARD_COUNTS.garbage_collection;
+    counts.curse_of_the_cat_butt = CARD_COUNTS.curse_of_the_cat_butt;
   }
 
-  if (edition === 'expansion_mix') {
-    counts.imploding_kitten = CARD_COUNTS.imploding_kitten;
-    counts.barking_kitten = CARD_COUNTS.barking_kitten;
-    counts.streaking_kitten = CARD_COUNTS.streaking_kitten;
-    counts.godcat = CARD_COUNTS.godcat;
-    counts.armageddon = CARD_COUNTS.armageddon;
-    counts.alter_the_future_3 = CARD_COUNTS.alter_the_future_3;
-    counts.draw_from_bottom = CARD_COUNTS.draw_from_bottom;
-    counts.reverse = CARD_COUNTS.reverse;
-    counts.target_attack_2x = CARD_COUNTS.target_attack_2x;
-    counts.super_skip = CARD_COUNTS.super_skip;
-    counts.catomic_bomb = CARD_COUNTS.catomic_bomb;
-    counts.feral_cat = CARD_COUNTS.feral_cat;
-  }
-  
   return counts;
 }
 
@@ -239,7 +227,7 @@ function dealCards(deck, players, handSize = 7, edition = 'original') {
   }
 
   // Remaining defuses are shuffled back into the deck for standard/expansion editions using Defuse cards
-  if (edition === 'original' || edition === 'barking' || edition === 'good_vs_evil' || edition === 'imploding' || edition === 'streaking' || edition === 'expansion_mix') {
+  if (edition === 'original' || edition === 'barking' || edition === 'good_vs_evil' || edition === 'imploding' || edition === 'streaking') {
     const remainingDefuses = Math.max(0, 6 - players.length);
     for (let i = 0; i < remainingDefuses; i += 1) {
       mutableDeck.push(makeCard('defuse'));
@@ -247,9 +235,9 @@ function dealCards(deck, players, handSize = 7, edition = 'original') {
   }
 
   // Add Exploding & Imploding Kittens to remaining deck
-  if (edition === 'imploding' || edition === 'expansion_mix') {
+  if (edition === 'imploding') {
     mutableDeck.push(makeCard('imploding_kitten'));
-    const explodingCount = players.length === 2 ? 1 : Math.max(0, players.length - 2);
+    const explodingCount = Math.max(0, players.length - 1);
     for (let i = 0; i < explodingCount; i += 1) {
       mutableDeck.push(makeCard('exploding_kitten'));
     }
