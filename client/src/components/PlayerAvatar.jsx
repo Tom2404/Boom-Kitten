@@ -28,6 +28,7 @@ export default function PlayerAvatar({
   onSelectTarget,
   publicProfile,
   edition,
+  isWaitingBK,
 }) {
   const { userId, username, alive, handCount, avatar, activeAvatarFrame, eloPoints, rank, markedCards, pendingTakeFrom } = player;
   const visibleMarkedCards = markedCards?.slice(0, 3) ?? [];
@@ -63,6 +64,23 @@ export default function PlayerAvatar({
             ? 'ring-4 ring-yellow-400 border-yellow-400 -translate-y-1' 
             : ''}`}
       >
+        {/* Barking Kitten sound wave sticker */}
+        {alive && isWaitingBK && (
+          <div className="absolute -top-5 -right-3 rotate-[12deg] z-30 bg-amber-400 text-slate-950 border-3 border-on-surface font-headline font-black text-[9px] leading-none px-2 py-1.5 shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] uppercase tracking-wider text-center select-none animate-bounce">
+            <div className="text-[6.5px] font-bold opacity-80 leading-none">BARKING</div>
+            <div className="flex items-center justify-center gap-0.5 my-1">
+              <svg width="18" height="12" viewBox="0 0 18 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="0" y="4" width="2" height="4" fill="#1a1c1c" />
+                <rect x="3" y="2" width="2" height="8" fill="#1a1c1c" />
+                <rect x="6" y="0" width="2" height="12" fill="#1a1c1c" />
+                <rect x="9" y="2" width="2" height="8" fill="#1a1c1c" />
+                <rect x="12" y="4" width="2" height="4" fill="#1a1c1c" />
+                <rect x="15" y="5" width="2" height="2" fill="#1a1c1c" />
+              </svg>
+            </div>
+            <div className="text-[8.5px] leading-none font-black">WAITING</div>
+          </div>
+        )}
         {/* Neobrutalist Bouncing SVG Arrow instead of emoji */}
         {isCurrentTurn && alive && (
           <div className="absolute -top-10 left-1/2 -translate-x-1/2 z-45 animate-bounce pointer-events-none">

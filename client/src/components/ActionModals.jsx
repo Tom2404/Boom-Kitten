@@ -249,6 +249,24 @@ export function NopeCountdown({
   const isCanceled = nopeCount % 2 === 1;
   const isCounterNope = nopeCount > 0;
 
+  const NOPEABLE_ACTIONS = [
+    'attack_2x', 'personal_attack_2x', 'target_attack_2x', 'attack_of_the_dead',
+    'skip', 'super_skip',
+    'see_the_future_1', 'see_the_future_3', 'see_the_future_5', 'see_the_future_3_now', 'reveal_the_future',
+    'alter_the_future_3', 'alter_the_future_5', 'alter_the_future_3_now',
+    'favor', 'garbage', 'pot_luck',
+    'shuffle', 'shuffle_now',
+    'swap_top_and_bottom_now',
+    'feed_the_dead',
+    'grave_robber',
+    'dig_deeper',
+    'armageddon',
+    'nope'
+  ];
+
+  const isNopeable = cardType && (NOPEABLE_ACTIONS.includes(cardType) || cardType.startsWith('combo_'));
+  const canNope = !isNowOnly && hasNopeCard && isNopeable;
+
   const getCardDisplayName = (type) => {
     if (!type) return '';
     const clean = type.replace('discard_', '');
@@ -347,7 +365,7 @@ export function NopeCountdown({
                 Pass
               </button>
 
-              {!isNowOnly && hasNopeCard && (
+              {canNope && (
                 <button
                   onClick={onPlayNope}
                   className="font-headline font-black border-2 border-slate-900 shadow-[2px_2px_0px_0px_#1a1c1c] px-3.5 py-2 rounded-none text-[10px] hover:scale-105 active:scale-95 transition-all uppercase"
@@ -368,7 +386,7 @@ export function NopeCountdown({
             </span>
             
             <div className="flex gap-2 overflow-x-auto pb-1.5 custom-scrollbar min-h-[46px] items-center">
-              {!isNowOnly && nopesInHand.map((card) => {
+              {canNope && nopesInHand.map((card) => {
                 const theme = CARD_THEMES.nope || {};
                 return (
                   <button

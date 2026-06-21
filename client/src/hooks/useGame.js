@@ -296,6 +296,23 @@ export function useGame() {
       setStatusMessage(t('log_error', { message }));
     };
 
+    const onBarkingKittenResolved = ({ attackerId, targetId, flow }) => {
+      const pName = getUsername(attackerId);
+      const tName = targetId ? getUsername(targetId) : null;
+      let msg = '';
+      if (flow === 1) {
+        msg = t('log_bk_waiting', { name: pName });
+      } else if (flow === 2) {
+        msg = t('log_bk_found', { name: pName, target: tName });
+      } else if (flow === 3) {
+        msg = t('log_bk_double', { name: pName, target: tName });
+      } else if (flow === 4) {
+        msg = t('log_bk_barked_back', { name: pName, target: tName });
+      }
+      setStatusMessage(msg);
+      setActionLog(prev => [...prev, { id: Math.random().toString(), text: msg, timestamp: new Date().toLocaleTimeString() }]);
+    };
+
     socket.on('room:updated', onRoomUpdated);
     socket.on('game:stateUpdate', onStateUpdate);
     socket.on('game:privateHand', onPrivateHand);
@@ -303,6 +320,7 @@ export function useGame() {
     socket.on('game:nowOnlyWindow', onNowOnlyWindow);
     socket.on('game:nowOnlyWindow:end', onNowOnlyWindowEnd);
     socket.on('game:nopeResult', onNopeResult);
+    socket.on('game:barkingKitten:resolved', onBarkingKittenResolved);
     socket.on('game:seeTheFuture', onSeeTheFuture);
     socket.on('game:alterFuture:request', onAlterFutureRequest);
     socket.on('game:favor:request', onFavorRequest);
@@ -335,6 +353,7 @@ export function useGame() {
       socket.off('game:nowOnlyWindow', onNowOnlyWindow);
       socket.off('game:nowOnlyWindow:end', onNowOnlyWindowEnd);
       socket.off('game:nopeResult', onNopeResult);
+      socket.off('game:barkingKitten:resolved', onBarkingKittenResolved);
       socket.off('game:seeTheFuture', onSeeTheFuture);
       socket.off('game:alterFuture:request', onAlterFutureRequest);
       socket.off('game:favor:request', onFavorRequest);

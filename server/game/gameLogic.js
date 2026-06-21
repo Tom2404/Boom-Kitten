@@ -49,6 +49,13 @@ function eliminatePlayer(gameState, playerId) {
   }
   gameState.activePlayerIds = gameState.players.filter((p) => p.alive).map((p) => p.userId);
   
+  // EC-1: If waitingHolder is eliminated
+  if (gameState.barkingKittenState && gameState.barkingKittenState.waitingHolder === playerId) {
+    gameState.barkingKittenState.waitingHolder = null;
+    gameState.discardPile.push({ id: `bk-invalidated-${Date.now()}`, type: 'barking_kitten' });
+    gameState.barkingKittenInvalidated = player.username;
+  }
+
   // If the current player died, pass the turn
   const currentPlayer = gameState.players[gameState.currentPlayerIndex];
   if (currentPlayer && currentPlayer.userId === playerId) {
@@ -762,32 +769,9 @@ function executeActionEffect(gameState, cardType, playerId, targetPlayerId, opti
       }
       return gameState;
     }
-    case 'barking_kitten': {
-      const player = getPlayer(gameState, playerId);
-      if (!player) return gameState;
-      const otherPlayer = gameState.players.find(
-        (p) => p.userId !== playerId && p.alive && 
-        (p.hand.some((c) => c.type === 'barking_kitten') || p.barkingKittenPlayed)
-      );
-      if (otherPlayer) {
-        if (otherPlayer.barkingKittenPlayed) {
-          otherPlayer.barkingKittenPlayed = false;
-        } else {
-          removeCardFromHand(otherPlayer, 'barking_kitten');
-        }
-        const otherCard = { id: `bk-${Date.now()}`, type: 'barking_kitten' };
-        gameState.discardPile.push(otherCard);
-        const ekCard = { id: `ek-bk-${Date.now()}`, type: 'exploding_kitten' };
-        resolveExplosion(gameState, otherPlayer.userId, ekCard);
-      } else {
-        player.barkingKittenPlayed = true;
-        const playedCardIdx = gameState.discardPile.findLastIndex((c) => c.type === 'barking_kitten');
-        if (playedCardIdx >= 0) {
-          gameState.discardPile.splice(playedCardIdx, 1);
-        }
-      }
+    case 'barking_kitten':
+      // Barking Kitten is handled directly in socket layer to bypass Nope window
       return gameState;
-    }
     case 'reveal_the_future_3x':
       return gameState;
     case 'curse_of_the_cat_butt': {
@@ -1018,8 +1002,81 @@ function resolveArmageddonDecision(gameState, decision) {
   return gameState;
 }
 
+function resolveBarkingKittenAction(gameState, playerId, targetPlayerId) {
+  const player = getPlayer(gameState, playerId);
+  if (!player) return null;
+
+  const waitingHolder = gameState.barkingKittenState?.waitingHolder;
+  let flow = 1;
+  let targetId = null;
+
+  if (waitingHolder && waitingHolder !== playerId) {
+    // Flow 4: target is waitingHolder (B)
+    flow = 4;
+    targetId = waitingHolder;
+    gameState.barkingKittenState.waitingHolder = null;
+
+    // B's face-up BK goes to discard pile
+    gameState.discardPile.push({ id: `bk-faceup-${Date.now()}`, type: 'barking_kitten' });
+
+    // Explode B (waitingHolder)
+    const ekCard = { id: `ek-bk-${Date.now()}`, type: 'exploding_kitten' };
+    resolveExplosion(gameState, waitingHolder, ekCard);
+
+  } else if (waitingHolder === playerId) {
+    // Flow 3: A is waitingHolder and plays 2nd BK. Target is targetPlayerId
+    flow = 3;
+    targetId = targetPlayerId;
+    gameState.barkingKittenState.waitingHolder = null;
+
+    // A's 1st BK (face-up) goes to discard pile
+    gameState.discardPile.push({ id: `bk-faceup-${Date.now()}`, type: 'barking_kitten' });
+
+    // Explode target
+    if (targetPlayerId) {
+      const ekCard = { id: `ek-bk-${Date.now()}`, type: 'exploding_kitten' };
+      resolveExplosion(gameState, targetPlayerId, ekCard);
+    }
+
+  } else {
+    // Flow 1 or 2 (waitingHolder is null)
+    const targetWithBK = gameState.players.find(
+      (p) => p.userId !== playerId && p.alive && p.hand.some((c) => c.type === 'barking_kitten')
+    );
+
+    if (targetWithBK) {
+      // Flow 2: Target B has BK in hand
+      flow = 2;
+      targetId = targetWithBK.userId;
+      removeCardFromHand(targetWithBK, 'barking_kitten');
+      gameState.discardPile.push({ id: `bk-hand-${Date.now()}`, type: 'barking_kitten' });
+
+      // Explode B
+      const ekCard = { id: `ek-bk-${Date.now()}`, type: 'exploding_kitten' };
+      resolveExplosion(gameState, targetWithBK.userId, ekCard);
+
+    } else {
+      // Flow 1: No one has BK in hand. A becomes waitingHolder
+      flow = 1;
+      targetId = null;
+      const playedCardIdx = gameState.discardPile.findLastIndex((c) => c.type === 'barking_kitten');
+      if (playedCardIdx >= 0) {
+        gameState.discardPile.splice(playedCardIdx, 1);
+      }
+
+      if (!gameState.barkingKittenState) {
+        gameState.barkingKittenState = { waitingHolder: null };
+      }
+      gameState.barkingKittenState.waitingHolder = playerId;
+    }
+  }
+
+  return { flow, targetId };
+}
+
 module.exports = {
   playCard,
+  resolveBarkingKittenAction,
   executeActionEffect,
   drawCard,
   handleNope,
@@ -1048,4 +1105,6 @@ module.exports = {
   resolveArmageddonDistribute,
   resolveArmageddonDecision,
   checkStreakingKittenEffect,
+  resolveExplosion,
+  removeCardFromHand,
 };

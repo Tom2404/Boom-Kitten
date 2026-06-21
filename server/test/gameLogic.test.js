@@ -9,6 +9,7 @@ const {
   checkWinCondition,
   resolveDefusePutBack,
   playCard,
+  resolveBarkingKittenAction,
 } = require('../game/gameLogic');
 
 test('eliminatePlayer does not clear hand in zombie edition', () => {
@@ -435,6 +436,115 @@ test('playCard for feed_the_dead or grave_robber is rejected if there are no dea
   // Now playing should succeed
   const result3 = playCard(gameState, 'p1', 'feed_the_dead', null, { cardId: 'c1' });
   assert.equal(result3, 'feed_the_dead');
+});
+
+test('eliminatePlayer clears barkingKittenState and pushes BK to discard pile if waitingHolder is eliminated', () => {
+  const gameState = {
+    edition: 'original',
+    players: [
+      { userId: 'p1', username: 'P1', hand: [], alive: true },
+      { userId: 'p2', username: 'P2', hand: [], alive: true },
+    ],
+    activePlayerIds: ['p1', 'p2'],
+    currentPlayerIndex: 0,
+    discardPile: [],
+    barkingKittenState: {
+      waitingHolder: 'p1',
+    },
+  };
+
+  const newState = eliminatePlayer(gameState, 'p1');
+  assert.equal(newState.barkingKittenState.waitingHolder, null);
+  assert.equal(newState.discardPile.some(c => c.type === 'barking_kitten'), true);
+  assert.equal(newState.barkingKittenInvalidated, 'P1');
+});
+
+test('resolveBarkingKittenAction Flow 1: plays BK when no one else holds BK', () => {
+  const gameState = {
+    players: [
+      { userId: 'p1', username: 'P1', hand: [], alive: true },
+      { userId: 'p2', username: 'P2', hand: [], alive: true },
+    ],
+    discardPile: [{ id: 'bk-played', type: 'barking_kitten' }],
+    barkingKittenState: {
+      waitingHolder: null,
+    },
+  };
+
+  const result = resolveBarkingKittenAction(gameState, 'p1', null);
+  assert.equal(result.flow, 1);
+  assert.equal(result.targetId, null);
+  assert.equal(gameState.barkingKittenState.waitingHolder, 'p1');
+  // BK should be removed from discard pile (placed face-up)
+  assert.equal(gameState.discardPile.length, 0);
+});
+
+test('resolveBarkingKittenAction Flow 2: plays BK when opponent holds BK in hand', () => {
+  const gameState = {
+    players: [
+      { userId: 'p1', username: 'P1', hand: [], alive: true },
+      { userId: 'p2', username: 'P2', hand: [{ id: 'bk2', type: 'barking_kitten' }], alive: true },
+    ],
+    discardPile: [{ id: 'bk1', type: 'barking_kitten' }],
+    barkingKittenState: {
+      waitingHolder: null,
+    },
+  };
+
+  const result = resolveBarkingKittenAction(gameState, 'p1', null);
+  assert.equal(result.flow, 2);
+  assert.equal(result.targetId, 'p2');
+  assert.equal(gameState.barkingKittenState.waitingHolder, null);
+  // Target B's BK is removed from hand
+  assert.equal(gameState.players[1].hand.length, 0);
+  // Both BKs are in discard pile
+  assert.equal(gameState.discardPile.filter(c => c.type === 'barking_kitten').length, 2);
+  // B exploded (needs defuse)
+  assert.ok(gameState.pendingDefuse || !gameState.players[1].alive);
+});
+
+test('resolveBarkingKittenAction Flow 3: plays BK when self is waitingHolder (Flow 3)', () => {
+  const gameState = {
+    players: [
+      { userId: 'p1', username: 'P1', hand: [], alive: true },
+      { userId: 'p2', username: 'P2', hand: [], alive: true },
+    ],
+    discardPile: [{ id: 'bk2', type: 'barking_kitten' }],
+    barkingKittenState: {
+      waitingHolder: 'p1',
+    },
+  };
+
+  const result = resolveBarkingKittenAction(gameState, 'p1', 'p2');
+  assert.equal(result.flow, 3);
+  assert.equal(result.targetId, 'p2');
+  assert.equal(gameState.barkingKittenState.waitingHolder, null);
+  // Both BKs are in discard pile (bk2 from hand, bk-faceup from waiting zone)
+  assert.equal(gameState.discardPile.filter(c => c.type === 'barking_kitten').length, 2);
+  // p2 exploded
+  assert.ok(gameState.pendingDefuse || !gameState.players[1].alive);
+});
+
+test('resolveBarkingKittenAction Flow 4: plays BK targeting opponent who is waitingHolder', () => {
+  const gameState = {
+    players: [
+      { userId: 'p1', username: 'P1', hand: [], alive: true },
+      { userId: 'p2', username: 'P2', hand: [], alive: true },
+    ],
+    discardPile: [{ id: 'bk2', type: 'barking_kitten' }],
+    barkingKittenState: {
+      waitingHolder: 'p2',
+    },
+  };
+
+  const result = resolveBarkingKittenAction(gameState, 'p1', null);
+  assert.equal(result.flow, 4);
+  assert.equal(result.targetId, 'p2');
+  assert.equal(gameState.barkingKittenState.waitingHolder, null);
+  // Both BKs are in discard pile
+  assert.equal(gameState.discardPile.filter(c => c.type === 'barking_kitten').length, 2);
+  // p2 exploded
+  assert.ok(gameState.pendingDefuse || !gameState.players[1].alive);
 });
 
 

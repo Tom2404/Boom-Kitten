@@ -80,6 +80,9 @@ function startGame(roomCode) {
     lastAction: null,
     maxHandSize: room.maxHandSize ?? 10,
     edition: room.edition,
+    barkingKittenState: {
+      waitingHolder: null,
+    },
   };
 
   return room;

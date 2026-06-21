@@ -1724,12 +1724,21 @@ export default function Game() {
       }, 50);
     };
 
+    const handleBarkingKittenResolved = ({ attackerId, targetId, flow }) => {
+      if ((flow === 2 || flow === 3 || flow === 4) && targetId) {
+        setTimeout(() => {
+          playFlyingCard(`player-avatar-${attackerId}`, `player-avatar-${targetId}`, 'barking_kitten');
+        }, 50);
+      }
+    };
+
     socket.on('game:cardDrawn', handleCardDrawn);
     socket.on('game:drewKitten', handleDrewKitten);
     socket.on('game:cardPlayed', handleCardPlayed);
     socket.on('game:exploded', handleExploded);
     socket.on('game:zombieRevived', handleZombieRevived);
     socket.on('game:nopeWindow', handleNopeWindowForAnim);
+    socket.on('game:barkingKitten:resolved', handleBarkingKittenResolved);
 
     return () => {
       socket.off('game:cardDrawn', handleCardDrawn);
@@ -1738,6 +1747,7 @@ export default function Game() {
       socket.off('game:exploded', handleExploded);
       socket.off('game:zombieRevived', handleZombieRevived);
       socket.off('game:nopeWindow', handleNopeWindowForAnim);
+      socket.off('game:barkingKitten:resolved', handleBarkingKittenResolved);
     };
   }, [socket, myUser]);
 
@@ -2649,6 +2659,7 @@ export default function Game() {
                     isSelectedTarget={targetPlayerId === opp.userId}
                     onSelectTarget={(id) => setTargetPlayerId(prev => prev === id ? null : id)}
                     edition={gameState?.edition}
+                    isWaitingBK={gameState?.barkingKittenState?.waitingHolder === opp.userId}
                   />
                 </div>
               ))}
@@ -2725,6 +2736,7 @@ export default function Game() {
                       isCurrentTurn={isMyTurn}
                       isTargetable={false}
                       edition={gameState?.edition}
+                      isWaitingBK={gameState?.barkingKittenState?.waitingHolder === myUser?.id}
                     />
                     {isMyTurn && (
                       <span className="bg-yellow-400 text-slate-950 font-headline font-black text-[9px] uppercase px-2 py-0.5 rounded-lg border-2 border-on-surface shadow-[1px_1px_0px_0px_#1a1c1c] text-center w-full z-10 relative">

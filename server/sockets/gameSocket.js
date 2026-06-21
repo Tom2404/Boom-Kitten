@@ -11,6 +11,7 @@ const {
 } = require('../game/roomManager');
 const {
   playCard,
+  resolveBarkingKittenAction,
   executeActionEffect,
   drawCard,
   handleNope,
@@ -30,6 +31,8 @@ const {
   resolveArmageddonDecision,
   checkStreakingKittenEffect,
   passTurn,
+  resolveExplosion,
+  removeCardFromHand,
 } = require('../game/gameLogic');
 const User = require('../models/User');
 const GameHistory = require('../models/GameHistory');
@@ -307,6 +310,28 @@ async function finalizeGame(io, room) {
 module.exports = function registerGameSocket(io) {
   const NOPE_WINDOW_MS = 3000;
 
+  const NOPEABLE_ACTIONS = [
+    'attack_2x', 'personal_attack_2x', 'target_attack_2x', 'attack_of_the_dead',
+    'skip', 'super_skip',
+    'see_the_future_1', 'see_the_future_3', 'see_the_future_5', 'see_the_future_3_now', 'reveal_the_future',
+    'alter_the_future_3', 'alter_the_future_5', 'alter_the_future_3_now',
+    'favor', 'garbage', 'pot_luck',
+    'shuffle', 'shuffle_now',
+    'swap_top_and_bottom_now',
+    'feed_the_dead',
+    'grave_robber',
+    'dig_deeper',
+    'armageddon',
+    'nope'
+  ];
+
+  function isNopeableAction(cardType) {
+    if (!cardType) return false;
+    if (NOPEABLE_ACTIONS.includes(cardType)) return true;
+    if (cardType.startsWith('combo_')) return true;
+    return false;
+  }
+
   function getNowWindowTimeout() {
     return 3000;
   }
@@ -355,11 +380,7 @@ module.exports = function registerGameSocket(io) {
       return;
     }
 
-    if (action.type === 'draw_completed') {
-      await afterGameStateChanged(room, action.playersBefore, action.turnBefore);
-    } else if (action.type === 'kitten_drawn') {
-      await afterGameStateChanged(room, [{ userId: action.playerId, alive: true }], room.gameState.currentPlayerIndex);
-    } else if (action.type === 'defuse_completed') {
+    if (action.type === 'defuse_completed') {
       io.to(room.code).emit('game:turnChanged', {
         currentPlayerId: gameState.players[gameState.currentPlayerIndex]?.userId,
         drawsRequired: gameState.drawsRequired,
@@ -452,6 +473,11 @@ module.exports = function registerGameSocket(io) {
       gameState.lastAction.targetPlayerId = targetPlayerId;
     }
 
+    if (cardType === 'barking_kitten') {
+      resolveBarkingKittenSocket(room, playerId, targetPlayerId);
+      return;
+    }
+
     // Create pendingAction and start Nope timer
     const actualCardType = comboSize ? `combo_${comboSize}` : cardType;
     const eventId = `${Date.now()}-${Math.random()}`;
@@ -465,6 +491,23 @@ module.exports = function registerGameSocket(io) {
     };
 
     startNopeWindow(room, action);
+  }
+
+  async function resolveBarkingKittenSocket(room, playerId, targetPlayerId) {
+    const gameState = room.gameState;
+    const playersBefore = gameState.players.map(p => ({ userId: p.userId, alive: p.alive }));
+    const turnBefore = gameState.currentPlayerIndex;
+
+    const result = resolveBarkingKittenAction(gameState, playerId, targetPlayerId);
+    if (!result) return;
+
+    io.to(room.code).emit('game:barkingKitten:resolved', {
+      attackerId: playerId,
+      targetId: result.targetId,
+      flow: result.flow
+    });
+
+    await afterGameStateChanged(room, playersBefore, turnBefore);
   }
 
   function checkAndHandlePendingDefuseOrZombie(room) {
@@ -597,30 +640,12 @@ module.exports = function registerGameSocket(io) {
 
     // If player needs to defuse/revive
     if (gameState.pendingDefuse || gameState.pendingZombie) {
-      const eventId = `${Date.now()}-${Math.random()}`;
-      const action = {
-        eventId,
-        playerId,
-        cardType: drewKitten || 'exploding_kitten',
-        type: 'kitten_drawn',
-        nopeCount: 0,
-      };
-      startNopeWindow(room, action);
+      await afterGameStateChanged(room, [{ userId: playerId, alive: true }], gameState.currentPlayerIndex);
       return;
     }
 
-    // Normal draw: open a reaction window before turn transition
-    const eventId = `${Date.now()}-${Math.random()}`;
-    const action = {
-      eventId,
-      playerId,
-      cardType: 'draw',
-      type: 'draw_completed',
-      playersBefore,
-      turnBefore,
-      nopeCount: 0,
-    };
-    startNopeWindow(room, action);
+    // Normal draw: immediately transition turn
+    await afterGameStateChanged(room, playersBefore, turnBefore);
   }
 
   async function runActionEffect(room, action) {
@@ -1030,7 +1055,7 @@ module.exports = function registerGameSocket(io) {
       }
     });
 
-    socket.on('game:playCard', ({ cardType, targetPlayerId, options }) => {
+    socket.on('game:playCard', async ({ cardType, targetPlayerId, options }) => {
       const roomCode = [...socket.rooms].find((room) => room.length === 6);
       if (!roomCode) return;
       const room = getRoomState(roomCode);
@@ -1137,8 +1162,10 @@ module.exports = function registerGameSocket(io) {
         checkStreakingKittenEffect(room.gameState, finalTargetPlayerId);
       }
 
+      const isBKTargetRequired = (actualCardType === 'barking_kitten' && room.gameState.barkingKittenState?.waitingHolder === userId);
+
       // If this card requires a target and none was provided, prompt player to select
-      if (CARDS_REQUIRING_TARGET.includes(actualCardType) && !finalTargetPlayerId) {
+      if ((CARDS_REQUIRING_TARGET.includes(actualCardType) || isBKTargetRequired) && !finalTargetPlayerId) {
         room.gameState.pendingTargetSelect = {
           playerId: userId,
           cardType: actualCardType,
@@ -1171,21 +1198,25 @@ module.exports = function registerGameSocket(io) {
         return;
       }
 
-      const isNowCardActual = actualCardType.endsWith('_now');
-      const oldPending = isNowCardActual ? room.gameState.pendingAction : null;
+      if (actualCardType === 'barking_kitten') {
+        await resolveBarkingKittenSocket(room, userId, finalTargetPlayerId);
+      } else {
+        const isNowCardActual = actualCardType.endsWith('_now');
+        const oldPending = isNowCardActual ? room.gameState.pendingAction : null;
 
-      const eventId = `${Date.now()}-${Math.random()}`;
-      const action = {
-        eventId,
-        playerId: userId,
-        cardType: actualCardType,
-        targetPlayerId,
-        options,
-        nopeCount: 0,
-        parentAction: oldPending || undefined,
-      };
+        const eventId = `${Date.now()}-${Math.random()}`;
+        const action = {
+          eventId,
+          playerId: userId,
+          cardType: actualCardType,
+          targetPlayerId: finalTargetPlayerId,
+          options,
+          nopeCount: 0,
+          parentAction: oldPending || undefined,
+        };
 
-      startNopeWindow(room, action);
+        startNopeWindow(room, action);
+      }
     });
 
     socket.on('game:drawCard', async () => {
@@ -1253,6 +1284,11 @@ module.exports = function registerGameSocket(io) {
       const room = getRoomState(roomCode);
       const pending = room?.gameState?.pendingAction;
       if (!pending || pending.eventId !== originalEventId) return;
+
+      if (!isNopeableAction(pending.cardType)) {
+        socket.emit('error', { message: 'Không thể Nope hành động này!' });
+        return;
+      }
 
       const player = room.gameState.players.find((p) => p.userId === userId);
       const nopeIdx = player?.hand.findIndex((c) => c.type === 'nope');
