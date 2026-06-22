@@ -277,6 +277,14 @@ function ParticleExplosion({ startPos, onComplete }) {
 }
 
 import { useLanguage } from '../context/LanguageContext.jsx';
+import {
+  triggerScreenShake as coreScreenShake,
+  spawnParticleBurst,
+  playFlyingCard as corePlayFlyingCard,
+  playSkipEffect,
+  playNopeEffect,
+  playAttackEffect
+} from '../utils/effectUtils.js';
 
 const EMOTES_LIST = [
   { id: 'emote_smile', char: '😀' },
@@ -916,99 +924,7 @@ export default function Game() {
 
   // Canvas Particle System
   const spawnParticles = (x, y, paletteType) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    }
-
-    const palettes = {
-      defuse: ['#10b981', '#34d399', '#6ee7b7', '#ffffff'],
-      catomic: ['#84cc16', '#a3e635', '#d9f99d', '#fbbf24'],
-      nope: ['#ef4444', '#f87171', '#fca5a5', '#1a1a1a'],
-      zombie_revive: ['#10b981', '#047857', '#a3e635', '#ffffff'],
-      dig_earth: ['#78350f', '#b45309', '#facc15', '#a16207']
-    };
-    const palette = palettes[paletteType] || ['#ffffff'];
-    const numParticles = 40;
-
-    for (let i = 0; i < numParticles; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const speed = 2 + Math.random() * 8;
-      particlesRef.current.push({
-        x: x,
-        y: y,
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed - (1 + Math.random() * 2),
-        life: 1.0,
-        decay: 0.015 + Math.random() * 0.02,
-        size: 5 + Math.random() * 12,
-        color: palette[Math.floor(Math.random() * palette.length)],
-        type: Math.random() > 0.5 ? 'star' : 'circle'
-      });
-    }
-
-    const draw = () => {
-      const currentCanvas = canvasRef.current;
-      if (!currentCanvas) return;
-      const currentCtx = currentCanvas.getContext('2d');
-      if (!currentCtx) return;
-
-      currentCtx.clearRect(0, 0, currentCanvas.width, currentCanvas.height);
-      let active = false;
-
-      particlesRef.current.forEach(p => {
-        if (p.life > 0) {
-          active = true;
-          currentCtx.beginPath();
-          currentCtx.fillStyle = p.color;
-          currentCtx.strokeStyle = '#1a1a1a';
-          currentCtx.lineWidth = 2.5;
-
-          if (p.type === 'star') {
-            const r = p.size * p.life;
-            currentCtx.moveTo(p.x, p.y - r);
-            currentCtx.lineTo(p.x + r * 0.3, p.y - r * 0.3);
-            currentCtx.lineTo(p.x + r, p.y);
-            currentCtx.lineTo(p.x + r * 0.3, p.y + r * 0.3);
-            currentCtx.lineTo(p.x, p.y + r);
-            currentCtx.lineTo(p.x - r * 0.3, p.y + r * 0.3);
-            currentCtx.lineTo(p.x - r, p.y);
-            currentCtx.lineTo(p.x - r * 0.3, p.y - r * 0.3);
-            currentCtx.closePath();
-            currentCtx.fill();
-            currentCtx.stroke();
-          } else {
-            const r = (p.size / 2) * p.life;
-            currentCtx.arc(p.x, p.y, r, 0, Math.PI * 2);
-            currentCtx.fill();
-            currentCtx.stroke();
-          }
-
-          p.x += p.vx;
-          p.y += p.vy;
-          p.vy += 0.15;
-          p.life -= p.decay;
-        }
-      });
-
-      particlesRef.current = particlesRef.current.filter(p => p.life > 0);
-
-      if (particlesRef.current.length > 0) {
-        animFrameIdRef.current = requestAnimationFrame(draw);
-      } else {
-        currentCtx.clearRect(0, 0, currentCanvas.width, currentCanvas.height);
-        animFrameIdRef.current = null;
-      }
-    };
-
-    if (!animFrameIdRef.current) {
-      animFrameIdRef.current = requestAnimationFrame(draw);
-    }
+    spawnParticleBurst(x, y, paletteType);
   };
 
   const getNextAlivePlayerId = () => {
@@ -1434,125 +1350,18 @@ export default function Game() {
 
   // Flying Card Clone animation
   const playFlyingCard = (sourceId, targetId, cardType) => {
-    const sourceEl = document.getElementById(sourceId);
-    const targetEl = document.getElementById(targetId);
-    if (!sourceEl || !targetEl) return;
+    const cleanType = cardType.startsWith('discard_') ? cardType.replace('discard_', '') : cardType;
+    const theme = CARD_THEMES[cleanType] || { name: cleanType, icon: '🃏', color: 'bg-slate-300 text-slate-950', desc: '' };
+    const translatedName = t(`card_${cleanType}_name`) !== `card_${cleanType}_name` ? t(`card_${cleanType}_name`) : theme.name;
+    const translatedDesc = t(`card_${cleanType}_desc`) !== `card_${cleanType}_desc` ? t(`card_${cleanType}_desc`) : theme.desc;
 
-    const sourceRect = sourceEl.getBoundingClientRect();
-    const targetRect = targetEl.getBoundingClientRect();
-
-    const clone = document.createElement('div');
-    clone.style.position = 'fixed';
-    clone.style.top = `${sourceRect.top}px`;
-    clone.style.left = `${sourceRect.left}px`;
-    clone.style.width = '128px';
-    clone.style.height = '176px';
-    clone.style.zIndex = '140';
-    clone.style.pointerEvents = 'none';
-
-    const theme = CARD_THEMES[cardType] || { name: cardType, icon: '🃏', color: 'bg-slate-300 text-slate-950', desc: '' };
-    clone.innerHTML = `
-      <div class="h-full w-full rounded-none border-3 border-slate-900 bg-white flex flex-col justify-between p-3 shadow-[4px_4px_0px_0px_#1a1a1a] scale-90 select-none">
-        <div class="flex justify-between items-center border-b-2 border-slate-900 pb-1">
-          <span class="text-[9px] font-headline font-black uppercase text-slate-900 truncate max-w-[90px]">${theme.name}</span>
-          <span class="text-[9px] font-headline font-black text-slate-900">[${cardType.slice(0, 2).toUpperCase()}]</span>
-        </div>
-        <div class="flex-grow flex items-center justify-center my-2">
-          <div class="w-12 h-12 border-2 border-slate-900 flex items-center justify-center font-headline font-black text-xl text-slate-900 bg-yellow-400 shadow-[2px_2px_0px_0px_#1a1a1a] rounded-none">
-            ${theme.name.slice(0, 1).toUpperCase()}
-          </div>
-        </div>
-        <div class="text-[7px] font-bold text-slate-500 leading-tight border-t-2 border-dashed border-slate-200 pt-1 text-center truncate">
-          ${theme.desc || ''}
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(clone);
-
-    const x1 = sourceRect.left + sourceRect.width / 2 - 64;
-    const y1 = sourceRect.top + sourceRect.height / 2 - 88;
-    const x2 = targetRect.left + targetRect.width / 2 - 64;
-    const y2 = targetRect.top + targetRect.height / 2 - 88;
-
-    const midX = (x1 + x2) / 2;
-    const midY = (y1 + y2) / 2;
-    const controlY = midY - (150 + Math.random() * 100);
-
-    let trailColor = '#db2777';
-    if (cardType?.startsWith('attack')) trailColor = '#f97316';
-    else if (cardType === 'favor') trailColor = '#eab308';
-    else if (cardType === 'nope') trailColor = '#db2777';
-
-    setNumPlayAnims(p => p + 1);
-
-    const obj = { t: 0 };
-    const trailInterval = setInterval(() => {
-      const tVal = obj.t;
-      const currX = (1 - tVal) * (1 - tVal) * x1 + 2 * (1 - tVal) * tVal * midX + tVal * tVal * x2;
-      const currY = (1 - tVal) * (1 - tVal) * y1 + 2 * (1 - tVal) * tVal * controlY + tVal * tVal * y2;
-
-      const trail = document.createElement('div');
-      trail.style.position = 'fixed';
-      trail.style.left = `${currX + 64 - 4}px`;
-      trail.style.top = `${currY + 88 - 4}px`;
-      trail.style.width = '8px';
-      trail.style.height = '8px';
-      trail.style.borderRadius = '50%';
-      trail.style.backgroundColor = trailColor;
-      trail.style.zIndex = '139';
-      trail.style.pointerEvents = 'none';
-      trail.style.opacity = '0.6';
-      trail.style.transition = 'opacity 300ms, transform 300ms';
-      document.body.appendChild(trail);
-
-      setTimeout(() => {
-        trail.style.opacity = '0';
-        trail.style.transform = 'scale(0.1)';
-        setTimeout(() => {
-          if (trail.parentNode) trail.parentNode.removeChild(trail);
-        }, 300);
-      }, 50);
-    }, 40);
-
-    gsap.to(obj, {
-      t: 1,
-      duration: 0.55,
-      ease: 'power2.inOut',
-      onUpdate: () => {
-        const tVal = obj.t;
-        const currX = (1 - tVal) * (1 - tVal) * x1 + 2 * (1 - tVal) * tVal * midX + tVal * tVal * x2;
-        const currY = (1 - tVal) * (1 - tVal) * y1 + 2 * (1 - tVal) * tVal * controlY + tVal * tVal * y2;
-
-        let rotation = 0;
-        if (tVal < 0.5) {
-          rotation = (tVal / 0.5) * 15;
-        } else {
-          const subT = (tVal - 0.5) / 0.5;
-          rotation = 15 - subT * 23;
-          if (subT > 0.8) {
-            rotation = -8 + ((subT - 0.8) / 0.2) * 8;
-          }
-        }
-
-        gsap.set(clone, {
-          x: currX - x1,
-          y: currY - y1,
-          rotation: rotation,
-          scale: 1.0 + Math.sin(tVal * Math.PI) * 0.3
-        });
-      },
-      onComplete: () => {
-        clearInterval(trailInterval);
-        if (clone.parentNode) {
-          clone.parentNode.removeChild(clone);
-        }
-        setNumPlayAnims(p => Math.max(0, p - 1));
-
-        const centerTargetX = targetRect.left + targetRect.width / 2;
-        const centerTargetY = targetRect.top + targetRect.height / 2;
-        spawnParticles(centerTargetX, centerTargetY, cardType === 'nope' ? 'nope' : (cardType === 'catomic_bomb' ? 'catomic' : 'defuse'));
-      }
+    corePlayFlyingCard({
+      sourceId,
+      targetId,
+      cardType,
+      theme: { ...theme, name: translatedName, desc: translatedDesc },
+      onStart: () => setNumPlayAnims(p => p + 1),
+      onComplete: () => setNumPlayAnims(p => Math.max(0, p - 1))
     });
   };
 
@@ -1609,19 +1418,7 @@ export default function Game() {
 
   // Screen Shake Wrapper Helper
   const triggerScreenShake = (type) => {
-    const wrapper = document.getElementById('game-board-wrapper');
-    if (!wrapper) return;
-
-    wrapper.classList.remove('shake-heavy', 'shake-light');
-    void wrapper.offsetWidth; // force reflow
-
-    wrapper.classList.add(type === 'heavy' ? 'shake-heavy' : 'shake-light');
-
-    const onShakeEnd = () => {
-      wrapper.classList.remove('shake-heavy', 'shake-light');
-      wrapper.removeEventListener('animationend', onShakeEnd);
-    };
-    wrapper.addEventListener('animationend', onShakeEnd);
+    coreScreenShake(type);
   };
 
   useEffect(() => {
@@ -1634,19 +1431,18 @@ export default function Game() {
     };
 
     const handleCardPlayed = ({ playerId, cardType, targetPlayerId }) => {
-      if (cardType === 'nope') {
-        triggerScreenShake('heavy');
+      const sourceId = playerId === myUser?.id ? 'player-hand-container' : `player-avatar-${playerId}`;
+      const triggerEl = document.getElementById(sourceId);
 
-        setNopeStamp({ active: true, id: Date.now() });
-        setTimeout(() => {
-          setNopeStamp(null);
-        }, 750);
-      } else if (cardType?.startsWith('attack') || cardType === 'skip') {
-        triggerScreenShake('light');
+      if (cardType === 'nope') {
+        playNopeEffect(triggerEl);
+      } else if (cardType === 'skip' || cardType === 'super_skip') {
+        playSkipEffect(triggerEl);
+      } else if (cardType?.startsWith('attack')) {
+        playAttackEffect(triggerEl);
       }
 
       setTimeout(() => {
-        const sourceId = playerId === myUser?.id ? 'player-hand-container' : `player-avatar-${playerId}`;
         const targetId = 'discard-pile-element';
         playFlyingCard(sourceId, targetId, cardType);
       }, 50);
@@ -3248,7 +3044,7 @@ export default function Game() {
           </div>
         );
       })()}
-      <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-[150]" />
+      <canvas ref={canvasRef} id="effects-canvas" className="fixed inset-0 pointer-events-none z-[150]" />
 
       {nopeStamp && nopeStamp.active && (
         <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-[120]">

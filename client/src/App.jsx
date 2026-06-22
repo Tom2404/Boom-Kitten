@@ -125,6 +125,39 @@ export default function App() {
   const Page = useMemo(() => PAGES[page] ?? Home, [page]);
   const isInMatch = page === 'Game' && activeRoom !== null;
 
+  if (page === 'Home') {
+    return (
+      <div className="min-h-screen bg-[var(--pop-cream)] text-[var(--pop-black)] flex flex-col selection:bg-[var(--pop-amber)] selection:text-[var(--pop-black)]">
+        {/* Floating Server Announcement */}
+        {announcement && (
+          <div className="bg-primary text-on-primary py-2 px-4 border-b-4 border-on-surface font-headline font-bold text-center z-50 flex items-center justify-between gap-4">
+            <div className="flex-1 flex justify-center items-center gap-2">
+              <span className="material-symbols-outlined animate-bounce">campaign</span>
+              <span>{announcement}</span>
+            </div>
+            <button onClick={() => setAnnouncement(null)} className="font-bold hover:scale-110 active:scale-95">✕</button>
+          </div>
+        )}
+
+        <Home 
+          setPage={navigateWithConfirm} 
+          isLoggedIn={isLoggedIn} 
+          userRole={userRole} 
+          handleLogout={handleLogout} 
+        />
+
+        <CustomDialog
+          isOpen={dialogState.isOpen}
+          title={dialogState.title}
+          message={dialogState.message}
+          isConfirm={true}
+          onConfirm={dialogState.onConfirm}
+          onCancel={() => setDialogState({ isOpen: false })}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background text-on-background flex flex-col">
       {/* Floating Server Announcement */}

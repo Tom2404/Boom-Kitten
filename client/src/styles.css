@@ -156,7 +156,8 @@ body {
   font-family: 'Anybody', sans-serif;
   font-weight: 900;
   color: #b7131a;
-  -webkit-text-stroke: 2px #1a1c1c;
+  -webkit-text-stroke: 4px #1a1c1c;
+  paint-order: stroke fill;
   text-shadow: 4px 4px 0px #ff5722;
   letter-spacing: -0.02em;
 }
@@ -492,5 +493,123 @@ body {
     box-shadow: inset 0 0 40px rgba(16, 185, 129, 0);
   }
 }
+
+
+/* POP ART / NEO-BRUTALISM CUSTOM STYLE - homepage */
+@import url('https://fonts.googleapis.com/css2?family=Anybody:wght@800;900&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap');
+
+:root {
+  --pop-red: #E24B4A;
+  --pop-orange: #D85A30;
+  --pop-amber: #FAC775;
+  --pop-black: #111111;
+  --pop-cream: #FFF5E8;
+  --pop-offwhite: #FAFAFA;
+}
+
+/* Custom Scrollbar for Pop Art pages */
+.pop-art-theme {
+  background-color: var(--pop-cream);
+  color: var(--pop-black);
+  font-family: 'DM Sans', sans-serif;
+  scrollbar-width: auto;
+  scrollbar-color: var(--pop-red) var(--pop-cream);
+}
+
+.pop-art-theme ::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.pop-art-theme ::-webkit-scrollbar-track {
+  background: var(--pop-cream);
+  border-left: 3px solid var(--pop-black);
+}
+
+.pop-art-theme ::-webkit-scrollbar-thumb {
+  background-color: var(--pop-red);
+  border: 3px solid var(--pop-black);
+}
+
+.pop-art-theme ::-webkit-scrollbar-thumb:hover {
+  background-color: var(--pop-orange);
+}
+
+/* Halftone pattern */
+.bg-halftone-red {
+  background-color: var(--pop-red);
+  background-image: radial-gradient(circle, rgba(0,0,0,0.08) 1.2px, transparent 1.2px);
+  background-size: 12px 12px;
+}
+
+.bg-halftone-orange {
+  background-color: var(--pop-orange);
+  background-image: radial-gradient(circle, rgba(0,0,0,0.08) 1.2px, transparent 1.2px);
+  background-size: 12px 12px;
+}
+
+/* Fonts styling */
+.font-pop-display {
+  font-family: 'Anybody', sans-serif;
+  font-weight: 900;
+}
+
+.font-pop-body {
+  font-family: 'DM Sans', sans-serif;
+}
+
+.font-pop-accent {
+  font-family: 'Anybody', sans-serif;
+  font-weight: 800;
+}
+
+/* Text Stroke */
+.text-stroke-black-2 {
+  -webkit-text-stroke: 2.4px var(--pop-black);
+  paint-order: stroke fill;
+  text-shadow: none;
+}
+
+.text-stroke-black-3 {
+  -webkit-text-stroke: 4px var(--pop-black);
+  paint-order: stroke fill;
+  text-shadow: none;
+}
+
+/* Pop Art custom components styles */
+.pop-border-2 {
+  border: 2px solid var(--pop-black);
+}
+
+.pop-border-3 {
+  border: 3px solid var(--pop-black);
+}
+
+.pop-shadow-small {
+  box-shadow: 4px 4px 0 var(--pop-black);
+}
+
+.pop-shadow-card {
+  box-shadow: 6px 6px 0 var(--pop-black);
+}
+
+.pop-shadow-hero {
+  box-shadow: 8px 8px 0 var(--pop-black);
+}
+
+.pop-shadow-red {
+  box-shadow: 6px 6px 0 var(--pop-red);
+}
+
+.pop-shadow-orange {
+  box-shadow: 8px 8px 0 var(--pop-orange);
+}
+
+/* Selection */
+.pop-art-theme ::selection {
+  background-color: var(--pop-amber);
+  color: var(--pop-black);
+}
+
 
 
