@@ -380,8 +380,8 @@ export function useGame() {
     };
   }, [socket]);
 
-  const createRoom = (password = '', isPublic = true, edition = 'all', maxPlayers = 5) => {
-    socket.emit('room:create', { password, isPublic, edition, maxPlayers });
+  const createRoom = (password = '', edition = 'all', maxPlayers = 5, betAmount = 50) => {
+    socket.emit('room:create', { password, edition, maxPlayers, betAmount });
   };
 
   const joinRoom = (roomCode, password = '') => {

@@ -230,9 +230,22 @@ async function finalizeGame(io, room) {
         
         const isWin = entry.result === 'win';
         const streakBonus = isWin && user.stats.currentStreak + 1 >= 3 ? 30 : 0;
-        const reward = isWin ? 50 : 10;
+        
+        const betAmount = room.betAmount || 50;
+        let reward = 0;
+        let isLossDeduction = false;
+        
+        if (isWin) {
+          // Winner gets the pot minus 10% tax
+          reward = Math.floor(betAmount * (room.gameState.players.length - 1) * 0.9);
+          user.coins += reward + streakBonus;
+        } else {
+          // Loser gets deducted bet amount
+          isLossDeduction = true;
+          reward = -betAmount;
+          user.coins = Math.max(0, user.coins + reward);
+        }
 
-        user.coins += reward + streakBonus;
         user.stats.totalGames += 1;
         if (isWin) {
           user.stats.wins += 1;
@@ -252,13 +265,15 @@ async function finalizeGame(io, room) {
         const gemsAfter = user.gems || 0;
         pinkCoinChanges[entry.userId] = gemsAfter - gemsBefore;
 
-        await Transaction.create({
-          userId: user._id,
-          type: 'earn',
-          amount: reward,
-          currency: 'coin',
-          description: isWin ? 'Win reward' : 'Loss participation reward',
-        });
+        if (reward !== 0) {
+          await Transaction.create({
+            userId: user._id,
+            type: isLossDeduction ? 'spend' : 'earn',
+            amount: Math.abs(reward),
+            currency: 'coin',
+            description: isLossDeduction ? 'Loss bet deduction' : 'Win bet reward (taxed)',
+          });
+        }
 
         if (streakBonus > 0) {
           await Transaction.create({
@@ -305,6 +320,24 @@ async function finalizeGame(io, room) {
 
   // Ensure game:ended is ALWAYS sent to the room, even if db writes failed or players are guests
   io.to(room.code).emit('game:ended', { winnerId, rankings, eloChanges, pinkCoinChanges });
+}
+
+function penalizeEarlyLeave(userId, betAmount) {
+  if (userId && !userId.startsWith('guest-') && mongoose.Types.ObjectId.isValid(userId)) {
+    User.findById(userId).then(dbUser => {
+      if (dbUser) {
+        dbUser.coins = Math.max(0, dbUser.coins - betAmount);
+        dbUser.save().catch(err => console.error(err));
+        Transaction.create({
+          userId: dbUser._id,
+          type: 'spend',
+          amount: betAmount,
+          currency: 'coin',
+          description: 'Phạt rời trận đấu giữa chừng'
+        }).catch(err => console.error(err));
+      }
+    }).catch(err => console.error('Error penalizing early leave:', err));
+  }
 }
 
 module.exports = function registerGameSocket(io) {
@@ -938,14 +971,21 @@ module.exports = function registerGameSocket(io) {
       }, 200);
     }
 
-    socket.on('room:create', async ({ password, isPublic, edition, maxPlayers }) => {
+    socket.on('room:create', async ({ password, edition, maxPlayers, betAmount }) => {
       try {
         let username = socket.user?.username ?? `Guest-${guestId.slice(6, 11)}`;
         if (socket.user?.id) {
           const dbUser = await User.findById(socket.user.id);
-          if (dbUser) username = dbUser.username;
+          if (dbUser) {
+            username = dbUser.username;
+            const requestedBet = parseInt(betAmount, 10);
+            const actualBet = !isNaN(requestedBet) && requestedBet >= 0 ? requestedBet : 50;
+            if (dbUser.coins < actualBet) {
+               throw new Error('Không đủ GoldCoin để tạo phòng cược này');
+            }
+          }
         }
-        const room = createRoom(userId, { password, isPublic, edition, maxPlayers }, username);
+        const room = createRoom(userId, { password, edition, maxPlayers, betAmount }, username);
         socket.join(room.code);
         io.to(room.code).emit('room:updated', { room });
       } catch (error) {
@@ -956,9 +996,15 @@ module.exports = function registerGameSocket(io) {
     socket.on('room:join', async ({ roomCode, password }) => {
       try {
         let username = socket.user?.username ?? `Guest-${guestId.slice(6, 11)}`;
+        const roomBefore = getRoomState(roomCode);
         if (socket.user?.id) {
           const dbUser = await User.findById(socket.user.id);
-          if (dbUser) username = dbUser.username;
+          if (dbUser) {
+            username = dbUser.username;
+            if (roomBefore && dbUser.coins < roomBefore.betAmount) {
+              throw new Error('Không đủ GoldCoin để vào phòng');
+            }
+          }
         }
         const room = joinRoom(roomCode, userId, username, password);
         socket.join(room.code);
@@ -974,6 +1020,9 @@ module.exports = function registerGameSocket(io) {
         const roomBefore = getRoomState(roomCode);
         const player = roomBefore?.players.find((p) => p.userId === userId);
         const pName = player ? player.username : userId;
+        const wasPlaying = roomBefore?.status === 'playing';
+        const betAmount = roomBefore?.betAmount || 50;
+        
         const room = leaveRoom(roomCode, userId);
         socket.leave(roomCode);
         socket.emit('room:updated', { room: null });
@@ -985,6 +1034,10 @@ module.exports = function registerGameSocket(io) {
             text: `Người chơi ${pName} đã rời phòng.`,
             timestamp: new Date().toISOString(),
           });
+          
+          if (wasPlaying && room.status === 'playing') {
+            penalizeEarlyLeave(userId, betAmount);
+          }
         }
       });
     });
@@ -1017,6 +1070,7 @@ module.exports = function registerGameSocket(io) {
             const player = activeRoom.players.find((p) => p.userId === userId);
             const pName = player ? player.username : userId;
             const wasPlaying = activeRoom.status === 'playing';
+            const betAmount = activeRoom.betAmount || 50;
             const room = leaveRoom(activeRoom.code, userId);
             if (room) {
               io.to(activeRoom.code).emit('room:updated', { room });
@@ -1034,6 +1088,10 @@ module.exports = function registerGameSocket(io) {
                   text: `Người chơi ${pName} đã rời phòng hoặc mất kết nối.`,
                   timestamp: new Date().toISOString(),
                 });
+                
+                if (wasPlaying && room.status === 'playing') {
+                  penalizeEarlyLeave(userId, betAmount);
+                }
               }
             }
           }

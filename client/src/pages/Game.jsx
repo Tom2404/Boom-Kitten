@@ -584,8 +584,8 @@ export default function Game() {
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [lobbyMaxPlayers, setLobbyMaxPlayers] = useState(5);
+  const [lobbyBetAmount, setLobbyBetAmount] = useState(50);
   const [lobbyMaxHandSize, setLobbyMaxHandSize] = useState(10);
-  const [lobbyIsPublic, setLobbyIsPublic] = useState(true);
   const [createPassword, setCreatePassword] = useState('');
   const [joinPassword, setJoinPassword] = useState('');
   const [publicRooms, setPublicRooms] = useState([]);
@@ -700,6 +700,32 @@ export default function Game() {
     }
   };
 
+  const handleDailyReward = async () => {
+    const token = localStorage.getItem('accessToken');
+    if (!token) {
+      alert(language === 'vi' ? 'Vui lòng đăng nhập để nhận thưởng!' : 'Please login to claim reward!');
+      return;
+    }
+    try {
+      const res = await fetch(`${API_URL}/api/users/me/daily-reward`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.message || 'Có lỗi xảy ra');
+        return;
+      }
+      const msg = language === 'vi' 
+        ? `Nhận thành công ${data.rewardAmount} GoldCoin! (Chuỗi: ${data.consecutiveLoginDays + 1} ngày)`
+        : `Successfully claimed ${data.rewardAmount} GoldCoins! (Streak: ${data.consecutiveLoginDays + 1} days)`;
+      alert(msg);
+      fetchUserProfile();
+    } catch (e) {
+      alert(language === 'vi' ? 'Lỗi kết nối' : 'Connection error');
+    }
+  };
+
   const handleCopyCode = (code) => {
     navigator.clipboard.writeText(code);
     setCopied(true);
@@ -734,6 +760,16 @@ export default function Game() {
       return () => clearInterval(interval);
     }
   }, [roomState]);
+
+  useEffect(() => {
+    const code = localStorage.getItem('autoJoinRoomCode');
+    const pwd = localStorage.getItem('autoJoinRoomPassword') || '';
+    if (code) {
+      localStorage.removeItem('autoJoinRoomCode');
+      localStorage.removeItem('autoJoinRoomPassword');
+      joinRoom(code, pwd);
+    }
+  }, [joinRoom]);
 
   useEffect(() => {
     if (clairvoyanceReveal && clairvoyanceReveal.active) {
@@ -1783,37 +1819,6 @@ export default function Game() {
                   </h3>
                 </div>
 
-                {/* Visibility Toggle */}
-                <div className="flex flex-col gap-2">
-                  <span className="font-headline font-black text-xs text-on-surface uppercase tracking-wider">
-                    {t('room_accessibility')}
-                  </span>
-                  <div className="grid grid-cols-2 border-3 border-on-surface rounded-xl overflow-hidden shadow-[2.5px_2.5px_0px_0px_rgba(26,28,28,1)] bg-white">
-                    <button
-                      type="button"
-                      onClick={() => setLobbyIsPublic(true)}
-                      className={`py-3.5 text-xs font-headline font-black uppercase tracking-wider transition-all
-                        ${lobbyIsPublic
-                          ? 'bg-[#ff5722] text-white border-r-3 border-on-surface'
-                          : 'bg-white text-on-surface hover:bg-slate-50 border-r-3 border-on-surface'
-                        }`}
-                    >
-                      {t('public_label')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setLobbyIsPublic(false)}
-                      className={`py-3.5 text-xs font-headline font-black uppercase tracking-wider transition-all
-                        ${!lobbyIsPublic
-                          ? 'bg-[#ff5722] text-white'
-                          : 'bg-white text-on-surface hover:bg-slate-50'
-                        }`}
-                    >
-                      {t('private_label')}
-                    </button>
-                  </div>
-                </div>
-
                 {/* Player count Custom Slider */}
                 <div className="flex flex-col gap-2">
                   <div className="flex justify-between items-center mb-1">
@@ -1859,44 +1864,50 @@ export default function Game() {
                   })()}
                 </div>
 
-                {/* Room Title / Password field */}
-                {lobbyIsPublic ? (
-                  <div className="flex flex-col gap-2">
-                    <span className="font-headline font-black text-xs text-on-surface uppercase tracking-wider">
-                      {t('room_title_label')}
-                    </span>
+                {/* Room Password field */}
+                <div className="flex flex-col gap-2">
+                  <span className="font-headline font-black text-xs text-on-surface uppercase tracking-wider">
+                    {language === 'vi' ? 'Mật khẩu phòng (Tuỳ chọn)' : 'Room Password (Optional)'}
+                  </span>
+                  <div className="relative flex items-center">
                     <input
-                      type="text"
-                      value={cosmeticRoomTitle}
-                      onChange={(e) => setCosmeticRoomTitle(e.target.value)}
-                      className="bg-white border-3 border-on-surface px-4 py-3.5 rounded-xl text-xs font-bold focus:outline-none focus:bg-slate-50 transition-all w-full shadow-[2.5px_2.5px_0px_0px_rgba(26,28,28,1)] text-on-surface uppercase tracking-wide font-headline"
-                      placeholder="E.g. MEOW MIXER #42"
+                      type={showPasswordInput ? "text" : "password"}
+                      placeholder={t('enter_password')}
+                      value={createPassword}
+                      onChange={(e) => setCreatePassword(e.target.value)}
+                      maxLength={20}
+                      className="bg-white border-3 border-on-surface px-4 py-3.5 rounded-xl text-xs font-bold focus:outline-none focus:bg-slate-50 transition-all w-full pr-16 shadow-[2.5px_2.5px_0px_0px_rgba(26,28,28,1)]"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPasswordInput(!showPasswordInput)}
+                      className="absolute right-3 bg-slate-100 hover:bg-slate-200 border-2 border-on-surface px-2.5 py-1.5 rounded-lg text-[9px] font-headline font-black text-on-surface shadow-[1px_1px_0px_0px_#1a1c1c] active:translate-y-0.5 active:shadow-none"
+                    >
+                      {showPasswordInput ? t('button_hide') : t('button_show')}
+                    </button>
                   </div>
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    <span className="font-headline font-black text-xs text-on-surface uppercase tracking-wider">
-                      {t('room_password')}
+                </div>
+
+                {/* Bet Amount field */}
+                <div className="flex flex-col gap-2 border-t-2 border-dashed border-slate-100 pt-4 mt-2">
+                  <span className="font-headline font-black text-xs text-on-surface uppercase tracking-wider">
+                    {language === 'vi' ? 'Tiền cược (GoldCoin)' : 'Bet Amount (GoldCoin)'}
+                  </span>
+                  <div className="flex items-center gap-4">
+                    <input
+                      type="range"
+                      min="10"
+                      max="1000"
+                      step="10"
+                      value={lobbyBetAmount}
+                      onChange={(e) => setLobbyBetAmount(Number(e.target.value))}
+                      className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                    />
+                    <span className="font-headline font-black text-sm text-[#ff5722] min-w-[50px] text-right">
+                      {lobbyBetAmount}
                     </span>
-                    <div className="relative flex items-center">
-                      <input
-                        type={showPasswordInput ? "text" : "password"}
-                        placeholder={t('enter_password')}
-                        value={createPassword}
-                        onChange={(e) => setCreatePassword(e.target.value)}
-                        maxLength={20}
-                        className="bg-white border-3 border-on-surface px-4 py-3.5 rounded-xl text-xs font-bold focus:outline-none focus:bg-slate-50 transition-all w-full pr-16 shadow-[2.5px_2.5px_0px_0px_rgba(26,28,28,1)]"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPasswordInput(!showPasswordInput)}
-                        className="absolute right-3 bg-slate-100 hover:bg-slate-200 border-2 border-on-surface px-2.5 py-1.5 rounded-lg text-[9px] font-headline font-black text-on-surface shadow-[1px_1px_0px_0px_#1a1c1c] active:translate-y-0.5 active:shadow-none"
-                      >
-                        {showPasswordInput ? t('button_hide') : t('button_show')}
-                      </button>
-                    </div>
                   </div>
-                )}
+                </div>
 
                 {/* Voice Chat toggle */}
                 <div className="flex justify-between items-center border-t-2 border-dashed border-slate-100 pt-4 mt-2">
@@ -1925,7 +1936,7 @@ export default function Game() {
               {/* Start Lobby DETONATE button */}
               <button
                 onClick={() => {
-                  createRoom(createPassword, lobbyIsPublic, lobbyEdition, lobbyMaxPlayers);
+                  createRoom(createPassword, lobbyEdition, lobbyMaxPlayers, lobbyBetAmount);
                   setIsCreatingRoom(false);
                 }}
                 className="w-full bg-[#ff5722] hover:bg-[#e64a19] text-white border-3 border-on-surface py-4.5 rounded-2xl font-headline font-black uppercase text-base tracking-wider shadow-[4.5px_4.5px_0px_0px_rgba(26,28,28,1)] hover:translate-y-[-2px] hover:shadow-[6px_6px_0px_0px_rgba(26,28,28,1)] active:translate-y-0.5 active:shadow-none transition-all duration-150"
@@ -1941,7 +1952,13 @@ export default function Game() {
     return (
       <div className="w-full max-w-5xl mx-auto my-6 flex flex-col gap-6 animate-fade-in">
         {/* Header with Coins and Gems */}
-        <div className="flex justify-end gap-3">
+        <div className="flex justify-end gap-3 flex-wrap">
+          <button 
+            onClick={handleDailyReward}
+            className="bg-[#ff5722] hover:bg-[#e64a19] text-white border-3 border-on-surface px-4 py-2 rounded-2xl shadow-[3px_3px_0px_0px_#1a1c1c] text-xs font-headline font-black transition-all hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#1a1c1c] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
+          >
+            {language === 'vi' ? 'NHẬN THƯỞNG NGÀY' : 'DAILY REWARD'}
+          </button>
           <div className="bg-white border-3 border-on-surface px-4 py-2 rounded-2xl flex items-center gap-2 shadow-[3px_3px_0px_0px_#1a1c1c] text-xs font-headline font-black text-on-surface animate-fade-in">
             <CoinIcon className="w-5 h-5" />
             <span>{userProfile?.coins?.toLocaleString() ?? 0} GOLD COIN</span>
@@ -1984,7 +2001,6 @@ export default function Game() {
               setIsCreatingRoom(true);
               setLobbyEdition('original');
               setLobbyMaxPlayers(5);
-              setLobbyIsPublic(true);
               setCreatePassword('');
             }}
             className="card-brutalist bg-gradient-to-br from-secondary-container to-secondary border-3 border-on-surface p-6 rounded-2xl shadow-[4px_4px_0px_0px_#1a1c1c] flex flex-col items-center justify-center text-center gap-4 group cursor-pointer hover:scale-[1.03] active:scale-[0.98] transition-all text-white h-48"
@@ -2044,6 +2060,7 @@ export default function Game() {
                   <th className="py-3.5 px-6">ROOM CODE</th>
                   <th className="py-3.5 px-6">HOST</th>
                   <th className="py-3.5 px-6">EDITION</th>
+                  <th className="py-3.5 px-6 text-center">BET</th>
                   <th className="py-3.5 px-6 text-center">PLAYERS</th>
                   <th className="py-3.5 px-6 text-center">STATUS</th>
                   <th className="py-3.5 px-6 text-right">ACTION</th>
@@ -2052,7 +2069,7 @@ export default function Game() {
               <tbody className="divide-y-2 divide-slate-100 font-sans font-bold text-xs text-on-surface">
                 {publicRooms.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="py-12 text-center text-on-surface-variant italic font-bold">
+                    <td colSpan="7" className="py-12 text-center text-on-surface-variant italic font-bold">
                       Không có phòng công khai nào đang chờ... Hãy tự tạo phòng đấu của riêng bạn!
                     </td>
                   </tr>
@@ -2061,14 +2078,18 @@ export default function Game() {
                     const isFull = room.players.length >= room.maxPlayers;
                     return (
                       <tr key={room.code} className="hover:bg-slate-50 transition-colors">
-                        <td className="py-4 px-6 font-headline font-black text-primary uppercase text-sm">
+                        <td className="py-4 px-6 font-headline font-black text-primary uppercase text-sm flex items-center gap-2">
                           {room.code}
+                          {room.hasPassword && <LockIcon className="w-4 h-4 text-slate-400" strokeWidth={2.5} />}
                         </td>
                         <td className="py-4 px-6">{room.players[0]?.username || 'Ẩn danh'}</td>
                         <td className="py-4 px-6">
                           <span className="text-[9px] font-headline font-black text-indigo-600 bg-indigo-50 border-2 border-indigo-200 px-2.5 py-0.5 rounded-lg">
                             {t('edition_' + room.edition + '_name') || room.edition}
                           </span>
+                        </td>
+                        <td className="py-4 px-6 text-center font-bold text-[#ff5722]">
+                          {room.betAmount || 50}
                         </td>
                         <td className="py-4 px-6 text-center">
                           <span className={`font-headline font-black text-xs ${isFull ? 'text-rose-600' : 'text-on-surface'}`}>
@@ -2121,17 +2142,7 @@ export default function Game() {
               </div>
 
               <div className="flex flex-col gap-4 border-2 border-on-surface bg-slate-50 p-4 rounded-2xl shadow-[2.5px_2.5px_0px_0px_#1a1c1c]">
-                <div className="flex justify-between items-center text-xs font-bold text-on-surface">
-                  <span className="flex items-center gap-1.5"><PublicIcon className="w-4 h-4 text-on-surface" strokeWidth={2.5} /> Chế độ phòng:</span>
-                  <select 
-                    value={lobbyIsPublic ? "public" : "private"} 
-                    onChange={(e) => setLobbyIsPublic(e.target.value === "public")}
-                    className="bg-white border-2 border-on-surface px-2.5 py-1 rounded-xl text-xs font-headline font-black focus:outline-none"
-                  >
-                    <option value="public">Công khai</option>
-                    <option value="private">Riêng tư</option>
-                  </select>
-                </div>
+
 
                 <div className="flex justify-between items-center text-xs font-bold text-on-surface relative">
                   <span className="flex items-center gap-1.5"><ExtensionIcon className="w-4 h-4 text-on-surface" strokeWidth={2.5} /> Phiên bản:</span>
@@ -2182,11 +2193,27 @@ export default function Game() {
                     className="bg-white border-2 border-on-surface px-3 py-2 rounded-xl text-xs font-bold focus:outline-none focus:bg-slate-100 transition-all w-full"
                   />
                 </div>
+
+                <div className="flex flex-col gap-1.5 text-xs font-bold text-on-surface mt-2">
+                  <span className="flex items-center gap-1.5">Tiền cược (GoldCoin):</span>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="range"
+                      min="10"
+                      max="1000"
+                      step="10"
+                      value={lobbyBetAmount}
+                      onChange={(e) => setLobbyBetAmount(Number(e.target.value))}
+                      className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                    />
+                    <span className="font-bold text-[#ff5722] min-w-[40px] text-right">{lobbyBetAmount}</span>
+                  </div>
+                </div>
               </div>
 
               <button
                 onClick={() => {
-                  createRoom(createPassword, lobbyIsPublic, lobbyEdition);
+                  createRoom(createPassword, lobbyEdition, 5, lobbyBetAmount);
 
                   setIsCreateModalOpen(false);
                 }}
@@ -2231,6 +2258,10 @@ export default function Game() {
               </div>
               <span className="text-[9px] font-headline font-black bg-indigo-100 border-2 border-on-surface text-indigo-700 px-2 py-1.5 rounded-xl shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)] uppercase">
                 {t('edition_' + roomState.edition + '_name') || roomState.edition}
+              </span>
+              <span className="text-[9px] font-headline font-black bg-[#ff5722] border-2 border-on-surface text-white px-2 py-1.5 rounded-xl shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)] uppercase flex items-center gap-1">
+                <CoinIcon className="w-3.5 h-3.5 text-white" />
+                CƯỢC: {roomState.betAmount || 50}
               </span>
             </div>
           </div>

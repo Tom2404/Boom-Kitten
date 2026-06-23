@@ -49,6 +49,8 @@ const userSchema = new mongoose.Schema(
     // Status and dates
     lastLoginDate: { type: Date },
     lastDailyQuestDate: { type: Date },
+    lastDailyRewardDate: { type: Date },
+    consecutiveLoginDays: { type: Number, default: 0 },
     isOnline: { type: Boolean, default: false },
   },
   { timestamps: true },

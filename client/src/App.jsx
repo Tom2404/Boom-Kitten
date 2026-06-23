@@ -8,6 +8,7 @@ import Profile from './pages/Profile.jsx';
 import Leaderboard from './pages/Leaderboard.jsx';
 import Shop from './pages/Shop.jsx';
 import Admin from './pages/Admin.jsx';
+import Navbar from './components/Navbar.jsx';
 import { useSocket } from './hooks/useSocket.js';
 import { useLanguage } from './context/LanguageContext.jsx';
 import CustomDialog from './components/CustomDialog.jsx';
@@ -159,105 +160,26 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-on-background flex flex-col">
+    <div className="pop-art-theme min-h-screen bg-[var(--pop-cream)] text-[var(--pop-black)] flex flex-col selection:bg-[var(--pop-amber)] selection:text-[var(--pop-black)]">
       {/* Floating Server Announcement */}
       {announcement && (
-        <div className="bg-primary text-on-primary py-2 px-4 border-b-4 border-on-surface font-headline font-bold text-center z-50 flex items-center justify-between gap-4">
+        <div className="bg-[var(--pop-red)] text-white py-2.5 px-4 pop-border-3 border-x-0 border-t-0 font-pop-accent font-bold text-center z-50 flex items-center justify-between gap-4 shadow-[0_4px_0_var(--pop-black)]">
           <div className="flex-1 flex justify-center items-center gap-2">
             <span className="material-symbols-outlined animate-bounce">campaign</span>
-            <span>{announcement}</span>
+            <span className="uppercase tracking-wider text-xs md:text-sm">{announcement}</span>
           </div>
-          <button onClick={() => setAnnouncement(null)} className="font-bold hover:scale-110 active:scale-95">✕</button>
+          <button onClick={() => setAnnouncement(null)} className="font-bold hover:scale-110 active:scale-95 text-white">✕</button>
         </div>
       )}
 
       {/* Navigation Header */}
       {!isInMatch && (
-        <nav className="sticky top-0 w-full z-40 border-b-4 border-on-surface bg-surface shadow-[4px_4px_0px_0px_#1a1c1c]">
-        <div className="flex justify-between items-center px-4 md:px-12 py-4 max-w-7xl mx-auto flex-wrap gap-4">
-          <button 
-            onClick={() => navigateWithConfirm('Home')}
-            className="font-headline text-2xl md:text-3xl italic font-black text-primary uppercase tracking-tighter hover:scale-105 hover:-translate-y-1 transition-all duration-100"
-          >
-            EXPLODING KITTENS
-          </button>
-          
-          <div className="flex gap-4 md:gap-8 items-center flex-wrap">
-            <button 
-              className={`font-headline font-bold pb-1 text-sm md:text-base border-b-2 transition-all ${page === 'Home' ? 'text-primary border-primary' : 'text-on-surface-variant border-transparent hover:text-primary'}`}
-              onClick={() => navigateWithConfirm('Home')}
-            >
-              {t('home')}
-            </button>
-            <button 
-              className={`font-headline font-bold pb-1 text-sm md:text-base border-b-2 transition-all ${page === 'Game' ? 'text-primary border-primary' : 'text-on-surface-variant border-transparent hover:text-primary'}`}
-              onClick={() => navigateWithConfirm('Game')}
-            >
-              {t('arena')}
-            </button>
-            <button 
-              className={`font-headline font-bold pb-1 text-sm md:text-base border-b-2 transition-all ${page === 'Leaderboard' ? 'text-primary border-primary' : 'text-on-surface-variant border-transparent hover:text-primary'}`}
-              onClick={() => navigateWithConfirm('Leaderboard')}
-            >
-              {t('leaderboard')}
-            </button>
-            <button 
-              className={`font-headline font-bold pb-1 text-sm md:text-base border-b-2 transition-all ${page === 'Shop' ? 'text-primary border-primary' : 'text-on-surface-variant border-transparent hover:text-primary'}`}
-              onClick={() => navigateWithConfirm('Shop')}
-            >
-              {t('shop')}
-            </button>
-            
-            {isLoggedIn ? (
-              <>
-                <button 
-                  className={`font-headline font-bold pb-1 text-sm md:text-base border-b-2 transition-all ${page === 'Profile' ? 'text-primary border-primary' : 'text-on-surface-variant border-transparent hover:text-primary'}`}
-                  onClick={() => navigateWithConfirm('Profile')}
-                >
-                  {t('profile')}
-                </button>
-                {userRole === 'admin' && (
-                  <button 
-                    className={`bg-yellow-400 text-slate-950 font-headline font-bold border-2 border-on-surface shadow-[2px_2px_0px_0px_#1a1c1c] px-3 py-1 text-xs hover:scale-105 active:scale-95 transition-all`}
-                    onClick={() => navigateWithConfirm('Admin')}
-                  >
-                    {t('admin')}
-                  </button>
-                )}
-                <button 
-                  onClick={handleLogout}
-                  className="bg-secondary text-on-error font-headline font-bold border-2 border-on-surface shadow-[2px_2px_0px_0px_#1a1c1c] px-3 py-1 text-xs hover:scale-105 active:scale-95 transition-all"
-                >
-                  {t('logout')}
-                </button>
-              </>
-            ) : (
-              <>
-                <button 
-                  className={`font-headline font-bold pb-1 text-sm md:text-base border-b-2 transition-all ${page === 'Login' ? 'text-primary border-primary' : 'text-on-surface-variant border-transparent hover:text-primary'}`}
-                  onClick={() => navigateWithConfirm('Login')}
-                >
-                  {t('login')}
-                </button>
-                <button 
-                  className={`bg-primary-container text-on-primary-container font-headline font-bold border-2 border-on-surface shadow-[2px_2px_0px_0px_#1a1c1c] px-3 py-1 text-xs md:text-sm hover:scale-105 active:scale-95 transition-all`}
-                  onClick={() => navigateWithConfirm('Register')}
-                >
-                  {t('register')}
-                </button>
-              </>
-            )}
-
-            {/* Brutalist Language Switcher */}
-            <button
-              onClick={() => setLanguage(language === 'en' ? 'vi' : 'en')}
-              className="bg-white text-on-surface font-headline font-bold border-2 border-on-surface shadow-[2px_2px_0px_0px_#1a1c1c] px-3 py-1 text-xs hover:scale-105 active:scale-95 transition-all uppercase"
-            >
-              {t('language_label')}
-            </button>
-          </div>
-        </div>
-        </nav>
+        <Navbar 
+          setPage={navigateWithConfirm} 
+          isLoggedIn={isLoggedIn} 
+          userRole={userRole} 
+          handleLogout={handleLogout} 
+        />
       )}
 
       {/* Main Page Area */}
@@ -267,12 +189,12 @@ export default function App() {
 
       {/* Footer */}
       {!isInMatch && (
-        <footer className="w-full border-t-4 border-on-surface py-8 bg-surface-container mt-auto">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-4 text-center md:text-left">
-          <div className="font-headline font-black italic text-primary uppercase tracking-tighter">
-            Exploding Kittens
+        <footer className="w-full border-t-2 border-[var(--pop-black)] py-8 bg-[var(--pop-cream)] mt-auto font-pop-body">
+        <div className="max-w-7xl mx-auto px-4 md:px-12 flex flex-col md:flex-row justify-between items-center gap-4 text-center md:text-left">
+          <div className="font-pop-display font-black text-xl text-[var(--pop-red)] uppercase tracking-tight">
+            Mèo Nổ
           </div>
-          <p className="text-xs text-on-surface-variant font-sans font-bold">
+          <p className="text-xs text-[var(--pop-black)]/60 font-bold uppercase tracking-wider">
             {language === 'en' 
               ? "© 2026 Exploding Kittens Inc. Warning: Don't touch the red button."
               : "© 2026 Exploding Kittens Inc. Cảnh báo: Đừng chạm vào nút đỏ."

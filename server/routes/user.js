@@ -23,19 +23,64 @@ router.get('/me', async (req, res, next) => {
 
     const now = new Date();
     if (!isSameDay(user.lastLoginDate, now)) {
-      user.coins += 20;
       user.lastLoginDate = now;
       await user.save();
-      await Transaction.create({
-        userId: user._id,
-        type: 'earn',
-        amount: 20,
-        currency: 'coin',
-        description: 'Daily login bonus',
-      });
     }
 
     return res.json(user);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post('/me/daily-reward', async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const now = new Date();
+    
+    if (isSameDay(user.lastDailyRewardDate, now)) {
+      return res.status(400).json({ message: 'Bạn đã nhận quà hôm nay rồi!' });
+    }
+
+    let consecutiveLogins = user.consecutiveLoginDays || 0;
+    
+    if (user.lastDailyRewardDate) {
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      
+      if (isSameDay(user.lastDailyRewardDate, yesterday)) {
+        consecutiveLogins += 1;
+      } else {
+        consecutiveLogins = 0; // Streak broken
+      }
+    } else {
+      consecutiveLogins = 0; // First time
+    }
+
+    const rewardAmount = Math.min(100 + consecutiveLogins * 50, 300);
+    
+    user.coins = (user.coins || 0) + rewardAmount;
+    user.lastDailyRewardDate = now;
+    user.consecutiveLoginDays = consecutiveLogins;
+    
+    await user.save();
+    
+    await Transaction.create({
+      userId: user._id,
+      type: 'earn',
+      amount: rewardAmount,
+      currency: 'coin',
+      description: `Daily login streak: ${consecutiveLogins + 1}`,
+    });
+
+    return res.json({ 
+      success: true, 
+      coins: user.coins, 
+      rewardAmount, 
+      consecutiveLoginDays: user.consecutiveLoginDays 
+    });
   } catch (error) {
     return next(error);
   }

@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Anybody:wght@800;900&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap');
+
 /* Tailwind layers and small app-level styles. */
 @tailwind base;
 @tailwind components;
@@ -496,7 +498,6 @@ body {
 
 
 /* POP ART / NEO-BRUTALISM CUSTOM STYLE - homepage */
-@import url('https://fonts.googleapis.com/css2?family=Anybody:wght@800;900&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap');
 
 :root {
   --pop-red: #E24B4A;

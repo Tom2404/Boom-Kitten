@@ -27,13 +27,15 @@ export default function Navbar({ setPage, isLoggedIn, userRole, handleLogout }) 
 
   // Smooth scroll to home top or specific elements
   const scrollToSection = (id) => {
-    const element = document.getElementById(id);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
-    } else {
-      // If we are navigating to Home, scroll to top
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+    setPage('Home');
+    setTimeout(() => {
+      const element = document.getElementById(id);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth' });
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }, 50);
   };
 
   // Lang Switcher Button pop art style

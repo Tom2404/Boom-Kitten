@@ -171,16 +171,16 @@ export default function Profile() {
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 font-pop-body">
       {/* Left Column: Personal Info & Avatar Settings */}
       <div className="profile-left lg:col-span-1 flex flex-col gap-8">
         {/* Profile Details Card */}
-        <div className="bg-white border-4 border-on-surface shadow-[6px_6px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 flex flex-col items-center relative text-left">
+        <div className="bg-white border-3 border-[var(--pop-black)] shadow-[5px_5px_0_var(--pop-black)] rounded-none p-6 flex flex-col items-center relative text-left">
           <div className="relative h-24 w-24 mb-4">
             {profile.activeAvatarFrame && (
-              <div className="absolute inset-[-8px] rounded-full border-4 border-yellow-400 animate-spin-slow pointer-events-none" />
+              <div className="absolute inset-[-8px] border-4 border-[var(--pop-amber)] animate-spin-slow pointer-events-none z-10" />
             )}
-            <div className="h-full w-full rounded-full flex items-center justify-center text-3xl font-headline font-black bg-primary-fixed border-3 border-on-surface overflow-hidden">
+            <div className="h-full w-full rounded-none flex items-center justify-center text-3xl font-pop-accent font-black bg-white border-3 border-[var(--pop-black)] overflow-hidden shadow-[3px_3px_0_var(--pop-black)]">
               {avatar && PRESET_AVATARS[avatar] ? (
                 <span className="text-5xl">{PRESET_AVATARS[avatar]}</span>
               ) : avatar ? (
@@ -191,23 +191,23 @@ export default function Profile() {
             </div>
           </div>
 
-          <h2 className="text-2xl font-headline font-black text-on-surface uppercase truncate max-w-full">
+          <h2 className="text-2xl font-pop-display font-black text-[var(--pop-black)] uppercase truncate max-w-full">
             {profile.username}
           </h2>
-          <span className="bg-primary text-on-primary font-headline font-black text-xs px-4 py-1 rounded-full border-2 border-on-surface shadow-[2px_2px_0px_0px_#1a1c1c] uppercase mt-2">
+          <span className="bg-[var(--pop-red)] text-white font-pop-accent font-bold text-xs px-4 py-1.5 rounded-none border-2 border-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)] uppercase mt-3">
             🏆 {profile.rank} • {profile.eloPoints} {t('profile_elo')}
           </span>
 
-          <div className="w-full grid grid-cols-2 gap-4 mt-6 pt-6 border-t-4 border-dashed border-on-surface-variant">
-            <div className="bg-surface-container-low border-2 border-on-surface rounded-xl p-3 text-center shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] flex flex-col items-center justify-center">
-              <span className="text-[10px] font-headline font-black text-on-surface-variant uppercase block">{t('profile_coins')}</span>
-              <span className="font-headline font-black text-primary text-lg flex items-center gap-1.5 justify-center">
-                <CoinIcon className="w-5 h-5 text-primary" /> {profile.coins}
+          <div className="w-full grid grid-cols-2 gap-4 mt-6 pt-6 border-t-3 border-dashed border-[var(--pop-black)]/20">
+            <div className="bg-white border-2 border-[var(--pop-black)] rounded-none p-3 text-center shadow-[2px_2px_0_var(--pop-black)] flex flex-col items-center justify-center">
+              <span className="text-[10px] font-pop-accent font-bold text-[var(--pop-black)]/60 uppercase block">{t('profile_coins')}</span>
+              <span className="font-pop-accent font-black text-[var(--pop-red)] text-lg flex items-center gap-1.5 justify-center mt-1">
+                <CoinIcon className="w-5 h-5 text-[var(--pop-red)]" /> {profile.coins}
               </span>
             </div>
-            <div className="bg-surface-container-low border-2 border-on-surface rounded-xl p-3 text-center shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] flex flex-col items-center justify-center">
-              <span className="text-[10px] font-headline font-black text-on-surface-variant uppercase block">{t('profile_gems')}</span>
-              <span className="font-headline font-black text-indigo-600 text-lg flex items-center gap-1.5 justify-center">
+            <div className="bg-white border-2 border-[var(--pop-black)] rounded-none p-3 text-center shadow-[2px_2px_0_var(--pop-black)] flex flex-col items-center justify-center">
+              <span className="text-[10px] font-pop-accent font-bold text-[var(--pop-black)]/60 uppercase block">{t('profile_gems')}</span>
+              <span className="font-pop-accent font-black text-indigo-600 text-lg flex items-center gap-1.5 justify-center mt-1">
                 <GemIcon className="w-5 h-5 text-indigo-600" /> {profile.gems}
               </span>
             </div>
@@ -215,38 +215,38 @@ export default function Profile() {
         </div>
 
         {/* Edit Info Form */}
-        <form onSubmit={handleUpdateProfile} className="bg-white border-4 border-on-surface shadow-[6px_6px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 flex flex-col gap-4 text-left">
-          <h3 className="text-lg font-headline font-black text-on-surface uppercase border-b-3 border-on-surface pb-2">
+        <form onSubmit={handleUpdateProfile} className="bg-white border-3 border-[var(--pop-black)] shadow-[5px_5px_0_var(--pop-black)] rounded-none p-6 flex flex-col gap-4 text-left">
+          <h3 className="text-lg font-pop-display font-black text-[var(--pop-black)] uppercase border-b-3 border-[var(--pop-black)] pb-2">
             {t('profile_edit_title')}
           </h3>
 
           {message && (
-            <div className={`p-3 rounded-xl text-xs font-headline font-black text-center border-2 border-on-surface
-              ${isError ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
+            <div className={`p-3 rounded-none text-xs font-pop-accent font-bold text-center border-2 border-[var(--pop-black)] shadow-[2.5px_2.5px_0_var(--pop-black)]
+              ${isError ? 'bg-[var(--pop-red)] text-white' : 'bg-[var(--pop-amber)] text-[var(--pop-black)]'}`}>
               {message}
             </div>
           )}
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-headline font-black text-on-surface uppercase tracking-wider">{t('username_label')}</label>
+            <label className="text-xs font-pop-accent font-bold text-[var(--pop-black)] uppercase tracking-wider">{t('username_label')}</label>
             <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="bg-surface border-3 border-on-surface rounded-xl px-3 py-2 text-xs text-on-surface font-bold focus:outline-none focus:bg-white shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]"
+              className="bg-[#FFFFFF] border-3 border-[var(--pop-black)] rounded-none px-3 py-2 text-xs text-[var(--pop-black)] font-bold focus:outline-none focus:bg-[var(--pop-cream)] shadow-[2px_2px_0_var(--pop-black)] focus:shadow-[4px_4px_0_var(--pop-black)] focus:-translate-y-0.5 focus:-translate-x-0.5 transition-all"
             />
           </div>
 
           <div className="flex flex-col gap-2">
-            <label className="text-xs font-headline font-black text-on-surface uppercase tracking-wider">{t('profile_choose_avatar')}</label>
+            <label className="text-xs font-pop-accent font-bold text-[var(--pop-black)] uppercase tracking-wider">{t('profile_choose_avatar')}</label>
             <div className="grid grid-cols-6 gap-2">
               {Object.keys(PRESET_AVATARS).map((key) => (
                 <button
                   type="button"
                   key={key}
                   onClick={() => setAvatar(key)}
-                  className={`h-10 border-2 border-on-surface rounded-lg flex items-center justify-center text-xl transition-all shadow-[1px_1px_0px_0px_#1a1c1c]
-                    ${avatar === key ? 'bg-primary-container text-on-primary-container scale-110 border-dashed' : 'bg-surface hover:bg-slate-100'}`}
+                  className={`h-10 border-2 border-[var(--pop-black)] rounded-none flex items-center justify-center text-xl transition-all shadow-[1.5px_1.5px_0_var(--pop-black)] cursor-pointer
+                    ${avatar === key ? 'bg-[var(--pop-amber)] text-[var(--pop-black)] scale-110 border-dashed translate-x-[-1px] translate-y-[-1px]' : 'bg-white hover:bg-[var(--pop-cream)] hover:translate-y-[-1px]'}`}
                 >
                   {PRESET_AVATARS[key]}
                 </button>
@@ -255,16 +255,16 @@ export default function Profile() {
           </div>
 
           <div className="flex flex-col gap-2 mt-2">
-            <label className="text-xs font-headline font-black text-on-surface uppercase tracking-wider">{t('profile_upload_avatar')}</label>
+            <label className="text-xs font-pop-accent font-bold text-[var(--pop-black)] uppercase tracking-wider">{t('profile_choose_avatar')}</label>
             <input
               type="file"
               accept="image/*"
               onChange={handleImageUpload}
-              className="text-xs text-on-surface-variant font-bold file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-2 file:border-on-surface file:text-xs file:font-headline file:font-black file:bg-surface file:text-on-surface file:cursor-pointer hover:file:bg-slate-100"
+              className="text-xs text-[var(--pop-black)]/60 font-bold file:mr-4 file:py-2 file:px-4 file:rounded-none file:border-2 file:border-[var(--pop-black)] file:text-xs file:font-pop-accent file:font-black file:bg-white file:text-[var(--pop-black)] file:cursor-pointer hover:file:bg-[var(--pop-cream)]"
             />
           </div>
 
-          <button type="submit" className="btn-detonator w-full mt-2 py-3 rounded-2xl font-headline font-black uppercase text-sm">
+          <button type="submit" className="w-full mt-2 py-3 bg-[var(--pop-red)] text-white border-3 border-[var(--pop-black)] shadow-[3px_3px_0_var(--pop-black)] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[4px_4px_0_var(--pop-black)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none font-pop-accent font-black uppercase text-sm cursor-pointer">
             {t('profile_save_btn')}
           </button>
         </form>
@@ -273,14 +273,14 @@ export default function Profile() {
       {/* Right Column: Statistics & Match History */}
       <div className="profile-right lg:col-span-2 flex flex-col gap-8 text-left">
         {/* Daily Quests Card */}
-        <div className="bg-white border-4 border-on-surface shadow-[6px_6px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 flex flex-col gap-6">
-          <h3 className="text-lg font-headline font-black text-on-surface uppercase border-b-3 border-on-surface pb-2">
+        <div className="bg-white border-3 border-[var(--pop-black)] shadow-[5px_5px_0_var(--pop-black)] rounded-none p-6 flex flex-col gap-6">
+          <h3 className="text-lg font-pop-display font-black text-[var(--pop-black)] uppercase border-b-3 border-[var(--pop-black)] pb-2">
             {t('profile_quests_title')}
           </h3>
 
           <div className="flex flex-col gap-4">
             {quests.length === 0 ? (
-              <p className="text-center text-sm font-bold text-on-surface-variant py-8">
+              <p className="text-center text-sm font-bold text-[var(--pop-black)]/60 py-8">
                 {t('profile_no_quests')}
               </p>
             ) : (
@@ -292,30 +292,30 @@ export default function Profile() {
                 return (
                   <div 
                     key={quest.questId} 
-                    className="border-3 border-on-surface rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] bg-surface"
+                    className="border-2 border-[var(--pop-black)] rounded-none p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-[2px_2px_0_var(--pop-black)] bg-white"
                   >
                     <div className="flex-1 flex flex-col gap-1.5 w-full">
                       <div className="flex justify-between items-center">
-                        <span className="font-headline font-black text-sm uppercase text-on-surface">
+                        <span className="font-pop-accent font-black text-sm uppercase text-[var(--pop-black)]">
                           {quest.title}
                         </span>
-                        <span className="text-[10px] font-headline font-black text-indigo-600 bg-indigo-50 border-2 border-indigo-200 px-2 py-0.5 rounded-full">
+                        <span className="text-[10px] font-pop-accent font-black text-indigo-600 bg-indigo-50 border-2 border-indigo-200 px-2 py-0.5 rounded-none">
                           +{quest.reward?.coins || 0} {t('shop_gold')} {quest.reward?.gems > 0 && `• +${quest.reward.gems} ${t('shop_pink')}`}
                         </span>
                       </div>
                       
-                      <p className="text-[11px] text-on-surface-variant font-bold">
+                      <p className="text-[11px] text-[var(--pop-black)]/60 font-bold">
                         {quest.description}
                       </p>
 
                       {/* Progress Bar */}
                       <div className="flex items-center gap-3 w-full mt-1">
-                        <div className="flex-1 h-3.5 bg-slate-100 border-2 border-on-surface rounded-full overflow-hidden relative">
+                        <div className="flex-1 h-3.5 bg-slate-100 border-2 border-[var(--pop-black)] rounded-none overflow-hidden relative">
                           <div 
                             className="h-full bg-emerald-400 transition-all duration-300"
                             style={{ width: `${progressPercent}%` }}
                           />
-                          <span className="absolute inset-0 flex items-center justify-center text-[9px] font-headline font-black text-on-surface">
+                          <span className="absolute inset-0 flex items-center justify-center text-[9px] font-pop-accent font-black text-[var(--pop-black)]">
                             {quest.currentCount} / {quest.targetCount}
                           </span>
                         </div>
@@ -324,18 +324,18 @@ export default function Profile() {
 
                     <div className="w-full sm:w-auto flex justify-end">
                       {isClaimed ? (
-                        <span className="bg-slate-100 border-2 border-slate-300 text-slate-400 font-headline font-black text-[10px] px-4 py-2 rounded-xl uppercase">
+                        <span className="bg-slate-100 border-2 border-slate-300 text-slate-400 font-pop-accent font-black text-[10px] px-4 py-2 rounded-none uppercase">
                           {t('profile_quest_claimed')}
                         </span>
                       ) : isCompleted ? (
                         <button
                           onClick={() => handleClaimQuest(quest.questId)}
-                          className="w-full sm:w-auto bg-yellow-400 text-slate-950 font-headline font-black border-2 border-on-surface shadow-[2px_2px_0px_0px_#1a1c1c] px-4 py-2 rounded-xl text-[10px] hover:scale-105 active:scale-95 transition-all uppercase"
+                          className="w-full sm:w-auto bg-[var(--pop-amber)] text-[var(--pop-black)] font-pop-accent font-black border-2 border-[var(--pop-black)] shadow-[2px_2px_0px_0px_var(--pop-black)] px-4 py-2 rounded-none text-[10px] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[3px_3px_0_var(--pop-black)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all uppercase cursor-pointer"
                         >
                           {t('profile_quest_claim')}
                         </button>
                       ) : (
-                        <span className="bg-surface border-2 border-slate-300 text-on-surface-variant font-headline font-black text-[10px] px-4 py-2 rounded-xl uppercase">
+                        <span className="bg-white border-2 border-slate-300 text-[var(--pop-black)]/40 font-pop-accent font-black text-[10px] px-4 py-2 rounded-none uppercase">
                           {t('profile_quest_locked')}
                         </span>
                       )}
@@ -348,40 +348,40 @@ export default function Profile() {
         </div>
 
         {/* Statistics Grid */}
-        <div className="bg-white border-4 border-on-surface shadow-[6px_6px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 flex flex-col gap-6">
-          <h3 className="text-lg font-headline font-black text-on-surface uppercase border-b-3 border-on-surface pb-2">
+        <div className="bg-white border-3 border-[var(--pop-black)] shadow-[5px_5px_0_var(--pop-black)] rounded-none p-6 flex flex-col gap-6">
+          <h3 className="text-lg font-pop-display font-black text-[var(--pop-black)] uppercase border-b-3 border-[var(--pop-black)] pb-2">
             {t('profile_stats_title')}
           </h3>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-            <div className="bg-surface-container border-2 border-on-surface rounded-2xl p-4 text-center shadow-[3px_3px_0px_0px_rgba(26,28,28,1)]">
-              <span className="text-[10px] font-headline font-black text-on-surface-variant uppercase block">{t('profile_total_games')}</span>
-              <span className="font-headline font-black text-2xl text-on-surface">{profile.stats.totalGames}</span>
+            <div className="bg-white border-2 border-[var(--pop-black)] rounded-none p-4 text-center shadow-[3px_3px_0_var(--pop-black)]">
+              <span className="text-[10px] font-pop-accent font-bold text-[var(--pop-black)]/60 uppercase block">{t('profile_total_games')}</span>
+              <span className="font-pop-display font-black text-3xl text-[var(--pop-black)]">{profile.stats.totalGames}</span>
             </div>
-            <div className="bg-emerald-100 border-2 border-on-surface rounded-2xl p-4 text-center shadow-[3px_3px_0px_0px_rgba(26,28,28,1)]">
-              <span className="text-[10px] font-headline font-black text-emerald-800 uppercase block">{t('profile_wins')}</span>
-              <span className="font-headline font-black text-2xl text-emerald-700">{profile.stats.wins}</span>
+            <div className="bg-[var(--pop-amber)] border-2 border-[var(--pop-black)] rounded-none p-4 text-center shadow-[3px_3px_0_var(--pop-black)] text-[var(--pop-black)]">
+              <span className="text-[10px] font-pop-accent font-black text-[var(--pop-black)]/60 uppercase block">{t('profile_wins')}</span>
+              <span className="font-pop-display font-black text-3xl text-[var(--pop-black)]">{profile.stats.wins}</span>
             </div>
-            <div className="bg-rose-100 border-2 border-on-surface rounded-2xl p-4 text-center shadow-[3px_3px_0px_0px_rgba(26,28,28,1)]">
-              <span className="text-[10px] font-headline font-black text-rose-800 uppercase block">{t('profile_losses')}</span>
-              <span className="font-headline font-black text-2xl text-rose-700">{profile.stats.losses}</span>
+            <div className="bg-[var(--pop-red)] border-2 border-[var(--pop-black)] rounded-none p-4 text-center shadow-[3px_3px_0_var(--pop-black)] text-white">
+              <span className="text-[10px] font-pop-accent font-bold text-red-100 uppercase block">{t('profile_losses')}</span>
+              <span className="font-pop-display font-black text-3xl text-white">{profile.stats.losses}</span>
             </div>
-            <div className="bg-orange-100 border-2 border-on-surface rounded-2xl p-4 text-center shadow-[3px_3px_0px_0px_rgba(26,28,28,1)] flex flex-col items-center justify-center">
-              <span className="text-[10px] font-headline font-black text-orange-800 uppercase block">{t('profile_longest_streak')}</span>
-              <span className="font-headline font-black text-2xl text-orange-700 flex items-center justify-center gap-1">🔥 {profile.stats.longestStreak}</span>
+            <div className="bg-[var(--pop-cream)] border-2 border-[var(--pop-black)] rounded-none p-4 text-center shadow-[3px_3px_0_var(--pop-black)] text-[var(--pop-black)] flex flex-col items-center justify-center">
+              <span className="text-[10px] font-pop-accent font-bold text-[var(--pop-black)]/60 uppercase block">{t('profile_longest_streak')}</span>
+              <span className="font-pop-display font-black text-3xl text-[var(--pop-black)] flex items-center justify-center gap-1 mt-0.5 font-mono">🔥 {profile.stats.longestStreak}</span>
             </div>
           </div>
         </div>
 
         {/* Match History */}
-        <div className="bg-white border-4 border-on-surface shadow-[6px_6px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 flex flex-col gap-6 text-left">
-          <h3 className="text-lg font-headline font-black text-on-surface uppercase border-b-3 border-on-surface pb-2">
+        <div className="bg-white border-3 border-[var(--pop-black)] shadow-[5px_5px_0_var(--pop-black)] rounded-none p-6 flex flex-col gap-6 text-left">
+          <h3 className="text-lg font-pop-display font-black text-[var(--pop-black)] uppercase border-b-3 border-[var(--pop-black)] pb-2">
             {t('profile_history_title')}
           </h3>
 
           <div className="flex flex-col gap-4">
             {history.length === 0 ? (
-              <p className="text-center text-sm font-bold text-on-surface-variant py-8">
+              <p className="text-center text-sm font-bold text-[var(--pop-black)]/60 py-8">
                 {t('profile_no_history')}
               </p>
             ) : (
@@ -389,17 +389,17 @@ export default function Profile() {
                 const myRank = game.players.find(p => p.userId === profile._id);
                 const isWinner = myRank?.rank === 1;
                 return (
-                  <div key={game._id} className="border-3 border-on-surface rounded-2xl p-4 flex justify-between items-center shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] bg-surface">
+                  <div key={game._id} className="border-2 border-[var(--pop-black)] rounded-none p-4 flex justify-between items-center shadow-[2px_2px_0_var(--pop-black)] bg-white">
                     <div className="flex flex-col gap-1">
-                      <span className="font-headline font-black text-sm uppercase">
+                      <span className="font-pop-accent font-black text-sm uppercase text-[var(--pop-black)]">
                         {t('profile_match_id', { id: game._id.slice(-6).toUpperCase() })}
                       </span>
-                      <span className="text-[10px] text-on-surface-variant font-bold">
+                      <span className="text-[10px] text-[var(--pop-black)]/60 font-bold">
                         {t('profile_played_at', { date: new Date(game.playedAt).toLocaleString() })}
                       </span>
                     </div>
-                    <span className={`px-4 py-1.5 rounded-full border-2 border-on-surface font-headline font-black text-xs uppercase shadow-[1.5px_1.5px_0px_0px_#1a1c1c]
-                      ${isWinner ? 'bg-emerald-400 text-slate-950' : 'bg-rose-400 text-slate-950'}`}>
+                    <span className={`px-4 py-1.5 rounded-none border-2 border-[var(--pop-black)] font-pop-accent font-black text-xs uppercase shadow-[1.5px_1.5px_0_var(--pop-black)]
+                      ${isWinner ? 'bg-[var(--pop-amber)] text-[var(--pop-black)]' : 'bg-[var(--pop-red)] text-white'}`}>
                       {isWinner ? t('profile_history_win') : t('profile_history_lose', { rank: myRank?.rank ?? '?' })}
                     </span>
                   </div>
@@ -409,7 +409,6 @@ export default function Profile() {
           </div>
         </div>
       </div>
-
       <CustomDialog
         isOpen={dialogState.isOpen}
         title={dialogState.title}

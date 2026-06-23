@@ -17,6 +17,7 @@ function createRoom(hostId, options = {}, username = 'Guest') {
   const maxLimit = edition === '2_player' ? 2 : (edition === 'imploding' ? 6 : 5);
   const requestedMax = parseInt(options.maxPlayers, 10);
   const maxPlayers = (!isNaN(requestedMax) && requestedMax >= 2 && requestedMax <= maxLimit) ? requestedMax : maxLimit;
+  const betAmount = parseInt(options.betAmount, 10);
 
   const room = {
     code,
@@ -25,8 +26,8 @@ function createRoom(hostId, options = {}, username = 'Guest') {
     maxPlayers,
     maxHandSize: 10,
     status: 'waiting',
-    isPublic: Boolean(options.isPublic),
     password: options.password || '',
+    betAmount: !isNaN(betAmount) && betAmount >= 0 ? betAmount : 50,
     edition,
     gameState: null,
   };
@@ -89,7 +90,13 @@ function startGame(roomCode) {
 }
 
 function getPublicRooms() {
-  return [...rooms.values()].filter((room) => room.isPublic && room.status === 'waiting');
+  return [...rooms.values()]
+    .filter((room) => room.status === 'waiting')
+    .map(room => ({
+      ...room,
+      hasPassword: !!room.password,
+      password: undefined // do not leak password to client
+    }));
 }
 function getRoomState(roomCode) {
   return rooms.get(roomCode) ?? null;

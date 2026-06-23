@@ -52,57 +52,57 @@ export default function Login({ setPage }) {
   };
 
   return (
-    <div className="max-w-md mx-auto my-12 bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-8 flex flex-col gap-6 text-left">
+    <div className="max-w-md mx-auto my-12 bg-white border-3 border-[var(--pop-black)] shadow-[8px_8px_0_var(--pop-black)] p-8 flex flex-col gap-6 text-left transform rotate-[0.5deg]">
       <div className="text-center flex flex-col items-center">
-        <h2 className="text-2xl font-headline font-black text-on-surface uppercase mt-4">{t('login_title')}</h2>
-        <p className="text-xs font-bold text-on-surface-variant mt-1">{t('login_desc')}</p>
+        <h2 className="text-3xl font-pop-display font-black text-[var(--pop-black)] uppercase mt-4">{t('login_title')}</h2>
+        <p className="text-xs font-pop-body font-bold text-[var(--pop-black)]/60 mt-1">{t('login_desc')}</p>
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
         {message && (
-          <div className={`p-4 rounded-xl text-xs font-headline font-black text-center border-3 border-on-surface shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]
+          <div className={`p-4 rounded-none text-xs font-pop-accent font-bold text-center border-3 border-[var(--pop-black)] shadow-[4px_4px_0_var(--pop-black)]
             ${isError 
-              ? 'bg-rose-100 text-rose-700' 
-              : 'bg-emerald-100 text-emerald-700'}`}>
+              ? 'bg-[var(--pop-red)] text-white' 
+              : 'bg-[var(--pop-amber)] text-[var(--pop-black)]'}`}>
             {message}
           </div>
         )}
 
         <div className="flex flex-col gap-2">
-          <label className="text-xs font-headline font-black text-on-surface uppercase tracking-wider">{t('email_label')}</label>
+          <label className="text-[11px] font-pop-accent font-bold text-[var(--pop-black)] uppercase tracking-wider">{t('email_label')}</label>
           <input
             type="email"
             placeholder="username@gmail.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="bg-surface border-3 border-on-surface rounded-xl px-4 py-3 text-xs text-on-surface font-bold focus:outline-none focus:bg-white transition-all shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]"
+            className="bg-[#FFFFFF] border-3 border-[var(--pop-black)] rounded-none px-4 py-3 text-xs text-[var(--pop-black)] font-bold focus:outline-none focus:bg-[var(--pop-cream)] focus:-translate-y-0.5 focus:-translate-x-0.5 transition-all shadow-[3px_3px_0_var(--pop-black)] focus:shadow-[5px_5px_0_var(--pop-black)]"
           />
         </div>
 
         <div className="flex flex-col gap-2">
-          <label className="text-xs font-headline font-black text-on-surface uppercase tracking-wider">{t('password_label')}</label>
+          <label className="text-[11px] font-pop-accent font-bold text-[var(--pop-black)] uppercase tracking-wider">{t('password_label')}</label>
           <input
             type="password"
             placeholder="••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="bg-surface border-3 border-on-surface rounded-xl px-4 py-3 text-xs text-on-surface font-bold focus:outline-none focus:bg-white transition-all shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]"
+            className="bg-[#FFFFFF] border-3 border-[var(--pop-black)] rounded-none px-4 py-3 text-xs text-[var(--pop-black)] font-bold focus:outline-none focus:bg-[var(--pop-cream)] focus:-translate-y-0.5 focus:-translate-x-0.5 transition-all shadow-[3px_3px_0_var(--pop-black)] focus:shadow-[5px_5px_0_var(--pop-black)]"
           />
         </div>
 
         <button
           type="submit"
-          className="btn-detonator w-full mt-4 py-4 rounded-2xl font-headline font-black uppercase text-base"
+          className="w-full mt-4 py-3.5 bg-[var(--pop-red)] text-white font-pop-accent font-black uppercase text-base border-3 border-[var(--pop-black)] shadow-[4px_4px_0_var(--pop-black)] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0_var(--pop-black)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[0_0_0_transparent] transition-all cursor-pointer"
         >
           {t('login_btn')}
         </button>
 
-        <p className="text-center text-xs font-bold text-on-surface-variant mt-2">
+        <p className="text-center text-xs font-pop-body font-bold text-[var(--pop-black)]/60 mt-2">
           {t('no_account')}{' '}
           <button 
             type="button" 
             onClick={() => setPage('Register')}
-            className="text-primary hover:underline font-bold"
+            className="text-[var(--pop-red)] hover:underline font-bold font-pop-accent uppercase tracking-wider ml-1"
           >
             {t('register_now')}
           </button>
