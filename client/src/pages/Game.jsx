@@ -283,7 +283,14 @@ import {
   playFlyingCard as corePlayFlyingCard,
   playSkipEffect,
   playNopeEffect,
-  playAttackEffect
+  playAttackEffect,
+  playExplosionEffect,
+  playDefuseEffect,
+  playCombo2Effect,
+  playCombo3Effect,
+  playCombo5Effect,
+  playFavorEffect,
+  playReverseEffect
 } from '../utils/effectUtils.js';
 
 const EMOTES_LIST = [
@@ -555,6 +562,13 @@ export default function Game() {
   } = useGame();
 
   const { t, language } = useLanguage();
+
+  useEffect(() => {
+    document.body.classList.add('pop-art-theme');
+    return () => {
+      document.body.classList.remove('pop-art-theme');
+    };
+  }, []);
 
   const editionsList = [
     'original',
@@ -1395,6 +1409,7 @@ export default function Game() {
       sourceId,
       targetId,
       cardType,
+      imageUrl: getCardImageUrl(cleanType, 0),
       theme: { ...theme, name: translatedName, desc: translatedDesc },
       onStart: () => setNumPlayAnims(p => p + 1),
       onComplete: () => setNumPlayAnims(p => Math.max(0, p - 1))
@@ -1466,7 +1481,7 @@ export default function Game() {
       }, 50);
     };
 
-    const handleCardPlayed = ({ playerId, cardType, targetPlayerId }) => {
+    const handleCardPlayed = ({ playerId, cardType, targetPlayerId, displayCardType }) => {
       const sourceId = playerId === myUser?.id ? 'player-hand-container' : `player-avatar-${playerId}`;
       const triggerEl = document.getElementById(sourceId);
 
@@ -1475,12 +1490,24 @@ export default function Game() {
       } else if (cardType === 'skip' || cardType === 'super_skip') {
         playSkipEffect(triggerEl);
       } else if (cardType?.startsWith('attack')) {
-        playAttackEffect(triggerEl);
+        playAttackEffect(triggerEl, targetPlayerId);
+      } else if (cardType === 'defuse') {
+        playDefuseEffect(triggerEl);
+      } else if (cardType === 'combo_2') {
+        playCombo2Effect(targetPlayerId);
+      } else if (cardType === 'combo_3') {
+        playCombo3Effect(targetPlayerId);
+      } else if (cardType === 'combo_5') {
+        playCombo5Effect();
+      } else if (cardType === 'favor') {
+        playFavorEffect(targetPlayerId);
+      } else if (cardType === 'reverse') {
+        playReverseEffect();
       }
 
       setTimeout(() => {
         const targetId = 'discard-pile-element';
-        playFlyingCard(sourceId, targetId, cardType);
+        playFlyingCard(sourceId, targetId, displayCardType || cardType);
       }, 50);
 
       // Special animations for Zombie Kitten edition cards
@@ -1530,6 +1557,7 @@ export default function Game() {
         }, 2500);
       } else {
         setIsRedFlashActive(true);
+        playExplosionEffect();
         setTimeout(() => {
           setIsRedFlashActive(false);
         }, 1500);
@@ -1538,7 +1566,7 @@ export default function Game() {
       setDrewKittenAlert({ active: true, playerName: username, cardType });
       setTimeout(() => {
         setDrewKittenAlert(null);
-      }, 3000);
+      }, 1500);
     };
 
     const handleExploded = ({ playerId }) => {
@@ -1605,28 +1633,28 @@ export default function Game() {
     if (isCreatingRoom) {
       return (
         <div className="w-full max-w-5xl mx-auto my-6 flex flex-col gap-6 animate-fade-in text-left">
-          {/* Inject Neo-brutalist Custom Slider & Scrollbar CSS */}
+          {/* Inject Pop Art Slider & Scrollbar CSS */}
           <style>{`
             .brutal-slider {
               -webkit-appearance: none;
               width: 100%;
               height: 12px;
               background: #ffffff;
-              border: 3px solid #1a1c1c;
-              border-radius: 6px;
+              border: 3px solid var(--pop-black);
+              border-radius: 0px;
               outline: none;
-              box-shadow: 1.5px 1.5px 0px #1a1c1c;
+              box-shadow: 2px 2px 0px var(--pop-black);
             }
             .brutal-slider::-webkit-slider-thumb {
               -webkit-appearance: none;
               appearance: none;
               width: 18px;
               height: 28px;
-              background: #ff5722;
-              border: 3px solid #1a1c1c;
-              border-radius: 4px;
+              background: var(--pop-red);
+              border: 3px solid var(--pop-black);
+              border-radius: 0px;
               cursor: pointer;
-              box-shadow: 2px 2px 0px #1a1c1c;
+              box-shadow: 2px 2px 0px var(--pop-black);
               transition: transform 0.15s ease-out;
             }
             .brutal-slider::-webkit-slider-thumb:hover {
@@ -1638,11 +1666,11 @@ export default function Game() {
             .brutal-slider::-moz-range-thumb {
               width: 14px;
               height: 24px;
-              background: #ff5722;
-              border: 3px solid #1a1c1c;
-              border-radius: 4px;
+              background: var(--pop-red);
+              border: 3px solid var(--pop-black);
+              border-radius: 0px;
               cursor: pointer;
-              box-shadow: 2px 2px 0px #1a1c1c;
+              box-shadow: 2px 2px 0px var(--pop-black);
             }
             .scrollbar-hidden::-webkit-scrollbar {
               display: none;
@@ -1654,20 +1682,20 @@ export default function Game() {
           `}</style>
 
           {/* Header */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b-4 border-on-surface pb-4 gap-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b-4 border-[var(--pop-black)] pb-4 gap-4">
             <div>
               <div className="flex items-center gap-3">
-                <h1 className="font-headline font-black text-4xl md:text-6xl text-on-surface uppercase tracking-tight py-1 select-none">
+                <h1 className="font-pop-display font-black text-4xl md:text-6xl text-[var(--pop-black)] uppercase tracking-tight py-1 select-none">
                   CREATE
                 </h1>
                 <div 
-                  className="font-headline font-black text-4xl md:text-6xl bg-[#ff5722] text-white px-4 py-1.5 rounded-xl border-3 border-on-surface shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] tracking-tight transform -rotate-2 select-none"
-                  style={{ textShadow: '2px 2px 0px #1a1c1c' }}
+                  className="font-pop-display font-black text-4xl md:text-6xl bg-[var(--pop-red)] text-white px-4 py-1.5 rounded-none border-3 border-[var(--pop-black)] shadow-[4px_4px_0_var(--pop-black)] tracking-tight transform -rotate-2 select-none"
+                  style={{ textShadow: '2px 2px 0px var(--pop-black)' }}
                 >
                   ROOM
                 </div>
               </div>
-              <p className="text-xs font-bold text-on-surface-variant mt-3 max-w-xl leading-relaxed">
+              <p className="text-xs font-bold text-[var(--pop-black)]/80 mt-3 max-w-xl leading-relaxed">
                 {language === 'vi' 
                   ? 'Tập hợp các chiến binh mèo của bạn và chuẩn bị cho sự hỗn loạn bùng nổ. Chọn phiên bản hủy diệt bên dưới.' 
                   : 'Assemble your feline warriors and prepare for explosive chaos. Choose your flavor of destruction below.'}
@@ -1675,7 +1703,7 @@ export default function Game() {
             </div>
             <button
               onClick={() => setIsCreatingRoom(false)}
-              className="bg-white text-on-surface border-3 border-on-surface px-5 py-3 rounded-2xl flex items-center gap-2 shadow-[3px_3px_0px_0px_#1a1c1c] text-xs font-headline font-black hover:translate-y-[-2px] hover:shadow-[4.5px_4.5px_0px_0px_#1a1c1c] active:translate-y-0.5 active:shadow-none transition-all uppercase"
+              className="bg-white text-[var(--pop-black)] border-3 border-[var(--pop-black)] px-5 py-3 rounded-none flex items-center gap-2 shadow-[3px_3px_0_var(--pop-black)] text-xs font-pop-accent font-black hover:translate-y-[-2px] hover:shadow-[4.5px_4.5px_0_var(--pop-black)] active:translate-y-0.5 active:shadow-none transition-all uppercase"
             >
               {t('back_to_lobby')}
             </button>
@@ -1683,7 +1711,7 @@ export default function Game() {
 
           {/* Grid Edition Selection (No Scrollbar) */}
           <div className="flex flex-col gap-2">
-            <span className="font-headline font-black text-xs text-on-surface-variant uppercase tracking-wider">
+            <span className="font-pop-accent font-black text-xs text-[var(--pop-black)]/70 uppercase tracking-wider">
               {t('choose_edition')}
             </span>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-1 select-none">
@@ -1706,21 +1734,21 @@ export default function Game() {
                     }}
                     onMouseEnter={() => setHoveredEdition(key)}
                     onMouseLeave={() => setHoveredEdition(null)}
-                    className={`w-full p-4 rounded-2xl border-3 border-on-surface text-left flex flex-col justify-between gap-3 h-32 cursor-pointer transition-all duration-150 relative
+                    className={`w-full p-4 rounded-none border-3 border-[var(--pop-black)] text-left flex flex-col justify-between gap-3 h-32 cursor-pointer transition-all duration-150 relative
                       ${isSelected 
-                        ? 'bg-[#ff5722] text-white shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] translate-y-0.5' 
-                        : 'bg-white text-on-surface shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] hover:translate-y-[-2px] hover:shadow-[5px_5px_0px_0px_rgba(26,28,28,1)] active:translate-y-0.5 active:shadow-none'
+                        ? 'bg-[var(--pop-red)] text-white shadow-[4px_4px_0_var(--pop-black)] translate-y-0.5' 
+                        : 'bg-white text-[var(--pop-black)] shadow-[4px_4px_0_var(--pop-black)] hover:translate-y-[-2px] hover:shadow-[5px_5px_0_var(--pop-black)] active:translate-y-0.5 active:shadow-none'
                       }`}
                   >
                     <div className="flex items-center gap-2">
-                      <span className={`flex-shrink-0 ${isSelected ? 'text-white' : 'text-on-surface'}`}>
+                      <span className={`flex-shrink-0 ${isSelected ? 'text-white' : 'text-[var(--pop-black)]'}`}>
                         {meta.icon}
                       </span>
-                      <h3 className="font-headline font-black text-xs uppercase tracking-wider leading-none">
+                      <h3 className="font-pop-accent font-black text-xs uppercase tracking-wider leading-none">
                         {details.name}
                       </h3>
                     </div>
-                    <p className={`text-[10px] font-bold opacity-90 line-clamp-2 leading-snug ${isSelected ? 'text-white/95' : 'text-on-surface-variant'}`}>
+                    <p className={`text-[10px] font-bold opacity-90 line-clamp-2 leading-snug ${isSelected ? 'text-white/95' : 'text-[var(--pop-black)]/70'}`}>
                       {details.description}
                     </p>
                   </button>
@@ -1732,7 +1760,7 @@ export default function Game() {
           {/* Split Columns Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             {/* Left Column: Active Edition Showcase */}
-            <div className="lg:col-span-7 bg-white border-3 border-on-surface shadow-[4.5px_4.5px_0px_0px_rgba(26,28,28,1)] rounded-2xl p-6 relative flex flex-col gap-6 text-left">
+            <div className="lg:col-span-7 bg-white border-3 border-[var(--pop-black)] shadow-[6px_6px_0_var(--pop-black)] rounded-none p-6 relative flex flex-col gap-6 text-left">
               {(() => {
                 const activeKey = hoveredEdition || lobbyEdition;
                 const details = getEditionDetails(activeKey);
@@ -1741,17 +1769,17 @@ export default function Game() {
                   <>
                     {/* Rotated Slanted Type Badge */}
                     <div className="absolute top-5 right-5 rotate-6 z-10 select-none">
-                      <div className={`font-headline font-black text-[9px] px-3.5 py-1.5 rounded-lg border-2 border-on-surface shadow-[2px_2px_0px_0px_#1a1c1c] uppercase tracking-wider ${meta.badgeColor}`}>
+                      <div className={`font-pop-accent font-black text-[9px] px-3.5 py-1.5 rounded-none border-3 border-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)] uppercase tracking-wider ${meta.badgeColor}`}>
                         {language === 'vi' ? meta.badge.vi : meta.badge.en}
                       </div>
                     </div>
 
                     {/* Title & Description */}
-                    <div className="border-b-2 border-slate-100 pb-4 pr-24">
-                      <h3 className="font-headline font-black text-2xl text-on-surface uppercase tracking-tight">
+                    <div className="border-b-3 border-[var(--pop-black)] pb-4 pr-24">
+                      <h3 className="font-pop-display font-black text-2xl text-[var(--pop-black)] uppercase tracking-tight">
                         {details.name}
                       </h3>
-                      <p className="text-xs font-bold text-on-surface-variant mt-2 leading-relaxed">
+                      <p className="text-xs font-bold text-[var(--pop-black)]/80 mt-2 leading-relaxed">
                         {details.description}
                       </p>
                     </div>
@@ -1759,7 +1787,7 @@ export default function Game() {
                     {/* Special Rules */}
                     <div className="flex flex-col gap-2">
                       <div className="flex items-center gap-2">
-                        <svg className="w-4 h-4 text-[#ff5722]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <svg className="w-4 h-4 text-[var(--pop-red)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                           <line x1="4" y1="21" x2="4" y2="14" />
                           <line x1="4" y1="10" x2="4" y2="3" />
                           <line x1="12" y1="21" x2="12" y2="12" />
@@ -1770,7 +1798,7 @@ export default function Game() {
                           <line x1="9" y1="8" x2="15" y2="8" />
                           <line x1="17" y1="16" x2="23" y2="16" />
                         </svg>
-                        <span className="font-headline font-black text-xs text-on-surface uppercase tracking-wider">
+                        <span className="font-pop-accent font-black text-xs text-[var(--pop-black)] uppercase tracking-wider">
                           {language === 'vi' ? 'LUẬT CHƠI ĐẶC TRƯNG' : 'SPECIAL RULES'}
                         </span>
                       </div>
@@ -1781,7 +1809,7 @@ export default function Game() {
                           return (
                             <span 
                               key={idx} 
-                              className={`inline-block bg-[#fdf2f8] text-slate-900 border-2 border-on-surface px-3 py-1.5 rounded-lg text-[9px] font-headline font-black uppercase shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)] transform ${tilt}`}
+                              className={`inline-block bg-[var(--pop-cream)] text-[var(--pop-black)] border-3 border-[var(--pop-black)] px-3 py-1.5 rounded-none text-[9px] font-pop-accent font-black uppercase shadow-[2px_2px_0_var(--pop-black)] transform ${tilt}`}
                             >
                               {ruleText}
                             </span>
@@ -1791,8 +1819,8 @@ export default function Game() {
                     </div>
 
                     {/* Exclusive Cards Row */}
-                    <div className="flex flex-col gap-3 border-t-2 border-slate-100 pt-4">
-                      <span className="font-headline font-black text-xs text-on-surface uppercase tracking-wider">
+                    <div className="flex flex-col gap-3 border-t-3 border-[var(--pop-black)] pt-4">
+                      <span className="font-pop-accent font-black text-xs text-[var(--pop-black)] uppercase tracking-wider">
                         {language === 'vi' ? 'THẺ BÀI ĐỘC QUYỀN' : 'EXCLUSIVE CARDS'}
                       </span>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-1">
@@ -1812,9 +1840,9 @@ export default function Game() {
 
             {/* Right Column: Lobby Settings Card */}
             <div className="lg:col-span-5 flex flex-col gap-6">
-              <div className="bg-white border-3 border-on-surface shadow-[4.5px_4.5px_0px_0px_rgba(26,28,28,1)] rounded-2xl p-6 flex flex-col gap-5 text-left">
-                <div className="border-b-3 border-on-surface pb-3">
-                  <h3 className="font-headline font-black text-xl text-on-surface uppercase tracking-tight">
+              <div className="bg-white border-3 border-[var(--pop-black)] shadow-[6px_6px_0_var(--pop-black)] rounded-none p-6 flex flex-col gap-5 text-left">
+                <div className="border-b-3 border-[var(--pop-black)] pb-3">
+                  <h3 className="font-pop-display font-black text-xl text-[var(--pop-black)] uppercase tracking-tight">
                     {t('lobby_settings')}
                   </h3>
                 </div>
@@ -1822,12 +1850,11 @@ export default function Game() {
                 {/* Player count Custom Slider */}
                 <div className="flex flex-col gap-2">
                   <div className="flex justify-between items-center mb-1">
-                    <span className="font-headline font-black text-xs text-on-surface uppercase tracking-wider">
+                    <span className="font-pop-accent font-black text-xs text-[var(--pop-black)] uppercase tracking-wider">
                       {t('max_players')}
                     </span>
                     <div 
-                      className="font-headline font-black text-2xl text-[#ff5722] transform -rotate-12 bg-white border-2 border-on-surface px-2.5 py-0.5 rounded shadow-[2px_2px_0px_0px_#1a1c1c] select-none"
-                      style={{ textShadow: '1px 1px 0px #1a1c1c' }}
+                      className="font-pop-display font-black text-2xl text-white transform -rotate-6 bg-[var(--pop-red)] border-3 border-[var(--pop-black)] px-3 py-0.5 rounded-none shadow-[2px_2px_0_var(--pop-black)] select-none"
                     >
                       {lobbyMaxPlayers}
                     </div>
@@ -1849,11 +1876,11 @@ export default function Game() {
                           className={`brutal-slider ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
                         />
                         {/* Tick indicators */}
-                        <div className="flex justify-between px-1 text-[10px] font-headline font-black text-on-surface-variant">
+                        <div className="flex justify-between px-1 text-[10px] font-pop-accent font-black text-[var(--pop-black)]/70">
                           {Array.from({ length: maxLimit - minLimit + 1 }).map((_, idx) => {
                             const val = minLimit + idx;
                             return (
-                              <span key={val} className={lobbyMaxPlayers === val ? 'text-[#ff5722] scale-110' : ''}>
+                              <span key={val} className={lobbyMaxPlayers === val ? 'text-[var(--pop-red)] scale-110' : ''}>
                                 {val}
                               </span>
                             );
@@ -1866,7 +1893,7 @@ export default function Game() {
 
                 {/* Room Password field */}
                 <div className="flex flex-col gap-2">
-                  <span className="font-headline font-black text-xs text-on-surface uppercase tracking-wider">
+                  <span className="font-pop-accent font-black text-xs text-[var(--pop-black)] uppercase tracking-wider">
                     {language === 'vi' ? 'Mật khẩu phòng (Tuỳ chọn)' : 'Room Password (Optional)'}
                   </span>
                   <div className="relative flex items-center">
@@ -1876,12 +1903,12 @@ export default function Game() {
                       value={createPassword}
                       onChange={(e) => setCreatePassword(e.target.value)}
                       maxLength={20}
-                      className="bg-white border-3 border-on-surface px-4 py-3.5 rounded-xl text-xs font-bold focus:outline-none focus:bg-slate-50 transition-all w-full pr-16 shadow-[2.5px_2.5px_0px_0px_rgba(26,28,28,1)]"
+                      className="bg-white border-3 border-[var(--pop-black)] px-4 py-3.5 rounded-none text-xs font-bold focus:outline-none focus:bg-[var(--pop-cream)] transition-all w-full pr-16 shadow-[2px_2px_0_var(--pop-black)] focus:shadow-[4px_4px_0_var(--pop-black)] focus:-translate-y-0.5 focus:-translate-x-0.5"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPasswordInput(!showPasswordInput)}
-                      className="absolute right-3 bg-slate-100 hover:bg-slate-200 border-2 border-on-surface px-2.5 py-1.5 rounded-lg text-[9px] font-headline font-black text-on-surface shadow-[1px_1px_0px_0px_#1a1c1c] active:translate-y-0.5 active:shadow-none"
+                      className="absolute right-3 bg-white hover:bg-[var(--pop-cream)] border-2 border-[var(--pop-black)] px-2.5 py-1.5 rounded-none text-[9px] font-pop-accent font-black text-[var(--pop-black)] shadow-[1px_1px_0_var(--pop-black)] active:translate-y-0.5 active:shadow-none"
                     >
                       {showPasswordInput ? t('button_hide') : t('button_show')}
                     </button>
@@ -1889,8 +1916,8 @@ export default function Game() {
                 </div>
 
                 {/* Bet Amount field */}
-                <div className="flex flex-col gap-2 border-t-2 border-dashed border-slate-100 pt-4 mt-2">
-                  <span className="font-headline font-black text-xs text-on-surface uppercase tracking-wider">
+                <div className="flex flex-col gap-2 border-t-3 border-dashed border-[var(--pop-black)]/30 pt-4 mt-2">
+                  <span className="font-pop-accent font-black text-xs text-[var(--pop-black)] uppercase tracking-wider">
                     {language === 'vi' ? 'Tiền cược (GoldCoin)' : 'Bet Amount (GoldCoin)'}
                   </span>
                   <div className="flex items-center gap-4">
@@ -1901,33 +1928,33 @@ export default function Game() {
                       step="10"
                       value={lobbyBetAmount}
                       onChange={(e) => setLobbyBetAmount(Number(e.target.value))}
-                      className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                      className="brutal-slider"
                     />
-                    <span className="font-headline font-black text-sm text-[#ff5722] min-w-[50px] text-right">
+                    <span className="font-pop-display font-black text-sm text-white bg-[var(--pop-amber)] px-2 py-1 border-2 border-[var(--pop-black)] shadow-[1.5px_1.5px_0_var(--pop-black)] min-w-[50px] text-center transform rotate-2">
                       {lobbyBetAmount}
                     </span>
                   </div>
                 </div>
 
                 {/* Voice Chat toggle */}
-                <div className="flex justify-between items-center border-t-2 border-dashed border-slate-100 pt-4 mt-2">
+                <div className="flex justify-between items-center border-t-3 border-dashed border-[var(--pop-black)]/30 pt-4 mt-2">
                   <div className="flex flex-col text-left">
-                    <span className="font-headline font-black text-xs text-on-surface uppercase tracking-wider">
+                    <span className="font-pop-accent font-black text-xs text-[var(--pop-black)] uppercase tracking-wider">
                       {t('voice_chat')}
                     </span>
-                    <span className="text-[10px] font-bold text-on-surface-variant font-sans">
+                    <span className="text-[10px] font-bold text-[var(--pop-black)]/70 font-pop-body">
                       {language === 'vi' ? 'Kích hoạt đàm thoại nhóm' : 'Enable in-game group voice'}
                     </span>
                   </div>
                   <button
                     type="button"
                     onClick={() => setVoiceChatEnabled(!voiceChatEnabled)}
-                    className={`w-14 h-8 rounded-lg border-3 border-on-surface relative transition-all duration-200 shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] active:translate-y-0.5 active:shadow-none
-                      ${voiceChatEnabled ? 'bg-[#ff5722]' : 'bg-white'}`}
+                    className={`w-14 h-8 rounded-none border-3 border-[var(--pop-black)] relative transition-all duration-200 shadow-[2px_2px_0_var(--pop-black)] active:translate-y-0.5 active:shadow-none
+                      ${voiceChatEnabled ? 'bg-[var(--pop-amber)]' : 'bg-white'}`}
                   >
                     <div 
-                      className="absolute top-0.5 w-5 h-5 rounded border-2 border-on-surface bg-white shadow-[1px_1px_0px_rgba(0,0,0,0.15)] transition-all duration-200" 
-                      style={{ left: voiceChatEnabled ? '26px' : '3px' }}
+                      className="absolute top-[1px] w-[22px] h-[22px] rounded-none border-3 border-[var(--pop-black)] bg-white shadow-[1px_1px_0_var(--pop-black)] transition-all duration-200" 
+                      style={{ left: voiceChatEnabled ? '26px' : '2px' }}
                     />
                   </button>
                 </div>
@@ -1939,7 +1966,7 @@ export default function Game() {
                   createRoom(createPassword, lobbyEdition, lobbyMaxPlayers, lobbyBetAmount);
                   setIsCreatingRoom(false);
                 }}
-                className="w-full bg-[#ff5722] hover:bg-[#e64a19] text-white border-3 border-on-surface py-4.5 rounded-2xl font-headline font-black uppercase text-base tracking-wider shadow-[4.5px_4.5px_0px_0px_rgba(26,28,28,1)] hover:translate-y-[-2px] hover:shadow-[6px_6px_0px_0px_rgba(26,28,28,1)] active:translate-y-0.5 active:shadow-none transition-all duration-150"
+                className="w-full bg-[var(--pop-red)] hover:bg-[var(--pop-orange)] text-white border-3 border-[var(--pop-black)] py-4.5 rounded-none font-pop-display font-black uppercase text-base tracking-wider shadow-[6px_6px_0_var(--pop-black)] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[8px_8px_0_var(--pop-black)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all duration-150"
               >
                 {t('start_lobby')}
               </button>
@@ -2235,18 +2262,18 @@ export default function Game() {
   // ==========================================
   if (roomState.status === 'waiting') {
     return (
-      <div className="max-w-xl mx-auto my-6 bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-8 flex flex-col gap-6 animate-fade-in">
-        <div className="flex justify-between items-start border-b-4 border-on-surface pb-4 flex-wrap gap-4 text-left">
+      <div className="max-w-xl mx-auto my-6 bg-white border-4 border-[var(--pop-black)] shadow-[8px_8px_0_var(--pop-black)] rounded-none p-8 flex flex-col gap-6 animate-fade-in">
+        <div className="flex justify-between items-start border-b-4 border-[var(--pop-black)] pb-4 flex-wrap gap-4 text-left">
           <div>
-            <h2 className="text-2xl font-headline font-black text-on-surface uppercase">Phòng Chờ Trận Đấu</h2>
+            <h2 className="text-2xl font-pop-display font-black text-[var(--pop-black)] uppercase">Phòng Chờ Trận Đấu</h2>
             
             <div className="flex items-center gap-2 mt-2 flex-wrap">
-              <span className="text-[10px] font-headline font-black text-on-surface-variant uppercase">Mã Phòng:</span>
-              <div className="flex items-center gap-1.5 bg-yellow-400 text-slate-950 font-headline font-black text-xs px-3 py-1.5 rounded-xl border-2 border-on-surface shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]">
+              <span className="text-[10px] font-pop-accent font-black text-[var(--pop-black)]/70 uppercase">Mã Phòng:</span>
+              <div className="flex items-center gap-1.5 bg-[var(--pop-amber)] text-[var(--pop-black)] font-pop-display font-black text-xs px-3 py-1.5 rounded-none border-2 border-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)]">
                 <span>{roomState.code}</span>
                 <button 
                   onClick={() => handleCopyCode(roomState.code)} 
-                  className="hover:scale-110 active:scale-95 transition-all flex items-center justify-center text-slate-950 ml-1"
+                  className="hover:scale-110 active:scale-95 transition-all flex items-center justify-center text-[var(--pop-black)] ml-1"
                   title="Sao chép mã phòng"
                 >
                   {copied ? (
@@ -2256,10 +2283,10 @@ export default function Game() {
                   )}
                 </button>
               </div>
-              <span className="text-[9px] font-headline font-black bg-indigo-100 border-2 border-on-surface text-indigo-700 px-2 py-1.5 rounded-xl shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)] uppercase">
+              <span className="text-[9px] font-pop-accent font-black bg-[var(--pop-cream)] border-2 border-[var(--pop-black)] text-[var(--pop-black)] px-2 py-1.5 rounded-none shadow-[2px_2px_0_var(--pop-black)] uppercase">
                 {t('edition_' + roomState.edition + '_name') || roomState.edition}
               </span>
-              <span className="text-[9px] font-headline font-black bg-[#ff5722] border-2 border-on-surface text-white px-2 py-1.5 rounded-xl shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)] uppercase flex items-center gap-1">
+              <span className="text-[9px] font-pop-accent font-black bg-[var(--pop-red)] border-2 border-[var(--pop-black)] text-white px-2 py-1.5 rounded-none shadow-[2px_2px_0_var(--pop-black)] uppercase flex items-center gap-1">
                 <CoinIcon className="w-3.5 h-3.5 text-white" />
                 CƯỢC: {roomState.betAmount || 50}
               </span>
@@ -2268,45 +2295,45 @@ export default function Game() {
           
           <button
             onClick={handleLeaveConfirm}
-            className="bg-secondary text-on-error font-headline font-black border-2 border-on-surface shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] px-4 py-2.5 text-xs rounded-xl hover:scale-105 active:scale-95 transition-all uppercase flex items-center gap-1.5"
+            className="bg-white text-[var(--pop-black)] hover:bg-[var(--pop-cream)] font-pop-accent font-black border-3 border-[var(--pop-black)] shadow-[3px_3px_0_var(--pop-black)] px-4 py-2.5 text-xs rounded-none hover:translate-y-[-2px] hover:shadow-[4.5px_4.5px_0_var(--pop-black)] active:translate-y-0.5 active:shadow-none transition-all uppercase flex items-center gap-1.5"
           >
-            <LogoutIcon className="w-4 h-4 text-on-error" strokeWidth={2.5} />
+            <LogoutIcon className="w-4 h-4 text-[var(--pop-black)]" strokeWidth={2.5} />
             Rời Phòng
           </button>
         </div>
 
         <div className="text-left">
-          <h3 className="text-xs font-headline font-black text-on-surface uppercase tracking-wider mb-4">
+          <h3 className="text-xs font-pop-accent font-black text-[var(--pop-black)] uppercase tracking-wider mb-4">
             Thành viên trong phòng ({roomState.players.length}/5)
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {roomState.players.map((player) => (
               <div
                 key={player.userId}
-                className="flex justify-between items-center bg-surface border-3 border-on-surface px-4 py-3 rounded-2xl shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]"
+                className="flex justify-between items-center bg-white border-3 border-[var(--pop-black)] px-4 py-3 rounded-none shadow-[3px_3px_0_var(--pop-black)]"
               >
                 <div className="flex items-center gap-3">
                   <div 
-                    className="h-9 w-9 rounded-full border-2 border-on-surface flex items-center justify-center text-xs font-headline font-black uppercase text-on-surface"
+                    className="h-9 w-9 rounded-none border-2 border-[var(--pop-black)] flex items-center justify-center text-xs font-pop-display font-black uppercase text-[var(--pop-black)]"
                     style={{ backgroundColor: getAvatarBgColor(player.username || player.userId) }}
                   >
                     {player.username ? player.username.slice(0, 2).toUpperCase() : player.userId.slice(0, 2).toUpperCase()}
                   </div>
                   <div className="flex flex-col">
-                    <span className="text-xs font-headline font-black uppercase text-on-surface truncate max-w-[120px] flex items-center gap-1">
+                    <span className="text-xs font-pop-accent font-black uppercase text-[var(--pop-black)] truncate max-w-[120px] flex items-center gap-1">
                       {player.username || player.userId}
                       {roomState.host === player.userId && (
-                        <CrownIcon className="w-4 h-4 text-on-surface" strokeWidth={2.5} title="Trưởng phòng" />
+                        <CrownIcon className="w-4 h-4 text-[var(--pop-black)]" strokeWidth={2.5} title="Trưởng phòng" />
                       )}
                     </span>
                     {roomState.host === player.userId && (
-                      <span className="text-[7.5px] font-headline font-black text-primary uppercase">Trưởng phòng</span>
+                      <span className="text-[7.5px] font-pop-accent font-black text-[var(--pop-red)] uppercase">Trưởng phòng</span>
                     )}
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-1 font-headline font-black text-[9px] text-on-surface uppercase">
-                  <CheckCircleIcon className="w-4 h-4 text-on-surface animate-pulse" strokeWidth={2.5} />
+                <div className="flex items-center gap-1 font-pop-accent font-black text-[9px] text-[var(--pop-black)] uppercase">
+                  <CheckCircleIcon className="w-4 h-4 text-[var(--pop-black)] animate-pulse" strokeWidth={2.5} />
                   <span>Sẵn sàng</span>
                 </div>
               </div>
@@ -2315,26 +2342,25 @@ export default function Game() {
         </div>
 
         {isHost ? (
-          <div className="flex flex-col gap-2 border-t-4 border-dashed border-on-surface-variant pt-6 mt-4">
+          <div className="flex flex-col gap-2 border-t-3 border-dashed border-[var(--pop-black)]/30 pt-6 mt-4">
             <button
               onClick={startGame}
               disabled={roomState.players.length < 2}
-              className={`btn-detonator w-full py-4 rounded-2xl font-headline font-black uppercase text-base flex items-center justify-center gap-2
-                ${roomState.players.length < 2 ? 'opacity-50 cursor-not-allowed pointer-events-none' : 'hover:animate-shake'}`}
+              className={`w-full bg-[var(--pop-red)] text-white border-3 border-[var(--pop-black)] shadow-[4px_4px_0_var(--pop-black)] hover:shadow-[6px_6px_0_var(--pop-black)] hover:-translate-y-[2px] active:translate-y-[2px] active:shadow-none transition-all py-4 rounded-none font-pop-display font-black uppercase text-base flex items-center justify-center gap-2
+                ${roomState.players.length < 2 ? 'opacity-50 cursor-not-allowed pointer-events-none shadow-none' : 'hover:bg-[var(--pop-orange)]'}`}
             >
-              <RocketIcon className="w-5 h-5" strokeWidth={2.5} />
+              <RocketIcon className="w-5 h-5 text-white" strokeWidth={2.5} />
               <span>BẮT ĐẦU TRẬN ĐẤU</span>
             </button>
             {roomState.players.length < 2 && (
-              <p className="text-center text-[10px] font-bold text-on-surface-variant">
+              <p className="text-center text-[10px] font-bold text-[var(--pop-black)]/70 font-pop-body">
                 Cần tối thiểu 2 người chơi để khai hỏa trận đấu.
               </p>
             )}
           </div>
         ) : (
-          <div className="text-center border-t-4 border-dashed border-on-surface-variant pt-6 mt-4">
-
-            <p className="text-xs font-headline font-black uppercase text-primary animate-pulse flex items-center justify-center gap-1">
+          <div className="text-center border-t-3 border-dashed border-[var(--pop-black)]/30 pt-6 mt-4">
+            <p className="text-xs font-pop-accent font-black uppercase text-[var(--pop-red)] animate-pulse flex items-center justify-center gap-1">
               Đang chờ trưởng phòng bắt đầu trận đấu...
             </p>
           </div>
@@ -2386,25 +2412,26 @@ export default function Game() {
 
   return (
     <div ref={mainContainerRef} className="relative flex flex-col gap-5 w-full select-none">
-      {/* Top Header Bar matching mockup */}
-      <div className="flex justify-between items-center bg-white border-4 border-on-surface rounded-2xl px-6 py-3 shadow-[4px_4px_0px_0px_#1a1c1c] z-20">
+      {/* Top Header Bar matching Pop Art */}
+      <div className="flex justify-between items-center bg-[var(--pop-cream)] border-4 border-[var(--pop-black)] rounded-none px-6 py-3 shadow-[6px_6px_0_var(--pop-black)] z-20">
         {/* Left: Title & Room ID */}
         <div className="flex items-center gap-3 md:gap-4 flex-wrap">
-          <h1 className="arena-title-brutal text-2xl md:text-3xl italic font-black uppercase tracking-tight">
+          <h1 className="font-pop-display text-2xl md:text-3xl italic font-black uppercase tracking-tight text-[var(--pop-red)]"
+              style={{ WebkitTextStroke: '2px var(--pop-black)', textShadow: '3px 3px 0px var(--pop-black)' }}>
             ARENA BATTLE
           </h1>
-          <div className="h-6 w-1 bg-on-surface/20 rounded hidden sm:block" />
-          <span className="font-headline font-black text-lg text-on-surface/40 uppercase tracking-widest hidden sm:block">
+          <div className="h-6 w-1 bg-[var(--pop-black)]/20 rounded-none hidden sm:block" />
+          <span className="font-pop-accent font-black text-lg text-[var(--pop-black)]/40 uppercase tracking-widest hidden sm:block">
             _{roomState.code.slice(0, 3)}
           </span>
-          <span className="text-[9px] font-headline font-black bg-indigo-50 border-2 border-on-surface text-indigo-700 px-2 py-0.5 rounded-lg shadow-[1px_1px_0px_0px_#1a1c1c] uppercase tracking-wide">
+          <span className="text-[9px] font-pop-accent font-black bg-[var(--pop-cream)] border-2 border-[var(--pop-black)] text-[var(--pop-black)] px-2 py-0.5 rounded-none shadow-[1.5px_1.5px_0_var(--pop-black)] uppercase tracking-wide">
             {t('edition_' + roomState.edition + '_name') || roomState.edition}
           </span>
         </div>
 
         {/* Right: Header Buttons & Toggle */}
         <div className="flex items-center gap-3">
-          <div className="hidden md:flex items-center gap-2 bg-yellow-400 text-slate-950 font-headline font-black text-xs px-3.5 py-1.5 rounded-xl border-2 border-on-surface shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]">
+          <div className="hidden md:flex items-center gap-2 bg-[var(--pop-amber)] text-[var(--pop-black)] font-pop-display font-black text-xs px-3.5 py-1.5 rounded-none border-2 border-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)]">
             <span>ROOM: {roomState.code}</span>
           </div>
           
@@ -2415,34 +2442,34 @@ export default function Game() {
                 setRightPanelTab('chat');
               }
             }}
-            className={`relative font-headline font-black border-2 border-on-surface shadow-[2px_2px_0px_0px_#1a1c1c] px-3.5 py-1.5 rounded-xl text-xs active:translate-y-0.5 active:shadow-none transition-all uppercase ${
+            className={`relative font-pop-accent font-black border-2 border-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)] px-3.5 py-1.5 rounded-none text-xs active:translate-y-0.5 active:shadow-none transition-all uppercase ${
               hasUnreadMessages && !isSidebarOpen
-                ? 'animate-chat-blink' 
-                : 'bg-white text-on-surface hover:bg-slate-50'
+                ? 'bg-[var(--pop-red)] text-white shadow-[2px_2px_0_var(--pop-black)]' 
+                : 'bg-white text-[var(--pop-black)] hover:bg-[var(--pop-cream)]'
             }`}
           >
             {isSidebarOpen ? "Ẩn Chat" : "Hiện Chat"}
             {hasUnreadMessages && !isSidebarOpen && (
               <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500 border border-on-surface"></span>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-none bg-[var(--pop-amber)] opacity-75 border-2 border-[var(--pop-black)]"></span>
+                <span className="relative inline-flex rounded-none h-3 w-3 bg-[var(--pop-amber)] border-2 border-[var(--pop-black)]"></span>
               </span>
             )}
           </button>
 
-          <button className="p-1.5 rounded-xl border-2 border-on-surface bg-white shadow-[2px_2px_0px_0px_#1a1c1c] hover:scale-105 active:scale-95 transition-all text-on-surface" title="Cài đặt">
+          <button className="p-1.5 rounded-none border-2 border-[var(--pop-black)] bg-white shadow-[2px_2px_0_var(--pop-black)] hover:translate-y-[-1px] hover:shadow-[3px_3px_0_var(--pop-black)] active:translate-y-0.5 active:shadow-none transition-all text-[var(--pop-black)]" title="Cài đặt">
             <GearIcon className="w-5 h-5" />
           </button>
-          <button className="p-1.5 rounded-xl border-2 border-on-surface bg-white shadow-[2px_2px_0px_0px_#1a1c1c] hover:scale-105 active:scale-95 transition-all text-on-surface" title="Hướng dẫn">
+          <button className="p-1.5 rounded-none border-2 border-[var(--pop-black)] bg-white shadow-[2px_2px_0_var(--pop-black)] hover:translate-y-[-1px] hover:shadow-[3px_3px_0_var(--pop-black)] active:translate-y-0.5 active:shadow-none transition-all text-[var(--pop-black)]" title="Hướng dẫn">
             <HelpIcon className="w-5 h-5" />
           </button>
-          <button className="p-1.5 rounded-xl border-2 border-on-surface bg-white shadow-[2px_2px_0px_0px_#1a1c1c] hover:scale-105 active:scale-95 transition-all text-on-surface" title="Âm thanh">
+          <button className="p-1.5 rounded-none border-2 border-[var(--pop-black)] bg-white shadow-[2px_2px_0_var(--pop-black)] hover:translate-y-[-1px] hover:shadow-[3px_3px_0_var(--pop-black)] active:translate-y-0.5 active:shadow-none transition-all text-[var(--pop-black)]" title="Âm thanh">
             <SoundIcon className="w-5 h-5" />
           </button>
 
           <button
             onClick={handleLeaveConfirm}
-            className="bg-secondary text-on-error font-headline font-black border-2 border-on-surface shadow-[2px_2px_0px_0px_#1a1c1c] px-3.5 py-1.5 rounded-xl text-xs hover:scale-105 active:scale-95 transition-all uppercase"
+            className="bg-white text-[var(--pop-black)] font-pop-accent font-black border-2 border-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)] px-3.5 py-1.5 rounded-none text-xs hover:bg-[var(--pop-cream)] hover:translate-y-[-1px] hover:shadow-[3px_3px_0_var(--pop-black)] active:translate-y-0.5 active:shadow-none transition-all uppercase"
           >
             Thoát
           </button>
@@ -2451,21 +2478,21 @@ export default function Game() {
 
       <div className="relative min-h-[75vh] grid grid-cols-1 md:grid-cols-4 gap-6">
         {/* Game Board (Left 3 or 4 columns depending on sidebar toggle) */}
-        <div id="game-board-container" className={`${isSidebarOpen ? 'md:col-span-3' : 'md:col-span-4'} flex flex-col justify-between gap-0 border-4 border-on-surface rounded-3xl shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] overflow-hidden bg-[#faf9f6]`}>
+        <div id="game-board-container" className={`${isSidebarOpen ? 'md:col-span-3' : 'md:col-span-4'} flex flex-col justify-between gap-0 border-4 border-[var(--pop-black)] rounded-none shadow-[8px_8px_0_var(--pop-black)] overflow-hidden bg-[var(--pop-cream)]`}>
           
           {/* Subheader: Turn indicator status */}
-          <div className="flex justify-between items-center bg-slate-50 border-b-3 border-on-surface px-6 py-2.5 z-10">
+          <div className="flex justify-between items-center bg-white border-b-3 border-[var(--pop-black)] px-6 py-2.5 z-10">
             <div className="flex items-center gap-1.5">
-              <span className="text-[9px] font-headline font-black text-on-surface-variant uppercase tracking-widest">Trận đấu đang chơi</span>
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse border border-on-surface" />
+              <span className="text-[9px] font-pop-accent font-black text-[var(--pop-black)]/70 uppercase tracking-widest">Trận đấu đang chơi</span>
+              <span className="h-2 w-2 rounded-none bg-[var(--pop-amber)] animate-pulse border-2 border-[var(--pop-black)]" />
             </div>
             {isMyTurn ? (
-              <span className="bg-yellow-400 text-slate-950 font-headline font-black text-[10px] px-3.5 py-1.5 rounded-full border-2 border-on-surface shadow-[1.5px_1.5px_0px_0px_#1a1c1c] animate-pulse">
+              <span className="bg-[var(--pop-amber)] text-[var(--pop-black)] font-pop-accent font-black text-[10px] px-3.5 py-1.5 rounded-none border-2 border-[var(--pop-black)] shadow-[1.5px_1.5px_0_var(--pop-black)] animate-pulse">
                 LƯỢT CỦA BẠN: CẦN BỐC {gameState.drawsRequired} LÁ!
               </span>
             ) : (
               gameState.drawsRequired > 1 && (
-                <span className="bg-secondary text-on-error font-headline font-black text-[10px] px-3.5 py-1.5 rounded-full border-2 border-on-surface shadow-[1.5px_1.5px_0px_0px_#1a1c1c] animate-bounce">
+                <span className="bg-[var(--pop-red)] text-white font-pop-accent font-black text-[10px] px-3.5 py-1.5 rounded-none border-2 border-[var(--pop-black)] shadow-[1.5px_1.5px_0_var(--pop-black)] animate-bounce">
                   LƯỢT DỒN BỐC: {gameState.drawsRequired} LẦN!
                 </span>
               )
@@ -2476,7 +2503,7 @@ export default function Game() {
           <div className="flex-grow flex flex-col justify-between dotted-grid-bg p-6 relative select-none min-h-[460px]">
             
             {/* Opponents Row at the top (Horizontal layout) */}
-            <div className="flex justify-center items-center gap-5 md:gap-10 w-[calc(100%+3rem)] -mx-6 -mt-6 py-3.5 z-10 border-b-3 border-on-surface bg-slate-50/90 shadow-sm mb-4">
+            <div className="flex justify-center items-center gap-5 md:gap-10 w-[calc(100%+3rem)] -mx-6 -mt-6 py-3.5 z-10 border-b-3 border-[var(--pop-black)] bg-white/90 shadow-[0_4px_0_var(--pop-black)] mb-4">
               {getOrderedOpponents().map((opp) => (
                 <div key={opp.userId} className="relative transition-transform duration-150 hover:scale-[1.02]">
                   <PlayerAvatar
@@ -2550,12 +2577,12 @@ export default function Game() {
               </div>
             </div>
 
-            {/* Bottom Row: Player avatar & Hand, nested inside the solid deep red Brutalist bar */}
-            <div className={`w-[calc(100%+3rem)] -mx-6 -mb-6 bg-[#b7131a] border-t-4 p-5 z-10 flex flex-col md:flex-row gap-5 items-stretch justify-between transition-all duration-300
+            {/* Bottom Row: Player avatar & Hand, nested inside the solid deep red Pop Art bar */}
+            <div className={`w-[calc(100%+3rem)] -mx-6 -mb-6 bg-[var(--pop-red)] border-t-4 p-5 z-10 flex flex-col md:flex-row gap-5 items-stretch justify-between transition-all duration-300
               ${isMyTurn 
-                ? 'border-yellow-400 animate-pulse-gold-glow' 
-                : 'border-on-surface shadow-[0_-4px_0px_0px_#1a1c1c]'}`}>
-              <div className="flex items-center justify-center bg-black/15 p-4 rounded-2xl border-2 border-dashed border-white/20 flex-shrink-0">
+                ? 'border-[var(--pop-amber)] animate-pulse-gold-glow' 
+                : 'border-[var(--pop-black)] shadow-[0_-4px_0_var(--pop-black)]'}`}>
+              <div className="flex items-center justify-center bg-black/15 p-4 rounded-none border-3 border-dashed border-white/30 flex-shrink-0">
                 {myPlayerState && (
                   <div className="flex flex-col items-center gap-4 relative">
                     <PlayerAvatar
@@ -2566,7 +2593,7 @@ export default function Game() {
                       isWaitingBK={gameState?.barkingKittenState?.waitingHolder === myUser?.id}
                     />
                     {isMyTurn && (
-                      <span className="bg-yellow-400 text-slate-950 font-headline font-black text-[9px] uppercase px-2 py-0.5 rounded-lg border-2 border-on-surface shadow-[1px_1px_0px_0px_#1a1c1c] text-center w-full z-10 relative">
+                      <span className="bg-[var(--pop-amber)] text-[var(--pop-black)] font-pop-accent font-black text-[9px] uppercase px-2 py-0.5 rounded-none border-2 border-[var(--pop-black)] shadow-[1.5px_1.5px_0_var(--pop-black)] text-center w-full z-10 relative">
                         Bốc: {gameState.drawsRequired} lá
                       </span>
                     )}
@@ -2591,11 +2618,11 @@ export default function Game() {
 
               {/* Utility sidebar icons in Bottom Bar */}
               <div className="flex md:flex-col justify-center gap-2 flex-shrink-0 self-center">
-                <button className="p-2.5 rounded-xl border-2 border-on-surface bg-white shadow-[2px_2px_0px_0px_#1a1c1c] hover:scale-110 active:scale-90 transition-all text-on-surface" title="Biểu cảm nhanh">
-                  <SmileIcon className="w-5 h-5 text-on-surface" />
+                <button className="p-2.5 rounded-none border-2 border-[var(--pop-black)] bg-white shadow-[2px_2px_0_var(--pop-black)] hover:translate-y-[-1px] hover:shadow-[3px_3px_0_var(--pop-black)] active:translate-y-0.5 active:shadow-none transition-all text-[var(--pop-black)]" title="Biểu cảm nhanh">
+                  <SmileIcon className="w-5 h-5" />
                 </button>
-                <button className="p-2.5 rounded-xl border-2 border-on-surface bg-white shadow-[2px_2px_0px_0px_#1a1c1c] hover:scale-110 active:scale-90 transition-all text-on-surface" title="Xem khay bài">
-                  <CardDrawerIcon className="w-5 h-5 text-on-surface" />
+                <button className="p-2.5 rounded-none border-2 border-[var(--pop-black)] bg-white shadow-[2px_2px_0_var(--pop-black)] hover:translate-y-[-1px] hover:shadow-[3px_3px_0_var(--pop-black)] active:translate-y-0.5 active:shadow-none transition-all text-[var(--pop-black)]" title="Xem khay bài">
+                  <CardDrawerIcon className="w-5 h-5" />
                 </button>
               </div>
             </div>
@@ -2604,26 +2631,26 @@ export default function Game() {
         </div>
 
         {/* Chat & Lịch Sử Panel (Right 1 column) */}
-        <div className={`md:col-span-1 bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-5 flex flex-col justify-between h-[82vh] ${isSidebarOpen ? 'flex' : 'hidden'}`}>
+        <div className={`md:col-span-1 bg-white border-4 border-[var(--pop-black)] shadow-[8px_8px_0_var(--pop-black)] rounded-none p-5 flex flex-col justify-between h-[82vh] ${isSidebarOpen ? 'flex' : 'hidden'}`}>
         <div className="flex flex-col gap-4 flex-1 overflow-hidden">
           
           {/* Header Tab Switcher */}
-          <div className="flex border-b-4 border-on-surface pb-2.5 gap-2">
+          <div className="flex border-b-4 border-[var(--pop-black)] pb-2.5 gap-2">
             <button
               onClick={() => setRightPanelTab('chat')}
-              className={`flex-1 py-1.5 rounded-xl border-2 border-on-surface font-headline font-black text-xs uppercase shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)] transition-all
+              className={`flex-1 py-1.5 rounded-none border-3 border-[var(--pop-black)] font-pop-accent font-black text-xs uppercase shadow-[2px_2px_0_var(--pop-black)] transition-all
                 ${rightPanelTab === 'chat' 
-                  ? 'bg-primary text-on-primary -translate-y-0.5 shadow-[2.5px_2.5px_0px_0px_rgba(26,28,28,1)]' 
-                  : 'bg-surface hover:bg-slate-100'}`}
+                  ? 'bg-[var(--pop-red)] text-white -translate-y-0.5 shadow-[4px_4px_0_var(--pop-black)]' 
+                  : 'bg-white hover:bg-[var(--pop-cream)] text-[var(--pop-black)]'}`}
             >
               Chat
             </button>
             <button
               onClick={() => setRightPanelTab('log')}
-              className={`flex-1 py-1.5 rounded-xl border-2 border-on-surface font-headline font-black text-xs uppercase shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)] transition-all
+              className={`flex-1 py-1.5 rounded-none border-3 border-[var(--pop-black)] font-pop-accent font-black text-xs uppercase shadow-[2px_2px_0_var(--pop-black)] transition-all
                 ${rightPanelTab === 'log' 
-                  ? 'bg-primary text-on-primary -translate-y-0.5 shadow-[2.5px_2.5px_0px_0px_rgba(26,28,28,1)]' 
-                  : 'bg-surface hover:bg-slate-100'}`}
+                  ? 'bg-[var(--pop-red)] text-white -translate-y-0.5 shadow-[4px_4px_0_var(--pop-black)]' 
+                  : 'bg-white hover:bg-[var(--pop-cream)] text-[var(--pop-black)]'}`}
             >
               Lịch sử
             </button>
@@ -2633,13 +2660,13 @@ export default function Game() {
             <div className="flex-1 flex flex-col gap-4 overflow-hidden">
               {/* Emotes quick buttons */}
               <div className="flex flex-col gap-2">
-                <span className="text-[10px] font-headline font-black text-on-surface-variant uppercase tracking-wider">Phát biểu cảm nhanh</span>
+                <span className="text-[10px] font-pop-accent font-black text-[var(--pop-black)]/70 uppercase tracking-wider">Phát biểu cảm nhanh</span>
                 <div className="grid grid-cols-4 gap-2">
                   {EMOTES_LIST.map((emote) => (
                     <button
                       key={emote.id}
                       onClick={() => sendEmote(emote.id)}
-                      className="h-10 text-2xl bg-surface border-2 border-on-surface hover:bg-slate-100 rounded-xl transition-all active:scale-90 flex items-center justify-center shadow-[1px_1px_0px_0px_#1a1c1c]"
+                      className="h-10 text-2xl bg-white border-2 border-[var(--pop-black)] hover:bg-[var(--pop-cream)] rounded-none transition-all active:translate-y-0.5 active:shadow-none flex items-center justify-center shadow-[2px_2px_0_var(--pop-black)]"
                     >
                       {emote.char}
                     </button>
@@ -2648,9 +2675,9 @@ export default function Game() {
               </div>
 
               {/* Chat Messages history */}
-              <div className="flex-1 flex flex-col gap-2.5 overflow-y-auto border-t-3 border-dashed border-on-surface-variant pt-3 pr-1 hide-scroll">
+              <div className="flex-1 flex flex-col gap-2.5 overflow-y-auto border-t-3 border-dashed border-[var(--pop-black)]/30 pt-3 pr-1 hide-scroll">
                 {chatMessages.length === 0 ? (
-                  <div className="text-center text-on-surface-variant text-xs py-8 font-sans font-bold italic">
+                  <div className="text-center text-[var(--pop-black)]/70 text-xs py-8 font-pop-body font-bold italic">
                     Chưa có cuộc hội thoại nào. Chat để trêu đùa đối thủ!
                   </div>
                 ) : (
@@ -2659,15 +2686,15 @@ export default function Game() {
                     return (
                       <div
                         key={index}
-                        className={`flex flex-col max-w-[85%] rounded-2xl px-3.5 py-2 text-xs border-3 border-on-surface
+                        className={`flex flex-col max-w-[85%] rounded-none px-3.5 py-2 text-xs border-3 border-[var(--pop-black)]
                           ${isMe 
-                            ? 'self-end chat-bubble-me rounded-tr-none' 
-                            : 'self-start chat-bubble-opponent rounded-tl-none'}`}
+                            ? 'self-end bg-[var(--pop-red)] text-white shadow-[-3px_3px_0_var(--pop-black)]' 
+                            : 'self-start bg-[var(--pop-cream)] text-[var(--pop-black)] shadow-[3px_3px_0_var(--pop-black)]'}`}
                       >
-                        <span className="font-headline font-black text-[9px] text-on-surface mb-0.5 uppercase">
+                        <span className="font-pop-accent font-black text-[9px] mb-0.5 uppercase opacity-90">
                           {isMe ? 'BẠN' : msg.username}
                         </span>
-                        <p className="leading-relaxed font-sans font-bold">{msg.text}</p>
+                        <p className="leading-relaxed font-pop-body font-bold">{msg.text}</p>
                       </div>
                     );
                   })
@@ -2678,20 +2705,20 @@ export default function Game() {
 
           {rightPanelTab === 'log' && (
             <div className="flex-1 flex flex-col gap-3 overflow-hidden">
-              <span className="text-[10px] font-headline font-black text-on-surface-variant uppercase tracking-wider">Nhật ký diễn biến</span>
-              <div className="flex-1 flex flex-col gap-2 overflow-y-auto pr-1 hide-scroll bg-surface border-2 border-on-surface rounded-2xl p-3 shadow-[1.5px_1.5px_0px_0px_#1a1c1c]">
+              <span className="text-[10px] font-pop-accent font-black text-[var(--pop-black)]/70 uppercase tracking-wider">Nhật ký diễn biến</span>
+              <div className="flex-1 flex flex-col gap-2 overflow-y-auto pr-1 hide-scroll bg-white border-3 border-[var(--pop-black)] rounded-none p-3 shadow-[3px_3px_0_var(--pop-black)]">
                 {actionLog.length === 0 ? (
-                  <div className="text-center text-on-surface-variant text-xs py-8 font-sans font-bold italic">
+                  <div className="text-center text-[var(--pop-black)]/70 text-xs py-8 font-pop-body font-bold italic">
                     Chưa có diễn biến nào được ghi nhận.
                   </div>
                 ) : (
                   actionLog.map((log) => (
                     <div
                       key={log.id}
-                      className="flex justify-between items-start gap-2 border-b border-on-surface/10 pb-1.5 text-xs font-bold font-sans text-on-surface last:border-b-0"
+                      className="flex justify-between items-start gap-2 border-b-2 border-[var(--pop-black)]/10 pb-1.5 text-xs font-bold font-pop-body text-[var(--pop-black)] last:border-b-0"
                     >
                       <span className="leading-relaxed flex-1">{log.text}</span>
-                      <span className="text-[9px] text-on-surface-variant font-mono whitespace-nowrap bg-slate-100 border border-on-surface px-1 py-0.5 rounded">{log.timestamp}</span>
+                      <span className="text-[9px] text-[var(--pop-black)]/80 font-mono whitespace-nowrap bg-[var(--pop-cream)] border-2 border-[var(--pop-black)] px-1.5 py-0.5 rounded-none">{log.timestamp}</span>
                     </div>
                   ))
                 )}
@@ -2701,19 +2728,19 @@ export default function Game() {
         </div>
 
         {/* Input Chat bar */}
-        <form onSubmit={handleSendChat} className="flex gap-2 border-t-3 border-on-surface pt-3 mt-2">
+        <form onSubmit={handleSendChat} className="flex gap-2 border-t-3 border-[var(--pop-black)] pt-3 mt-2">
           <input
             type="text"
             placeholder={rightPanelTab === 'chat' ? "Gửi tin nhắn hăm dọa..." : "Chuyển sang tab Chat để trò chuyện"}
             disabled={rightPanelTab !== 'chat'}
             value={chatInput}
             onChange={(e) => setChatInput(e.target.value)}
-            className="flex-1 bg-surface border-2 border-on-surface rounded-xl px-3 py-2 text-xs text-on-surface font-bold focus:outline-none focus:bg-white transition-all shadow-[1.5px_1.5px_0px_0px_#1a1c1c] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 bg-white border-3 border-[var(--pop-black)] rounded-none px-3 py-2 text-xs text-[var(--pop-black)] font-pop-body font-bold focus:outline-none focus:bg-[var(--pop-cream)] transition-all shadow-[3px_3px_0_var(--pop-black)] focus:shadow-[4px_4px_0_var(--pop-black)] focus:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
           />
           <button
             type="submit"
             disabled={rightPanelTab !== 'chat'}
-            className="px-4 py-2 bg-primary text-on-primary font-headline font-black rounded-xl text-xs border-2 border-on-surface shadow-[1.5px_1.5px_0px_0px_#1a1c1c] active:translate-y-0.5 active:shadow-none hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 bg-[var(--pop-red)] text-white font-pop-display font-black rounded-none text-xs border-3 border-[var(--pop-black)] shadow-[3px_3px_0_var(--pop-black)] active:translate-y-0.5 active:shadow-none hover:-translate-y-0.5 hover:shadow-[4px_4px_0_var(--pop-black)] disabled:opacity-50 disabled:cursor-not-allowed uppercase"
           >
             Gửi
           </button>

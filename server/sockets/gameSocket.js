@@ -1486,7 +1486,8 @@ module.exports = function registerGameSocket(io) {
 
       io.to(roomCode).emit('game:cardPlayed', {
         playerId: userId,
-        cardType: comboResult.cardTypes[0] || 'cat_taco',
+        cardType: `combo_${cards.length}`,
+        displayCardType: comboResult.cardTypes[0] || 'cat_taco',
         targetPlayerId,
       });
 
