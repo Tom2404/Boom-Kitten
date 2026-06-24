@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Card, { CARD_THEMES } from './Card.jsx';
 import { motion } from 'framer-motion';
 
@@ -7,6 +7,18 @@ export default function DiscardPile({ discardPile = [], pendingCombo5, myUserId,
 
   const topCard = discardPile.length > 0 ? discardPile[discardPile.length - 1] : null;
   const isChoosing = pendingCombo5 && pendingCombo5.playerId === myUserId;
+
+  useEffect(() => {
+    if (isChoosing) {
+      // Đợi hiệu ứng Combo 5 (thùng rác rơi xuống, khoảng 2.5s) kết thúc rồi mới tự động mở form
+      const timer = setTimeout(() => {
+        setIsOpen(true);
+      }, 2500);
+      return () => clearTimeout(timer);
+    } else {
+      setIsOpen(false);
+    }
+  }, [isChoosing]);
 
   const handleSelect = (cardId) => {
     onSelectCard(cardId);

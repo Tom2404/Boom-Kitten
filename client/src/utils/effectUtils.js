@@ -274,73 +274,6 @@ export function playFlyingCard({
   });
 }
 
-/**
- * Hiệu ứng Skip: Mũi tên xanh dương >> với hiệu ứng Zoom In / Zoom Out mượt mà
- */
-export function playSkipEffect(triggerEl) {
-  const rect = triggerEl ? triggerEl.getBoundingClientRect() : {
-    left: window.innerWidth / 2,
-    top: window.innerHeight / 2,
-    width: 0,
-    height: 0
-  };
-  
-  const startX = rect.left + rect.width / 2;
-  const startY = rect.top + rect.height / 2;
-
-  const overlay = document.createElement('div');
-  overlay.style.position = 'fixed';
-  overlay.style.inset = '0';
-  overlay.style.zIndex = '180';
-  overlay.style.pointerEvents = 'none';
-  overlay.style.overflow = 'hidden';
-  document.body.appendChild(overlay);
-
-  const arrow = document.createElement('div');
-  arrow.innerText = '>>';
-  arrow.style.position = 'absolute';
-  arrow.style.left = '50%';
-  arrow.style.top = '50%';
-  arrow.style.transform = 'translate(-50%, -50%) scale(0)';
-  arrow.style.color = '#00CCFF'; // pop-blue
-  arrow.style.fontSize = '180px';
-  arrow.style.fontWeight = '900';
-  arrow.style.fontFamily = 'system-ui, -apple-system, sans-serif';
-  arrow.style.lineHeight = '1';
-  arrow.style.WebkitTextStroke = '8px #111111'; // pop-black stroke
-  arrow.style.textShadow = '10px 10px 0px #111111'; // pop-black shadow
-  overlay.appendChild(arrow);
-
-  const tl = gsap.timeline({
-    onComplete: () => {
-      if (overlay.parentNode) {
-        overlay.parentNode.removeChild(overlay);
-      }
-    }
-  });
-
-  // Entrance Zoom In
-  tl.to(arrow, {
-    scale: 1.5,
-    duration: 0.4,
-    ease: 'back.out(2.5)',
-  })
-  // Pause a bit
-  .to(arrow, {
-    scale: 1.6,
-    duration: 0.2,
-    ease: 'power1.inOut'
-  })
-  // Zoom Out and move right
-  .to(arrow, {
-    scale: 0,
-    x: window.innerWidth / 2,
-    duration: 0.3,
-    ease: 'power3.in',
-  });
-
-  return tl;
-}
 
 /**
  * Hiệu ứng Nope: Biển báo Stop hình bát giác rớt đập xuống
@@ -540,19 +473,19 @@ export function playAttackEffect(triggerEl, targetPlayerId) {
   const slashes = [];
   for (let i = 0; i < 3; i++) {
     const path = document.createElementNS(svgNS, "path");
-    // Đường cong từ trên xuống dưới
+    // Đường gấp khúc (ziczac) thay vì đường cong
     const yOffset = i * 25 + 10;
-    // d="M x y Q cx cy ex ey"
-    // Vẽ nét từ trái sang phải, hơi cong lên trên
-    path.setAttribute("d", `M 10 ${yOffset} Q 50 ${yOffset - 30} 90 ${yOffset}`);
+    // Gấp khúc khoảng 3-4 lần
+    path.setAttribute("d", `M 10 ${yOffset} L 25 ${yOffset - 15} L 40 ${yOffset} L 55 ${yOffset - 15} L 70 ${yOffset} L 90 ${yOffset - 15}`);
     path.style.fill = "none";
     path.style.stroke = "#FF0000"; // Đỏ máu
     path.style.strokeWidth = "8";
     path.style.strokeLinecap = "round";
+    path.style.strokeLinejoin = "miter";
     path.style.filter = "drop-shadow(3px 3px 0px #111111)"; // Viền đen giả
-    // Hiệu ứng vẽ từ từ (stroke-dasharray)
-    path.style.strokeDasharray = "120";
-    path.style.strokeDashoffset = "120"; 
+    // Hiệu ứng vẽ từ từ (stroke-dasharray tăng độ dài do đường gấp khúc dài hơn)
+    path.style.strokeDasharray = "200";
+    path.style.strokeDashoffset = "200"; 
     svg.appendChild(path);
     slashes.push(path);
   }
@@ -803,6 +736,8 @@ export function playCombo2Effect(targetPlayerId) {
   overlay.style.overflow = 'hidden';
   document.body.appendChild(overlay);
 
+  const startX = window.innerWidth / 2;
+  const startY = window.innerHeight;
   let endX = window.innerWidth / 2;
   let endY = window.innerHeight / 2 - 100;
   
@@ -815,87 +750,59 @@ export function playCombo2Effect(targetPlayerId) {
     }
   }
 
-  // 2 Đầu mèo chui lên
-  const cat1 = document.createElement('div');
-  const cat2 = document.createElement('div');
-  [cat1, cat2].forEach((cat, i) => {
-    cat.style.position = 'absolute';
-    cat.style.left = `${endX + (i===0 ? -60 : 60)}px`;
-    cat.style.top = `${endY + 150}px`;
-    cat.style.width = '80px';
-    cat.style.height = '80px';
-    cat.style.backgroundColor = i===0 ? '#FF3366' : '#00CCFF';
-    cat.style.borderRadius = '40px 40px 10px 10px';
-    cat.style.border = '4px solid #111111';
+  const cards = [];
+  for (let i = 0; i < 2; i++) {
+    const card = document.createElement('div');
+    card.style.position = 'absolute';
+    card.style.left = `${startX}px`;
+    card.style.top = `${startY}px`;
+    card.style.width = '60px';
+    card.style.height = '85px';
+    card.style.backgroundColor = '#facc15'; // yellow
+    card.style.border = '4px solid #111';
+    card.style.borderRadius = '8px';
+    card.style.transform = 'translate(-50%, -50%)';
     
-    // Ears
-    const earL = document.createElement('div');
-    earL.style.position = 'absolute';
-    earL.style.width = '0';
-    earL.style.height = '0';
-    earL.style.borderLeft = '15px solid transparent';
-    earL.style.borderRight = '15px solid transparent';
-    earL.style.borderBottom = `25px solid ${i===0 ? '#FF3366' : '#00CCFF'}`;
-    earL.style.top = '-15px';
-    earL.style.left = '-5px';
-    earL.style.transform = 'rotate(-15deg)';
-    
-    const earR = document.createElement('div');
-    earR.style.position = 'absolute';
-    earR.style.width = '0';
-    earR.style.height = '0';
-    earR.style.borderLeft = '15px solid transparent';
-    earR.style.borderRight = '15px solid transparent';
-    earR.style.borderBottom = `25px solid ${i===0 ? '#FF3366' : '#00CCFF'}`;
-    earR.style.top = '-15px';
-    earR.style.right = '-5px';
-    earR.style.transform = 'rotate(15deg)';
-    
-    cat.appendChild(earL);
-    cat.appendChild(earR);
-    overlay.appendChild(cat);
-  });
+    // Icon mèo đơn giản
+    const catFace = document.createElement('div');
+    catFace.innerText = '😸';
+    catFace.style.fontSize = '30px';
+    catFace.style.position = 'absolute';
+    catFace.style.top = '50%';
+    catFace.style.left = '50%';
+    catFace.style.transform = 'translate(-50%, -50%)';
+    card.appendChild(catFace);
+
+    overlay.appendChild(card);
+    cards.push(card);
+  }
 
   const tl = gsap.timeline({
     onComplete: () => {
-      if (overlay.parentNode) {
-        overlay.parentNode.removeChild(overlay);
-      }
+      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
     }
   });
 
-  // Mèo ngóc đầu lên
-  tl.to([cat1, cat2], {
-    y: -100,
-    duration: 0.4,
-    ease: 'back.out(1.5)',
-    stagger: 0.1
+  tl.to(cards, {
+    x: endX - startX,
+    y: endY - startY,
+    rotation: () => (Math.random() - 0.5) * 360,
+    duration: 0.6,
+    ease: 'power2.out',
+    stagger: 0.1,
+    onComplete: () => triggerScreenShake('light')
   })
-  // Nghiêng đầu dòm ngó
-  .to(cat1, { rotation: -15, duration: 0.2 })
-  .to(cat2, { rotation: 15, duration: 0.2 }, '<')
-  // Giật đồ (vươn tay ảo hoặc nhảy cẫng lên)
-  .to([cat1, cat2], {
-    y: -140,
-    scale: 1.1,
-    duration: 0.15,
-    yoyo: true,
-    repeat: 1
-  })
-  // Tụt xuống trốn
-  .to([cat1, cat2], {
-    y: 50,
+  .to(cards, {
     opacity: 0,
-    duration: 0.3,
-    ease: 'power2.in',
-    stagger: 0.05
-  }, '+=0.2');
+    scale: 1.5,
+    duration: 0.3
+  });
 
   return tl;
 }
 
 /**
- * Hiệu ứng Combo 3 Mèo: Slot machine 3 đầu mèo thả xuống
+ * Hiệu ứng Combo 3 Mèo: 3 thẻ bay tới, gõ búa, quay sao
  */
 export function playCombo3Effect(targetPlayerId) {
   const overlay = document.createElement('div');
@@ -906,76 +813,118 @@ export function playCombo3Effect(targetPlayerId) {
   overlay.style.overflow = 'hidden';
   document.body.appendChild(overlay);
 
-  // Dim background
-  const dim = document.createElement('div');
-  dim.style.position = 'absolute';
-  dim.style.inset = '0';
-  dim.style.backgroundColor = '#111111';
-  dim.style.opacity = '0';
-  overlay.appendChild(dim);
-
-  const slotContainer = document.createElement('div');
-  slotContainer.style.position = 'absolute';
-  slotContainer.style.left = '50%';
-  slotContainer.style.top = '30%';
-  slotContainer.style.transform = 'translate(-50%, -50%)';
-  slotContainer.style.display = 'flex';
-  slotContainer.style.gap = '20px';
-  overlay.appendChild(slotContainer);
-
-  const colors = ['#FF9900', '#00FF66', '#FF00FF'];
-  const cats = [];
+  const startX = window.innerWidth / 2;
+  const startY = window.innerHeight;
+  let endX = window.innerWidth / 2;
+  let endY = window.innerHeight / 2 - 100;
   
-  colors.forEach((color) => {
-    const box = document.createElement('div');
-    box.style.width = '100px';
-    box.style.height = '100px';
-    box.style.border = '6px solid #FDFCF0';
-    box.style.backgroundColor = '#111111';
-    box.style.display = 'flex';
-    box.style.alignItems = 'center';
-    box.style.justifyContent = 'center';
-    box.style.overflow = 'hidden';
+  if (targetPlayerId) {
+    const targetEl = document.getElementById(`player-avatar-${targetPlayerId}`) || document.getElementById('player-hand-container');
+    if (targetEl) {
+      const tRect = targetEl.getBoundingClientRect();
+      endX = tRect.left + tRect.width / 2;
+      endY = tRect.top + tRect.height / 2;
+    }
+  }
+
+  const cards = [];
+  for (let i = 0; i < 3; i++) {
+    const card = document.createElement('div');
+    card.style.position = 'absolute';
+    card.style.left = `${startX}px`;
+    card.style.top = `${startY}px`;
+    card.style.width = '60px';
+    card.style.height = '85px';
+    card.style.backgroundColor = '#fb923c'; // orange
+    card.style.border = '4px solid #111';
+    card.style.borderRadius = '8px';
+    card.style.transform = 'translate(-50%, -50%)';
     
-    const cat = document.createElement('div');
-    cat.style.width = '60px';
-    cat.style.height = '60px';
-    cat.style.backgroundColor = color;
-    cat.style.borderRadius = '30px 30px 10px 10px';
-    cat.style.transform = 'translateY(-150px)'; // start above
-    box.appendChild(cat);
-    
-    slotContainer.appendChild(box);
-    cats.push(cat);
-  });
+    // Icon mèo đơn giản
+    const catFace = document.createElement('div');
+    catFace.innerText = '😸';
+    catFace.style.fontSize = '30px';
+    catFace.style.position = 'absolute';
+    catFace.style.top = '50%';
+    catFace.style.left = '50%';
+    catFace.style.transform = 'translate(-50%, -50%)';
+    card.appendChild(catFace);
+
+    overlay.appendChild(card);
+    cards.push(card);
+  }
+
+  // Hammer
+  const hammer = document.createElement('div');
+  hammer.innerText = '🔨';
+  hammer.style.position = 'absolute';
+  hammer.style.left = `${endX}px`;
+  hammer.style.top = `${endY - 80}px`;
+  hammer.style.fontSize = '80px';
+  hammer.style.transform = 'translate(-50%, -50%) rotate(-45deg)';
+  hammer.style.opacity = '0';
+  overlay.appendChild(hammer);
+
+  // Stars
+  const starsContainer = document.createElement('div');
+  starsContainer.style.position = 'absolute';
+  starsContainer.style.left = `${endX}px`;
+  starsContainer.style.top = `${endY - 40}px`;
+  starsContainer.style.width = '100px';
+  starsContainer.style.height = '40px';
+  starsContainer.style.transform = 'translate(-50%, -50%)';
+  starsContainer.style.opacity = '0';
+  
+  for (let i = 0; i < 3; i++) {
+    const star = document.createElement('div');
+    star.innerText = '⭐';
+    star.style.position = 'absolute';
+    star.style.fontSize = '30px';
+    star.style.left = `${i * 35}px`;
+    starsContainer.appendChild(star);
+  }
+  overlay.appendChild(starsContainer);
 
   const tl = gsap.timeline({
     onComplete: () => {
-      if (overlay.parentNode) {
-        overlay.parentNode.removeChild(overlay);
-      }
+      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
     }
   });
 
-  tl.to(dim, { opacity: 0.6, duration: 0.3 })
-  // Cats fall down like slot machine
-  .to(cats, {
-    y: 0,
+  tl.to(cards, {
+    x: endX - startX,
+    y: endY - startY,
+    rotation: () => (Math.random() - 0.5) * 360,
     duration: 0.5,
-    ease: 'bounce.out',
-    stagger: 0.15
+    ease: 'power2.out',
+    stagger: 0.1
   })
-  // Flash effect when all land
-  .to(slotContainer, {
-    scale: 1.1,
-    boxShadow: '0 0 30px #FDFCF0',
+  .to(cards, { opacity: 0, duration: 0.2 })
+  // Hammer drop
+  .to(hammer, {
+    opacity: 1,
+    rotation: 45,
+    y: 50,
     duration: 0.2,
-    yoyo: true,
-    repeat: 1
+    ease: 'power2.in',
+    onComplete: () => triggerScreenShake('heavy')
   })
-  // Laser beam to target
-  .to(dim, { opacity: 0, duration: 0.3, delay: 0.5 })
-  .to(slotContainer, { y: '-=100', opacity: 0, duration: 0.4, ease: 'power2.in' }, '<');
+  .to(hammer, { opacity: 0, duration: 0.2, delay: 0.2 })
+  // Stars spinning
+  .to(starsContainer, {
+    opacity: 1,
+    y: -20,
+    duration: 0.3
+  }, '-=0.1')
+  .to(starsContainer, {
+    rotation: 360,
+    duration: 1,
+    ease: 'linear'
+  }, '-=0.3')
+  .to(starsContainer, {
+    opacity: 0,
+    duration: 0.3
+  }, '-=0.3');
 
   return tl;
 }
@@ -1001,17 +950,30 @@ export function playCombo5Effect() {
   trashCan.style.top = `${startY - 100}px`;
   trashCan.style.width = '150px';
   trashCan.style.height = '200px';
-  trashCan.style.backgroundColor = '#9ca3af'; // silver
+  trashCan.style.backgroundColor = '#16a34a'; // green
   trashCan.style.border = '8px solid #111111';
   trashCan.style.boxShadow = '10px 10px 0px #111111';
   trashCan.style.transform = 'translateY(-600px)'; // Rớt từ trên xuống
+
+  // Recycle icon
+  const recycleIcon = document.createElement('div');
+  recycleIcon.innerText = '♻️';
+  recycleIcon.style.position = 'absolute';
+  recycleIcon.style.inset = '0';
+  recycleIcon.style.display = 'flex';
+  recycleIcon.style.alignItems = 'center';
+  recycleIcon.style.justifyContent = 'center';
+  recycleIcon.style.fontSize = '80px';
+  recycleIcon.style.color = '#ffffff';
+  recycleIcon.style.opacity = '0.8';
+  trashCan.appendChild(recycleIcon);
   
   // Nắp thùng rác
   const lid = document.createElement('div');
   lid.style.position = 'absolute';
   lid.style.width = '170px';
   lid.style.height = '40px';
-  lid.style.backgroundColor = '#6b7280';
+  lid.style.backgroundColor = '#15803d'; // dark green
   lid.style.border = '8px solid #111111';
   lid.style.left = '-18px';
   lid.style.top = '-40px';
@@ -1063,15 +1025,8 @@ export function playCombo5Effect() {
   return tl;
 }
 export function playSkipEffect(triggerEl) {
-  const rect = triggerEl ? triggerEl.getBoundingClientRect() : {
-    left: window.innerWidth / 2,
-    top: window.innerHeight / 2,
-    width: 0,
-    height: 0
-  };
-
-  const startX = rect.left + rect.width / 2;
-  const startY = rect.top + rect.height / 2;
+  const startX = window.innerWidth / 2;
+  const startY = window.innerHeight / 2;
 
   const overlay = document.createElement('div');
   overlay.style.position = 'fixed';
@@ -1083,19 +1038,19 @@ export function playSkipEffect(triggerEl) {
   const arrow = document.createElement('div');
   arrow.innerText = '>>';
   arrow.style.position = 'absolute';
-  arrow.style.left = \\px\;
-  arrow.style.top = \\px\;
+  arrow.style.left = `${startX - 150}px`;
+  arrow.style.top = `${startY - 150}px`;
   arrow.style.width = '300px';
   arrow.style.height = '300px';
   arrow.style.color = '#00BFFF'; // pop-cyan
   arrow.style.display = 'flex';
   arrow.style.alignItems = 'center';
   arrow.style.justifyContent = 'center';
-  arrow.style.fontSize = '200px';
+  arrow.style.fontSize = '300px';
   arrow.style.fontWeight = '900';
   arrow.style.fontFamily = 'system-ui, -apple-system, sans-serif';
-  arrow.style.WebkitTextStroke = '12px #111111';
-  arrow.style.textShadow = '8px 8px 0px #111111';
+  arrow.style.WebkitTextStroke = '18px #111111';
+  arrow.style.textShadow = '12px 12px 0px #111111';
   arrow.style.transform = 'scale(0)';
 
   overlay.appendChild(arrow);
@@ -1135,11 +1090,13 @@ export function playSkipEffect(triggerEl) {
 }
 
 export function playFavorEffect(targetPlayerId) {
+  const startX = window.innerWidth / 2;
+  const startY = window.innerHeight;
   let endX = window.innerWidth / 2;
-  let endY = window.innerHeight / 2;
+  let endY = window.innerHeight / 2 - 100;
   
   if (targetPlayerId) {
-    const targetEl = document.getElementById(\player-avatar-\\) || document.getElementById('player-hand-container');
+    const targetEl = document.getElementById(`player-avatar-${targetPlayerId}`) || document.getElementById('player-hand-container');
     if (targetEl) {
       const tRect = targetEl.getBoundingClientRect();
       endX = tRect.left + tRect.width / 2;
@@ -1155,57 +1112,60 @@ export function playFavorEffect(targetPlayerId) {
   overlay.style.overflow = 'hidden';
   document.body.appendChild(overlay);
 
-  // Arm container
-  const armContainer = document.createElement('div');
-  armContainer.style.position = 'absolute';
-  armContainer.style.left = \\px\;
-  armContainer.style.top = \\px\;
-  armContainer.style.transform = 'translate(-50%, -50%)';
-  armContainer.style.display = 'flex';
-  armContainer.style.alignItems = 'center';
-  armContainer.style.justifyContent = 'center';
-  overlay.appendChild(armContainer);
+  // Begging hand container
+  const handContainer = document.createElement('div');
+  handContainer.style.position = 'absolute';
+  handContainer.style.left = `${startX}px`;
+  handContainer.style.top = `${startY}px`;
+  handContainer.style.width = '80px';
+  handContainer.style.height = '80px';
+  handContainer.style.transform = 'translate(-50%, -50%) scale(0.5)';
+  
+  // Custom Icon for Begging Hand (Simple CSS drawing)
+  const palm = document.createElement('div');
+  palm.style.width = '60px';
+  palm.style.height = '60px';
+  palm.style.backgroundColor = '#fbbf24'; // amber
+  palm.style.border = '4px solid #111';
+  palm.style.borderRadius = '50% 50% 10px 10px';
+  palm.style.position = 'relative';
+  
+  const finger1 = document.createElement('div');
+  finger1.style.width = '15px'; finger1.style.height = '30px';
+  finger1.style.backgroundColor = '#fbbf24'; finger1.style.border = '4px solid #111';
+  finger1.style.borderRadius = '10px'; finger1.style.position = 'absolute';
+  finger1.style.top = '-20px'; finger1.style.left = '5px';
+  
+  const finger2 = document.createElement('div');
+  finger2.style.width = '15px'; finger2.style.height = '35px';
+  finger2.style.backgroundColor = '#fbbf24'; finger2.style.border = '4px solid #111';
+  finger2.style.borderRadius = '10px'; finger2.style.position = 'absolute';
+  finger2.style.top = '-25px'; finger2.style.left = '20px';
 
-  // Cat arm side view with plate
-  const svgNS = "http://www.w3.org/2000/svg";
-  const svg = document.createElementNS(svgNS, "svg");
-  svg.setAttribute("viewBox", "0 0 200 200");
-  svg.style.width = '240px';
-  svg.style.height = '240px';
-  svg.style.transform = 'translateX(-300px)'; // Start off-screen
-  
-  // Draw cat arm
-  const arm = document.createElementNS(svgNS, "path");
-  arm.setAttribute("d", "M -50 120 Q 50 120 120 100 Q 140 90 150 70 Q 140 60 120 60 Q 50 80 -50 80 Z");
-  arm.setAttribute("fill", "#FF9900");
-  arm.setAttribute("stroke", "#111111");
-  arm.setAttribute("stroke-width", "6");
-  
-  // Draw plate
-  const plate = document.createElementNS(svgNS, "ellipse");
-  plate.setAttribute("cx", "140");
-  plate.setAttribute("cy", "65");
-  plate.setAttribute("rx", "40");
-  plate.setAttribute("ry", "15");
-  plate.setAttribute("fill", "#FDFCF0");
-  plate.setAttribute("stroke", "#111111");
-  plate.setAttribute("stroke-width", "6");
-  
-  // Draw inner plate line
-  const innerPlate = document.createElementNS(svgNS, "ellipse");
-  innerPlate.setAttribute("cx", "140");
-  innerPlate.setAttribute("cy", "65");
-  innerPlate.setAttribute("rx", "25");
-  innerPlate.setAttribute("ry", "8");
-  innerPlate.setAttribute("fill", "none");
-  innerPlate.setAttribute("stroke", "#111111");
-  innerPlate.setAttribute("stroke-width", "3");
-  innerPlate.setAttribute("opacity", "0.3");
+  const finger3 = document.createElement('div');
+  finger3.style.width = '15px'; finger3.style.height = '30px';
+  finger3.style.backgroundColor = '#fbbf24'; finger3.style.border = '4px solid #111';
+  finger3.style.borderRadius = '10px'; finger3.style.position = 'absolute';
+  finger3.style.top = '-20px'; finger3.style.left = '35px';
 
-  svg.appendChild(arm);
-  svg.appendChild(plate);
-  svg.appendChild(innerPlate);
-  armContainer.appendChild(svg);
+  palm.appendChild(finger1);
+  palm.appendChild(finger2);
+  palm.appendChild(finger3);
+  handContainer.appendChild(palm);
+  overlay.appendChild(handContainer);
+
+  // A stolen card to be brought back
+  const stolenCard = document.createElement('div');
+  stolenCard.style.position = 'absolute';
+  stolenCard.style.left = '30px';
+  stolenCard.style.top = '30px';
+  stolenCard.style.width = '40px';
+  stolenCard.style.height = '60px';
+  stolenCard.style.backgroundColor = '#cbd5e1'; // gray back
+  stolenCard.style.border = '3px solid #111';
+  stolenCard.style.borderRadius = '4px';
+  stolenCard.style.transform = 'translate(-50%, -50%) scale(0)';
+  handContainer.appendChild(stolenCard);
 
   const tl = gsap.timeline({
     onComplete: () => {
@@ -1213,23 +1173,34 @@ export function playFavorEffect(targetPlayerId) {
     }
   });
 
-  tl.to(svg, {
-    x: 0,
-    duration: 0.5,
-    ease: 'back.out(1.2)'
+  tl.to(handContainer, {
+    x: endX - startX,
+    y: endY - startY,
+    scale: 1,
+    duration: 0.6,
+    ease: 'power2.out'
   })
-  .to(svg, {
-    y: '-=10',
-    duration: 0.3,
+  .to(handContainer, {
+    rotation: 15,
     yoyo: true,
     repeat: 3,
-    ease: 'sine.inOut'
+    duration: 0.1
   })
-  .to(svg, {
-    x: 300,
-    opacity: 0,
-    duration: 0.4,
+  .to(stolenCard, {
+    scale: 1,
+    duration: 0.2
+  })
+  // Hand flies back
+  .to(handContainer, {
+    x: 0,
+    y: 0,
+    scale: 0.5,
+    duration: 0.6,
     ease: 'power2.in'
+  })
+  .to(handContainer, {
+    opacity: 0,
+    duration: 0.2
   });
 
   return tl;
