@@ -6,8 +6,12 @@ const {
   joinRoom,
   leaveRoom,
   startGame,
+  getPublicRooms,
   getRoomState,
   findRoomByUser,
+  kickPlayer,
+  toggleReady,
+  updateRoomSettings,
 } = require('../game/roomManager');
 const {
   playCard,
@@ -33,6 +37,7 @@ const {
   passTurn,
   resolveExplosion,
   removeCardFromHand,
+  eliminatePlayer,
 } = require('../game/gameLogic');
 const User = require('../models/User');
 const GameHistory = require('../models/GameHistory');
@@ -443,7 +448,10 @@ module.exports = function registerGameSocket(io) {
     if (!gameState || !gameState.pendingAction || gameState.pendingAction.eventId !== eventId) return;
     const action = gameState.pendingAction;
 
-    setTimeout(async () => {
+    if (action.timerId) {
+      clearTimeout(action.timerId);
+    }
+    action.timerId = setTimeout(async () => {
       if (!room.gameState || !room.gameState.pendingAction || room.gameState.pendingAction.eventId !== eventId) return;
       await resolvePendingActionEarly(room, eventId);
     }, action.timeoutMs || 3000);
@@ -473,12 +481,19 @@ module.exports = function registerGameSocket(io) {
   }
 
   function setupNowOnlyTimeout(room, eventId) {
-    setTimeout(async () => {
-      const gameState = room.gameState;
-      if (!gameState || !gameState.pendingNowOnlyWindow || gameState.pendingNowOnlyWindow.eventId !== eventId) return;
+    const gameState = room.gameState;
+    if (!gameState || !gameState.pendingNowOnlyWindow || gameState.pendingNowOnlyWindow.eventId !== eventId) return;
 
-      const pendingNow = gameState.pendingNowOnlyWindow;
-      gameState.pendingNowOnlyWindow = null;
+    const pendingNow = gameState.pendingNowOnlyWindow;
+    if (pendingNow.timerId) {
+      clearTimeout(pendingNow.timerId);
+    }
+
+    pendingNow.timerId = setTimeout(async () => {
+      if (!room.gameState || !room.gameState.pendingNowOnlyWindow || room.gameState.pendingNowOnlyWindow.eventId !== eventId) return;
+
+      const pendingNow = room.gameState.pendingNowOnlyWindow;
+      room.gameState.pendingNowOnlyWindow = null;
       io.to(room.code).emit('game:nowOnlyWindow:end', { eventId });
 
       const action = pendingNow.resolvedAction;
@@ -524,6 +539,82 @@ module.exports = function registerGameSocket(io) {
     };
 
     startNopeWindow(room, action);
+  }
+
+  async function handlePlayerDisconnectFallback(room, userId) {
+    const gameState = room.gameState;
+    if (!gameState) return;
+
+    const innerPlayersBefore = gameState.players.map(p => ({ userId: p.userId, alive: p.alive }));
+    const innerTurnBefore = gameState.currentPlayerIndex;
+
+    const p = gameState.players.find(p => p.userId === userId);
+    if (!p || !p.alive) return;
+
+    eliminatePlayer(gameState, userId);
+
+    if (gameState.pendingBury && gameState.pendingBury.playerId === userId) {
+      resolveBury(gameState, null, 0);
+    }
+    if (gameState.pendingAlter && gameState.pendingAlter.playerId === userId) {
+      resolveAlterTheFuture(gameState, []);
+    }
+    if (gameState.pendingTargetSelect && gameState.pendingTargetSelect.playerId === userId) {
+      const aliveOpponents = gameState.players.filter(pl => pl.alive && pl.userId !== userId);
+      if (aliveOpponents.length > 0) {
+        resolveTargetSelect(room, aliveOpponents[0].userId);
+      } else {
+        gameState.pendingTargetSelect = null;
+      }
+    }
+    if (gameState.pendingFavor && gameState.pendingFavor.targetPlayerId === userId) {
+      gameState.pendingFavor = null; // target has no cards
+    }
+    if (gameState.pendingArmageddon) {
+      if (gameState.pendingArmageddon.stage === 'decision' && gameState.pendingArmageddon.targetPlayerId === userId) {
+        resolveArmageddonDecision(gameState, 'keep');
+      }
+    }
+    if (gameState.pendingGarbage) {
+      const activeWithCards = gameState.players.filter((pl) => pl.alive && pl.hand.length > 0);
+      const allDone = activeWithCards.every((pl) => gameState.pendingGarbage.responses[pl.userId]);
+      if (allDone) {
+        const oldResponses = { ...gameState.pendingGarbage.responses };
+        gameState.pendingGarbage = null;
+        Object.entries(oldResponses).forEach(([pId, cardId]) => {
+          if (cardId) {
+            removeCardFromHand(gameState, pId, cardId);
+            gameState.deck.push({ id: cardId, type: 'unknown' });
+          }
+        });
+        for (let i = gameState.deck.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [gameState.deck[i], gameState.deck[j]] = [gameState.deck[j], gameState.deck[i]];
+        }
+      }
+    }
+    if (gameState.pendingPotLuck) {
+      const activeWithCards = gameState.players.filter((pl) => pl.alive && pl.hand.length > 0);
+      const allDone = activeWithCards.every((pl) => gameState.pendingPotLuck.responses[pl.userId]);
+      if (allDone) {
+        const oldResponses = { ...gameState.pendingPotLuck.responses };
+        gameState.pendingPotLuck = null;
+        Object.entries(oldResponses).forEach(([pId, cardId]) => {
+          if (cardId) {
+            removeCardFromHand(gameState, pId, cardId);
+            gameState.deck.unshift({ id: cardId, type: 'unknown' });
+          }
+        });
+      }
+    }
+    if (gameState.pendingDefuse && gameState.pendingDefuse.playerId === userId) {
+      gameState.pendingDefuse = null;
+    }
+    if (gameState.pendingZombie && gameState.pendingZombie.playerId === userId) {
+      resolveZombieRevive(gameState, userId, null);
+    }
+
+    await afterGameStateChanged(room, innerPlayersBefore, innerTurnBefore);
   }
 
   async function resolveBarkingKittenSocket(room, playerId, targetPlayerId) {
@@ -906,7 +997,7 @@ module.exports = function registerGameSocket(io) {
         const currentPending = pending;
         setTimeout(() => {
           const state = room.gameState;
-          if (state.pendingArmageddon && state.pendingArmageddon === currentPending && state.pendingArmageddon.stage === 'distribute') {
+          if (state && state.pendingArmageddon && state.pendingArmageddon === currentPending && state.pendingArmageddon.stage === 'distribute') {
             resolveArmageddonDistribute(state, 'godcat');
             io.to(room.code).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(state) });
 
@@ -971,7 +1062,7 @@ module.exports = function registerGameSocket(io) {
       }, 200);
     }
 
-    socket.on('room:create', async ({ password, edition, maxPlayers, betAmount }) => {
+    socket.on('room:create', async ({ password, edition, maxPlayers, betAmount, customDefuses, customExplodingKittens }) => {
       try {
         let username = socket.user?.username ?? `Guest-${guestId.slice(6, 11)}`;
         if (socket.user?.id) {
@@ -985,7 +1076,7 @@ module.exports = function registerGameSocket(io) {
             }
           }
         }
-        const room = createRoom(userId, { password, edition, maxPlayers, betAmount }, username);
+        const room = createRoom(userId, { password, edition, maxPlayers, betAmount, customDefuses, customExplodingKittens }, username);
         socket.join(room.code);
         io.to(room.code).emit('room:updated', { room });
       } catch (error) {
@@ -1014,9 +1105,59 @@ module.exports = function registerGameSocket(io) {
       }
     });
 
-    socket.on('room:leave', () => {
+    socket.on('room:toggleReady', ({ roomCode, isReady }) => {
+      try {
+        const room = toggleReady(roomCode, userId, isReady);
+        io.to(roomCode).emit('room:updated', { room });
+      } catch (error) {
+        socket.emit('error', { message: error.message });
+      }
+    });
+
+    socket.on('room:updateSettings', ({ roomCode, settings }) => {
+      try {
+        const room = updateRoomSettings(roomCode, userId, settings);
+        io.to(roomCode).emit('room:updated', { room });
+      } catch (error) {
+        socket.emit('error', { message: error.message });
+      }
+    });
+
+    socket.on('room:kickPlayer', ({ roomCode, targetUserId }) => {
+      try {
+        const roomBefore = getRoomState(roomCode);
+        const player = roomBefore?.players.find((p) => p.userId === targetUserId);
+        const pName = player ? player.username : targetUserId;
+
+        const room = kickPlayer(roomCode, userId, targetUserId);
+        
+        // Notify the kicked player directly
+        const targetSocket = [...io.sockets.sockets.values()].find(s => s.user?.id === targetUserId || s.guestId === targetUserId);
+        if (targetSocket) {
+          targetSocket.leave(roomCode);
+          targetSocket.emit('room:kicked', { message: 'Bạn đã bị chủ phòng mời ra ngoài.' });
+          targetSocket.emit('room:updated', { room: null });
+        } else {
+          // Fallback if target socket cannot be found via io.sockets
+          io.to(roomCode).emit('room:kicked_target', { targetUserId });
+        }
+
+        io.to(roomCode).emit('room:updated', { room });
+        io.to(roomCode).emit('chat:message', {
+          userId: 'system',
+          username: 'Hệ Thống',
+          text: `${pName} đã bị chủ phòng mời ra khỏi phòng.`,
+          timestamp: new Date().toISOString(),
+          type: 'info'
+        });
+      } catch (error) {
+        socket.emit('error', { message: error.message });
+      }
+    });
+
+    socket.on('room:leave', async () => {
       const activeRooms = [...socket.rooms].filter((room) => room.length === 6);
-      activeRooms.forEach((roomCode) => {
+      for (const roomCode of activeRooms) {
         const roomBefore = getRoomState(roomCode);
         const player = roomBefore?.players.find((p) => p.userId === userId);
         const pName = player ? player.username : userId;
@@ -1037,9 +1178,10 @@ module.exports = function registerGameSocket(io) {
           
           if (wasPlaying && room.status === 'playing') {
             penalizeEarlyLeave(userId, betAmount);
+            await handlePlayerDisconnectFallback(room, userId);
           }
         }
-      });
+      }
     });
 
     socket.on('room:playAgain', () => {
@@ -1062,7 +1204,7 @@ module.exports = function registerGameSocket(io) {
     });
 
     socket.on('disconnect', () => {
-      setTimeout(() => {
+      setTimeout(async () => {
         const activeSockets = io.sockets.adapter.rooms.get(`user:${userId}`);
         if (!activeSockets || activeSockets.size === 0) {
           const activeRoom = findRoomByUser(userId);
@@ -1091,6 +1233,7 @@ module.exports = function registerGameSocket(io) {
                 
                 if (wasPlaying && room.status === 'playing') {
                   penalizeEarlyLeave(userId, betAmount);
+                  await handlePlayerDisconnectFallback(room, userId);
                 }
               }
             }
@@ -1239,7 +1382,7 @@ module.exports = function registerGameSocket(io) {
         // Timeout: auto-select random target opponent
         const currentPending = room.gameState.pendingTargetSelect;
         setTimeout(() => {
-          if (room.gameState.pendingTargetSelect && room.gameState.pendingTargetSelect === currentPending) {
+          if (room.gameState && room.gameState.pendingTargetSelect && room.gameState.pendingTargetSelect === currentPending) {
             const isFeed = actualCardType === 'feed_the_dead';
             const possibleOpponents = room.gameState.players.filter(p => (isFeed ? !p.alive : p.alive) && p.userId !== userId);
             if (possibleOpponents.length > 0) {
@@ -1394,37 +1537,29 @@ module.exports = function registerGameSocket(io) {
     });
 
     socket.on('game:favor:respond', async ({ cardId }) => {
-      console.log('game:favor:respond received cardId:', cardId, 'from userId:', userId);
       const roomCode = [...socket.rooms].find((room) => room.length === 6);
       if (!roomCode) {
-        console.log('game:favor:respond - Room code not found in socket.rooms:', [...socket.rooms]);
         return;
       }
       const room = getRoomState(roomCode);
       const pending = room?.gameState?.pendingFavor;
-      console.log('game:favor:respond - pending:', pending);
       if (!pending || pending.targetPlayerId !== userId) {
-        console.log('game:favor:respond - pending targetPlayerId mismatch or pending is null. pending.targetPlayerId:', pending?.targetPlayerId, 'userId:', userId);
         return;
       }
 
       const giver = room.gameState.players.find((p) => p.userId === userId);
       const receiver = room.gameState.players.find((p) => p.userId === pending.fromPlayerId);
       if (!giver || !receiver) {
-        console.log('game:favor:respond - giver or receiver not found. giver:', !!giver, 'receiver:', !!receiver);
         return;
       }
 
       const playersBefore = room.gameState.players.map(p => ({ userId: p.userId, alive: p.alive }));
       const turnBefore = room.gameState.currentPlayerIndex;
 
-      console.log('giver hand before splice:', giver.hand.map(c => ({ id: c.id, type: c.type })));
       const idx = giver.hand.findIndex((card) => card.id === cardId);
-      console.log('giver hand findIndex:', idx);
       if (idx >= 0) {
         const [gift] = giver.hand.splice(idx, 1);
         receiver.hand.push(gift);
-        console.log('Card transferred successfully. Card type:', gift.type);
         
         // Run checkStreakingKittenEffect whenever cards change hands
         checkStreakingKittenEffect(room.gameState, giver.userId);
@@ -1521,7 +1656,7 @@ module.exports = function registerGameSocket(io) {
         // Timeout: auto-select random alive opponent
         const currentPending = room.gameState.pendingTargetSelect;
         setTimeout(() => {
-          if (room.gameState.pendingTargetSelect && room.gameState.pendingTargetSelect === currentPending) {
+          if (room.gameState && room.gameState.pendingTargetSelect && room.gameState.pendingTargetSelect === currentPending) {
             const aliveOpponents = room.gameState.players.filter(p => p.alive && p.userId !== userId);
             if (aliveOpponents.length > 0) {
               const randomTarget = aliveOpponents[Math.floor(Math.random() * aliveOpponents.length)];
@@ -1577,6 +1712,9 @@ module.exports = function registerGameSocket(io) {
       if (!roomCode) return;
       const room = getRoomState(roomCode);
       if (!room?.gameState) return;
+
+      const pending = room.gameState.pendingAlter;
+      if (!pending || pending.playerId !== userId) return;
 
       resolveAlterTheFuture(room.gameState, rearrangedCards ?? []);
       io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
@@ -1641,6 +1779,7 @@ module.exports = function registerGameSocket(io) {
       if (!roomCode) return;
       const room = getRoomState(roomCode);
       if (!room?.gameState) return;
+      if (!room.gameState.pendingZombie || room.gameState.pendingZombie.playerId !== userId) return;
 
       const clairvoyancePlayerId = room.gameState.pendingZombie?.clairvoyancePlayerId;
       resolveZombieRevive(room.gameState, targetPlayerId, insertPosition);
@@ -1669,6 +1808,7 @@ module.exports = function registerGameSocket(io) {
       if (!roomCode) return;
       const room = getRoomState(roomCode);
       if (!room?.gameState) return;
+      if (!room.gameState.pendingDefuse || room.gameState.pendingDefuse.playerId !== userId) return;
 
       const clairvoyancePlayerId = room.gameState.pendingDefuse?.clairvoyancePlayerId;
       resolveDefusePutBack(room.gameState, insertPosition);
@@ -1745,7 +1885,7 @@ module.exports = function registerGameSocket(io) {
         
         const currentPending = pending;
         setTimeout(async () => {
-          if (room.gameState.pendingArmageddon && room.gameState.pendingArmageddon === currentPending) {
+          if (room.gameState && room.gameState.pendingArmageddon && room.gameState.pendingArmageddon === currentPending) {
             resolveArmageddonDecision(room.gameState, 'keep');
             io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
             sendHands(io, room);

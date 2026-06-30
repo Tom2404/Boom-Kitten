@@ -10,6 +10,7 @@ const {
   resolveDefusePutBack,
   playCard,
   resolveBarkingKittenAction,
+  passTurn,
 } = require('../game/gameLogic');
 
 test('eliminatePlayer does not clear hand in zombie edition', () => {

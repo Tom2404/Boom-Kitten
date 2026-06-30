@@ -226,6 +226,23 @@ export function useGame() {
     const onGameEnded = ({ winnerId, rankings, eloChanges, pinkCoinChanges }) => {
       setGameEnded({ winnerId, rankings, eloChanges, pinkCoinChanges });
       setStatusMessage(t('log_game_ended', { winner: getUsername(winnerId) }));
+      
+      // Auto unready all players returning to lobby
+      setRoomState((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          status: 'waiting',
+          players: prev.players.map(p => ({ ...p, isReady: p.userId === prev.host })),
+        };
+      });
+    };
+
+    const onRoomKicked = ({ message }) => {
+      alert(message);
+      setRoomState(null);
+      setGameState(null);
+      setPrivateHand([]);
     };
 
     const getUsername = (pId) => {
@@ -344,6 +361,7 @@ export function useGame() {
     socket.on('game:turnChanged', onTurnChanged);
     socket.on('chat:message', onChatMessage);
     socket.on('error', onError);
+    socket.on('room:kicked', onRoomKicked);
 
     return () => {
       socket.off('room:updated', onRoomUpdated);
@@ -377,11 +395,12 @@ export function useGame() {
       socket.off('game:turnChanged', onTurnChanged);
       socket.off('chat:message', onChatMessage);
       socket.off('error', onError);
+      socket.off('room:kicked', onRoomKicked);
     };
   }, [socket]);
 
-  const createRoom = (password = '', edition = 'all', maxPlayers = 5, betAmount = 50) => {
-    socket.emit('room:create', { password, edition, maxPlayers, betAmount });
+  const createRoom = (password = '', edition = 'all', maxPlayers = 5, betAmount = 50, customDefuses = undefined, customExplodingKittens = undefined) => {
+    socket.emit('room:create', { password, edition, maxPlayers, betAmount, customDefuses, customExplodingKittens });
   };
 
   const joinRoom = (roomCode, password = '') => {
@@ -400,6 +419,24 @@ export function useGame() {
   const startGame = () => {
     if (roomState) {
       socket.emit('game:start', { roomCode: roomState.code });
+    }
+  };
+
+  const toggleReady = (isReady) => {
+    if (roomState) {
+      socket.emit('room:toggleReady', { roomCode: roomState.code, isReady });
+    }
+  };
+
+  const updateRoomSettings = (settings) => {
+    if (roomState) {
+      socket.emit('room:updateSettings', { roomCode: roomState.code, settings });
+    }
+  };
+
+  const kickPlayer = (targetUserId) => {
+    if (roomState) {
+      socket.emit('room:kickPlayer', { roomCode: roomState.code, targetUserId });
     }
   };
 
@@ -545,6 +582,9 @@ export function useGame() {
     joinRoom,
     leaveRoom,
     startGame,
+    toggleReady,
+    updateRoomSettings,
+    kickPlayer,
     drawCard,
     playCard,
     playNope,

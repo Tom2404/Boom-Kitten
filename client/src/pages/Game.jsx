@@ -600,6 +600,8 @@ export default function Game() {
   const [lobbyMaxPlayers, setLobbyMaxPlayers] = useState(5);
   const [lobbyBetAmount, setLobbyBetAmount] = useState(50);
   const [lobbyMaxHandSize, setLobbyMaxHandSize] = useState(10);
+  const [lobbyCustomDefuses, setLobbyCustomDefuses] = useState('');
+  const [lobbyCustomExplodingKittens, setLobbyCustomExplodingKittens] = useState('');
   const [createPassword, setCreatePassword] = useState('');
   const [joinPassword, setJoinPassword] = useState('');
   const [publicRooms, setPublicRooms] = useState([]);
@@ -608,6 +610,7 @@ export default function Game() {
   const [isEditionDropdownOpen, setIsEditionDropdownOpen] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditRoomModalOpen, setIsEditRoomModalOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
@@ -637,6 +640,28 @@ export default function Game() {
 
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
   const prevMessagesLength = useRef(chatMessages.length);
+
+  // Initialize game sounds
+  const playSfx = (type) => {
+    try {
+      if (type === 'ting') {
+        const audio = new window.Audio('/sounds/ting.mp3');
+        audio.volume = 0.5;
+        audio.play().catch(() => {});
+      }
+    } catch(err) {}
+  };
+
+  const prevReadyCountRef = useRef(0);
+  useEffect(() => {
+    if (roomState?.status === 'waiting') {
+      const currentReadyCount = roomState.players.filter(p => p.isReady).length;
+      if (currentReadyCount > prevReadyCountRef.current) {
+        playSfx('ting');
+      }
+      prevReadyCountRef.current = currentReadyCount;
+    }
+  }, [roomState?.players, roomState?.status]);
 
   useEffect(() => {
     if (isSidebarOpen && rightPanelTab === 'chat') {
@@ -1891,6 +1916,38 @@ export default function Game() {
                   })()}
                 </div>
 
+                {/* Custom Difficulty Settings */}
+                <div className="flex gap-4">
+                  <div className="flex flex-col gap-2 w-1/2">
+                    <span className="font-pop-accent font-black text-[11px] text-[var(--pop-black)] uppercase tracking-wider" title="Số lượng thẻ gỡ bom trong deck (Tối đa 8)">
+                      {language === 'vi' ? 'Số Defuse (Tuỳ chọn)' : 'Custom Defuses'}
+                    </span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={8}
+                      placeholder={language === 'vi' ? 'Mặc định' : 'Default'}
+                      value={lobbyCustomDefuses}
+                      onChange={(e) => setLobbyCustomDefuses(e.target.value)}
+                      className="bg-white border-3 border-[var(--pop-black)] px-3 py-3 rounded-none text-xs font-bold focus:outline-none focus:bg-[var(--pop-cream)] transition-all w-full shadow-[2px_2px_0_var(--pop-black)] focus:shadow-[4px_4px_0_var(--pop-black)] focus:-translate-y-0.5 focus:-translate-x-0.5"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2 w-1/2">
+                    <span className="font-pop-accent font-black text-[11px] text-[var(--pop-black)] uppercase tracking-wider" title="Số lượng bom trong deck (Tối đa 8. Luôn > Defuses)">
+                      {language === 'vi' ? 'Số Bomb (Tuỳ chọn)' : 'Custom Bombs'}
+                    </span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={8}
+                      placeholder={language === 'vi' ? 'Mặc định' : 'Default'}
+                      value={lobbyCustomExplodingKittens}
+                      onChange={(e) => setLobbyCustomExplodingKittens(e.target.value)}
+                      className="bg-white border-3 border-[var(--pop-black)] px-3 py-3 rounded-none text-xs font-bold focus:outline-none focus:bg-[var(--pop-cream)] transition-all w-full shadow-[2px_2px_0_var(--pop-black)] focus:shadow-[4px_4px_0_var(--pop-black)] focus:-translate-y-0.5 focus:-translate-x-0.5"
+                    />
+                  </div>
+                </div>
+
                 {/* Room Password field */}
                 <div className="flex flex-col gap-2">
                   <span className="font-pop-accent font-black text-xs text-[var(--pop-black)] uppercase tracking-wider">
@@ -1963,7 +2020,9 @@ export default function Game() {
               {/* Start Lobby DETONATE button */}
               <button
                 onClick={() => {
-                  createRoom(createPassword, lobbyEdition, lobbyMaxPlayers, lobbyBetAmount);
+                  const defuses = lobbyCustomDefuses === '' ? undefined : parseInt(lobbyCustomDefuses, 10);
+                  const kittens = lobbyCustomExplodingKittens === '' ? undefined : parseInt(lobbyCustomExplodingKittens, 10);
+                  createRoom(createPassword, lobbyEdition, lobbyMaxPlayers, lobbyBetAmount, defuses, kittens);
                   setIsCreatingRoom(false);
                 }}
                 className="w-full bg-[var(--pop-red)] hover:bg-[var(--pop-orange)] text-white border-3 border-[var(--pop-black)] py-4.5 rounded-none font-pop-display font-black uppercase text-base tracking-wider shadow-[6px_6px_0_var(--pop-black)] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[8px_8px_0_var(--pop-black)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all duration-150"
@@ -2332,9 +2391,27 @@ export default function Game() {
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-1 font-pop-accent font-black text-[9px] text-[var(--pop-black)] uppercase">
-                  <CheckCircleIcon className="w-4 h-4 text-[var(--pop-black)] animate-pulse" strokeWidth={2.5} />
-                  <span>Sẵn sàng</span>
+                <div className="flex items-center gap-2">
+                  {player.isReady ? (
+                    <div className="flex items-center gap-1 font-pop-accent font-black text-[9px] text-[var(--pop-green)] uppercase">
+                      <CheckCircleIcon className="w-4 h-4 text-[var(--pop-green)]" strokeWidth={2.5} />
+                      <span>Sẵn sàng</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1 font-pop-accent font-black text-[9px] text-[var(--pop-red)] uppercase">
+                      <ClockIcon className="w-4 h-4 text-[var(--pop-red)] animate-pulse" strokeWidth={2.5} />
+                      <span>Đang chờ</span>
+                    </div>
+                  )}
+                  {isHost && player.userId !== myUser.id && (
+                    <button 
+                      onClick={() => kickPlayer(player.userId)}
+                      className="ml-2 bg-[var(--pop-red)] text-white p-1.5 border-2 border-[var(--pop-black)] shadow-[1.5px_1.5px_0_var(--pop-black)] hover:translate-y-[-1px] hover:shadow-[2px_2px_0_var(--pop-black)] active:translate-y-[1px] active:shadow-none transition-all"
+                      title="Mời ra ngoài"
+                    >
+                      <LogoutIcon className="w-3.5 h-3.5" strokeWidth={2.5} />
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
@@ -2344,25 +2421,133 @@ export default function Game() {
         {isHost ? (
           <div className="flex flex-col gap-2 border-t-3 border-dashed border-[var(--pop-black)]/30 pt-6 mt-4">
             <button
+              onClick={() => setIsEditRoomModalOpen(true)}
+              className="w-full bg-[var(--pop-amber)] text-[var(--pop-black)] border-3 border-[var(--pop-black)] shadow-[4px_4px_0_var(--pop-black)] hover:shadow-[6px_6px_0_var(--pop-black)] hover:-translate-y-[2px] active:translate-y-[2px] active:shadow-none transition-all py-3 rounded-none font-pop-display font-black uppercase text-sm mb-2"
+            >
+              CÀI ĐẶT LẠI PHÒNG
+            </button>
+            <button
               onClick={startGame}
-              disabled={roomState.players.length < 2}
+              disabled={roomState.players.length < 2 || roomState.players.some(p => p.userId !== roomState.host && !p.isReady)}
               className={`w-full bg-[var(--pop-red)] text-white border-3 border-[var(--pop-black)] shadow-[4px_4px_0_var(--pop-black)] hover:shadow-[6px_6px_0_var(--pop-black)] hover:-translate-y-[2px] active:translate-y-[2px] active:shadow-none transition-all py-4 rounded-none font-pop-display font-black uppercase text-base flex items-center justify-center gap-2
-                ${roomState.players.length < 2 ? 'opacity-50 cursor-not-allowed pointer-events-none shadow-none' : 'hover:bg-[var(--pop-orange)]'}`}
+                ${(roomState.players.length < 2 || roomState.players.some(p => p.userId !== roomState.host && !p.isReady)) ? 'opacity-50 cursor-not-allowed pointer-events-none shadow-none' : 'hover:bg-[var(--pop-orange)]'}`}
             >
               <RocketIcon className="w-5 h-5 text-white" strokeWidth={2.5} />
               <span>BẮT ĐẦU TRẬN ĐẤU</span>
             </button>
-            {roomState.players.length < 2 && (
-              <p className="text-center text-[10px] font-bold text-[var(--pop-black)]/70 font-pop-body">
-                Cần tối thiểu 2 người chơi để khai hỏa trận đấu.
+            {(roomState.players.length < 2 || roomState.players.some(p => p.userId !== roomState.host && !p.isReady)) && (
+              <p className="text-center text-[10px] font-bold text-[var(--pop-black)]/70 font-pop-body mt-2">
+                Cần tối thiểu 2 người chơi và tất cả đều phải SẴN SÀNG.
               </p>
             )}
           </div>
         ) : (
-          <div className="text-center border-t-3 border-dashed border-[var(--pop-black)]/30 pt-6 mt-4">
-            <p className="text-xs font-pop-accent font-black uppercase text-[var(--pop-red)] animate-pulse flex items-center justify-center gap-1">
-              Đang chờ trưởng phòng bắt đầu trận đấu...
+          <div className="border-t-3 border-dashed border-[var(--pop-black)]/30 pt-6 mt-4 flex flex-col gap-3">
+            {roomState.players.find(p => p.userId === myUser.id)?.isReady ? (
+              <button
+                onClick={() => toggleReady(false)}
+                className="w-full bg-white text-[var(--pop-red)] border-3 border-[var(--pop-black)] shadow-[4px_4px_0_var(--pop-black)] hover:-translate-y-[2px] active:translate-y-[2px] active:shadow-none transition-all py-4 rounded-none font-pop-display font-black uppercase text-base flex items-center justify-center gap-2"
+              >
+                <span>HỦY SẴN SÀNG</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => toggleReady(true)}
+                className="w-full bg-[var(--pop-green)] text-white border-3 border-[var(--pop-black)] shadow-[4px_4px_0_var(--pop-black)] hover:bg-[var(--pop-light-green)] hover:-translate-y-[2px] active:translate-y-[2px] active:shadow-none transition-all py-4 rounded-none font-pop-display font-black uppercase text-base flex items-center justify-center gap-2"
+              >
+                <CheckCircleIcon className="w-5 h-5 text-white" strokeWidth={2.5} />
+                <span>SẴN SÀNG</span>
+              </button>
+            )}
+            <p className="text-center text-[10px] font-bold text-[var(--pop-black)]/70 font-pop-body">
+              Chờ trưởng phòng bắt đầu trận đấu...
             </p>
+          </div>
+        )}
+
+        {isEditRoomModalOpen && isHost && (
+          <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
+            <div className="bg-white border-4 border-[var(--pop-black)] shadow-[8px_8px_0_var(--pop-black)] rounded-none p-6 w-full max-w-md flex flex-col gap-5 relative text-left">
+              <button 
+                onClick={() => setIsEditRoomModalOpen(false)}
+                className="absolute top-4 right-4 font-headline font-black text-on-surface hover:scale-110 active:scale-95 text-lg"
+              >
+                ✕
+              </button>
+              
+              <div>
+                <h3 className="font-pop-display font-black text-xl text-[var(--pop-black)] uppercase tracking-tight">CÀI ĐẶT PHÒNG</h3>
+                <p className="text-[10px] font-bold text-[var(--pop-black)]/70 mt-0.5">Thay đổi thông số. Người chơi khác sẽ bị huỷ sẵn sàng.</p>
+              </div>
+
+              <div className="flex flex-col gap-4 border-3 border-[var(--pop-black)] bg-[var(--pop-cream)] p-4 rounded-none shadow-[2.5px_2.5px_0_var(--pop-black)]">
+                
+                {/* Max Players */}
+                <div className="flex flex-col gap-2">
+                  <span className="font-pop-accent font-black text-xs text-[var(--pop-black)] uppercase tracking-wider">
+                    {language === 'vi' ? 'Số người chơi' : 'Max Players'}
+                  </span>
+                  <input
+                    type="range"
+                    min="2"
+                    max={roomState.edition === '2_player' ? 2 : (roomState.edition === 'imploding' ? 6 : 5)}
+                    value={lobbyMaxPlayers}
+                    onChange={(e) => setLobbyMaxPlayers(Number(e.target.value))}
+                    className="brutal-slider"
+                  />
+                  <div className="text-center font-pop-display font-black text-sm">{lobbyMaxPlayers}</div>
+                </div>
+
+                {/* Custom Difficulties */}
+                <div className="flex gap-4">
+                  <div className="flex flex-col gap-2 w-1/2">
+                    <span className="font-pop-accent font-black text-[11px] text-[var(--pop-black)] uppercase tracking-wider">
+                      {language === 'vi' ? 'Số Defuse (Tuỳ chọn)' : 'Custom Defuses'}
+                    </span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={8}
+                      placeholder={language === 'vi' ? 'Mặc định' : 'Default'}
+                      value={lobbyCustomDefuses}
+                      onChange={(e) => setLobbyCustomDefuses(e.target.value)}
+                      className="bg-white border-3 border-[var(--pop-black)] px-3 py-2 rounded-none text-xs font-bold w-full"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2 w-1/2">
+                    <span className="font-pop-accent font-black text-[11px] text-[var(--pop-black)] uppercase tracking-wider">
+                      {language === 'vi' ? 'Số Bomb (Tuỳ chọn)' : 'Custom Bombs'}
+                    </span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={8}
+                      placeholder={language === 'vi' ? 'Mặc định' : 'Default'}
+                      value={lobbyCustomExplodingKittens}
+                      onChange={(e) => setLobbyCustomExplodingKittens(e.target.value)}
+                      className="bg-white border-3 border-[var(--pop-black)] px-3 py-2 rounded-none text-xs font-bold w-full"
+                    />
+                  </div>
+                </div>
+
+              </div>
+
+              <button
+                onClick={() => {
+                  const defuses = lobbyCustomDefuses === '' ? undefined : parseInt(lobbyCustomDefuses, 10);
+                  const kittens = lobbyCustomExplodingKittens === '' ? undefined : parseInt(lobbyCustomExplodingKittens, 10);
+                  updateRoomSettings({
+                    maxPlayers: lobbyMaxPlayers,
+                    customDefuses: defuses,
+                    customExplodingKittens: kittens,
+                  });
+                  setIsEditRoomModalOpen(false);
+                }}
+                className="w-full bg-[var(--pop-green)] text-white border-3 border-[var(--pop-black)] py-4 rounded-none font-pop-display font-black uppercase text-base shadow-[4px_4px_0_var(--pop-black)] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0_var(--pop-black)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all"
+              >
+                LƯU CÀI ĐẶT
+              </button>
+            </div>
           </div>
         )}
       </div>

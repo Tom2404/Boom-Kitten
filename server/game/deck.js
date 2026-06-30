@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const SKIN_COUNTS = {
   defuse: 18,
   nope: 10,
+  attack: 8,
   skip: 8,
   see_the_future_3: 10,
   shuffle: 8,
@@ -23,6 +24,7 @@ const SKIN_COUNTS = {
   clairvoyance_now: 2,
   dig_deeper: 4,
   godcat: 1,
+  devilcat: 1,
   armageddon: 3,
   barking_kitten: 2,
   reveal_the_future_3x: 3,
@@ -63,6 +65,7 @@ const CARD_COUNTS = {
   clairvoyance_now: 2,
   dig_deeper: 2,
   godcat: 2,
+  devilcat: 1,
   armageddon: 2,
   barking_kitten: 2,
   reveal_the_future_3x: 2,
@@ -76,10 +79,10 @@ const CARD_COUNTS = {
   streaking_kitten: 1,
   super_skip: 1,
   see_the_future_1: 1,
-  see_the_future_5: 1,
-  alter_the_future_5: 1,
+  see_the_future_5: 3,
+  alter_the_future_5: 2,
   swap_top_and_bottom: 1,
-  mark: 1,
+  mark: 3,
   garbage_collection: 1,
   curse_of_the_cat_butt: 2,
 };
@@ -103,17 +106,17 @@ function getCardCounts(playerCount, edition = 'original') {
   const counts = {};
   
   if (edition === '2_player') {
-    // 2-Player Edition has exactly 29 action/cat cards in deck (excluding starting hands and kittens)
-    counts.nope = 3;
+    // 2-Player Edition has a reduced deck (excluding starting hands and kittens)
+    counts.nope = 2;
     counts.attack = 2;
-    counts.skip = 4;
+    counts.skip = 2;
     counts.see_the_future_3 = 3;
-    counts.shuffle = 3;
+    counts.shuffle = 2;
     counts.favor = 2;
-    counts.cat_taco = 3;
-    counts.cat_watermelon = 3;
-    counts.cat_beard = 3;
-    counts.cat_potato = 3;
+    counts.cat_taco = 2;
+    counts.cat_watermelon = 2;
+    counts.cat_beard = 2;
+    counts.cat_potato = 2;
     return counts;
   }
   
@@ -124,6 +127,7 @@ function getCardCounts(playerCount, edition = 'original') {
     counts.see_the_future_3 = 3;
     counts.shuffle = 3;
     counts.favor = 3;
+    counts.clairvoyance_now = 2;
     // Zombie Kittens actions
     counts.attack_of_the_dead = 2;
     counts.feed_the_dead = 2;
@@ -156,6 +160,7 @@ function getCardCounts(playerCount, edition = 'original') {
   
   if (edition === 'good_vs_evil') {
     counts.godcat = CARD_COUNTS.godcat;
+    counts.devilcat = CARD_COUNTS.devilcat;
     counts.armageddon = CARD_COUNTS.armageddon;
   }
 
@@ -198,7 +203,7 @@ function createDeck(playerCount, edition = 'original') {
   return shuffleDeck(deck);
 }
 
-function dealCards(deck, players, handSize = 7, edition = 'original') {
+function dealCards(deck, players, handSize = 7, edition = 'original', customOptions = {}) {
   const mutableDeck = [...deck];
   
   // Give each player their starting Defuse / Zombie Kitten card
@@ -228,7 +233,10 @@ function dealCards(deck, players, handSize = 7, edition = 'original') {
 
   // Remaining defuses are shuffled back into the deck for standard/expansion editions using Defuse cards
   if (edition === 'original' || edition === 'barking' || edition === 'good_vs_evil' || edition === 'imploding' || edition === 'streaking') {
-    const remainingDefuses = Math.max(0, 6 - players.length);
+    let remainingDefuses = Math.max(0, 6 - players.length);
+    if (customOptions.customDefuses !== undefined) {
+      remainingDefuses = Math.max(0, customOptions.customDefuses - players.length);
+    }
     for (let i = 0; i < remainingDefuses; i += 1) {
       mutableDeck.push(makeCard('defuse'));
     }
@@ -237,12 +245,24 @@ function dealCards(deck, players, handSize = 7, edition = 'original') {
   // Add Exploding & Imploding Kittens to remaining deck
   if (edition === 'imploding') {
     mutableDeck.push(makeCard('imploding_kitten'));
-    const explodingCount = Math.max(0, players.length - 1);
+    let explodingCount = Math.max(0, players.length - 2);
+    if (customOptions.customExplodingKittens !== undefined) {
+      explodingCount = Math.max(0, customOptions.customExplodingKittens - 1); // 1 imploding kitten replaces an exploding kitten
+    }
     for (let i = 0; i < explodingCount; i += 1) {
       mutableDeck.push(makeCard('exploding_kitten'));
     }
   } else {
-    const explodingCount = edition === '2_player' ? 1 : Math.max(0, players.length - 1);
+    let explodingCount;
+    if (customOptions.customExplodingKittens !== undefined) {
+      explodingCount = customOptions.customExplodingKittens;
+    } else if (edition === '2_player') {
+      explodingCount = 1;
+    } else if (edition === 'streaking') {
+      explodingCount = players.length;
+    } else {
+      explodingCount = Math.max(0, players.length - 1);
+    }
     for (let i = 0; i < explodingCount; i += 1) {
       mutableDeck.push(makeCard('exploding_kitten'));
     }
@@ -252,13 +272,4 @@ function dealCards(deck, players, handSize = 7, edition = 'original') {
   return { deck: finalDeck, players };
 }
 
-function insertExplodingKittens(deck, count) {
-  const mutableDeck = [...deck];
-  for (let i = 0; i < count; i += 1) {
-    const index = Math.floor(Math.random() * (mutableDeck.length + 1));
-    mutableDeck.splice(index, 0, makeCard('exploding_kitten'));
-  }
-  return mutableDeck;
-}
-
-module.exports = { createDeck, shuffleDeck, dealCards, insertExplodingKittens };
+module.exports = { createDeck, shuffleDeck, dealCards };

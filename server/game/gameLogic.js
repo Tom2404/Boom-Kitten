@@ -34,6 +34,16 @@ function passTurn(gameState) {
   }
 }
 
+function tryPassTurn(gameState, playerId) {
+  const player = getPlayer(gameState, playerId);
+  if (player && player.alive && player.hand.length > 10) {
+    // Do not pass turn yet, player must discard
+  } else {
+    gameState.drawsRequired = 1;
+    passTurn(gameState);
+  }
+}
+
 function eliminatePlayer(gameState, playerId) {
   const player = getPlayer(gameState, playerId);
   if (!player) return gameState;
@@ -91,11 +101,27 @@ function checkStreakingKittenEffect(gameState, playerId) {
   return gameState;
 }
 
+/**
+ * resolveExplosion handles the complex flow when a player draws a fatal card.
+ * Flowchart:
+ * 1. Streaking Kitten Check:
+ *    - If card is Exploding Kitten AND player holds Streaking Kitten:
+ *      -> Add EK to hand silently, return.
+ * 2. Imploding Kitten Check:
+ *    - If card is Imploding Kitten:
+ *      -> If face up: Explode immediately (no defuse possible).
+ *      -> If face down: Trigger pendingDefuse to put it back face up.
+ * 3. Defuse / Zombie Kitten Check:
+ *    - Find Defuse or Zombie Kitten in hand.
+ *    - If found, remove from hand, discard, and trigger pendingDefuse/pendingZombie.
+ * 4. Elimination:
+ *    - If no protection, player explodes and is eliminated.
+ */
 function resolveExplosion(gameState, playerId, card, onDefuse) {
   const player = getPlayer(gameState, playerId);
   if (!player) return gameState;
 
-  // 1. Streaking Kitten allows holding 1 Exploding Kitten
+  // 1. Streaking Kitten Check
   const streakingCount = player.hand.filter((c) => c.type === 'streaking_kitten').length;
   const explodingCount = player.hand.filter((c) => c.type === 'exploding_kitten').length;
   if (card.type === 'exploding_kitten' && explodingCount < streakingCount) {
@@ -118,9 +144,13 @@ function resolveExplosion(gameState, playerId, card, onDefuse) {
   }
 
   // 3. Check for Defuse or Zombie Kitten
-  const defuseIdx = player.hand.findIndex((c) => c.type === 'defuse' || c.type === 'zombie_kitten');
+  let defuseIdx = player.hand.findIndex((c) => c.type === 'defuse');
+  if (defuseIdx === -1) {
+    defuseIdx = player.hand.findIndex((c) => c.type === 'zombie_kitten');
+  }
   if (defuseIdx >= 0) {
     const defuseCard = player.hand.splice(defuseIdx, 1)[0];
+    delete defuseCard.marked;
     gameState.discardPile.push(defuseCard);
 
     if (onDefuse) onDefuse(playerId, defuseCard.type);
@@ -134,6 +164,7 @@ function resolveExplosion(gameState, playerId, card, onDefuse) {
   }
 
   // 4. No defuse, explode
+  delete card.marked;
   gameState.discardPile.push(card);
   eliminatePlayer(gameState, playerId);
   return gameState;
@@ -199,16 +230,24 @@ function resolveAlterTheFuture(gameState, rearrangedCards) {
   const count = Math.min(gameState.pendingAlter.count || 3, gameState.deck.length);
   if (count > 0) {
     const topCards = gameState.deck.splice(-count);
-    const reordered = [];
-    const orderIds = [...rearrangedCards].reverse();
-    orderIds.forEach((id) => {
-      const card = topCards.find((c) => c.id === id);
-      if (card) reordered.push(card);
-    });
-    topCards.forEach((card) => {
-      if (!reordered.includes(card)) reordered.unshift(card);
-    });
-    gameState.deck.push(...reordered);
+    
+    // Security validation: check if rearrangedCards is a valid permutation of topCards
+    const topIds = topCards.map((c) => c.id).sort();
+    const providedIds = Array.isArray(rearrangedCards) ? [...rearrangedCards].sort() : [];
+    const isValid = topIds.length === providedIds.length && topIds.every((val, index) => val === providedIds[index]);
+
+    if (isValid) {
+      const reordered = [];
+      const orderIds = [...rearrangedCards].reverse();
+      orderIds.forEach((id) => {
+        const card = topCards.find((c) => c.id === id);
+        reordered.push(card);
+      });
+      gameState.deck.push(...reordered);
+    } else {
+      // Invalid input (exploit attempt), ignore changes and restore original order
+      gameState.deck.push(...topCards);
+    }
   }
   gameState.pendingAlter = null;
   return gameState;
@@ -259,6 +298,7 @@ function resolveBury(gameState, cardId, insertPosition) {
   const index = player.hand.findIndex((c) => c.id === cardId);
   if (index >= 0) {
     const [card] = player.hand.splice(index, 1);
+    delete card.marked;
     const pos = Math.max(0, Math.min(insertPosition, gameState.deck.length));
     gameState.deck.splice(pos, 0, card);
   }
@@ -288,6 +328,7 @@ function resolveGarbageCollection(gameState, playerId, cardId) {
   const idx = player.hand.findIndex((c) => c.id === cardId);
   if (idx >= 0) {
     const [card] = player.hand.splice(idx, 1);
+    delete card.marked;
     gameState.deck.push(card);
     gameState.pendingGarbage.responses[playerId] = cardId;
     checkStreakingKittenEffect(gameState, playerId);
@@ -324,16 +365,27 @@ function resolvePotLuck(gameState, playerId, cardId) {
   const allDone = activeWithCards.every((p) => gameState.pendingPotLuck.responses[p.userId]);
 
   if (allDone) {
+    const potLuckCards = [];
     const len = gameState.players.length;
     let idxCur = gameState.currentPlayerIndex;
     for (let i = 0; i < len; i += 1) {
       const p = gameState.players[idxCur];
       const card = gameState.pendingPotLuck.responses[p.userId];
       if (card) {
-        gameState.deck.push(card);
+        delete card.marked;
+        potLuckCards.push(card);
       }
       idxCur = (idxCur + 1) % len;
     }
+    
+    // Shuffle only the pot luck cards
+    for (let i = potLuckCards.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [potLuckCards[i], potLuckCards[j]] = [potLuckCards[j], potLuckCards[i]];
+    }
+    
+    // Place on top of the deck (index 0)
+    gameState.deck.unshift(...potLuckCards);
     gameState.pendingPotLuck = null;
   }
   return gameState;
@@ -341,10 +393,14 @@ function resolvePotLuck(gameState, playerId, cardId) {
 
 function handleRaisingHeck(gameState, playerId) {
   if (gameState.deck.length > 0) {
-    const bottomCard = gameState.deck.shift(); // take from bottom
+    const bottomCard = gameState.deck.pop(); // take from bottom
     const player = getPlayer(gameState, playerId);
     if (player && player.alive) {
-      player.hand.push(bottomCard);
+      if (bottomCard.type === 'exploding_kitten' || bottomCard.type === 'imploding_kitten' || bottomCard.type === 'devilcat') {
+        resolveExplosion(gameState, playerId, bottomCard);
+      } else {
+        player.hand.push(bottomCard);
+      }
     }
   }
   return gameState;
@@ -375,6 +431,7 @@ function resolveZombieRevive(gameState, targetPlayerId, insertPosition = 0) {
   if (kitten.type === 'imploding_kitten') {
     kitten.faceUp = true; // Flips face up for next draw
   }
+  delete kitten.marked;
   gameState.deck.splice(pos, 0, kitten);
 
   gameState.pendingZombie = null;
@@ -382,12 +439,7 @@ function resolveZombieRevive(gameState, targetPlayerId, insertPosition = 0) {
     activator.blinded = false; // Lift the curse!
   }
   if (gameState.drawsRequired === 0) {
-    if (activator && activator.alive && activator.hand.length > 10) {
-      // Do not pass turn yet, player must discard first
-    } else {
-      gameState.drawsRequired = 1;
-      passTurn(gameState);
-    }
+    tryPassTurn(gameState, activator?.userId);
   }
   return gameState;
 }
@@ -529,26 +581,14 @@ function drawCard(gameState, playerId, fromBottom = false, onDefuse) {
         const t = getPlayer(gameState, thiefId);
         if (t && t.alive && !gameState.pendingZombie && !gameState.pendingDefuse) {
           if (gameState.drawsRequired === 0) {
-            const activePlayer = getPlayer(gameState, playerId);
-            if (activePlayer && activePlayer.alive && activePlayer.hand.length > 10) {
-              // Do not pass turn yet
-            } else {
-              gameState.drawsRequired = 1;
-              passTurn(gameState);
-            }
+            tryPassTurn(gameState, playerId);
           }
         }
       } else {
         // Deck and discard pile empty: decrement drawsRequired for player to avoid softlock
         gameState.drawsRequired = Math.max(0, (gameState.drawsRequired ?? 1) - 1);
         if (gameState.drawsRequired === 0) {
-          const activePlayer = getPlayer(gameState, playerId);
-          if (activePlayer && activePlayer.alive && activePlayer.hand.length > 10) {
-            // Do not pass turn yet
-          } else {
-            gameState.drawsRequired = 1;
-            passTurn(gameState);
-          }
+          tryPassTurn(gameState, playerId);
         }
       }
       return gameState;
@@ -560,12 +600,7 @@ function drawCard(gameState, playerId, fromBottom = false, onDefuse) {
     // Deck and discard pile empty: decrement drawsRequired and pass turn to avoid softlock
     gameState.drawsRequired = Math.max(0, (gameState.drawsRequired ?? 1) - 1);
     if (gameState.drawsRequired === 0) {
-      if (player.hand.length > 10) {
-        // Do not pass turn yet
-      } else {
-        gameState.drawsRequired = 1;
-        passTurn(gameState);
-      }
+      tryPassTurn(gameState, playerId);
     }
     return gameState;
   }
@@ -579,12 +614,7 @@ function drawCard(gameState, playerId, fromBottom = false, onDefuse) {
     const p = getPlayer(gameState, playerId);
     if (p && p.alive && !gameState.pendingZombie) {
       if (gameState.drawsRequired === 0) {
-        if (p.hand.length > 10) {
-          // Do not pass turn yet
-        } else {
-          gameState.drawsRequired = 1;
-          passTurn(gameState);
-        }
+        tryPassTurn(gameState, playerId);
       }
     }
     return gameState;
@@ -593,12 +623,7 @@ function drawCard(gameState, playerId, fromBottom = false, onDefuse) {
   player.hand.push(card);
   player.blinded = false; // Lift the curse!
   if (gameState.drawsRequired === 0) {
-    if (player.hand.length > 10) {
-      // Do not pass turn yet
-    } else {
-      gameState.drawsRequired = 1;
-      passTurn(gameState);
-    }
+    tryPassTurn(gameState, playerId);
   }
   return gameState;
 }
@@ -658,6 +683,7 @@ function playCard(gameState, playerId, cardType, targetPlayerId, options = {}) {
     if (!gameState.playmat) gameState.playmat = { godcat: false, devilcat: true };
     gameState.playmat.godcat = true;
   } else {
+    delete card.marked;
     gameState.discardPile.push(card);
   }
 
@@ -832,10 +858,13 @@ function resolveDefusePutBack(gameState, insertPosition) {
   if (!gameState.pendingDefuse) return gameState;
   const card = gameState.pendingDefuse.card;
   const playerId = gameState.pendingDefuse.playerId;
-  const pos = Math.max(0, Math.min(insertPosition, gameState.deck.length));
+  let pos = parseInt(insertPosition, 10);
+  if (Number.isNaN(pos)) pos = 0;
+  pos = Math.max(0, Math.min(pos, gameState.deck.length));
   if (card.type === 'imploding_kitten') {
     card.faceUp = true;
   }
+  delete card.marked;
   gameState.deck.splice(pos, 0, card);
   gameState.pendingDefuse = null;
 
@@ -845,13 +874,7 @@ function resolveDefusePutBack(gameState, insertPosition) {
   }
 
   if (gameState.drawsRequired === 0) {
-    const player = getPlayer(gameState, playerId);
-    if (player && player.alive && player.hand.length > 10) {
-      // Do not pass turn yet
-    } else {
-      gameState.drawsRequired = 1;
-      passTurn(gameState);
-    }
+    tryPassTurn(gameState, playerId);
   }
   return gameState;
 }
@@ -927,12 +950,7 @@ function resolveDigDeeper(gameState, decision) {
       }
       gameState.drawsRequired = Math.max(0, (gameState.drawsRequired ?? 1) - 1);
       if (gameState.drawsRequired === 0 && !gameState.pendingZombie && !gameState.pendingDefuse) {
-        if (player && player.alive && player.hand.length > 10) {
-          // Do not pass turn yet
-        } else {
-          gameState.drawsRequired = 1;
-          passTurn(gameState);
-        }
+        tryPassTurn(gameState, playerId);
       }
     } else {
       gameState.deck.push(firstCard);
