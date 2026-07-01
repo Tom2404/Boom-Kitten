@@ -1,6 +1,9 @@
 // Socket handlers for realtime room/game/chat/emote interactions.
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
+const { dispatcher } = require('../game/actions');
+const GameContext = require('../game/state/GameContext');
+const EffectQueue = require('../game/effects/EffectQueue');
 const {
   createRoom,
   joinRoom,
@@ -16,23 +19,8 @@ const {
 const {
   playCard,
   resolveBarkingKittenAction,
-  executeActionEffect,
   drawCard,
-  handleNope,
   handleCombo,
-  resolveCombo5,
-  resolveAlterTheFuture,
-  checkWinCondition,
-  resolveBury,
-  resolveGarbageCollection,
-  resolvePotLuck,
-  resolveZombieRevive,
-  resolveDefusePutBack,
-  resolveFeedTheDead,
-  resolveGraveRobber,
-  resolveDigDeeper,
-  resolveArmageddonDistribute,
-  resolveArmageddonDecision,
   checkStreakingKittenEffect,
   passTurn,
   resolveExplosion,
@@ -553,12 +541,22 @@ module.exports = function registerGameSocket(io) {
 
     eliminatePlayer(gameState, userId);
 
-    if (gameState.pendingBury && gameState.pendingBury.playerId === userId) {
-      resolveBury(gameState, null, 0);
+    // If there is an active interaction, trigger an interaction timeout
+    // to auto-resolve or cancel it based on the interaction rules.
+    if (gameState.activeInteraction) {
+      const interaction = gameState.activeInteraction;
+      
+      // Only timeout if the disconnected user is involved
+      const isOwner = interaction.owner === userId;
+      const isParticipant = interaction.participants.includes(userId);
+      
+      if (isOwner || isParticipant) {
+        const toContext = new GameContext(gameState, new EffectQueue());
+        dispatcher.dispatch('INTERACTION_TIMEOUT', toContext, { interactionId: interaction.id });
+      }
     }
-    if (gameState.pendingAlter && gameState.pendingAlter.playerId === userId) {
-      resolveAlterTheFuture(gameState, []);
-    }
+
+    // Resolve target select if the user was doing it (this is handled in PlayComboAction)
     if (gameState.pendingTargetSelect && gameState.pendingTargetSelect.playerId === userId) {
       const aliveOpponents = gameState.players.filter(pl => pl.alive && pl.userId !== userId);
       if (aliveOpponents.length > 0) {
@@ -567,51 +565,13 @@ module.exports = function registerGameSocket(io) {
         gameState.pendingTargetSelect = null;
       }
     }
-    if (gameState.pendingFavor && gameState.pendingFavor.targetPlayerId === userId) {
-      gameState.pendingFavor = null; // target has no cards
-    }
-    if (gameState.pendingArmageddon) {
-      if (gameState.pendingArmageddon.stage === 'decision' && gameState.pendingArmageddon.targetPlayerId === userId) {
-        resolveArmageddonDecision(gameState, 'keep');
-      }
-    }
-    if (gameState.pendingGarbage) {
-      const activeWithCards = gameState.players.filter((pl) => pl.alive && pl.hand.length > 0);
-      const allDone = activeWithCards.every((pl) => gameState.pendingGarbage.responses[pl.userId]);
-      if (allDone) {
-        const oldResponses = { ...gameState.pendingGarbage.responses };
-        gameState.pendingGarbage = null;
-        Object.entries(oldResponses).forEach(([pId, cardId]) => {
-          if (cardId) {
-            removeCardFromHand(gameState, pId, cardId);
-            gameState.deck.push({ id: cardId, type: 'unknown' });
-          }
-        });
-        for (let i = gameState.deck.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [gameState.deck[i], gameState.deck[j]] = [gameState.deck[j], gameState.deck[i]];
-        }
-      }
-    }
-    if (gameState.pendingPotLuck) {
-      const activeWithCards = gameState.players.filter((pl) => pl.alive && pl.hand.length > 0);
-      const allDone = activeWithCards.every((pl) => gameState.pendingPotLuck.responses[pl.userId]);
-      if (allDone) {
-        const oldResponses = { ...gameState.pendingPotLuck.responses };
-        gameState.pendingPotLuck = null;
-        Object.entries(oldResponses).forEach(([pId, cardId]) => {
-          if (cardId) {
-            removeCardFromHand(gameState, pId, cardId);
-            gameState.deck.unshift({ id: cardId, type: 'unknown' });
-          }
-        });
-      }
+
+    // Pending zombie / defuse
+    if (gameState.pendingZombie && gameState.pendingZombie.playerId === userId) {
+      resolveZombieRevive(gameState, null, 0);
     }
     if (gameState.pendingDefuse && gameState.pendingDefuse.playerId === userId) {
-      gameState.pendingDefuse = null;
-    }
-    if (gameState.pendingZombie && gameState.pendingZombie.playerId === userId) {
-      resolveZombieRevive(gameState, userId, null);
+      resolveDefusePutBack(gameState, 0);
     }
 
     await afterGameStateChanged(room, innerPlayersBefore, innerTurnBefore);
@@ -779,10 +739,22 @@ module.exports = function registerGameSocket(io) {
     const playersBefore = gameState.players.map(p => ({ userId: p.userId, alive: p.alive }));
     const turnBefore = gameState.currentPlayerIndex;
 
-    executeActionEffect(gameState, cardType, playerId, targetPlayerId, options, (pId, defuseType) => {
-      updateQuestProgress(pId, 'defuse_kitten', 1);
-    });
+    const queue = new EffectQueue();
+    const context = new GameContext(gameState, queue);
+    const payload = { 
+      cardType, 
+      userId: playerId, 
+      targetPlayerId, 
+      actualCard: action.actualCard, 
+      options 
+    };
 
+    dispatcher.dispatch('PLAY_CARD', context, payload);
+
+    // Call quest progress manually since we removed the callback
+    updateQuestProgress(playerId, 'defuse_kitten', 1);
+
+    // Some simple card-specific UI events can stay here
     if (cardType.startsWith('see_the_future')) {
       const count = cardType === 'see_the_future_1' ? 1 : cardType === 'see_the_future_5' ? 5 : 3;
       const player = gameState.players.find((p) => p.userId === playerId);
@@ -792,238 +764,52 @@ module.exports = function registerGameSocket(io) {
       if (player) io.to(`user:${playerId}`).emit('game:privateHand', { cards: getPrivateHandCards(player) });
     }
 
-    if (cardType.startsWith('alter_the_future')) {
-      const count = cardType === 'alter_the_future_5' ? 5 : 3;
-      const topCards = gameState.deck.slice(-count).reverse();
-      io.to(`user:${playerId}`).emit('game:alterFuture:request', {
-        cards: topCards,
-        count,
-        timeoutMs: 15000,
-      });
-
-      setTimeout(async () => {
-        const pending = gameState.pendingAlter;
-        if (!pending || pending.playerId !== playerId) return;
-        
-        const innerPlayersBefore = gameState.players.map(p => ({ userId: p.userId, alive: p.alive }));
-        const innerTurnBefore = gameState.currentPlayerIndex;
-
-        resolveAlterTheFuture(gameState, []);
-        
-        await afterGameStateChanged(room, innerPlayersBefore, innerTurnBefore);
-      }, 15000);
-    }
-
-    if (cardType === 'favor' && targetPlayerId) {
-      io.to(`user:${targetPlayerId}`).emit('game:favor:request', { fromPlayerId: playerId, timeoutMs: 15000 });
-
-      setTimeout(async () => {
-        const pending = gameState.pendingFavor;
-        if (!pending || pending.targetPlayerId !== targetPlayerId) return;
-        const giver = gameState.players.find((p) => p.userId === targetPlayerId);
-        const receiver = gameState.players.find((p) => p.userId === playerId);
-        
-        const innerPlayersBefore = gameState.players.map(p => ({ userId: p.userId, alive: p.alive }));
-        const innerTurnBefore = gameState.currentPlayerIndex;
-
-        if (giver?.hand?.length && receiver) {
-          const idx = Math.floor(Math.random() * giver.hand.length);
-          const [gift] = giver.hand.splice(idx, 1);
-          receiver.hand.push(gift);
-          checkStreakingKittenEffect(gameState, giver.userId);
-          checkStreakingKittenEffect(gameState, receiver.userId);
-        }
-        gameState.pendingFavor = null;
-        
-        await afterGameStateChanged(room, innerPlayersBefore, innerTurnBefore);
-      }, 15000);
-    }
-
-    if (cardType === 'bury') {
-      io.to(`user:${playerId}`).emit('game:bury:request', { timeoutMs: 15000 });
-
-      setTimeout(async () => {
-        const pending = gameState.pendingBury;
-        if (!pending || pending.playerId !== playerId) return;
-        const player = gameState.players.find((p) => p.userId === playerId);
-        
-        const innerPlayersBefore = gameState.players.map(p => ({ userId: p.userId, alive: p.alive }));
-        const innerTurnBefore = gameState.currentPlayerIndex;
-
-        if (player?.hand?.length) {
-          resolveBury(gameState, player.hand[0].id, 0);
-        } else {
-          gameState.pendingBury = null;
-        }
-        
-        await afterGameStateChanged(room, innerPlayersBefore, innerTurnBefore);
-      }, 15000);
-    }
-
-    if (cardType === 'garbage_collection') {
-      const activePlayers = gameState.players.filter((p) => p.alive && p.hand.length > 0);
-      activePlayers.forEach((p) => {
-        io.to(`user:${p.userId}`).emit('game:garbage:request', { timeoutMs: 15000 });
-      });
-
-      setTimeout(async () => {
-        const pending = gameState.pendingGarbage;
-        if (!pending) return;
-        
-        const innerPlayersBefore = gameState.players.map(p => ({ userId: p.userId, alive: p.alive }));
-        const innerTurnBefore = gameState.currentPlayerIndex;
-
-        gameState.players.forEach((p) => {
-          if (p.alive && p.hand.length > 0 && !pending.responses[p.userId]) {
-            resolveGarbageCollection(gameState, p.userId, p.hand[0].id);
-          }
-        });
-        
-        await afterGameStateChanged(room, innerPlayersBefore, innerTurnBefore);
-      }, 15000);
-    }
-
-    if (cardType === 'pot_luck') {
-      const activePlayers = gameState.players.filter((p) => p.alive && p.hand.length > 0);
-      activePlayers.forEach((p) => {
-        io.to(`user:${p.userId}`).emit('game:potLuck:request', { timeoutMs: 15000 });
-      });
-
-      setTimeout(async () => {
-        const pending = gameState.pendingPotLuck;
-        if (!pending) return;
-        
-        const innerPlayersBefore = gameState.players.map(p => ({ userId: p.userId, alive: p.alive }));
-        const innerTurnBefore = gameState.currentPlayerIndex;
-
-        gameState.players.forEach((p) => {
-          if (p.alive && p.hand.length > 0 && !pending.responses[p.userId]) {
-            resolvePotLuck(gameState, p.userId, p.hand[0].id);
-          }
-        });
-        
-        await afterGameStateChanged(room, innerPlayersBefore, innerTurnBefore);
-      }, 15000);
-    }
-
     if (cardType === 'combo_5') {
       io.to(`user:${playerId}`).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(gameState) });
-    }
-
-    if (cardType === 'feed_the_dead') {
-      const pending = gameState.pendingFeedTheDead;
-      if (pending) {
-        const livingPlayers = gameState.players.filter((p) => p.alive && p.userId !== playerId);
-        livingPlayers.forEach((p) => {
-          io.to(`user:${p.userId}`).emit('game:feedTheDead:request', { targetPlayerId, timeoutMs: 15000 });
-        });
-
-        const currentPending = pending;
-        setTimeout(async () => {
-          const state = room.gameState;
-          if (state.pendingFeedTheDead && state.pendingFeedTheDead === currentPending) {
-            const innerPlayersBefore = state.players.map(p => ({ userId: p.userId, alive: p.alive }));
-            const innerTurnBefore = state.currentPlayerIndex;
-
-            state.players.forEach((p) => {
-              if (p.alive && p.userId !== playerId && !state.pendingFeedTheDead.responses[p.userId]) {
-                if (p.hand.length > 0) {
-                  resolveFeedTheDead(state, p.userId, p.hand[0].id);
-                }
-              }
-            });
-            
-            await afterGameStateChanged(room, innerPlayersBefore, innerTurnBefore);
-          }
-        }, 15000);
-      }
-    }
-
-    if (cardType === 'grave_robber') {
-      const pending = gameState.pendingGraveRobber;
-      if (pending) {
-        const deadPlayersWithCards = gameState.players.filter((p) => !p.alive && p.hand.length > 0);
-        deadPlayersWithCards.forEach((p) => {
-          io.to(`user:${p.userId}`).emit('game:graveRobber:request', { timeoutMs: 15000 });
-        });
-
-        const currentPending = pending;
-        setTimeout(async () => {
-          const state = room.gameState;
-          if (state.pendingGraveRobber && state.pendingGraveRobber === currentPending) {
-            const innerPlayersBefore = state.players.map(p => ({ userId: p.userId, alive: p.alive }));
-            const innerTurnBefore = state.currentPlayerIndex;
-
-            state.players.forEach((p) => {
-              if (!p.alive && p.hand.length > 0 && !state.pendingGraveRobber.responses[p.userId]) {
-                resolveGraveRobber(state, p.userId, p.hand[0].id);
-              }
-            });
-            
-            await afterGameStateChanged(room, innerPlayersBefore, innerTurnBefore);
-          }
-        }, 15000);
-      }
-    }
-
-    if (cardType === 'dig_deeper') {
-      const pending = gameState.pendingDigDeeper;
-      if (pending) {
-        io.to(`user:${playerId}`).emit('game:digDeeper:request', {
-          firstCard: pending.firstCard,
-          timeoutMs: 15000,
-        });
-
-        const currentPending = pending;
-        setTimeout(async () => {
-          const state = room.gameState;
-          if (state.pendingDigDeeper && state.pendingDigDeeper === currentPending) {
-            const innerPlayersBefore = state.players.map(p => ({ userId: p.userId, alive: p.alive }));
-            const innerTurnBefore = state.currentPlayerIndex;
-
-            resolveDigDeeper(state, 'keep');
-            
-            await afterGameStateChanged(room, innerPlayersBefore, innerTurnBefore);
-          }
-        }, 15000);
-      }
-    }
-
-    if (cardType === 'armageddon') {
-      const pending = gameState.pendingArmageddon;
-      if (pending) {
-        io.to(`user:${playerId}`).emit('game:armageddon:distributeRequest', { timeoutMs: 15000 });
-
-        const currentPending = pending;
-        setTimeout(() => {
-          const state = room.gameState;
-          if (state && state.pendingArmageddon && state.pendingArmageddon === currentPending && state.pendingArmageddon.stage === 'distribute') {
-            resolveArmageddonDistribute(state, 'godcat');
-            io.to(room.code).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(state) });
-
-            const nextPending = state.pendingArmageddon;
-            if (nextPending && nextPending.stage === 'decision') {
-              io.to(`user:${nextPending.targetPlayerId}`).emit('game:armageddon:decisionRequest', { timeoutMs: 15000 });
-              
-              setTimeout(async () => {
-                if (state.pendingArmageddon && state.pendingArmageddon === nextPending) {
-                  const innerPlayersBefore = state.players.map(p => ({ userId: p.userId, alive: p.alive }));
-                  const innerTurnBefore = state.currentPlayerIndex;
-
-                  resolveArmageddonDecision(state, 'keep');
-                  
-                  await afterGameStateChanged(room, innerPlayersBefore, innerTurnBefore);
-                }
-              }, 15000);
-            }
-          }
-        }, 15000);
-      }
     }
 
     if (cardType === 'reveal_the_future_3x') {
       const cards = gameState.deck.slice(-3).reverse();
       io.to(room.code).emit('game:revealTheFuture', { cards });
+    }
+
+    // Interaction Management
+    if (gameState.activeInteraction) {
+      const interaction = gameState.activeInteraction;
+      
+      // 1. Broadcast interaction request to participants
+      interaction.participants.forEach(pId => {
+        // Emit specific event name depending on type to maintain backward compatibility with client
+        const typeCamelCase = interaction.type.replace(/_([a-z])/g, function (g) { return g[1].toUpperCase(); });
+        let requestPayload = { timeoutMs: interaction.timeout };
+        
+        if (interaction.type === 'alter') {
+          requestPayload.cards = gameState.deck.slice(-interaction.metadata.count).reverse();
+          requestPayload.count = interaction.metadata.count;
+        } else if (interaction.type === 'favor') {
+          requestPayload.fromPlayerId = interaction.owner;
+        } else if (interaction.type === 'feed_the_dead') {
+          requestPayload.targetPlayerId = interaction.metadata.targetPlayerId;
+        } else if (interaction.type === 'dig_deeper') {
+          requestPayload.firstCard = interaction.metadata.firstCard;
+        }
+
+        io.to(`user:${pId}`).emit(`game:${typeCamelCase}:request`, requestPayload);
+      });
+
+      // 2. Set timeout to auto-resolve/cancel
+      setTimeout(async () => {
+        const state = room.gameState;
+        if (state.activeInteraction && state.activeInteraction.id === interaction.id) {
+          const innerPlayersBefore = state.players.map(p => ({ userId: p.userId, alive: p.alive }));
+          const innerTurnBefore = state.currentPlayerIndex;
+
+          const toContext = new GameContext(state, new EffectQueue());
+          dispatcher.dispatch('INTERACTION_TIMEOUT', toContext, { interactionId: interaction.id });
+          
+          await afterGameStateChanged(room, innerPlayersBefore, innerTurnBefore);
+        }
+      }, interaction.timeout);
     }
 
     await afterGameStateChanged(room, playersBefore, turnBefore);
@@ -1262,98 +1048,33 @@ module.exports = function registerGameSocket(io) {
       const room = getRoomState(roomCode);
       if (!room?.gameState) return;
 
-      const state = room.gameState;
+      const queue = new EffectQueue();
+      const context = new GameContext(state, queue);
+      const payload = { userId, cardType, targetPlayerId, options };
 
-      // Clairvoyance can be played out of turn during defuse or zombie revive phase
-      if (cardType === 'clairvoyance' || cardType === 'clairvoyance_now') {
-        const targetPending = state.pendingZombie || state.pendingDefuse;
-        if (targetPending) {
-          const actualCard = playCard(state, userId, cardType, targetPlayerId, options);
-          if (actualCard) {
-            targetPending.clairvoyancePlayerId = userId;
-            io.to(roomCode).emit('game:cardPlayed', { playerId: userId, cardType: actualCard, targetPlayerId });
-            io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(state) });
-            sendHands(io, room);
-            return;
-          }
-        } else {
-          socket.emit('error', { message: 'Chỉ có thể chơi Thiên Nhãn khi có người đang gỡ mìn hoặc hồi sinh!' });
-          return;
-        }
-      }
-      const isNowCard = cardType.endsWith('_now');
-
-      if (state.pendingNowOnlyWindow) {
-        if (!isNowCard) {
-          socket.emit('error', { message: 'Chỉ có thể đánh các lá bài NOW vào lúc này!' });
-          return;
-        }
-        state.pendingNowOnlyWindow = null;
-      } else {
-        if (!isNowCard) {
-          if (state.pendingAction || state.pendingFavor || state.pendingAlter || state.pendingBury || state.pendingGarbage || state.pendingPotLuck || state.pendingZombie || state.pendingDefuse || state.pendingTargetSelect) {
-            socket.emit('error', { message: 'Không thể đánh bài vào lúc này!' });
-            return;
-          }
-
-          const activePlayer = state.players[state.currentPlayerIndex];
-          if (!activePlayer || activePlayer.userId !== userId) {
-            socket.emit('error', { message: 'Không phải lượt của bạn!' });
-            return;
-          }
-        } else {
-          if (state.pendingFavor || state.pendingAlter || state.pendingBury || state.pendingGarbage || state.pendingPotLuck || state.pendingZombie || state.pendingDefuse || state.pendingTargetSelect) {
-            socket.emit('error', { message: 'Không thể đánh bài vào lúc này!' });
-            return;
-          }
-        }
-      }
-
-      const player = state.players.find((p) => p.userId === userId);
-      const maxHandSize = state.maxHandSize ?? 10;
-      if (player && player.hand.length > maxHandSize) {
-        socket.emit('error', { message: `Bạn phải hủy bớt bài xuống ${maxHandSize} lá trước!` });
+      const result = dispatcher.dispatch('playCard', context, payload);
+      
+      if (!result.success) {
+        socket.emit('error', { message: result.error });
         return;
       }
 
-      // Check Zombie edition card rules
-      if (cardType === 'feed_the_dead' || cardType === 'grave_robber') {
-        const deadCount = state.players.filter(p => !p.alive).length;
-        if (deadCount === 0) {
-          socket.emit('error', { message: 'Không thể đánh lá bài này khi chưa có Zombie (người chơi đã chết)!' });
-          return;
-        }
-      }
+      const finalTargetPlayerId = payload.finalTargetPlayerId;
+      const actualCardType = payload.actualCardType;
 
-      let finalTargetPlayerId = targetPlayerId;
-      if (cardType === 'feed_the_dead' && !finalTargetPlayerId) {
-        const deadPlayers = state.players.filter(p => !p.alive);
-        if (deadPlayers.length === 1) {
-          finalTargetPlayerId = deadPlayers[0].userId;
-        }
-      }
-
-      if (finalTargetPlayerId) {
-        const target = state.players.find(p => p.userId === finalTargetPlayerId);
-        if (!target) {
-          socket.emit('error', { message: 'Người chơi mục tiêu không tồn tại!' });
-          return;
-        }
-        if (cardType === 'feed_the_dead') {
-          if (target.alive) {
-            socket.emit('error', { message: 'Mục tiêu của Feed the Dead phải là người chơi đã chết!' });
-            return;
-          }
-        } else {
-          if (!target.alive) {
-            socket.emit('error', { message: 'Không thể nhắm vào người chơi đã chết!' });
-            return;
-          }
-        }
-      }
-
-      const actualCardType = playCard(room.gameState, userId, cardType, finalTargetPlayerId, options);
       if (!actualCardType) return; // Invalid play
+
+      // Clairvoyance special short-circuit (still emitting here because it bypasses the Nope window in old logic)
+      if (cardType === 'clairvoyance' || cardType === 'clairvoyance_now') {
+        const targetPending = state.pendingZombie || state.pendingDefuse;
+        if (targetPending) {
+          targetPending.clairvoyancePlayerId = userId;
+          io.to(roomCode).emit('game:cardPlayed', { playerId: userId, cardType: actualCardType, targetPlayerId });
+          io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(state) });
+          sendHands(io, room);
+          return;
+        }
+      }
 
       io.to(roomCode).emit('game:cardPlayed', { playerId: userId, cardType: actualCardType, targetPlayerId: finalTargetPlayerId });
 
@@ -1427,21 +1148,14 @@ module.exports = function registerGameSocket(io) {
       if (!room?.gameState) return;
 
       const state = room.gameState;
-      if (state.pendingAction || state.pendingNowOnlyWindow || state.pendingFavor || state.pendingAlter || state.pendingBury || state.pendingGarbage || state.pendingPotLuck || state.pendingZombie || state.pendingDefuse || state.pendingTargetSelect) {
-        socket.emit('error', { message: 'Không thể bốc bài vào lúc này!' });
-        return;
-      }
+      const queue = new EffectQueue();
+      const context = new GameContext(state, queue);
+      const payload = { userId };
 
-      // Enforce turn check
-      const activePlayer = state.players[state.currentPlayerIndex];
-      if (!activePlayer || activePlayer.userId !== userId) {
-        socket.emit('error', { message: 'Không phải lượt của bạn!' });
-        return;
-      }
+      const result = dispatcher.dispatch('drawCard', context, payload);
 
-      const player = state.players.find((p) => p.userId === userId);
-      if (player && player.hand.length > 10) {
-        socket.emit('error', { message: 'Bạn phải hủy bớt bài xuống 10 lá trước!' });
+      if (!result.success) {
+        socket.emit('error', { message: result.error });
         return;
       }
 
@@ -1538,37 +1252,20 @@ module.exports = function registerGameSocket(io) {
 
     socket.on('game:favor:respond', async ({ cardId }) => {
       const roomCode = [...socket.rooms].find((room) => room.length === 6);
-      if (!roomCode) {
-        return;
-      }
+      if (!roomCode) return;
       const room = getRoomState(roomCode);
-      const pending = room?.gameState?.pendingFavor;
-      if (!pending || pending.targetPlayerId !== userId) {
-        return;
-      }
-
-      const giver = room.gameState.players.find((p) => p.userId === userId);
-      const receiver = room.gameState.players.find((p) => p.userId === pending.fromPlayerId);
-      if (!giver || !receiver) {
-        return;
-      }
+      if (!room?.gameState || !room.gameState.activeInteraction) return;
 
       const playersBefore = room.gameState.players.map(p => ({ userId: p.userId, alive: p.alive }));
       const turnBefore = room.gameState.currentPlayerIndex;
 
-      const idx = giver.hand.findIndex((card) => card.id === cardId);
-      if (idx >= 0) {
-        const [gift] = giver.hand.splice(idx, 1);
-        receiver.hand.push(gift);
-        
-        // Run checkStreakingKittenEffect whenever cards change hands
-        checkStreakingKittenEffect(room.gameState, giver.userId);
-        checkStreakingKittenEffect(room.gameState, receiver.userId);
-      } else {
-        console.log('Card not found in giver hand! cardId:', cardId);
-      }
+      const context = new GameContext(room.gameState, new EffectQueue());
+      dispatcher.dispatch('SUBMIT_INTERACTION', context, {
+        userId,
+        interactionId: room.gameState.activeInteraction.id,
+        responseData: cardId
+      });
 
-      room.gameState.pendingFavor = null;
       await afterGameStateChanged(room, playersBefore, turnBefore);
     });
 
@@ -1707,55 +1404,63 @@ module.exports = function registerGameSocket(io) {
       resolveTargetSelect(room, targetPlayerId);
     });
 
-    socket.on('game:alterFuture:respond', ({ rearrangedCards }) => {
+    socket.on('game:alterFuture:respond', async ({ rearrangedCards }) => {
       const roomCode = [...socket.rooms].find((room) => room.length === 6);
       if (!roomCode) return;
       const room = getRoomState(roomCode);
-      if (!room?.gameState) return;
-
-      const pending = room.gameState.pendingAlter;
-      if (!pending || pending.playerId !== userId) return;
-
-      resolveAlterTheFuture(room.gameState, rearrangedCards ?? []);
-      io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
-      sendHands(io, room);
-    });
-
-    socket.on('game:combo5:respond', async ({ cardId }) => {
-      const roomCode = [...socket.rooms].find((room) => room.length === 6);
-      if (!roomCode) return;
-      const room = getRoomState(roomCode);
-      if (!room?.gameState) return;
+      if (!room?.gameState || !room.gameState.activeInteraction) return;
 
       const playersBefore = room.gameState.players.map(p => ({ userId: p.userId, alive: p.alive }));
       const turnBefore = room.gameState.currentPlayerIndex;
 
-      resolveCombo5(room.gameState, cardId);
+      const context = new GameContext(room.gameState, new EffectQueue());
+      dispatcher.dispatch('SUBMIT_INTERACTION', context, {
+        userId,
+        interactionId: room.gameState.activeInteraction.id,
+        responseData: rearrangedCards ?? []
+      });
 
       await afterGameStateChanged(room, playersBefore, turnBefore);
     });
 
-    socket.on('game:bury:respond', ({ cardId, insertPosition }) => {
+    socket.on('game:combo5:respond', async ({ cardId }) => {
+      // Ignored for now. PlayComboAction handles it.
+    });
+
+    socket.on('game:bury:respond', async ({ cardId, insertPosition }) => {
       const roomCode = [...socket.rooms].find((room) => room.length === 6);
       if (!roomCode) return;
       const room = getRoomState(roomCode);
-      if (!room?.gameState) return;
+      if (!room?.gameState || !room.gameState.activeInteraction) return;
 
-      resolveBury(room.gameState, cardId, insertPosition);
-      io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
-      sendHands(io, room);
+      const playersBefore = room.gameState.players.map(p => ({ userId: p.userId, alive: p.alive }));
+      const turnBefore = room.gameState.currentPlayerIndex;
+
+      const context = new GameContext(room.gameState, new EffectQueue());
+      dispatcher.dispatch('SUBMIT_INTERACTION', context, {
+        userId,
+        interactionId: room.gameState.activeInteraction.id,
+        responseData: { cardId, insertPosition }
+      });
+
+      await afterGameStateChanged(room, playersBefore, turnBefore);
     });
 
     socket.on('game:garbage:respond', async ({ cardId }) => {
       const roomCode = [...socket.rooms].find((room) => room.length === 6);
       if (!roomCode) return;
       const room = getRoomState(roomCode);
-      if (!room?.gameState) return;
+      if (!room?.gameState || !room.gameState.activeInteraction) return;
 
       const playersBefore = room.gameState.players.map(p => ({ userId: p.userId, alive: p.alive }));
       const turnBefore = room.gameState.currentPlayerIndex;
 
-      resolveGarbageCollection(room.gameState, userId, cardId);
+      const context = new GameContext(room.gameState, new EffectQueue());
+      dispatcher.dispatch('SUBMIT_INTERACTION', context, {
+        userId,
+        interactionId: room.gameState.activeInteraction.id,
+        responseData: cardId
+      });
 
       await afterGameStateChanged(room, playersBefore, turnBefore);
     });
@@ -1764,12 +1469,17 @@ module.exports = function registerGameSocket(io) {
       const roomCode = [...socket.rooms].find((room) => room.length === 6);
       if (!roomCode) return;
       const room = getRoomState(roomCode);
-      if (!room?.gameState) return;
+      if (!room?.gameState || !room.gameState.activeInteraction) return;
 
       const playersBefore = room.gameState.players.map(p => ({ userId: p.userId, alive: p.alive }));
       const turnBefore = room.gameState.currentPlayerIndex;
 
-      resolvePotLuck(room.gameState, userId, cardId);
+      const context = new GameContext(room.gameState, new EffectQueue());
+      dispatcher.dispatch('SUBMIT_INTERACTION', context, {
+        userId,
+        interactionId: room.gameState.activeInteraction.id,
+        responseData: cardId
+      });
 
       await afterGameStateChanged(room, playersBefore, turnBefore);
     });
@@ -1833,78 +1543,95 @@ module.exports = function registerGameSocket(io) {
       const roomCode = [...socket.rooms].find((room) => room.length === 6);
       if (!roomCode) return;
       const room = getRoomState(roomCode);
-      if (!room?.gameState) return;
+      if (!room?.gameState || !room.gameState.activeInteraction) return;
 
       const playersBefore = room.gameState.players.map(p => ({ userId: p.userId, alive: p.alive }));
       const turnBefore = room.gameState.currentPlayerIndex;
 
-      resolveFeedTheDead(room.gameState, userId, cardId);
+      const context = new GameContext(room.gameState, new EffectQueue());
+      dispatcher.dispatch('SUBMIT_INTERACTION', context, {
+        userId,
+        interactionId: room.gameState.activeInteraction.id,
+        responseData: cardId
+      });
 
       await afterGameStateChanged(room, playersBefore, turnBefore);
     });
 
-    socket.on('game:graveRobber:respond', ({ cardId }) => {
+    socket.on('game:graveRobber:respond', async ({ cardId }) => {
       const roomCode = [...socket.rooms].find((room) => room.length === 6);
       if (!roomCode) return;
       const room = getRoomState(roomCode);
-      if (!room?.gameState) return;
+      if (!room?.gameState || !room.gameState.activeInteraction) return;
 
-      resolveGraveRobber(room.gameState, userId, cardId);
-      io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
-      sendHands(io, room);
+      const playersBefore = room.gameState.players.map(p => ({ userId: p.userId, alive: p.alive }));
+      const turnBefore = room.gameState.currentPlayerIndex;
+
+      const context = new GameContext(room.gameState, new EffectQueue());
+      dispatcher.dispatch('SUBMIT_INTERACTION', context, {
+        userId,
+        interactionId: room.gameState.activeInteraction.id,
+        responseData: cardId
+      });
+
+      await afterGameStateChanged(room, playersBefore, turnBefore);
     });
 
     socket.on('game:digDeeper:respond', async ({ decision }) => {
       const roomCode = [...socket.rooms].find((room) => room.length === 6);
       if (!roomCode) return;
       const room = getRoomState(roomCode);
-      if (!room?.gameState) return;
+      if (!room?.gameState || !room.gameState.activeInteraction) return;
 
-      resolveDigDeeper(room.gameState, decision);
-      io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
-      sendHands(io, room);
-      io.to(roomCode).emit('game:turnChanged', {
-        currentPlayerId: room.gameState.players[room.gameState.currentPlayerIndex]?.userId,
-        drawsRequired: room.gameState.drawsRequired,
+      const playersBefore = room.gameState.players.map(p => ({ userId: p.userId, alive: p.alive }));
+      const turnBefore = room.gameState.currentPlayerIndex;
+
+      const context = new GameContext(room.gameState, new EffectQueue());
+      dispatcher.dispatch('SUBMIT_INTERACTION', context, {
+        userId,
+        interactionId: room.gameState.activeInteraction.id,
+        responseData: decision
       });
-      await finalizeGame(io, room);
+
+      await afterGameStateChanged(room, playersBefore, turnBefore);
     });
 
-    socket.on('game:armageddon:distribute', ({ choice }) => {
+    socket.on('game:armageddon:distribute', async ({ choice }) => {
       const roomCode = [...socket.rooms].find((room) => room.length === 6);
       if (!roomCode) return;
       const room = getRoomState(roomCode);
-      if (!room?.gameState) return;
+      if (!room?.gameState || !room.gameState.activeInteraction) return;
 
-      resolveArmageddonDistribute(room.gameState, choice);
-      io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
+      const playersBefore = room.gameState.players.map(p => ({ userId: p.userId, alive: p.alive }));
+      const turnBefore = room.gameState.currentPlayerIndex;
 
-      const pending = room.gameState.pendingArmageddon;
-      if (pending && pending.stage === 'decision') {
-        io.to(`user:${pending.targetPlayerId}`).emit('game:armageddon:decisionRequest', { timeoutMs: 15000 });
-        
-        const currentPending = pending;
-        setTimeout(async () => {
-          if (room.gameState && room.gameState.pendingArmageddon && room.gameState.pendingArmageddon === currentPending) {
-            resolveArmageddonDecision(room.gameState, 'keep');
-            io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
-            sendHands(io, room);
-            await finalizeGame(io, room);
-          }
-        }, 15000);
-      }
+      const context = new GameContext(room.gameState, new EffectQueue());
+      dispatcher.dispatch('SUBMIT_INTERACTION', context, {
+        userId,
+        interactionId: room.gameState.activeInteraction.id,
+        responseData: { stage: 'distribute', choice }
+      });
+
+      await afterGameStateChanged(room, playersBefore, turnBefore);
     });
 
     socket.on('game:armageddon:decision', async ({ decision }) => {
       const roomCode = [...socket.rooms].find((room) => room.length === 6);
       if (!roomCode) return;
       const room = getRoomState(roomCode);
-      if (!room?.gameState) return;
+      if (!room?.gameState || !room.gameState.activeInteraction) return;
 
-      resolveArmageddonDecision(room.gameState, decision);
-      io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
-      sendHands(io, room);
-      await finalizeGame(io, room);
+      const playersBefore = room.gameState.players.map(p => ({ userId: p.userId, alive: p.alive }));
+      const turnBefore = room.gameState.currentPlayerIndex;
+
+      const context = new GameContext(room.gameState, new EffectQueue());
+      dispatcher.dispatch('SUBMIT_INTERACTION', context, {
+        userId,
+        interactionId: room.gameState.activeInteraction.id,
+        responseData: { stage: 'decision', decision }
+      });
+
+      await afterGameStateChanged(room, playersBefore, turnBefore);
     });
   });
 };

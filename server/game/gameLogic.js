@@ -118,55 +118,17 @@ function checkStreakingKittenEffect(gameState, playerId) {
  *    - If no protection, player explodes and is eliminated.
  */
 function resolveExplosion(gameState, playerId, card, onDefuse) {
-  const player = getPlayer(gameState, playerId);
-  if (!player) return gameState;
+  const ExplosionEngine = require('./effects/ExplosionEngine');
+  const engine = new ExplosionEngine(null); // No async queue needed here yet
 
-  // 1. Streaking Kitten Check
-  const streakingCount = player.hand.filter((c) => c.type === 'streaking_kitten').length;
-  const explodingCount = player.hand.filter((c) => c.type === 'exploding_kitten').length;
-  if (card.type === 'exploding_kitten' && explodingCount < streakingCount) {
-    player.hand.push(card);
-    return gameState;
-  }
+  const context = {
+    gameState,
+    playerId,
+    drawnCard: card,
+    onDefuseCallback: onDefuse
+  };
 
-  // 2. Imploding Kitten handling
-  if (card.type === 'imploding_kitten') {
-    if (card.faceUp) {
-      gameState.discardPile.push(card);
-      eliminatePlayer(gameState, playerId);
-      return gameState;
-    } else {
-      // Imploding Kitten face down: do NOT require/use Defuse card.
-      // Just trigger pendingDefuse to put it back face up.
-      gameState.pendingDefuse = { playerId, card, startedAt: Date.now() };
-      return gameState;
-    }
-  }
-
-  // 3. Check for Defuse or Zombie Kitten
-  let defuseIdx = player.hand.findIndex((c) => c.type === 'defuse');
-  if (defuseIdx === -1) {
-    defuseIdx = player.hand.findIndex((c) => c.type === 'zombie_kitten');
-  }
-  if (defuseIdx >= 0) {
-    const defuseCard = player.hand.splice(defuseIdx, 1)[0];
-    delete defuseCard.marked;
-    gameState.discardPile.push(defuseCard);
-
-    if (onDefuse) onDefuse(playerId, defuseCard.type);
-
-    if (defuseCard.type === 'zombie_kitten') {
-      gameState.pendingZombie = { playerId, card, startedAt: Date.now() };
-    } else {
-      gameState.pendingDefuse = { playerId, card, startedAt: Date.now() };
-    }
-    return gameState;
-  }
-
-  // 4. No defuse, explode
-  delete card.marked;
-  gameState.discardPile.push(card);
-  eliminatePlayer(gameState, playerId);
+  engine.resolve(context);
   return gameState;
 }
 
@@ -188,210 +150,7 @@ function handlePersonalAttack(gameState) {
   // Add 3 draws to current player
   gameState.drawsRequired = (gameState.drawsRequired ?? 1) > 1 ? gameState.drawsRequired + 3 : 3;
   return gameState;
-}
-
-function handleSkip(gameState) {
-  if (gameState.drawsRequired && gameState.drawsRequired > 1) {
-    gameState.drawsRequired -= 1;
-  } else {
-    gameState.drawsRequired = 1;
-    passTurn(gameState);
-  }
-  return gameState;
-}
-
-function handleSuperSkip(gameState) {
-  gameState.drawsRequired = 1;
-  passTurn(gameState);
-  return gameState;
-}
-
-function handleReverse(gameState) {
-  gameState.playDirection = -(gameState.playDirection ?? 1);
-  return handleSkip(gameState);
-}
-
-function handleSeeTheFuture(gameState, count = 3) {
-  return gameState.deck.slice(-count).reverse();
-}
-
-function handleShuffle(gameState) {
-  gameState.deck = shuffleDeck(gameState.deck);
-  return gameState;
-}
-
-function handleAlterTheFuture(gameState, playerId, count = 3) {
-  gameState.pendingAlter = { playerId, count, startedAt: Date.now() };
-  return gameState;
-}
-
-function resolveAlterTheFuture(gameState, rearrangedCards) {
-  if (!gameState.pendingAlter) return gameState;
-  const count = Math.min(gameState.pendingAlter.count || 3, gameState.deck.length);
-  if (count > 0) {
-    const topCards = gameState.deck.splice(-count);
-    
-    // Security validation: check if rearrangedCards is a valid permutation of topCards
-    const topIds = topCards.map((c) => c.id).sort();
-    const providedIds = Array.isArray(rearrangedCards) ? [...rearrangedCards].sort() : [];
-    const isValid = topIds.length === providedIds.length && topIds.every((val, index) => val === providedIds[index]);
-
-    if (isValid) {
-      const reordered = [];
-      const orderIds = [...rearrangedCards].reverse();
-      orderIds.forEach((id) => {
-        const card = topCards.find((c) => c.id === id);
-        reordered.push(card);
-      });
-      gameState.deck.push(...reordered);
-    } else {
-      // Invalid input (exploit attempt), ignore changes and restore original order
-      gameState.deck.push(...topCards);
-    }
-  }
-  gameState.pendingAlter = null;
-  return gameState;
-}
-
-function handleFavor(gameState, fromPlayerId, targetPlayerId) {
-  gameState.pendingFavor = { fromPlayerId, targetPlayerId, startedAt: Date.now() };
-  return gameState;
-}
-
-function handleSwapTopAndBottom(gameState) {
-  if (gameState.deck.length >= 2) {
-    const top = gameState.deck.pop();
-    const bottom = gameState.deck.shift();
-    gameState.deck.push(bottom);
-    gameState.deck.unshift(top);
-  }
-  return gameState;
-}
-
-function handleCatomicBomb(gameState) {
-  const kittens = [];
-  const normal = [];
-  gameState.deck.forEach((c) => {
-    if (c.type === 'exploding_kitten' || c.type === 'imploding_kitten') {
-      kittens.push(c);
-    } else {
-      normal.push(c);
-    }
-  });
-  const shuffledNormal = shuffleDeck(normal);
-  gameState.deck = [...shuffledNormal, ...kittens];
-  return handleSkip(gameState);
-}
-
-function handleBury(gameState, playerId) {
-  gameState.pendingBury = { playerId, startedAt: Date.now() };
-  return gameState;
-}
-
-function resolveBury(gameState, cardId, insertPosition) {
-  if (!gameState.pendingBury) return gameState;
-  const player = getPlayer(gameState, gameState.pendingBury.playerId);
-  if (!player) {
-    gameState.pendingBury = null;
-    return gameState;
-  }
-  const index = player.hand.findIndex((c) => c.id === cardId);
-  if (index >= 0) {
-    const [card] = player.hand.splice(index, 1);
-    delete card.marked;
-    const pos = Math.max(0, Math.min(insertPosition, gameState.deck.length));
-    gameState.deck.splice(pos, 0, card);
-  }
-  gameState.pendingBury = null;
-  return handleSkip(gameState);
-}
-
-function handleMark(gameState, targetPlayerId) {
-  const target = getPlayer(gameState, targetPlayerId);
-  if (target && target.alive && target.hand.length > 0) {
-    const randIdx = Math.floor(Math.random() * target.hand.length);
-    target.hand[randIdx].marked = true;
-  }
-  return gameState;
-}
-
-function handleGarbageCollection(gameState) {
-  gameState.pendingGarbage = { responses: {}, startedAt: Date.now() };
-  return gameState;
-}
-
-function resolveGarbageCollection(gameState, playerId, cardId) {
-  if (!gameState.pendingGarbage) return gameState;
-  const player = getPlayer(gameState, playerId);
-  if (!player) return gameState;
-
-  const idx = player.hand.findIndex((c) => c.id === cardId);
-  if (idx >= 0) {
-    const [card] = player.hand.splice(idx, 1);
-    delete card.marked;
-    gameState.deck.push(card);
-    gameState.pendingGarbage.responses[playerId] = cardId;
-    checkStreakingKittenEffect(gameState, playerId);
-  }
-
-  const activeWithCards = gameState.players.filter((p) => p.alive && p.hand.length > 0);
-  const allDone = activeWithCards.every((p) => gameState.pendingGarbage.responses[p.userId]);
-
-  if (allDone) {
-    gameState.deck = shuffleDeck(gameState.deck);
-    gameState.pendingGarbage = null;
-  }
-  return gameState;
-}
-
-function handlePotLuck(gameState) {
-  gameState.pendingPotLuck = { responses: {}, startedAt: Date.now() };
-  return gameState;
-}
-
-function resolvePotLuck(gameState, playerId, cardId) {
-  if (!gameState.pendingPotLuck) return gameState;
-  const player = getPlayer(gameState, playerId);
-  if (!player) return gameState;
-
-  const idx = player.hand.findIndex((c) => c.id === cardId);
-  if (idx >= 0) {
-    const [card] = player.hand.splice(idx, 1);
-    gameState.pendingPotLuck.responses[playerId] = card;
-    checkStreakingKittenEffect(gameState, playerId);
-  }
-
-  const activeWithCards = gameState.players.filter((p) => p.alive && p.hand.length > 0);
-  const allDone = activeWithCards.every((p) => gameState.pendingPotLuck.responses[p.userId]);
-
-  if (allDone) {
-    const potLuckCards = [];
-    const len = gameState.players.length;
-    let idxCur = gameState.currentPlayerIndex;
-    for (let i = 0; i < len; i += 1) {
-      const p = gameState.players[idxCur];
-      const card = gameState.pendingPotLuck.responses[p.userId];
-      if (card) {
-        delete card.marked;
-        potLuckCards.push(card);
-      }
-      idxCur = (idxCur + 1) % len;
-    }
-    
-    // Shuffle only the pot luck cards
-    for (let i = potLuckCards.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [potLuckCards[i], potLuckCards[j]] = [potLuckCards[j], potLuckCards[i]];
-    }
-    
-    // Place on top of the deck (index 0)
-    gameState.deck.unshift(...potLuckCards);
-    gameState.pendingPotLuck = null;
-  }
-  return gameState;
-}
-
-function handleRaisingHeck(gameState, playerId) {
+}function handleRaisingHeck(gameState, playerId) {
   if (gameState.deck.length > 0) {
     const bottomCard = gameState.deck.pop(); // take from bottom
     const player = getPlayer(gameState, playerId);
@@ -444,27 +203,7 @@ function resolveZombieRevive(gameState, targetPlayerId, insertPosition = 0) {
   return gameState;
 }
 
-function handleCombo5(gameState, playerId) {
-  gameState.pendingCombo5 = { playerId, startedAt: Date.now() };
-  return gameState;
-}
 
-function resolveCombo5(gameState, cardId) {
-  if (!gameState.pendingCombo5) return gameState;
-  const player = getPlayer(gameState, gameState.pendingCombo5.playerId);
-  if (!player) {
-    gameState.pendingCombo5 = null;
-    return gameState;
-  }
-  const index = gameState.discardPile.findIndex((c) => c.id === cardId);
-  if (index >= 0) {
-    const [card] = gameState.discardPile.splice(index, 1);
-    player.hand.push(card);
-    checkStreakingKittenEffect(gameState, player.userId);
-  }
-  gameState.pendingCombo5 = null;
-  return gameState;
-}
 
 function handleCombo(gameState, playerId, cardIds, targetPlayerId) {
   const player = getPlayer(gameState, playerId);
@@ -695,163 +434,6 @@ function playCard(gameState, playerId, cardType, targetPlayerId, options = {}) {
   gameState.lastAction = { playerId, cardType: recordedType, targetPlayerId, timestamp: Date.now(), canceled: false };
 
   return recordedType;
-}
-
-function executeActionEffect(gameState, cardType, playerId, targetPlayerId, options = {}, onDefuse) {
-  switch (cardType) {
-    case 'attack':
-    case 'attack_2x':
-    case 'target_attack_2x':
-      return handleAttack(gameState, targetPlayerId);
-    case 'personal_attack':
-      return handlePersonalAttack(gameState);
-    case 'skip':
-      return handleSkip(gameState);
-    case 'super_skip':
-    case 'superskip':
-      return handleSuperSkip(gameState);
-    case 'reverse':
-      return handleReverse(gameState);
-    case 'see_the_future':
-    case 'see_the_future_3':
-    case 'share_the_future_3':
-      // Handled by returning deck slice in seeTheFuture listener
-      return gameState;
-    case 'see_the_future_1':
-      return gameState;
-    case 'see_the_future_5':
-      return gameState;
-    case 'alter_the_future_3':
-    case 'alter_the_future_3_now':
-      return handleAlterTheFuture(gameState, playerId, 3);
-    case 'alter_the_future_5':
-      return handleAlterTheFuture(gameState, playerId, 5);
-    case 'shuffle':
-    case 'shuffle_now':
-      return handleShuffle(gameState);
-    case 'draw_from_bottom':
-    case 'draw_from_the_bottom':
-      return drawCard(gameState, playerId, true, onDefuse);
-    case 'favor':
-      return handleFavor(gameState, playerId, targetPlayerId);
-    case 'swap_top_and_bottom':
-      return handleSwapTopAndBottom(gameState);
-    case 'catomic_bomb':
-      return handleCatomicBomb(gameState);
-    case 'bury':
-      return handleBury(gameState, playerId);
-    case 'mark':
-      return handleMark(gameState, targetPlayerId);
-    case 'ill_take_that': {
-      const target = getPlayer(gameState, targetPlayerId);
-      if (target && target.alive) {
-        target.pendingTakeFrom = playerId;
-      }
-      return gameState;
-    }
-    case 'garbage_collection':
-      return handleGarbageCollection(gameState);
-    case 'pot_luck':
-      return handlePotLuck(gameState);
-    case 'raising_heck':
-      return handleRaisingHeck(gameState, playerId);
-    case 'attack_of_the_dead': {
-      const deadCount = gameState.players.filter((p) => !p.alive).length;
-      const extraDraws = 3 * deadCount;
-      gameState.drawsRequired = (gameState.drawsRequired ?? 1) > 1 ? gameState.drawsRequired + extraDraws : (extraDraws > 0 ? extraDraws : 1);
-      passTurn(gameState);
-      return gameState;
-    }
-    case 'feed_the_dead': {
-      gameState.pendingFeedTheDead = { playerId, targetPlayerId, responses: {}, startedAt: Date.now() };
-      return gameState;
-    }
-    case 'grave_robber': {
-      gameState.pendingGraveRobber = { playerId, responses: {}, startedAt: Date.now() };
-      return gameState;
-    }
-    case 'clairvoyance':
-    case 'clairvoyance_now':
-      return gameState;
-    case 'dig_deeper': {
-      if (gameState.deck.length > 0) {
-        const firstCard = gameState.deck.pop();
-        gameState.pendingDigDeeper = { playerId, firstCard, startedAt: Date.now() };
-      }
-      return gameState;
-    }
-    case 'armageddon': {
-      if (gameState.playmat && gameState.playmat.godcat && gameState.playmat.devilcat) {
-        gameState.playmat.godcat = false;
-        gameState.playmat.devilcat = false;
-        gameState.pendingArmageddon = {
-          playerId,
-          targetPlayerId,
-          activatorCard: null,
-          targetCard: null,
-          stage: 'distribute',
-          startedAt: Date.now(),
-        };
-      }
-      return gameState;
-    }
-    case 'barking_kitten':
-      // Barking Kitten is handled directly in socket layer to bypass Nope window
-      return gameState;
-    case 'reveal_the_future_3x':
-      return gameState;
-    case 'curse_of_the_cat_butt': {
-      const target = getPlayer(gameState, targetPlayerId);
-      if (target && target.alive) {
-        target.blinded = true;
-      }
-      return gameState;
-    }
-
-    // Combo effects executed after Nope window:
-    case 'combo_2': {
-      // 2-card combo: steal a random card from target
-      const target = getPlayer(gameState, targetPlayerId);
-      const player = getPlayer(gameState, playerId);
-      if (!target || !target.alive || target.hand.length === 0 || !player || !player.alive) return gameState;
-      const randomIndex = Math.floor(Math.random() * target.hand.length);
-      const [stolen] = target.hand.splice(randomIndex, 1);
-      player.hand.push(stolen);
-      checkStreakingKittenEffect(gameState, player.userId);
-      checkStreakingKittenEffect(gameState, target.userId);
-      return gameState;
-    }
-    case 'combo_3': {
-      // 3-card combo: steal a specific card type from target (options.stealCardType)
-      const target = getPlayer(gameState, targetPlayerId);
-      const player = getPlayer(gameState, playerId);
-      if (!target || !target.alive || !player || !player.alive) return gameState;
-      const stealType = options.stealCardType;
-      if (stealType) {
-        // Steal a card of the requested type
-        const idx = target.hand.findIndex((c) => c.type === stealType);
-        if (idx >= 0) {
-          const [stolen] = target.hand.splice(idx, 1);
-          player.hand.push(stolen);
-          checkStreakingKittenEffect(gameState, player.userId);
-          checkStreakingKittenEffect(gameState, target.userId);
-        }
-      } else if (target.hand.length > 0) {
-        // Fallback: steal random if no type specified
-        const randomIndex = Math.floor(Math.random() * target.hand.length);
-        const [stolen] = target.hand.splice(randomIndex, 1);
-        player.hand.push(stolen);
-        checkStreakingKittenEffect(gameState, player.userId);
-        checkStreakingKittenEffect(gameState, target.userId);
-      }
-      return gameState;
-    }
-    case 'combo_5': {
-      return handleCombo5(gameState, playerId);
-    }
-    default:
-      return gameState;
-  }
 }
 
 function resolveDefusePutBack(gameState, insertPosition) {
@@ -1095,34 +677,14 @@ function resolveBarkingKittenAction(gameState, playerId, targetPlayerId) {
 module.exports = {
   playCard,
   resolveBarkingKittenAction,
-  executeActionEffect,
   drawCard,
-  handleNope,
-  handleDefuse,
-  handleAttack,
-  passTurn,
-  handleSkip,
-  handleSuperSkip,
-  handleSeeTheFuture,
-  handleShuffle,
-  handleFavor,
   handleCombo,
-  handleCombo5,
-  resolveCombo5,
-  resolveAlterTheFuture,
   checkWinCondition,
   eliminatePlayer,
-  resolveBury,
-  resolveGarbageCollection,
-  resolvePotLuck,
   resolveZombieRevive,
   resolveDefusePutBack,
-  resolveFeedTheDead,
-  resolveGraveRobber,
-  resolveDigDeeper,
-  resolveArmageddonDistribute,
-  resolveArmageddonDecision,
   checkStreakingKittenEffect,
+  passTurn,
   resolveExplosion,
   removeCardFromHand,
 };
