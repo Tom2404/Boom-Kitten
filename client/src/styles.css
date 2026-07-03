@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Anybody:wght@800;900&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,100..900;1,100..900&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&family=Pixelify+Sans:wght@400;500;600;700&display=swap');
 
 /* Tailwind layers and small app-level styles. */
 @tailwind base;
@@ -506,6 +506,7 @@ body {
   --pop-black: #111111;
   --pop-cream: #FFF5E8;
   --pop-offwhite: #FAFAFA;
+  --pop-green: #10b981;
 }
 
 /* Custom Scrollbar for Pop Art pages */
@@ -609,8 +610,751 @@ body {
 /* Selection */
 .pop-art-theme ::selection {
   background-color: var(--pop-amber);
+}
+
+.pixel-shadow {
+  box-shadow: 6px 6px 0px #1A1C1C !important;
+}
+
+.pixel-card {
+  border: 4px solid #1A1C1C !important;
+  border-radius: 0px !important;
+  box-shadow: 6px 6px 0px #1A1C1C !important;
+  background-color: #FFFDF3;
+  transition: transform 100ms ease-out, box-shadow 100ms ease-out;
+}
+
+.pixel-card:hover:not(:disabled) {
+  transform: translate(-2px, -2px);
+  box-shadow: 8px 8px 0px #1A1C1C !important;
+}
+
+.pixel-card:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 4px 4px 0px #1A1C1C !important;
+}
+
+.pixel-button {
+  border: 4px solid #1A1C1C !important;
+  border-radius: 0px !important;
+  box-shadow: 4px 4px 0px #1A1C1C !important;
+  transition: transform 100ms ease-out, box-shadow 100ms ease-out;
+}
+
+.pixel-button:hover:not(:disabled) {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0px #1A1C1C !important;
+}
+
+.pixel-button:active:not(:disabled) {
+  transform: translate(4px, 4px);
+  box-shadow: 0px 0px 0px #1A1C1C !important;
+}
+
+.pixel-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: 4px 4px 0px #1A1C1C !important;
+}
+
+/* CRT Screen Effect */
+.pixel-crt {
+  position: relative;
+  overflow: hidden;
+  background: #0f172a;
+  border: 4px solid #1A1C1C;
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.85);
+}
+
+.pixel-crt::before {
+  content: " ";
+  display: block;
+  position: absolute;
+  top: 0; left: 0; bottom: 0; right: 0;
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+  z-index: 2;
+  background-size: 100% 4px, 6px 100%;
+  pointer-events: none;
+}
+
+/* Scanline animation */
+@keyframes crt-scanline {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100%);
+  }
+}
+
+.pixel-scanline::after {
+  content: " ";
+  display: block;
+  position: absolute;
+  top: 0; left: 0; bottom: 0; right: 0;
+  background: rgba(18, 16, 16, 0.1);
+  opacity: 0.15;
+  z-index: 2;
+  pointer-events: none;
+  animation: crt-scanline 6s linear infinite;
+  background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0.1) 10%, rgba(255,255,255,0) 20%);
+}
+
+/* Character Select Flashing Border */
+@keyframes pixel-border-flash {
+  0%, 100% {
+    border-color: #1A1C1C;
+  }
+  50% {
+    border-color: #FFD54A;
+  }
+}
+.pixel-flash-selected {
+  animation: pixel-border-flash 600ms infinite steps(2);
+  border-width: 4px !important;
+}
+
+/* --- Pop Art / Brutalist UI Upgrades --- */
+
+/* Conic Sunburst Backdrop */
+.bg-sunburst {
+  background: repeating-conic-gradient(
+    from 0deg,
+    #ffd54f 0deg 15deg,
+    #ffa000 15deg 30deg
+  );
+}
+
+/* Halftone Comic Dots Backdrop */
+.bg-halftone {
+  background-color: #e8f5e9;
+  background-image: radial-gradient(#81c784 20%, transparent 20%);
+  background-size: 14px 14px;
+}
+
+/* Retro Grid Backdrop */
+.bg-retro-grid {
+  background-color: #e8eaf6;
+  background-image: 
+    linear-gradient(#c5cae9 1.5px, transparent 1.5px),
+    linear-gradient(90deg, #c5cae9 1.5px, transparent 1.5px);
+  background-size: 20px 20px;
+}
+
+/* Slow Rotating Animation */
+@keyframes spin-slow {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+
+.animate-spin-slow {
+  animation: spin-slow 25s linear infinite;
+}
+
+/* Wiggle Keyframes for Hover Interaction */
+@keyframes wiggle-hover {
+  0%, 100% { transform: rotate(-4deg) scale(var(--wiggle-scale, 1)); }
+  50% { transform: rotate(4deg) scale(calc(var(--wiggle-scale, 1) * 1.05)); }
+}
+
+.group:hover .group-hover-wiggle {
+  animation: wiggle-hover 0.35s ease-in-out infinite;
+}
+
+/* Glossy Button Shine Effect */
+.btn-shine-container {
+  position: relative;
+  overflow: hidden;
+}
+.btn-shine-container::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -100%;
+  width: 40%;
+  height: 200%;
+  background: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.4) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  transform: rotate(30deg);
+  pointer-events: none;
+}
+.btn-shine-container:hover::after {
+  left: 150%;
+  transition: all 0.7s ease;
+}
+
+.pop-shadow-red {
+  box-shadow: 6px 6px 0 var(--pop-red);
+}
+
+.pop-shadow-orange {
+  box-shadow: 8px 8px 0 var(--pop-orange);
+}
+
+/* Selection */
+.pop-art-theme ::selection {
+  background-color: var(--pop-amber);
   color: var(--pop-black);
 }
 
+/* Retro Pixel/Arcade Theme Extensions */
+.font-pixel-title {
+  font-family: 'Anybody', 'Pixelify Sans', sans-serif;
+  font-weight: 700;
+  image-rendering: pixelated;
+}
+
+.font-pixel-body {
+  font-family: 'Space Mono', 'DM Sans', monospace;
+  font-weight: 500;
+  font-size: 1.05rem;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+}
+
+input::placeholder {
+  color: #64748b !important; /* slate-500 */
+  opacity: 0.85 !important;
+  font-family: 'Space Mono', 'DM Sans', monospace !important;
+  font-weight: bold !important;
+}
+
+.pixel-border {
+  border: 4px solid #1A1C1C !important;
+  border-radius: 0px !important;
+}
+
+.pixel-shadow {
+  box-shadow: 6px 6px 0px #1A1C1C !important;
+}
+
+.pixel-card {
+  border: 4px solid #1A1C1C !important;
+  border-radius: 0px !important;
+  box-shadow: 6px 6px 0px #1A1C1C !important;
+  background-color: #FFFDF3;
+  transition: transform 100ms ease-out, box-shadow 100ms ease-out;
+}
+
+.pixel-card:hover:not(:disabled) {
+  transform: translate(-2px, -2px);
+  box-shadow: 8px 8px 0px #1A1C1C !important;
+}
+
+.pixel-card:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 4px 4px 0px #1A1C1C !important;
+}
+
+.pixel-button {
+  border: 4px solid #1A1C1C !important;
+  border-radius: 0px !important;
+  box-shadow: 4px 4px 0px #1A1C1C !important;
+  transition: transform 100ms ease-out, box-shadow 100ms ease-out;
+}
+
+.pixel-button:hover:not(:disabled) {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0px #1A1C1C !important;
+}
+
+.pixel-button:active:not(:disabled) {
+  transform: translate(4px, 4px);
+  box-shadow: 0px 0px 0px #1A1C1C !important;
+}
+
+.pixel-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: 4px 4px 0px #1A1C1C !important;
+}
+
+/* CRT Screen Effect */
+.pixel-crt {
+  position: relative;
+  overflow: hidden;
+  background: #0f172a;
+  border: 4px solid #1A1C1C;
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.85);
+}
+.pixel-crt::before {
+  content: " ";
+  display: block;
+  position: absolute;
+  top: 0; left: 0; bottom: 0; right: 0;
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+  z-index: 2;
+  background-size: 100% 4px, 6px 100%;
+  pointer-events: none;
+}
+
+/* Scanline animation */
+@keyframes crt-scanline {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100%);
+  }
+}
+
+.pixel-scanline::after {
+  content: " ";
+  display: block;
+  position: absolute;
+  top: 0; left: 0; bottom: 0; right: 0;
+  background: rgba(18, 16, 16, 0.1);
+  opacity: 0.15;
+  z-index: 2;
+  pointer-events: none;
+  animation: crt-scanline 6s linear infinite;
+  background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0.1) 10%, rgba(255,255,255,0) 20%);
+}
+
+/* Character Select Flashing Border */
+@keyframes pixel-border-flash {
+  0%, 100% {
+    border-color: #1A1C1C;
+  }
+  50% {
+    border-color: #FFD54A;
+  }
+}
+.pixel-flash-selected {
+  animation: pixel-border-flash 600ms infinite steps(2);
+  border-width: 4px !important;
+}
+
+/* --- Pop Art / Brutalist UI Upgrades --- */
+
+/* Conic Sunburst Backdrop */
+.bg-sunburst {
+  background: repeating-conic-gradient(
+    from 0deg,
+    #ffd54f 0deg 15deg,
+    #ffa000 15deg 30deg
+  );
+}
+
+/* Halftone Comic Dots Backdrop */
+.bg-halftone {
+  background-color: #e8f5e9;
+  background-image: radial-gradient(#81c784 20%, transparent 20%);
+  background-size: 14px 14px;
+}
+
+/* Retro Grid Backdrop */
+.bg-retro-grid {
+  background-color: #e8eaf6;
+  background-image: 
+    linear-gradient(#c5cae9 1.5px, transparent 1.5px),
+    linear-gradient(90deg, #c5cae9 1.5px, transparent 1.5px);
+  background-size: 20px 20px;
+}
+
+/* Radar Scan Line for Search State */
+@keyframes radar-scan {
+  0% { top: 0%; opacity: 0; }
+  10% { opacity: 0.8; }
+  90% { opacity: 0.8; }
+  100% { top: 100%; opacity: 0; }
+}
+.radar-scan-line {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: #ff5722;
+  box-shadow: 0 0 12px 3px #ff5722;
+  animation: radar-scan 2s linear infinite;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Tactile 3D Retro Pixel Button */
+.btn-retro-pixel {
+  position: relative;
+  border: 3px solid #1a1c1c;
+  border-radius: 12px;
+  box-shadow: 0 4px 0 0 #1a1c1c;
+  transition: all 0.1s steps(4);
+  cursor: pointer;
+  font-weight: 900;
+  text-transform: uppercase;
+  overflow: hidden;
+  outline: none;
+}
+.btn-retro-pixel::before {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 4px;
+  right: 4px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.45);
+  border-radius: 2px;
+  pointer-events: none;
+}
+.btn-retro-pixel:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 0 0 #1a1c1c;
+}
+.btn-retro-pixel:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 0 #1a1c1c;
+}
+
+/* Primary Mode Glow border */
+@keyframes pixel-glow-yellow {
+  0%, 100% {
+    box-shadow: 6px 6px 0px 0px #1a1c1c, 0 0 12px rgba(255, 179, 0, 0.4);
+  }
+  50% {
+    box-shadow: 6px 6px 0px 0px #1a1c1c, 0 0 24px rgba(255, 179, 0, 0.85);
+  }
+}
+.card-primary-glow {
+  animation: pixel-glow-yellow 2.5s infinite ease-in-out;
+}
+
+/* Retro Ribbon Badge */
+.retro-ribbon {
+  position: absolute;
+  top: 14px;
+  left: -28px;
+  background: #ff5722;
+  color: white;
+  padding: 2px 28px;
+  font-size: 8px;
+  font-family: 'Anybody', sans-serif;
+  font-weight: 900;
+  text-transform: uppercase;
+  transform: rotate(-30deg);
+  border: 2.5px solid #1a1c1c;
+  box-shadow: 2px 2px 0 0 #1a1c1c;
+  z-index: 30;
+  letter-spacing: 0.08em;
+}
+
+/* Floating Pixel Sparkle Particles */
+.pixel-sparkle {
+  position: absolute;
+  font-size: 10px;
+  font-weight: bold;
+  pointer-events: none;
+  user-select: none;
+}
+.sparkle-1 { top: 20%; left: 15%; animation: float-sparkle 1.8s infinite; color: #ffd54f; }
+.sparkle-2 { top: 15%; right: 20%; animation: float-sparkle 2.2s infinite 0.4s; color: #ff5722; }
+.sparkle-3 { bottom: 25%; left: 25%; animation: float-sparkle 2s infinite 0.8s; color: #4fc3f7; }
+
+@keyframes float-sparkle {
+  0%, 100% { transform: translateY(0) scale(0.7); opacity: 0.2; }
+  50% { transform: translateY(-6px) scale(1.1); opacity: 0.9; }
+}
+
+/* Lightweight Slow Pulsing animation */
+@keyframes pulse-slow {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.96; transform: scale(0.995); }
+}
+.animate-pulse-slow {
+  animation: pulse-slow 3s infinite ease-in-out;
+}
+
+/* Short bouncy idle animation */
+@keyframes bounce-short {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+.animate-bounce-short {
+  animation: bounce-short 1.5s infinite ease-in-out;
+}
+
+
+/* Vietnamese Font Overrides to prevent mixed/broken pixel font diacritics */
+body.lang-vi .font-pixel-title {
+  font-family: 'Anybody', 'Space Mono', sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+body.lang-vi .font-pixel-body {
+  font-family: 'Space Mono', 'DM Sans', monospace;
+  font-weight: 500;
+  font-size: 1.05rem;
+}
+
+/* =====================================================
+   CREATE ROOM PAGE — MICRO-INTERACTION ANIMATIONS
+   ===================================================== */
+
+/* Edition Card: "snap into place" on selection click */
+@keyframes edition-snap {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(0.94) translateY(2px); }
+  70%  { transform: scale(1.035) translateY(-1px); }
+  100% { transform: scale(1) translateY(0); }
+}
+.edition-snap {
+  animation: edition-snap 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Edition Card selected: breathing ring glow */
+@keyframes edition-selected-glow {
+  0%, 100% {
+    box-shadow: 4px 4px 0 #1A1C1C, 0 0 0 0 rgba(230, 57, 70, 0);
+  }
+  50% {
+    box-shadow: 4px 4px 0 #1A1C1C, 0 0 0 4px rgba(230, 57, 70, 0.45);
+  }
+}
+.edition-selected-glow {
+  animation: edition-selected-glow 2.2s infinite ease-in-out;
+}
+
+/* Detail Panel: fade+slide in when switching editions */
+@keyframes detail-fade-in {
+  0%   { opacity: 0; transform: translateY(6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.detail-fade-in {
+  animation: detail-fade-in 0.18s ease-out forwards;
+}
+@keyframes detail-fade-out {
+  0%   { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-4px); }
+}
+.detail-fade-out {
+  animation: detail-fade-out 0.14s ease-in forwards;
+}
+
+/* Bet Chip: satisfying press animation on selection */
+@keyframes chip-press {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(0.88) translateY(3px); }
+  70%  { transform: scale(1.08) translateY(-2px); }
+  100% { transform: scale(1) translateY(0); }
+}
+.chip-press {
+  animation: chip-press 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* CTA Create Room Button: periodic idle pixel glow attract attention */
+@keyframes cta-breathe-glow {
+  0%, 75%, 100% {
+    box-shadow: 5px 5px 0 #1A1C1C, 0 0 0 0 rgba(230, 57, 70, 0);
+  }
+  80% {
+    box-shadow: 5px 5px 0 #1A1C1C, 0 0 18px 4px rgba(230, 57, 70, 0.6);
+  }
+  85% {
+    box-shadow: 5px 5px 0 #1A1C1C, 0 0 4px 1px rgba(230, 57, 70, 0.2);
+  }
+  90% {
+    box-shadow: 5px 5px 0 #1A1C1C, 0 0 14px 3px rgba(230, 57, 70, 0.5);
+  }
+}
+.btn-cta-glow {
+  animation: cta-breathe-glow 4s infinite ease-in-out;
+}
+
+/* Exclusive Card: fan hover — card rises above siblings */
+@keyframes card-fan-lift {
+  0%   { transform: var(--fan-base, none) translateY(0); }
+  100% { transform: translateY(-12px) rotate(0deg) scale(1.04); }
+}
+.exclusive-card-hover {
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.18s ease,
+              z-index 0s;
+}
+.exclusive-card-hover:hover {
+  transform: translateY(-14px) rotate(0deg) scale(1.06) !important;
+  box-shadow: 6px 12px 0 #1A1C1C !important;
+  z-index: 40 !important;
+}
+
+/* =====================================================
+   ADDITIONAL RETRO PIXEL DESIGN SYSTEM RULES
+   ===================================================== */
+
+/* Circular Poker-style Pixel Bet Chips */
+.pixel-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 50px;
+  height: 50px;
+  border-radius: 9999px;
+  border: 4px solid #1A1C1C;
+  background-color: #FFFFFF;
+  color: #1A1C1C;
+  font-family: 'Anybody', 'Space Mono', sans-serif;
+  font-weight: 800;
+  font-size: 10px;
+  box-shadow: 3px 3px 0px #1A1C1C;
+  cursor: pointer;
+  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), 
+              box-shadow 0.15s ease, 
+              background-color 0.15s ease,
+              color 0.15s ease;
+  user-select: none;
+}
+
+.pixel-chip::before {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: 9999px;
+  border: 2px dashed rgba(26, 28, 28, 0.25);
+  pointer-events: none;
+}
+
+.pixel-chip:hover {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 4px 5px 0px #1A1C1C;
+  background-color: #F8FAFC;
+}
+
+.pixel-chip:active {
+  transform: translateY(1px) scale(0.95);
+  box-shadow: 1px 1px 0px #1A1C1C;
+}
+
+/* Selected Chip state: amber glow and striped layout */
+.pixel-chip-selected {
+  background-color: #FFD54A !important;
+  color: #1A1C1C !important;
+  border-color: #1A1C1C !important;
+  box-shadow: 3px 3px 0px #1A1C1C, 0 0 0 4px rgba(255, 213, 74, 0.45);
+  transform: scale(1.06);
+}
+
+.pixel-chip-selected::before {
+  border: 2px dashed rgba(26, 28, 28, 0.65);
+}
+
+/* Affordability overlay for chips */
+.pixel-chip-disabled {
+  opacity: 0.35;
+  cursor: not-allowed !important;
+  transform: none !important;
+  box-shadow: none !important;
+  background-color: #E2E8F0 !important;
+  border-color: #64748B !important;
+}
+
+/* Retro Receipt Ticket for Room Summary */
+.room-summary-ticket {
+  position: relative;
+  background-color: #FFFDF0;
+  border: 4px solid #1A1C1C;
+  padding: 16px;
+  font-family: 'Space Mono', monospace;
+  box-shadow: 4px 4px 0px #1A1C1C;
+}
+
+/* Jagged/dashed top & bottom borders for ticket feel */
+.room-summary-ticket::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background-image: linear-gradient(45deg, transparent 33.33%, #1A1C1C 33.33%, #1A1C1C 66.66%, transparent 66.66%),
+                    linear-gradient(-45deg, transparent 33.33%, #1A1C1C 33.33%, #1A1C1C 66.66%, transparent 66.66%);
+  background-size: 8px 8px;
+  background-repeat: repeat-x;
+}
+
+/* Custom Text Inputs with Focus states */
+.pixel-input {
+  background-color: #FFFFFF;
+  border: 4px solid #1A1C1C;
+  border-radius: 0px;
+  padding: 10px 14px;
+  font-family: 'Space Mono', monospace;
+  font-size: 13px;
+  font-weight: 700;
+  color: #1A1C1C;
+  box-shadow: 3px 3px 0px #1A1C1C;
+  transition: focus 0.15s ease, background-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.pixel-input:focus {
+  outline: none;
+  background-color: #FFFDF5;
+  border-color: #1A1C1C;
+  box-shadow: 3px 3px 0px #1A1C1C, 0 0 0 4px #FFD54A;
+  transform: translateY(-1px);
+}
+
+/* Info feedback cards */
+.pixel-info-card {
+  border: 3px solid #1A1C1C;
+  background-color: #F8FAFC;
+  padding: 10px 12px;
+  box-shadow: 2px 2px 0px #1A1C1C;
+  transition: transform 0.15s ease;
+}
+
+.pixel-info-card:hover {
+  transform: translateY(-1px);
+}
+
+/* Segmented Buttons for Tabs */
+.pixel-tab-button {
+  background-color: #FFFFFF;
+  border: 3px solid #1A1C1C;
+  padding: 6px 12px;
+  font-family: 'Anybody', 'Space Mono', sans-serif;
+  font-weight: 800;
+  font-size: 10px;
+  box-shadow: 2px 2px 0px #1A1C1C;
+  transition: all 0.12s ease;
+  text-transform: uppercase;
+}
+
+.pixel-tab-button-active {
+  background-color: #FFD54A;
+  box-shadow: none;
+  transform: translateY(2px);
+}
+
+/* Custom Switch for Toggles */
+.pixel-switch {
+  width: 52px;
+  height: 28px;
+  border: 3px solid #1A1C1C;
+  background-color: #E2E8F0;
+  box-shadow: 2px 2px 0px #1A1C1C;
+  transition: background-color 0.18s ease;
+}
+
+.pixel-switch-active {
+  background-color: #4CDE77;
+}
+
+.pixel-switch-thumb {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #1A1C1C;
+  background-color: #FFFFFF;
+  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.15s ease;
+}
+
+.pixel-switch-thumb-active {
+  transform: translateX(24px);
+}
 
 

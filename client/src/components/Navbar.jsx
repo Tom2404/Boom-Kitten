@@ -1,5 +1,6 @@
 import React from 'react';
 import { useLanguage } from '../context/LanguageContext.jsx';
+import { PixelHomeIcon, PixelPlayIcon, PixelTrophyIcon, PixelShopIcon, PixelProfileIcon } from './PixelIcons.jsx';
 
 /**
  * Navbar component for the Exploding Kittens homepage (Pop Art Style).
@@ -7,12 +8,13 @@ import { useLanguage } from '../context/LanguageContext.jsx';
  * while maintaining bold Neo-brutalism aesthetics.
  * 
  * @param {Object} props
+ * @param {string} props.page - Current active page name
  * @param {function} props.setPage - Safe navigation method from App.jsx
  * @param {boolean} props.isLoggedIn - User login status
  * @param {string} props.userRole - User role ('admin' or 'user')
  * @param {function} props.handleLogout - App-level logout handler
  */
-export default function Navbar({ setPage, isLoggedIn, userRole, handleLogout }) {
+export default function Navbar({ page, setPage, isLoggedIn, userRole, handleLogout }) {
   const { language, setLanguage, t } = useLanguage();
   
   // Hover & Active states for buttons to animate mechanical transitions
@@ -99,40 +101,60 @@ export default function Navbar({ setPage, isLoggedIn, userRole, handleLogout }) 
         </div>
 
         {/* NAVIGATION LINKS (Unified with core game routes) */}
-        <div className="hidden lg:flex items-center gap-6 font-pop-body text-xs md:text-sm font-bold">
+        <div className="hidden lg:flex items-center gap-6 font-pop-body text-xs font-bold">
           <button 
             onClick={() => scrollToSection('hero')}
-            className="text-[#888] hover:text-white transition-colors duration-150 uppercase tracking-wider"
+            className={`flex items-center gap-1.5 uppercase tracking-wider transition-all duration-200 border-b-2 py-1 px-1 cursor-pointer
+              ${page === 'Home' 
+                ? 'text-white border-[var(--pop-red)] font-black translate-y-[-1px]' 
+                : 'text-[#888] border-transparent hover:text-white hover:border-white/40'}`}
           >
+            <PixelHomeIcon size={12} className={page === 'Home' ? 'text-[var(--pop-red)]' : 'text-neutral-500'} />
             {t('home')}
           </button>
           
           <button 
             onClick={() => setPage('Game')}
-            className="text-[#888] hover:text-white transition-colors duration-150 uppercase tracking-wider"
+            className={`flex items-center gap-1.5 uppercase tracking-wider transition-all duration-200 border-b-2 py-1 px-1 cursor-pointer
+              ${page === 'Game' 
+                ? 'text-white border-[var(--pop-red)] font-black translate-y-[-1px]' 
+                : 'text-[#888] border-transparent hover:text-white hover:border-white/40'}`}
           >
+            <PixelPlayIcon size={12} className={page === 'Game' ? 'text-[var(--pop-red)]' : 'text-neutral-500'} />
             {t('arena')}
           </button>
           
           <button 
             onClick={() => setPage('Leaderboard')}
-            className="text-[#888] hover:text-white transition-colors duration-150 uppercase tracking-wider"
+            className={`flex items-center gap-1.5 uppercase tracking-wider transition-all duration-200 border-b-2 py-1 px-1 cursor-pointer
+              ${page === 'Leaderboard' 
+                ? 'text-white border-[var(--pop-red)] font-black translate-y-[-1px]' 
+                : 'text-[#888] border-transparent hover:text-white hover:border-white/40'}`}
           >
+            <PixelTrophyIcon size={12} className={page === 'Leaderboard' ? 'text-[var(--pop-red)]' : 'text-neutral-500'} />
             {t('leaderboard')}
           </button>
           
           <button 
             onClick={() => setPage('Shop')}
-            className="text-[#888] hover:text-white transition-colors duration-150 uppercase tracking-wider"
+            className={`flex items-center gap-1.5 uppercase tracking-wider transition-all duration-200 border-b-2 py-1 px-1 cursor-pointer
+              ${page === 'Shop' 
+                ? 'text-white border-[var(--pop-red)] font-black translate-y-[-1px]' 
+                : 'text-[#888] border-transparent hover:text-white hover:border-white/40'}`}
           >
+            <PixelShopIcon size={12} className={page === 'Shop' ? 'text-[var(--pop-red)]' : 'text-neutral-500'} />
             {t('shop')}
           </button>
 
           {isLoggedIn && (
             <button 
               onClick={() => setPage('Profile')}
-              className="text-[#888] hover:text-white transition-colors duration-150 uppercase tracking-wider"
+              className={`flex items-center gap-1.5 uppercase tracking-wider transition-all duration-200 border-b-2 py-1 px-1 cursor-pointer
+                ${page === 'Profile' 
+                  ? 'text-white border-[var(--pop-red)] font-black translate-y-[-1px]' 
+                  : 'text-[#888] border-transparent hover:text-white hover:border-white/40'}`}
             >
+              <PixelProfileIcon size={12} className={page === 'Profile' ? 'text-[var(--pop-red)]' : 'text-neutral-500'} />
               {t('profile')}
             </button>
           )}

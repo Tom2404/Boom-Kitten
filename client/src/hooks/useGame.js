@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useSocket } from './useSocket.js';
 import { CARD_THEMES } from '../components/Card.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
+import { animationManager } from '../vfx/AnimationManager.js';
 
 export function useGame() {
   const socket = useSocket();
@@ -207,12 +208,25 @@ export function useGame() {
       setArmageddonRequest({ stage: 'distribute', timeoutMs, active: true });
     };
 
-    const onArmageddonDecisionRequest = ({ timeoutMs }) => {
-      setArmageddonRequest({ stage: 'decision', timeoutMs, active: true });
+    const onArmageddonRequest = ({ timeoutMs }) => {
+      setArmageddonRequest({ timeoutMs, active: true });
     };
 
-    const onClairvoyanceReveal = ({ position }) => {
-      setClairvoyanceReveal({ position, active: true });
+    const onClairvoyanceReveal = ({ cards, targetPlayerId }) => {
+      setClairvoyanceReveal({ cards, targetPlayerId });
+      setTimeout(() => setClairvoyanceReveal(null), 5000);
+    };
+
+    const onAnimationTrigger = (payload) => {
+      animationManager.enqueue(payload);
+    };
+
+    const onAnimationBatch = (payloads) => {
+      animationManager.enqueueBatch(payloads);
+    };
+
+    const onAnimationCancel = ({ animId }) => {
+      animationManager.cancel(animId);
     };
 
     const getCardName = (type) => {
@@ -347,13 +361,16 @@ export function useGame() {
     socket.on('game:zombie:request', onZombieRequest);
     socket.on('game:defuse:request', onDefuseRequest);
     socket.on('game:selectTarget:request', onSelectTargetRequest);
-    socket.on('game:feedTheDead:request', onFeedTheDeadRequest);
-    socket.on('game:graveRobber:request', onGraveRobberRequest);
-    socket.on('game:digDeeper:request', onDigDeeperRequest);
-    socket.on('game:armageddon:distributeRequest', onArmageddonDistributeRequest);
-    socket.on('game:armageddon:decisionRequest', onArmageddonDecisionRequest);
-    socket.on('game:clairvoyance:reveal', onClairvoyanceReveal);
-    socket.on('game:ended', onGameEnded);
+    socket.on('interaction_request:feed_the_dead', onFeedTheDeadRequest);
+    socket.on('interaction_request:grave_robber', onGraveRobberRequest);
+    socket.on('interaction_request:dig_deeper', onDigDeeperRequest);
+    socket.on('interaction_request:armageddon', onArmageddonRequest);
+    socket.on('clairvoyance:reveal', onClairvoyanceReveal);
+    
+    socket.on('animation_trigger', onAnimationTrigger);
+    socket.on('animation_batch', onAnimationBatch);
+    socket.on('animation_cancel', onAnimationCancel);
+
     socket.on('game:exploded', onExploded);
     socket.on('game:drewKitten', onDrewKitten);
     socket.on('game:cardPlayed', onCardPlayed);
@@ -373,20 +390,8 @@ export function useGame() {
       socket.off('game:nopeResult', onNopeResult);
       socket.off('game:barkingKitten:resolved', onBarkingKittenResolved);
       socket.off('game:seeTheFuture', onSeeTheFuture);
-      socket.off('game:alterFuture:request', onAlterFutureRequest);
-      socket.off('game:favor:request', onFavorRequest);
-      socket.off('game:bury:request', onBuryRequest);
-      socket.off('game:garbage:request', onGarbageRequest);
-      socket.off('game:potLuck:request', onPotLuckRequest);
-      socket.off('game:zombie:request', onZombieRequest);
-      socket.off('game:defuse:request', onDefuseRequest);
-      socket.off('game:selectTarget:request', onSelectTargetRequest);
-      socket.off('game:feedTheDead:request', onFeedTheDeadRequest);
-      socket.off('game:graveRobber:request', onGraveRobberRequest);
-      socket.off('game:digDeeper:request', onDigDeeperRequest);
-      socket.off('game:armageddon:distributeRequest', onArmageddonDistributeRequest);
-      socket.off('game:armageddon:decisionRequest', onArmageddonDecisionRequest);
-      socket.off('game:clairvoyance:reveal', onClairvoyanceReveal);
+      socket.off('interaction_request:armageddon', onArmageddonRequest);
+      socket.off('clairvoyance:reveal', onClairvoyanceReveal);
       socket.off('game:ended', onGameEnded);
       socket.off('game:exploded', onExploded);
       socket.off('game:drewKitten', onDrewKitten);
