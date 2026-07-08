@@ -397,6 +397,37 @@ module.exports = function registerGameSocket(io) {
     return false;
   }
 
+  function mapCardTypeToVfxType(cardType) {
+    if (!cardType) return 'GENERIC';
+    if (cardType.startsWith('combo_')) return cardType.toUpperCase();
+    if (cardType === 'zombie_resolved' || cardType === 'defuse_resolved') return cardType.toUpperCase();
+    return cardType.toUpperCase();
+  }
+
+  function broadcastActionResolved(room, action, result) {
+    const isCancelled = result === 'CANCELLED';
+    const vfxType = isCancelled ? 'NOPE' : mapCardTypeToVfxType(action.cardType);
+
+    io.to(room.code).emit('game:actionResolved', {
+      actionId: action.eventId,
+      actionKind: action.cardType?.startsWith('combo_') ? 'combo' : 'card',
+      cardType: action.cardType,
+      comboType: action.cardType?.startsWith('combo_') ? action.cardType : undefined,
+      displayCardType: action.displayCardType,
+      playedBy: action.playerId,
+      targetPlayerId: action.targetPlayerId,
+      result,
+      vfxType,
+      nopeCount: action.nopeCount || 0,
+      metadata: {
+        source: 'resolvePendingAction',
+        screenCoverage: 0.5,
+        scale: 'large',
+        cancelledCardType: isCancelled ? action.cardType : undefined,
+      },
+    });
+  }
+
   function getNowWindowTimeout() {
     return 3000;
   }
@@ -426,6 +457,17 @@ module.exports = function registerGameSocket(io) {
     if (!gameState || !gameState.pendingAction || gameState.pendingAction.eventId !== eventId) return;
 
     const action = gameState.pendingAction;
+
+    // Guard against double-resolve (race conditions between timeout / pass / disconnect)
+    if (action.status === 'RESOLVED') return;
+    action.status = 'RESOLVED';
+
+    // Clear timer
+    if (action.timerId) {
+      clearTimeout(action.timerId);
+      action.timerId = null;
+    }
+
     gameState.pendingAction = null;
 
     if (action.nopeCount && action.nopeCount % 2 === 1) {
@@ -436,6 +478,9 @@ module.exports = function registerGameSocket(io) {
         actingPlayerId: action.playerId,
         nopeCount: action.nopeCount,
       });
+
+      // Broadcast Cancelled VFX
+      broadcastActionResolved(room, action, 'CANCELLED');
 
       if (action.parentAction) {
         startNopeWindow(room, action.parentAction);
@@ -461,6 +506,9 @@ module.exports = function registerGameSocket(io) {
           actingPlayerId: action.playerId,
           nopeCount: action.nopeCount,
         });
+
+        // Broadcast Resolved VFX
+        broadcastActionResolved(room, action, 'RESOLVED');
 
         await runActionEffect(room, action);
         startNowOnlyWindow(room, action);
@@ -1233,14 +1281,38 @@ module.exports = function registerGameSocket(io) {
           const targetPending = state.pendingZombie || state.pendingDefuse;
           if (targetPending) {
             targetPending.clairvoyancePlayerId = userId;
-            io.to(roomCode).emit('game:cardPlayed', { playerId: userId, cardType: actualCardType, targetPlayerId });
+            io.to(roomCode).emit('game:cardPlayedPending', {
+              actionId: `clairvoyance-${Date.now()}`,
+              playerId: userId,
+              cardType: actualCardType,
+              targetPlayerId,
+              canBeNoped: false,
+            });
+            io.to(roomCode).emit('game:actionResolved', {
+              actionId: `clairvoyance-resolved-${Date.now()}`,
+              actionKind: 'card',
+              cardType: actualCardType,
+              playedBy: userId,
+              targetPlayerId,
+              result: 'RESOLVED',
+              vfxType: mapCardTypeToVfxType(actualCardType),
+              nopeCount: 0,
+              metadata: { source: 'clairvoyance', screenCoverage: 0.5, scale: 'large' },
+            });
             io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(state) });
             sendHands(io, room);
             return;
           }
         }
 
-        io.to(roomCode).emit('game:cardPlayed', { playerId: userId, cardType: actualCardType, targetPlayerId: finalTargetPlayerId });
+        io.to(roomCode).emit('game:cardPlayedPending', {
+          actionId: `pending-${Date.now()}-${Math.random()}`,
+          playerId: userId,
+          cardType: actualCardType,
+          targetPlayerId: finalTargetPlayerId,
+          canBeNoped: isNopeableAction(actualCardType),
+          responseWindowMs: getNowWindowTimeout(),
+        });
 
         // Run checkStreakingKittenEffect whenever cards change hands or are played
         checkStreakingKittenEffect(room.gameState, userId);
@@ -1385,7 +1457,9 @@ module.exports = function registerGameSocket(io) {
         playerId: userId,
         cardType: 'nope',
         targetPlayerId: pending.playerId,
-        nopedCardType: pending.cardType
+        nopedCardType: pending.cardType,
+        actionId: pending.eventId,
+        animationOnly: true,
       });
 
       pending.nopeCount += 1;
@@ -1494,11 +1568,14 @@ module.exports = function registerGameSocket(io) {
           finalTargetPlayerId = getAutoTargetForTwoPlayerGame(state, userId, comboCardType);
         }
 
-        io.to(roomCode).emit('game:cardPlayed', {
+        io.to(roomCode).emit('game:cardPlayedPending', {
+          actionId: `combo-pending-${Date.now()}-${Math.random()}`,
           playerId: userId,
           cardType: comboCardType,
           displayCardType: comboResult.cardTypes[0] || 'cat_taco',
           targetPlayerId: finalTargetPlayerId,
+          canBeNoped: true,
+          responseWindowMs: getNowWindowTimeout(),
         });
 
         // Run checkStreakingKittenEffect

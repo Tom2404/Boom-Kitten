@@ -65,6 +65,7 @@ import GameBoardView from './Game/views/GameBoardView.jsx';
 import { GameProvider } from './Game/GameContext.jsx';
 import { animationManager } from '../vfx/AnimationManager.js';
 import { VFX_PRIORITY } from '../vfx/VFXEventAdapter.js';
+import { mapResolvedActionToAnimKey } from '../vfx/config/vfxEventMap.js';
 
 /**
  * Renders custom pixel art artwork for each game edition/expansion
@@ -830,6 +831,10 @@ export default function Game() {
     playAgain,
   } = useGame();
 
+  const [reversePulse, setReversePulse] = React.useState(false);
+  const previousTurnPlayerIdRef = React.useRef(null);
+  const hasInitializedTurnRef = React.useRef(false);
+
   const { t, language } = useLanguage();
 
   useEffect(() => {
@@ -838,6 +843,34 @@ export default function Game() {
       document.body.classList.remove('pop-art-theme');
     };
   }, []);
+
+  useEffect(() => {
+    const currentPlayerId = gameState?.players?.[gameState?.currentPlayerIndex]?.userId;
+    if (!currentPlayerId || !myUser?.id) return;
+
+    if (!hasInitializedTurnRef.current) {
+      previousTurnPlayerIdRef.current = currentPlayerId;
+      hasInitializedTurnRef.current = true;
+      return;
+    }
+
+    const previousPlayerId = previousTurnPlayerIdRef.current;
+    const isTurnChanged = previousPlayerId !== currentPlayerId;
+    const isMyTurn = currentPlayerId === myUser.id;
+
+    if (isTurnChanged && isMyTurn) {
+      animationManager.enqueue({
+        animKey: 'ENV_TURN_TRANSITION',
+        priority: 'HIGH',
+        metadata: {
+          isMyTurn: true,
+          label: 'YOUR TURN',
+        },
+      });
+    }
+
+    previousTurnPlayerIdRef.current = currentPlayerId;
+  }, [gameState?.currentPlayerIndex, myUser?.id]);
 
   const editionsList = [
     'original',
@@ -1380,6 +1413,9 @@ export default function Game() {
     });
   };
 
+  // Ref to deduplicate VFX for the same resolved actionId
+  const playedResolvedVfxIds = React.useRef(new Set());
+
   useEffect(() => {
     if (!socket) return;
 
@@ -1389,34 +1425,132 @@ export default function Game() {
       }, 50);
     };
 
-    const handleCardPlayed = ({ playerId, cardType, targetPlayerId, displayCardType }) => {
+    // ─── game:cardPlayedPending ──────────────────────────────────────────────
+    // Emitted immediately when a card is played while the Nope window is opened.
+    // Must NOT trigger any main / card-specific VFX here.
+    // Only allowed: small card-fly animation, log, toast.
+    const handleCardPlayedPending = ({ playerId, cardType }) => {
       const sourceId = playerId === myUser?.id ? 'player-hand-container' : `player-avatar-${playerId}`;
-
       setTimeout(() => {
-        const targetId = 'discard-pile-element';
-        playFlyingCard(sourceId, targetId, displayCardType || cardType);
+        // Small card fly into discard — neutral animation, not the main VFX
+        playFlyingCard(sourceId, 'discard-pile-element', cardType);
       }, 50);
+      // No main VFX here. All main VFX are deferred to game:actionResolved.
+    };
 
-      // Special animations for Zombie Kitten edition cards
+    // ─── game:cardPlayed ─────────────────────────────────────────────────────
+    // Kept only for:
+    //   1. Nope card (animationOnly: true) — small card fly
+    //   2. Discard actions emitted by game:discard handler (no Nope window)
+    // Must NOT trigger main VFX for regular action cards.
+    const handleCardPlayed = ({ playerId, cardType, animationOnly }) => {
+      // Guard: only process nope cards or explicit animation-only payloads
+      if (cardType !== 'nope' && !animationOnly) return;
+
+      const sourceId = playerId === myUser?.id ? 'player-hand-container' : `player-avatar-${playerId}`;
+      setTimeout(() => {
+        playFlyingCard(sourceId, 'discard-pile-element', cardType);
+      }, 50);
+      // No main VFX here.
+    };
+
+    // ─── game:actionResolved ─────────────────────────────────────────────────
+    // THE ONLY place that triggers main card VFX.
+    // Emitted by server AFTER the Nope/Response window has closed and
+    // the action outcome has been determined.
+    const handleActionResolved = ({
+      actionId,
+      actionKind,
+      cardType,
+      comboType,
+      displayCardType,
+      playedBy,
+      targetPlayerId: resolvedTargetId,
+      result,
+      vfxType,
+      nopeCount,
+    }) => {
+      // Deduplicate: same actionId must never fire VFX twice on the same client
+      if (actionId && playedResolvedVfxIds.current.has(actionId)) return;
+      if (actionId) playedResolvedVfxIds.current.add(actionId);
+
+      // Clean up old IDs to avoid unbounded Set growth
+      if (playedResolvedVfxIds.current.size > 80) {
+        const entries = [...playedResolvedVfxIds.current];
+        entries.slice(0, 40).forEach((id) => playedResolvedVfxIds.current.delete(id));
+      }
+
+      const isCancelled = result === 'CANCELLED' || (nopeCount && nopeCount % 2 === 1);
+
+      if (isCancelled) {
+        // Action was Noped / cancelled — show Nope/Cancel VFX only
+        animationManager.enqueue({
+          animKey: 'CARD_NOPE',
+          priority: VFX_PRIORITY.INTERRUPT,
+          metadata: {
+            actionId,
+            cardType,
+            comboType,
+            playedBy,
+            targetPlayerId: resolvedTargetId,
+            result: 'CANCELLED',
+            scale: 'large',
+            screenCoverage: 0.5,
+          },
+        });
+        return;
+      }
+
+      // Action was RESOLVED — show main card VFX
+      const animKey = mapResolvedActionToAnimKey({
+        result,
+        nopeCount,
+        vfxType,
+        comboType,
+        cardType: displayCardType || cardType,
+      });
+
+      if (cardType === 'reverse') {
+        setReversePulse(true);
+        setTimeout(() => setReversePulse(false), 500);
+      }
+
+      animationManager.enqueue({
+        animKey,
+        priority: VFX_PRIORITY.INTERRUPT,
+        metadata: {
+          actionId,
+          actionKind,
+          cardType,
+          comboType,
+          playedBy,
+          targetPlayerId: resolvedTargetId,
+          result: 'RESOLVED',
+          scale: 'large',
+          screenCoverage: 0.5,
+        },
+      });
+
+      // Special secondary animations that are part of the resolved effect
       if (cardType === 'attack_of_the_dead') {
         const nextTargetId = getNextAlivePlayerId();
         if (nextTargetId) {
           setTimeout(() => {
             playHordeAttackAnimation([], nextTargetId);
-          }, 350);
+          }, 400);
         }
       } else if (cardType === 'grave_robber') {
         setTimeout(() => {
           playGraveRobberAnimation([]);
-        }, 350);
+        }, 400);
       } else if (cardType === 'dig_deeper') {
         setTimeout(() => {
           playDigDeeperAnimation();
-        }, 350);
-      } else if (cardType === 'feed_the_dead' && targetPlayerId) {
+        }, 400);
+      } else if (cardType === 'feed_the_dead' && resolvedTargetId) {
         setTimeout(() => {
-          playFeedTheDeadAnimation([], targetPlayerId);
-        }, 350);
+          playFeedTheDeadAnimation([], resolvedTargetId);
+        }, 400);
       }
     };
 
@@ -1484,7 +1618,9 @@ export default function Game() {
 
     socket.on('game:cardDrawn', handleCardDrawn);
     socket.on('game:drewKitten', handleDrewKitten);
+    socket.on('game:cardPlayedPending', handleCardPlayedPending);
     socket.on('game:cardPlayed', handleCardPlayed);
+    socket.on('game:actionResolved', handleActionResolved);
     socket.on('game:exploded', handleExploded);
     socket.on('game:zombieRevived', handleZombieRevived);
     socket.on('game:nopeWindow', handleNopeWindowForAnim);
@@ -1493,7 +1629,9 @@ export default function Game() {
     return () => {
       socket.off('game:cardDrawn', handleCardDrawn);
       socket.off('game:drewKitten', handleDrewKitten);
+      socket.off('game:cardPlayedPending', handleCardPlayedPending);
       socket.off('game:cardPlayed', handleCardPlayed);
+      socket.off('game:actionResolved', handleActionResolved);
       socket.off('game:exploded', handleExploded);
       socket.off('game:zombieRevived', handleZombieRevived);
       socket.off('game:nopeWindow', handleNopeWindowForAnim);
@@ -1661,6 +1799,7 @@ export default function Game() {
   const gameBoardViewProps = {
     AlterFutureModal,
     ArmageddonDecisionModal,
+    reversePulse,
     ArmageddonDistributeModal,
     BuryPositionModal,
     CardDrawerIcon,

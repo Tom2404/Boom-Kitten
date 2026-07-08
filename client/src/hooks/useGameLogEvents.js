@@ -30,7 +30,35 @@ export function useGameLogEvents({
       setActionLog(prev => [...prev, { id: Math.random().toString(), text: t('log_exploded', { name: pName }), timestamp: new Date().toLocaleTimeString() }]);
     };
 
-    const onCardPlayed = ({ playerId, cardType, targetPlayerId, nopedCardType }) => {
+    // game:cardPlayedPending — logs regular action card plays before resolve
+    const onCardPlayedPending = ({ playerId, cardType, targetPlayerId, canBeNoped }) => {
+      if (!cardType) return;
+      const pName = getUsername(playerId);
+      const tName = targetPlayerId ? getUsername(targetPlayerId) : null;
+      const cardName = getCardName(cardType);
+
+      if (cardType && cardType.endsWith('_now') && cardType !== 'clairvoyance_now') {
+        setNowCardToast({ playerName: pName, cardType, timestamp: Date.now() });
+        setTimeout(() => setNowCardToast(null), 3000);
+      }
+
+      let msg = '';
+      if (tName) {
+        msg = t('log_played_target', { name: pName, card: cardName, target: tName });
+      } else {
+        msg = t('log_played', { name: pName, card: cardName });
+      }
+      if (canBeNoped) {
+        msg += '...';
+      }
+      setStatusMessage(msg);
+      setActionLog(prev => [...prev, { id: Math.random().toString(), text: msg, timestamp: new Date().toLocaleTimeString() }]);
+    };
+
+    // game:cardPlayed — only for nope cards and discard (animationOnly) actions
+    const onCardPlayed = ({ playerId, cardType, targetPlayerId, nopedCardType, animationOnly }) => {
+      // Only log nope cards and non-animationOnly discards via this event
+      if (!cardType) return;
       const pName = getUsername(playerId);
       const tName = targetPlayerId ? getUsername(targetPlayerId) : null;
 
@@ -46,7 +74,8 @@ export function useGameLogEvents({
       } else if (cardType.startsWith('discard_')) {
         const cardName = getCardName(cardType);
         msg = t('log_discarded', { name: pName, card: cardName });
-      } else {
+      } else if (!animationOnly) {
+        // Fallback for other legacy events
         const cardName = getCardName(cardType);
         if (tName) {
           msg = t('log_played_target', { name: pName, card: cardName, target: tName });
@@ -54,8 +83,10 @@ export function useGameLogEvents({
           msg = t('log_played', { name: pName, card: cardName });
         }
       }
-      setStatusMessage(msg);
-      setActionLog(prev => [...prev, { id: Math.random().toString(), text: msg, timestamp: new Date().toLocaleTimeString() }]);
+      if (msg) {
+        setStatusMessage(msg);
+        setActionLog(prev => [...prev, { id: Math.random().toString(), text: msg, timestamp: new Date().toLocaleTimeString() }]);
+      }
     };
 
     const onDrewKitten = ({ playerId, cardType }) => {
@@ -98,6 +129,8 @@ export function useGameLogEvents({
     socket.on('game:barkingKitten:resolved', onBarkingKittenResolved);
     socket.on('game:exploded', onExploded);
     socket.on('game:drewKitten', onDrewKitten);
+    // Listen to both pending (action cards) and played (nope/discard) for logs
+    socket.on('game:cardPlayedPending', onCardPlayedPending);
     socket.on('game:cardPlayed', onCardPlayed);
     socket.on('game:cardDrawn', onCardDrawn);
     socket.on('game:turnChanged', onTurnChanged);
@@ -106,6 +139,7 @@ export function useGameLogEvents({
       socket.off('game:barkingKitten:resolved', onBarkingKittenResolved);
       socket.off('game:exploded', onExploded);
       socket.off('game:drewKitten', onDrewKitten);
+      socket.off('game:cardPlayedPending', onCardPlayedPending);
       socket.off('game:cardPlayed', onCardPlayed);
       socket.off('game:cardDrawn', onCardDrawn);
       socket.off('game:turnChanged', onTurnChanged);

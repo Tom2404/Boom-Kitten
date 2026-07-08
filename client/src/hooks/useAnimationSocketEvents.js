@@ -16,15 +16,6 @@ export function useAnimationSocketEvents(socket) {
       animationManager.cancel(animId);
     };
 
-    const onTurnChanged = (payload) => {
-      animationManager.enqueue({
-        ...fromGameSocketEvent('game:turnChanged', payload),
-        metadata: {
-          ...payload,
-          label: payload?.currentPlayerId ? 'NEXT TURN' : 'TURN CHANGE',
-        },
-      });
-    };
 
     const onDisconnect = () => {
       animationManager.clear();
@@ -33,14 +24,12 @@ export function useAnimationSocketEvents(socket) {
     socket.on('animation_trigger', onAnimationTrigger);
     socket.on('animation_batch', onAnimationBatch);
     socket.on('animation_cancel', onAnimationCancel);
-    socket.on('game:turnChanged', onTurnChanged);
     socket.on('disconnect', onDisconnect);
 
     return () => {
       socket.off('animation_trigger', onAnimationTrigger);
       socket.off('animation_batch', onAnimationBatch);
       socket.off('animation_cancel', onAnimationCancel);
-      socket.off('game:turnChanged', onTurnChanged);
       socket.off('disconnect', onDisconnect);
     };
   }, [socket]);

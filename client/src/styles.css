@@ -1734,6 +1734,7 @@ body.lang-vi .font-pixel-body {
     0 0.5em var(--pixel), 0.125em 0.5em var(--pixel), 0.5em 0.5em var(--pixel), 0.625em 0.5em var(--pixel);
 }
 
+
 @media (max-width: 640px) {
   .pixel-lobby-icon--bomb {
     font-size: 24px;
@@ -1744,5 +1745,157 @@ body.lang-vi .font-pixel-body {
       0 0 0 2px #f6d7b7,
       0 0 0 5px var(--pop-black),
       6px 6px 0 rgba(0, 0, 0, 0.38);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   VFX Overlay — Main Card Effect Sizing
+   These classes ensure all main card VFX are displayed at ≥50% of the
+   shortest viewport edge (vmin). They are intentionally NOT applied to the
+   PixiJS canvas element itself to avoid GSAP transform conflicts.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Full-screen centering wrapper for main card VFX.
+ * Place this at the root of the VFX overlay to keep the effect centred
+ * regardless of GSAP transforms applied to individual children.
+ */
+.vfx-overlay-center {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/**
+ * Main card VFX container.
+ * Targets 50vmin, clamped to [280px, 620px] for mobile/desktop.
+ * image-rendering: pixelated keeps the retro pixel-art style crisp.
+ */
+.card-vfx-main {
+  /* 50vmin = 50% of the shorter viewport dimension */
+  width: clamp(280px, 50vmin, 620px);
+  height: clamp(280px, 50vmin, 620px);
+  image-rendering: pixelated;
+  /* transform-origin stays at center so GSAP scale animations are centred */
+  transform-origin: center center;
+}
+
+/**
+ * Utility class for pixel-art VFX text overlays (card name stamps, etc.)
+ */
+.vfx-pixel-label {
+  font-family: 'Pixelify Sans', 'Space Mono', monospace;
+  font-weight: 700;
+  text-rendering: optimizeSpeed;
+  image-rendering: pixelated;
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Turn Direction Indicator & Active Turn Highlights
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Active Player Glow & Pulse */
+.player-avatar.active-turn,
+.active-turn {
+  position: relative;
+  z-index: 6;
+  box-shadow:
+    0 0 0 4px #1a1a1a,
+    0 0 0 8px #ffd84a,
+    0 0 18px 8px rgba(255, 216, 74, 0.8) !important;
+  animation: active-turn-glow 1.2s ease-in-out infinite !important;
+}
+
+.player-avatar.active-turn::after,
+.active-turn::after {
+  content: "";
+  position: absolute;
+  inset: -10px;
+  border: 3px solid #ffd84a;
+  box-shadow: 0 0 12px #ffd84a;
+  pointer-events: none;
+  border-radius: inherit; /* Matches avatar's border radius */
+  animation: active-turn-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes active-turn-glow {
+  0%, 100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.28);
+  }
+}
+
+@keyframes active-turn-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.75;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+}
+
+/* Turn Direction Indicator styles */
+.turn-direction-indicator {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 0; /* Behind deck/discard, but in center */
+}
+
+.turn-direction-arrows {
+  width: 260px;
+  height: 260px;
+  opacity: 0.28;
+  image-rendering: pixelated;
+  filter: drop-shadow(4px 4px 0 #111);
+}
+
+.turn-direction-arrows.clockwise {
+  animation: rotate-clockwise 4s linear infinite;
+}
+
+.turn-direction-arrows.counter-clockwise {
+  animation: rotate-counter-clockwise 4s linear infinite;
+}
+
+.turn-direction-pulse {
+  animation: reverse-pop 500ms ease-out;
+}
+
+@keyframes rotate-clockwise {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes rotate-counter-clockwise {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(-360deg); }
+}
+
+@keyframes reverse-pop {
+  0% {
+    transform: scale(0.85);
+    filter: brightness(1) saturate(1);
+  }
+  50% {
+    transform: scale(1.35);
+    filter: brightness(2.2) saturate(1.8);
+  }
+  100% {
+    transform: scale(1);
+    filter: brightness(1) saturate(1);
   }
 }

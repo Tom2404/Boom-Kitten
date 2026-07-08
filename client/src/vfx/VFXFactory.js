@@ -4,6 +4,7 @@ import {
   CARD_FX_TIMING,
   PrimitiveEffects,
   getFxScale,
+  getMainVfxSize,
   isReducedMotion,
 } from './PrimitiveEffects';
 import { soundManager } from './SoundManager';

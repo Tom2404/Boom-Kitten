@@ -28,6 +28,7 @@ export default function GameTable(props) {
     playCombo,
     privateHand,
     respondCombo5,
+    reversePulse,
   } = { ...context, ...props };
   const [targetPlayerId, setTargetPlayerId] = React.useState(null);
 
@@ -77,14 +78,16 @@ export default function GameTable(props) {
 
     {/* Board Center: Deck and Discard Pile */}
     <div className="flex-grow flex items-center justify-center py-6 z-10 w-full relative">
-      {/* Rotating play direction arrows background */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-visible">
-        <div className={`w-[18rem] h-[18rem] border-4 border-dashed border-on-surface/5 rounded-full flex items-center justify-center transition-all duration-500 ${gameState.playDirection === -1 ? 'animate-spin-ccw border-rose-500/10' : 'animate-spin-cw border-emerald-500/10'}`}>
-          {/* Curved arrows/pointers */}
-          <span className={`absolute top-4 text-xl font-black transition-colors ${gameState.playDirection === -1 ? 'text-rose-500/15' : 'text-emerald-500/15'}`}>▶</span>
-          <span className={`absolute right-4 text-xl font-black rotate-90 transition-colors ${gameState.playDirection === -1 ? 'text-rose-500/15' : 'text-emerald-500/15'}`}>▶</span>
-          <span className={`absolute bottom-4 text-xl font-black rotate-180 transition-colors ${gameState.playDirection === -1 ? 'text-rose-500/15' : 'text-emerald-500/15'}`}>▶</span>
-          <span className={`absolute left-4 text-xl font-black -rotate-90 transition-colors ${gameState.playDirection === -1 ? 'text-rose-500/15' : 'text-emerald-500/15'}`}>▶</span>
+      {/* Rotating play direction arrows background using pixel-art asset */}
+      <div className="turn-direction-indicator">
+        <div className={reversePulse ? "turn-direction-pulse" : ""}>
+          <img
+            src="/vfx/reverse-arrow.png"
+            alt="Play Direction"
+            className={`turn-direction-arrows ${
+              gameState?.playDirection === -1 ? 'counter-clockwise' : 'clockwise'
+            }`}
+          />
         </div>
       </div>
 

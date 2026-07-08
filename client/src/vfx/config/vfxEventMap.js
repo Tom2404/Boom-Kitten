@@ -26,6 +26,26 @@ export function gameEventToAnimKey(eventName, payload = {}) {
   if (eventName === 'game:exploded') return 'EXPLOSION';
   if (eventName === 'game:nopeWindow' || eventName === 'game:nopeResult') return 'CARD_NOPE';
   if (eventName === 'game:turnChanged') return 'ENV_TURN_TRANSITION';
+  // game:cardPlayedPending — small card fly animation only, NOT a main VFX
+  if (eventName === 'game:cardPlayedPending') return 'CARD_FLY_SMALL';
+  // game:actionResolved — main VFX, determined by result + vfxType
+  if (eventName === 'game:actionResolved') return mapResolvedActionToAnimKey(payload);
+  // game:cardPlayed is kept for Nope card or animationOnly cases
   if (eventName === 'game:cardPlayed') return cardTypeToAnimKey(payload.displayCardType || payload.cardType);
   return payload.animKey || 'CARD_GENERIC';
+}
+
+/**
+ * Returns the correct animation key for a resolved action.
+ * CANCELLED actions always show the Nope/Cancel VFX regardless of original card type.
+ * RESOLVED actions show the main VFX for the card/combo type.
+ */
+export function mapResolvedActionToAnimKey(payload = {}) {
+  if (!payload) return 'CARD_GENERIC';
+  if (payload.result === 'CANCELLED' || (payload.nopeCount && payload.nopeCount % 2 === 1)) {
+    return 'CARD_NOPE';
+  }
+  return cardTypeToAnimKey(
+    payload.vfxType || payload.comboType || payload.cardType
+  );
 }

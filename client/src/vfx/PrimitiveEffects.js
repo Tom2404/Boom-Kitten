@@ -9,8 +9,21 @@ export const isReducedMotion = () => {
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
 export const getFxScale = (width = window.innerWidth, height = window.innerHeight) => {
-  const base = Math.min(width, height) / 720;
-  return clamp(base, 1.15, 1.8);
+  // Target 50% of the shorter viewport edge (vmin) for main card VFX.
+  // The base 720 ensures correct scaling on a reference resolution.
+  const vmin = Math.min(width, height);
+  const base = vmin / 720;
+  return clamp(base, 1.15, 2.2);
+};
+
+/**
+ * Returns the pixel size for a main card VFX container.
+ * Targets 50vmin, clamped between 280px and 620px.
+ * Use this for CARD_* animation containers so they are always clearly visible.
+ */
+export const getMainVfxSize = () => {
+  const vmin = Math.min(window.innerWidth, window.innerHeight);
+  return Math.max(280, Math.min(620, vmin * 0.5));
 };
 
 export const RETRO_ARCADE_TIMING = {
@@ -18,6 +31,15 @@ export const RETRO_ARCADE_TIMING = {
   standard: 1.45,
   cinematic: 1.8,
   dramatic: 2.25,
+};
+
+// VFX_TIMING (ms) — how long each category of main VFX should display.
+// No main VFX should disappear in under 1.4 seconds.
+export const VFX_TIMING_MS = {
+  normalAction: 1400,
+  strongAction: 1800,
+  nopeCancel: 1600,
+  explosion: 2200,
 };
 
 export const CARD_FX_TIMING = {

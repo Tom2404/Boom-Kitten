@@ -52,10 +52,10 @@ export default function PlayerAvatar({
       <div
         id={`player-avatar-${userId}`}
         onClick={handleSelect}
-        className={`relative p-3 rounded-2xl flex flex-col items-center justify-between transition-all duration-200 select-none w-36
+        className={`player-avatar relative p-3 rounded-2xl flex flex-col items-center justify-between transition-all duration-200 select-none w-36
           ${alive 
             ? (isCurrentTurn 
-                ? 'bg-yellow-300 text-slate-950 border-4 scale-105 animate-brutal-glow' 
+                ? 'bg-yellow-300 text-slate-950 border-4 scale-105 active-turn animate-brutal-glow' 
                 : 'bg-surface text-on-surface border-3 border-on-surface shadow-[4px_4px_0px_0px_rgba(26,28,28,1)]') 
             : (edition === 'zombie'
                 ? 'bg-[#1a2e22] text-[#d1fae5] border-3 border-[#047857] shadow-[2px_2px_0px_0px_#0f0f0f] opacity-80'
