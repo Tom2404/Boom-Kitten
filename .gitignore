@@ -19,4 +19,6 @@ client/dist/
 
 .agent
 skills
+AI_AGENT_CONTEXT.md
+client/.asset-backups/
 

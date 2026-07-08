@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Card from './Card.jsx';
 import { CheckIcon } from './Icons.jsx';
+import { ImageButton } from './ui/ImageButton.jsx';
+import { IconButton } from './ui/IconButton.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { CARD_THEMES } from './Card.jsx';
 
@@ -70,12 +72,12 @@ export function SeeFutureModal({ cards, onClose }) {
             ))}
           </div>
 
-          <button
+          <ImageButton variant="danger"
             onClick={() => closeModal()}
-            className="btn-detonator px-8 py-3 rounded-none font-headline font-black uppercase text-sm"
+            className=" px-8 py-3 rounded-none font-headline font-black uppercase text-sm "
           >
             Xong, tôi đã nhớ
-          </button>
+          </ImageButton>
         </>
       )}
     </BrutalModal>
@@ -146,12 +148,12 @@ export function AlterFutureModal({ cards, onConfirm }) {
             ))}
           </div>
 
-          <button
+          <ImageButton variant="danger"
             onClick={() => closeModal()}
-            className="btn-detonator px-8 py-3 rounded-none font-headline font-black uppercase text-sm"
+            className=" px-8 py-3 rounded-none font-headline font-black uppercase text-sm "
           >
             Lưu & Sắp Xếp Lại
-          </button>
+          </ImageButton>
         </>
       )}
     </BrutalModal>
@@ -358,12 +360,12 @@ export function NopeCountdown({
             </div>
 
             <div className="flex gap-2 flex-shrink-0 items-center">
-              <button
+              <ImageButton variant="secondary"
                 onClick={onPass}
-                className="font-headline font-black border-2 border-slate-900 shadow-[2px_2px_0px_0px_#1a1c1c] px-3.5 py-2 rounded-none text-[10px] bg-slate-200 hover:bg-slate-350 hover:scale-105 active:scale-95 transition-all uppercase text-slate-900"
+                className="font-headline font-black border-2 border-slate-900 shadow-[2px_2px_0px_0px_#1a1c1c] px-3.5 py-2 rounded-none text-[10px]  hover:bg-slate-350 hover:scale-105 active:scale-95 transition-all uppercase text-slate-900 text-slate-800"
               >
                 Pass
-              </button>
+              </ImageButton>
 
               {canNope && (
                 <button
@@ -780,12 +782,12 @@ export function DefusePositionModal({ deckCount, onRespond, cardType }) {
           </div>
 
           <div className="flex justify-center mt-2">
-            <button
+            <ImageButton variant="danger"
               onClick={() => closeModal(() => onRespond(position))}
-              className="btn-detonator px-8 py-3 rounded-none font-headline font-black uppercase text-sm"
+              className=" px-8 py-3 rounded-none font-headline font-black uppercase text-sm "
             >
               {isImploding ? 'Đặt Lại Mèo Sập Nguồn' : 'Đặt Lại Quân Bài'}
-            </button>
+            </ImageButton>
           </div>
         </>
       )}
@@ -1147,12 +1149,12 @@ export function ClairvoyanceRevealModal({ position, onClose }) {
             </span>
           </div>
 
-          <button
+          <ImageButton variant="danger"
             onClick={() => closeModal()}
-            className="btn-detonator px-8 py-3 rounded-none font-headline font-black uppercase text-sm w-full mt-2"
+            className=" px-8 py-3 rounded-none font-headline font-black uppercase text-sm w-full mt-2 "
           >
             Tôi đã hiểu
-          </button>
+          </ImageButton>
         </>
       )}
     </BrutalModal>

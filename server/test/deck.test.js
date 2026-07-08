@@ -130,7 +130,7 @@ test('dealCards deals 8 cards per player and sets kittens properly for imploding
   assert.equal(dealt.players.every((player) => player.hand.filter((card) => card.type === 'defuse').length === 1), true);
 
   assert.equal(deckCounts.imploding_kitten, 1);
-  assert.equal(deckCounts.exploding_kitten, 3);
+  assert.equal(deckCounts.exploding_kitten, 2);
   assert.equal(deckCounts.defuse, 2);
 });
 
@@ -145,5 +145,26 @@ test('dealCards sets 1 exploding kitten and 1 imploding kitten for 2 players in 
   const deckCounts = countTypes(dealt.deck);
 
   assert.equal(deckCounts.imploding_kitten, 1);
-  assert.equal(deckCounts.exploding_kitten, 1);
+  assert.equal(deckCounts.exploding_kitten, undefined);
+});
+
+test('dealCards respects customDefuses and customExplodingKittens options', () => {
+  const players = [
+    { userId: 'p1', hand: [], alive: true },
+    { userId: 'p2', hand: [], alive: true },
+    { userId: 'p3', hand: [], alive: true },
+  ];
+
+  const deck = createDeck(players.length, 'original');
+  const customOptions = {
+    customDefuses: 8, // 8 defuses in total -> 3 for players, 5 in deck
+    customExplodingKittens: 5, // 5 exploding kittens
+  };
+  const dealt = dealCards(deck, players, 4, 'original', customOptions);
+  const deckCounts = countTypes(dealt.deck);
+
+  assert.equal(dealt.players.every((player) => player.hand.filter((card) => card.type === 'defuse').length === 1), true);
+  
+  assert.equal(deckCounts.defuse, 5, 'Should have 5 defuses left in deck');
+  assert.equal(deckCounts.exploding_kitten, 5, 'Should have 5 exploding kittens in deck');
 });

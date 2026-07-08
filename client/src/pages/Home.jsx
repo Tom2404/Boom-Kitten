@@ -33,6 +33,7 @@ export default function Home({ setPage, isLoggedIn, userRole, handleLogout }) {
     <div className="w-full min-h-screen bg-[var(--pop-cream)] text-[var(--pop-black)] font-pop-body flex flex-col antialiased">
       {/* 01. NAVBAR */}
       <Navbar 
+        page="Home"
         setPage={setPage} 
         isLoggedIn={isLoggedIn} 
         userRole={userRole} 

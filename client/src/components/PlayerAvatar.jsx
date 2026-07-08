@@ -2,6 +2,7 @@ import React from 'react';
 import { formatCardName } from '../utils/cardHelpers.js';
 import { getCardImageUrl } from '../utils/cardSkins.js';
 import { RankBadge } from './Icons.jsx';
+import { useLanguage } from '../context/LanguageContext.jsx';
 
 const RANK_BADGES = {
   Bronze: '🟫 BRONZE',
@@ -29,7 +30,9 @@ export default function PlayerAvatar({
   publicProfile,
   edition,
   isWaitingBK,
+  status,
 }) {
+  const { t } = useLanguage();
   const { userId, username, alive, handCount, avatar, activeAvatarFrame, eloPoints, rank, markedCards, pendingTakeFrom } = player;
   const visibleMarkedCards = markedCards?.slice(0, 3) ?? [];
   const hiddenMarkedCount = Math.max((markedCards?.length ?? 0) - visibleMarkedCards.length, 0);
@@ -49,10 +52,10 @@ export default function PlayerAvatar({
       <div
         id={`player-avatar-${userId}`}
         onClick={handleSelect}
-        className={`relative p-3 rounded-2xl flex flex-col items-center justify-between transition-all duration-200 select-none w-36
+        className={`player-avatar relative p-3 rounded-2xl flex flex-col items-center justify-between transition-all duration-200 select-none w-36
           ${alive 
             ? (isCurrentTurn 
-                ? 'bg-yellow-300 text-slate-950 border-4 scale-105 animate-brutal-glow' 
+                ? 'bg-yellow-300 text-slate-950 border-4 scale-105 active-turn animate-brutal-glow' 
                 : 'bg-surface text-on-surface border-3 border-on-surface shadow-[4px_4px_0px_0px_rgba(26,28,28,1)]') 
             : (edition === 'zombie'
                 ? 'bg-[#1a2e22] text-[#d1fae5] border-3 border-[#047857] shadow-[2px_2px_0px_0px_#0f0f0f] opacity-80'
@@ -147,11 +150,6 @@ export default function PlayerAvatar({
           <span className={`text-[9px] font-mono font-bold block mt-0.5 ${isCurrentTurn && alive ? 'text-slate-700' : 'text-on-surface-variant'}`}>
             {currentElo} ELO
           </span>
-          {/* Mockup status dots below ELO inside the card */}
-          <div className="flex gap-1.5 justify-center mt-1.5">
-            <span className={`h-2.5 w-2.5 rounded-full border border-on-surface ${alive ? 'bg-secondary' : 'bg-slate-300'}`} />
-            <span className={`h-2.5 w-2.5 rounded-full border border-on-surface ${alive ? 'bg-secondary' : 'bg-slate-300'}`} />
-          </div>
         </div>
   
         {/* Cards remaining indicator (for opponents) */}
@@ -165,12 +163,52 @@ export default function PlayerAvatar({
           </div>
         )}
   
-        {/* Dead Tag */}
-        {!alive && (
-          <span className="mt-2 px-2 py-0.5 bg-emerald-800 text-white border-2 border-slate-900 rounded-none text-[9px] font-headline font-black uppercase tracking-wider shadow-[1.5px_1.5px_0px_0px_#0f0f0f]">
-            {edition === 'zombie' ? 'ZOMBIE' : 'ĐÃ LOẠI'}
-          </span>
-        )}
+        {/* Dynamic Status Badge */}
+        {(() => {
+          if (!alive) {
+            return (
+              <span className="mt-2 px-2 py-0.5 bg-[#4b5563] text-white border-2 border-slate-900 rounded-none text-[9px] font-headline font-black uppercase tracking-wider shadow-[1.5px_1.5px_0px_0px_#0f0f0f]">
+                {edition === 'zombie' ? 'ZOMBIE' : t('status_exploded')}
+              </span>
+            );
+          }
+          if (status === 'winner') {
+            return (
+              <span className="mt-2 px-2 py-0.5 bg-yellow-400 text-slate-950 border-2 border-slate-900 rounded-none text-[9px] font-headline font-black uppercase tracking-wider shadow-[1.5px_1.5px_0px_0px_#0f0f0f] animate-bounce">
+                👑 {t('status_winner')}
+              </span>
+            );
+          }
+          if (status === 'thinking') {
+            return (
+              <span className="mt-2 px-2 py-0.5 bg-indigo-500 text-white border-2 border-slate-900 rounded-none text-[9px] font-headline font-black uppercase tracking-wider shadow-[1.5px_1.5px_0px_0px_#0f0f0f]">
+                💭 {t('status_thinking')}
+              </span>
+            );
+          }
+          if (status === 'playing') {
+            return (
+              <span className="mt-2 px-2 py-0.5 bg-emerald-500 text-white border-2 border-slate-900 rounded-none text-[9px] font-headline font-black uppercase tracking-wider shadow-[1.5px_1.5px_0px_0px_#0f0f0f]">
+                ⚔️ {t('status_playing')}
+              </span>
+            );
+          }
+          if (status === 'drawing') {
+            return (
+              <span className="mt-2 px-2 py-0.5 bg-blue-500 text-white border-2 border-slate-900 rounded-none text-[9px] font-headline font-black uppercase tracking-wider shadow-[1.5px_1.5px_0px_0px_#0f0f0f] animate-pulse">
+                🎴 {t('status_drawing')}
+              </span>
+            );
+          }
+          if (isCurrentTurn) {
+            return (
+              <span className="mt-2 px-2 py-0.5 bg-emerald-500 text-white border-2 border-slate-900 rounded-none text-[9px] font-headline font-black uppercase tracking-wider shadow-[1.5px_1.5px_0px_0px_#0f0f0f]">
+                ⚔️ {t('status_playing')}
+              </span>
+            );
+          }
+          return null;
+        })()}
   
         {/* Turn indicator text (slanted comic sticker matching mockup) */}
         {isCurrentTurn && alive && (

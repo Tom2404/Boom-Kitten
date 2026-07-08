@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext.jsx';
+import { ImageButton } from '../components/ui/ImageButton.jsx';
+import { IconButton } from '../components/ui/IconButton.jsx';
 
 export default function Lobby({ setPage }) {
   const { language, t } = useLanguage();
@@ -77,12 +79,14 @@ export default function Lobby({ setPage }) {
               : 'Find public rooms, join the exploding kittens warfare, or launch your custom arena.'}
           </p>
         </div>
-        <button
+        <ImageButton
+          variant="danger"
+          size="md"
           onClick={() => setPage('Game')}
-          className="bg-[var(--pop-red)] text-white border-3 border-[var(--pop-black)] px-5 py-3 shadow-[3px_3px_0_var(--pop-black)] text-xs font-pop-accent font-black hover:translate-y-[-2px] hover:shadow-[4.5px_4.5px_0_var(--pop-black)] active:translate-y-0.5 active:shadow-none transition-all uppercase cursor-pointer"
+          className="uppercase text-xs"
         >
           {language === 'vi' ? 'Tạo phòng của bạn ➕' : 'Create Room ➕'}
-        </button>
+        </ImageButton>
       </div>
 
       {/* Inputs, search, and direct entry */}
@@ -106,13 +110,15 @@ export default function Lobby({ setPage }) {
               />
             </div>
           </div>
-          <button
+          <ImageButton
+            variant="primary"
+            size="md"
             onClick={handleDirectJoin}
             disabled={directCode.length < 4}
-            className="w-full py-2.5 bg-[var(--pop-red)] text-white border-3 border-[var(--pop-black)] shadow-[3px_3px_0_var(--pop-black)] font-pop-accent font-black uppercase text-xs cursor-pointer hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[4px_4px_0_var(--pop-black)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full font-pop-accent font-black uppercase text-xs"
           >
             {language === 'vi' ? 'GIA NHẬP PHÒNG 🚀' : 'JOIN ROOM 🚀'}
-          </button>
+          </ImageButton>
         </div>
 
         {/* Search filters */}
@@ -156,12 +162,11 @@ export default function Lobby({ setPage }) {
             </div>
           </div>
           <div className="flex justify-end">
-            <button
+            <IconButton
               onClick={fetchRooms}
-              className="px-4 py-2 bg-white border-3 border-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)] text-xs font-pop-accent font-black uppercase hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[3px_3px_0_var(--pop-black)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all cursor-pointer"
-            >
-              {language === 'vi' ? 'LÀM MỚI DANH SÁCH 🔄' : 'REFRESH LIST 🔄'}
-            </button>
+              icon={<span className="text-xs uppercase">{language === 'vi' ? 'LÀM MỚI DANH SÁCH 🔄' : 'REFRESH LIST 🔄'}</span>}
+              className="px-4 py-2 bg-white border-3 border-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)] font-pop-accent font-black hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[3px_3px_0_var(--pop-black)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all cursor-pointer rounded-none !text-[var(--pop-black)] !bg-white hover:!bg-[var(--pop-cream)]"
+            />
           </div>
         </div>
       </div>
@@ -182,12 +187,14 @@ export default function Lobby({ setPage }) {
             <p className="font-pop-accent font-black text-sm uppercase text-[var(--pop-black)]/60">
               {language === 'vi' ? 'Không tìm thấy phòng chơi nào!' : 'No public rooms found!'}
             </p>
-            <button
+            <ImageButton
+              variant="secondary"
+              size="md"
               onClick={() => setPage('Game')}
-              className="mt-2 px-5 py-2.5 bg-[var(--pop-amber)] text-[var(--pop-black)] border-3 border-[var(--pop-black)] shadow-[3px_3px_0_var(--pop-black)] font-pop-accent font-black uppercase text-xs hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all cursor-pointer"
+              className="mt-2 font-pop-accent font-black uppercase text-xs"
             >
               {language === 'vi' ? 'TẠO PHÒNG MỚI NGAY' : 'CREATE ROOM NOW'}
-            </button>
+            </ImageButton>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -230,18 +237,19 @@ export default function Lobby({ setPage }) {
                     </p>
                   </div>
 
-                  <button
+                  <ImageButton
+                    variant={isPlaying || isFull ? "secondary" : "primary"}
+                    size="sm"
                     onClick={() => handleJoinRoom(room.code, room.password)}
                     disabled={isPlaying || isFull}
-                    className={`w-full py-2 border-2 border-[var(--pop-black)] shadow-[2.5px_2.5px_0_var(--pop-black)] font-pop-accent font-black uppercase text-[10px] cursor-pointer hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all disabled:opacity-40 disabled:cursor-not-allowed
-                      ${isPlaying || isFull ? 'bg-white text-[var(--pop-black)]/40 shadow-none' : 'bg-[var(--pop-amber)] text-[var(--pop-black)]'}`}
+                    className="w-full font-pop-accent font-black uppercase"
                   >
                     {isPlaying 
                       ? (language === 'vi' ? 'ĐANG CHƠI 🎮' : 'PLAYING 🎮') 
                       : isFull 
                         ? (language === 'vi' ? 'ĐẦY PHÒNG 🚫' : 'FULL 🚫') 
                         : (language === 'vi' ? 'GIA NHẬP 🚀' : 'JOIN ROOM 🚀')}
-                  </button>
+                  </ImageButton>
                 </div>
               );
             })}

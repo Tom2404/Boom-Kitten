@@ -1,17 +1,42 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, Component, Suspense, lazy } from 'react';
 import Home from './pages/Home.jsx';
-import Login from './pages/Login.jsx';
-import Register from './pages/Register.jsx';
-import Lobby from './pages/Lobby.jsx';
-import Game from './pages/Game.jsx';
-import Profile from './pages/Profile.jsx';
-import Leaderboard from './pages/Leaderboard.jsx';
-import Shop from './pages/Shop.jsx';
-import Admin from './pages/Admin.jsx';
 import Navbar from './components/Navbar.jsx';
 import { useSocket } from './hooks/useSocket.js';
 import { useLanguage } from './context/LanguageContext.jsx';
 import CustomDialog from './components/CustomDialog.jsx';
+
+const Login = lazy(() => import('./pages/Login.jsx'));
+const Register = lazy(() => import('./pages/Register.jsx'));
+const Lobby = lazy(() => import('./pages/Lobby.jsx'));
+const Game = lazy(() => import('./pages/Game.jsx'));
+const Profile = lazy(() => import('./pages/Profile.jsx'));
+const Leaderboard = lazy(() => import('./pages/Leaderboard.jsx'));
+const Shop = lazy(() => import('./pages/Shop.jsx'));
+const Admin = lazy(() => import('./pages/Admin.jsx'));
+const VFXOverlay = lazy(() => import('./components/VFXOverlay.jsx').then((module) => ({ default: module.VFXOverlay })));
+
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null, errorInfo: null };
+  }
+  componentDidCatch(error, errorInfo) {
+    this.setState({ hasError: true, error, errorInfo });
+    console.error("ErrorBoundary caught an error", error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: '20px', background: 'red', color: 'white', zIndex: 99999, position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, overflow: 'auto' }}>
+          <h1>React Error Boundary</h1>
+          <pre style={{ whiteSpace: 'pre-wrap' }}>{this.state.error?.toString()}</pre>
+          <pre style={{ whiteSpace: 'pre-wrap' }}>{this.state.errorInfo?.componentStack}</pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const PAGES = { Home, Login, Register, Lobby, Game, Profile, Leaderboard, Shop, Admin };
 
@@ -71,6 +96,15 @@ export default function App() {
       socket.off('room:updated', handleRoomUpdated);
     };
   }, [socket]);
+
+  useEffect(() => {
+    document.documentElement.lang = language;
+    if (language === 'vi') {
+      document.body.classList.add('lang-vi');
+    } else {
+      document.body.classList.remove('lang-vi');
+    }
+  }, [language]);
 
   const [dialogState, setDialogState] = useState({
     isOpen: false,
@@ -175,6 +209,7 @@ export default function App() {
       {/* Navigation Header */}
       {!isInMatch && (
         <Navbar 
+          page={page}
           setPage={navigateWithConfirm} 
           isLoggedIn={isLoggedIn} 
           userRole={userRole} 
@@ -184,7 +219,11 @@ export default function App() {
 
       {/* Main Page Area */}
       <main className={`flex-grow ${isInMatch ? 'p-4 w-full max-w-none' : 'p-4 md:p-8 max-w-7xl mx-auto w-full'}`}>
-        <Page setPage={setPage} />
+        <ErrorBoundary>
+          <Suspense fallback={<div className="font-pop-body text-center py-10">Loading...</div>}>
+            <Page setPage={setPage} />
+          </Suspense>
+        </ErrorBoundary>
       </main>
 
       {/* Footer */}
@@ -212,6 +251,11 @@ export default function App() {
         onConfirm={dialogState.onConfirm}
         onCancel={() => setDialogState({ isOpen: false })}
       />
+      {page === 'Game' && (
+        <Suspense fallback={null}>
+          <VFXOverlay />
+        </Suspense>
+      )}
     </div>
   );
 }

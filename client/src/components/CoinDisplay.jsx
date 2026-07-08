@@ -1,5 +1,5 @@
-import goldCoin from '../assets/currencies/gold_coin.png';
-import pinkCoin from '../assets/currencies/pink_coin.png';
+import goldCoin from '../assets/currencies/goldcoin.png';
+import pinkCoin from '../assets/currencies/pinkcoin.png';
 
 /**
  * Biểu tượng Xu Vàng dạng ảnh hoạt họa hoạt hình (Gold Coin Image).
@@ -20,7 +20,7 @@ export function CoinIcon({ className = "w-5 h-5" }) {
 export function GemIcon({ className = "w-5 h-5" }) {
   return (
     <img 
-      src={pinkCoin} 
+      src={goldCoin} 
       alt="Pink Coin" 
       className={`${className} object-contain select-none`} 
     />

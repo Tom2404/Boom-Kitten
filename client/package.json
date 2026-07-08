@@ -7,7 +7,9 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "validate:vfx": "node scripts/validate-vfx-assets.mjs",
+    "validate:vfx-registry": "node scripts/validate-vfx-registry.mjs"
   },
   "keywords": [],
   "author": "",
@@ -15,8 +17,11 @@
   "type": "module",
   "private": true,
   "dependencies": {
+    "@pixi/particle-emitter": "^5.0.10",
     "framer-motion": "^12.16.0",
     "gsap": "^3.15.0",
+    "howler": "^2.2.4",
+    "pixi.js": "^8.19.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "socket.io-client": "^4.8.1"
@@ -24,6 +29,8 @@
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.2",
     "autoprefixer": "^10.4.20",
+    "eslint-plugin-react": "^7.37.5",
+    "globals": "^17.7.0",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
     "vite": "^5.4.10"

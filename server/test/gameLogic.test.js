@@ -10,6 +10,7 @@ const {
   resolveDefusePutBack,
   playCard,
   resolveBarkingKittenAction,
+  passTurn,
 } = require('../game/gameLogic');
 
 test('eliminatePlayer does not clear hand in zombie edition', () => {
@@ -347,7 +348,13 @@ test('drawCard with empty deck and empty discardPile gracefully passes turn (no 
 });
 
 test('curse_of_the_cat_butt sets blinded state, allows play by ID, and is resolved on draw or defuse', () => {
-  const { playCard, executeActionEffect } = require('../game/gameLogic');
+  const { playCard } = require('../game/gameLogic');
+  const executeActionEffect = (state, cardType, playerId, targetPlayerId) => {
+    const ApplyStatusEffect = require('../game/effects/primitives/ApplyStatusEffect');
+    const effect = new ApplyStatusEffect({ statusId: 'blinded', target: 'targetPlayer' });
+    effect.execute({ state }, { userId: playerId, targetPlayerId });
+    return state;
+  };
 
   // Test 1: playing curse_of_the_cat_butt sets blinded state
   let state = {

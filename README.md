@@ -1,54 +1,136 @@
-# Mèo Nổ (Boom-Kitten)
+<div align="center">
+  <h1>Boom-Kitten</h1>
+  <p><strong>A Full-stack Multiplayer Card Game Inspired by Exploding Kittens</strong></p>
 
-Full-stack multiplayer **Exploding Kittens** style game scaffold with React + Vite frontend and Node.js + Express + Socket.io backend.
+<p>
+    <a href="#features">Features</a> •
+    <a href="#tech-stack">Tech Stack</a> •
+    <a href="#project-structure">Architecture</a> •
+    <a href="#getting-started">Getting Started</a> •
+    <a href="#game-mechanics">Mechanics</a>
+  </p>
+</div>
 
-## Project Structure
+---
 
-- `client/` — React 18 + Vite + Tailwind + Socket.io-client + Framer Motion
-- `server/` — Express + Socket.io + MongoDB (Mongoose) + JWT auth
+## 📖 Overview
 
-## Prerequisites
+**Boom-Kitten** is an interactive, real-time multiplayer card game scaffold built with modern web technologies. Inspired by the popular game *Exploding Kittens*, players take turns drawing cards and using various action cards to avoid being eliminated by the explosive "Boom-Kitten" card.
 
-- Node.js 18+
-- npm 9+
-- MongoDB connection string
+This project serves as a robust template for real-time web gaming, featuring secure authentication, a scalable Node.js backend with Socket.io, and a responsive React frontend.
 
-## Setup
+---
 
-### 1) Install dependencies
+## ✨ Features
 
-To install dependencies for root, client, and server all at once, run:
+### Real-Time Gameplay
+
+- **Seamless Synchronization:** Powered by WebSockets (Socket.io) for instant state updates.
+- **Complex Turn Logic:** Includes drawing cards, playing action cards, turn skipping, and targeted attacks.
+- **Advanced Mechanics:** Features a dynamic "Nope" window (3s) and "Favor" timeout (15s) system.
+
+### Secure & Scalable Architecture
+
+- **JWT Authentication:** Robust access and refresh token management.
+- **Room Management:** Players can create, join, and manage custom game rooms.
+- **Private Hands:** Sensitive player data is masked and transmitted securely (`game:privateHand`).
+
+### Meta-Game Progression
+
+- **Economy System:** In-game currency with transaction logging for match rewards, daily bonuses, and shop purchases.
+- **Leaderboards:** Global player rankings based on ELO or win/loss ratios.
+- **Cosmetics & Emotes:** Real-time chat and in-game emote system to taunt opponents.
+
+---
+
+## 🛠️ Tech Stack
+
+**Frontend (`client/`)**
+
+- ⚛️ **React 18** - UI Library
+- ⚡ **Vite** - Build Tool
+- 🎨 **Tailwind CSS** - Styling & Layout
+- 🎬 **Framer Motion** - Fluid Animations
+- 🔌 **Socket.io-client** - Real-time Communication
+
+**Backend (`server/`)**
+
+- 🟢 **Node.js + Express** - API Framework
+- 🔌 **Socket.io** - WebSocket Server
+- 🍃 **MongoDB (Mongoose)** - Database ORM
+- 🔐 **JWT** - Secure Authentication
+
+---
+
+## 📁 Project Structure
+
+```text
+Boom-Kitten/
+├── client/          # React frontend (Vite, Tailwind, Framer Motion)
+├── server/          # Express backend (Socket.io, MongoDB, JWT auth)
+│   ├── src/
+│   │   ├── api/     # REST API routes and controllers
+│   │   ├── game/    # Core game logic, deck management, turn system
+│   │   └── sockets/ # WebSocket event handlers
+└── docs/            # Project documentation and assets
+```
+
+---
+
+## 🚀 Getting Started
+
+Follow these steps to run Boom-Kitten locally on your machine.
+
+### Prerequisites
+
+- **Node.js** (v18 or higher recommended)
+- **npm** (v9 or higher)
+- **MongoDB** instance (Local or Atlas connection string)
+
+### 1. Installation
+
+Install dependencies for the root, frontend, and backend environments simultaneously using the root package script:
 
 ```bash
+# From the project root directory
 npm run install:all
 ```
 
-### 2) Configure environment
+### 2. Environment Configuration
 
-Copy the backend environment template and customize your values:
+Navigate to the `server` directory and set up your environment variables:
 
 ```bash
 cd server
 cp .env.example .env
-# Then edit .env values
 ```
 
-### 3) Run Frontend & Backend together
+*Edit the newly created `.env` file and provide your MongoDB URI, JWT Secrets, and desired ports.*
 
-Start both frontend and backend development servers concurrently with a single command from the root directory:
+### 3. Running the Application
+
+You can start both the frontend and backend development servers concurrently with a single command from the project root:
 
 ```bash
 npm run dev
 ```
 
-Frontend runs on `http://localhost:2404`, backend on `http://localhost:5000`.
+- **Frontend:** [http://localhost:2404](http://localhost:2404)
+- **Backend:** [http://localhost:5000](http://localhost:5000)
 
-## Implemented Highlights
+---
 
-- JWT auth with access + refresh tokens
-- Auth middleware attaching `req.user`
-- Core room/deck/game logic modules under `server/game/`
-- Socket events for rooms, card play, draw, Nope window (3s), Favor timeout (15s), chat, emotes
-- Private hand emission per player (`game:privateHand`)
-- Economy model + transaction logging for daily bonus, shop purchase, and game rewards
-- REST APIs for auth, users, rooms, shop, and leaderboard
+## 🎮 Game Mechanics Overview
+
+- **Exploding Kitten:** If you draw this, you explode and are out of the game!
+- **Defuse:** The only way to survive drawing an Exploding Kitten.
+- **Attack:** End your turn without drawing and force the next player to take 2 turns.
+- **Skip:** End your turn without drawing a card.
+- **Favor:** Force another player to give you a card from their hand.
+- **Nope:** Stop any action except an Exploding Kitten or a Defuse (3-second window).
+
+---
+
+## 📜 License
+
+This project is open-source and available under the MIT License.
