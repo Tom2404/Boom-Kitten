@@ -1,4 +1,5 @@
 const BaseAction = require('./BaseAction');
+const { hasBlockingInteraction } = require('../interactions/interactionGuards');
 
 class PlayCardAction extends BaseAction {
   validate(context, payload) {
@@ -22,7 +23,7 @@ class PlayCardAction extends BaseAction {
       }
     } else {
       if (!isNowCard) {
-        if (state.pendingAction || state.pendingFavor || state.pendingAlter || state.pendingBury || state.pendingGarbage || state.pendingPotLuck || state.pendingZombie || state.pendingDefuse || state.pendingTargetSelect) {
+        if (hasBlockingInteraction(state, { includePendingAction: true })) {
           return { valid: false, error: 'Không thể đánh bài vào lúc này!' };
         }
 
@@ -31,7 +32,7 @@ class PlayCardAction extends BaseAction {
           return { valid: false, error: 'Không phải lượt của bạn!' };
         }
       } else {
-        if (state.pendingFavor || state.pendingAlter || state.pendingBury || state.pendingGarbage || state.pendingPotLuck || state.pendingZombie || state.pendingDefuse || state.pendingTargetSelect) {
+        if (hasBlockingInteraction(state, { includePendingAction: false })) {
           return { valid: false, error: 'Không thể đánh bài vào lúc này!' };
         }
       }

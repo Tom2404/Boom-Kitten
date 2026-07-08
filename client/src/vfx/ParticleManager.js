@@ -1,5 +1,6 @@
 import * as PIXI from 'pixi.js';
 import * as particles from '@pixi/particle-emitter';
+import { getParticleBudget } from './config/vfxQuality';
 
 class ParticleManager {
   constructor() {
@@ -64,9 +65,9 @@ class ParticleManager {
       lifetime: { min: 0.2, max: 0.8 },
       frequency: 0.001,
       spawnChance: 1,
-      particlesPerWave: 100,
+      particlesPerWave: getParticleBudget(80),
       emitterLifetime: 0.1,
-      maxParticles: 200,
+      maxParticles: getParticleBudget(80),
       pos: { x: 0, y: 0 },
       addAtBack: false,
       behaviors: [

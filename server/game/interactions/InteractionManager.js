@@ -1,8 +1,25 @@
 const { randomUUID } = require('crypto');
-const EffectFactory = require('../effects/EffectFactory');
 const EffectEngine = require('../effects/EffectEngine');
 
 class InteractionManager {
+  static clearLegacyPendingState(state, interactionType) {
+    const pendingByType = {
+      favor: 'pendingFavor',
+      alter_the_future: 'pendingAlter',
+      bury: 'pendingBury',
+      garbage_collection: 'pendingGarbage',
+      pot_luck: 'pendingPotLuck',
+      feed_the_dead: 'pendingFeedTheDead',
+      grave_robber: 'pendingGraveRobber',
+      dig_deeper: 'pendingDigDeeper',
+      armageddon: 'pendingArmageddon',
+    };
+    const key = pendingByType[interactionType];
+    if (key) {
+      state[key] = null;
+    }
+  }
+
   /**
    * Creates a new interaction and attaches it to the game state.
    * @param {Object} context - GameContext
@@ -84,6 +101,7 @@ class InteractionManager {
 
     // Generate effects based on responses
     if (interaction.onCompleteEffects.length > 0) {
+      const EffectFactory = require('../effects/EffectFactory');
       interaction.onCompleteEffects.forEach(effectDef => {
         // We inject the interaction responses into the payload of the effect
         const payload = {
@@ -106,6 +124,7 @@ class InteractionManager {
 
     // Clear interaction from state
     state.activeInteraction = null;
+    this.clearLegacyPendingState(state, interaction.type);
     return 'COMPLETED';
   }
 
@@ -116,8 +135,10 @@ class InteractionManager {
   static cancelInteraction(context) {
     const state = context.state;
     if (state.activeInteraction) {
+      const interactionType = state.activeInteraction.type;
       state.activeInteraction.status = 'CANCELLED';
       state.activeInteraction = null;
+      this.clearLegacyPendingState(state, interactionType);
     }
     return 'CANCELLED';
   }

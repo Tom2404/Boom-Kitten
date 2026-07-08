@@ -1,4 +1,5 @@
 const BaseAction = require('./BaseAction');
+const { hasBlockingInteraction } = require('../interactions/interactionGuards');
 
 class DrawCardAction extends BaseAction {
   validate(context, payload) {
@@ -12,7 +13,7 @@ class DrawCardAction extends BaseAction {
     }
 
     // Check if drawing is allowed right now
-    if (state.pendingAction || state.pendingFavor || state.pendingAlter || state.pendingBury || state.pendingGarbage || state.pendingPotLuck || state.pendingZombie || state.pendingDefuse || state.pendingTargetSelect || state.pendingNowOnlyWindow) {
+    if (hasBlockingInteraction(state, { includePendingAction: true, includeNowWindow: true })) {
       return { valid: false, error: 'Không thể rút bài vào lúc này!' };
     }
 

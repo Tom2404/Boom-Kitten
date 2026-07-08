@@ -1,4 +1,5 @@
 import * as PIXI from 'pixi.js';
+import { REQUIRED_VFX_ASSET_URLS } from './config/vfxAssets';
 
 /**
  * AssetLoader
@@ -24,10 +25,7 @@ export class AssetLoader {
     const modules = import.meta.glob('../assets/cards/**/*.{png,jpg,jpeg}', { eager: false, query: '?url', import: 'default' });
     
     // Tạm gom thêm 2 hình VFX đã tạo vào queue
-    const urls = [
-      '/vfx/vfx_slash.png',
-      '/vfx/vfx_shield.png'
-    ];
+    const urls = [...REQUIRED_VFX_ASSET_URLS];
 
     for (const path in modules) {
       const url = await modules[path]();

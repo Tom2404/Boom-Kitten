@@ -205,7 +205,7 @@ function resolveZombieRevive(gameState, targetPlayerId, insertPosition = 0) {
 
 
 
-function handleCombo(gameState, playerId, cardIds, targetPlayerId) {
+function validateCombo(gameState, playerId, cardIds) {
   const player = getPlayer(gameState, playerId);
   if (!player || !player.alive) return null;
 
@@ -249,6 +249,16 @@ function handleCombo(gameState, playerId, cardIds, targetPlayerId) {
     const uniqueNonWild = new Set(nonWild);
     if (uniqueNonWild.size + wildCount < 5) return null; // Not enough distinct types
   }
+
+  return { cardsToPlay, cardTypes };
+}
+
+function handleCombo(gameState, playerId, cardIds, targetPlayerId) {
+  const player = getPlayer(gameState, playerId);
+  const combo = validateCombo(gameState, playerId, cardIds);
+  if (!player || !combo) return null;
+
+  const { cardsToPlay, cardTypes } = combo;
 
   cardsToPlay.forEach((c) => {
     const index = player.hand.findIndex((handCard) => handCard.id === c.id);
@@ -351,7 +361,7 @@ function drawCard(gameState, playerId, fromBottom = false, onDefuse) {
     resolveExplosion(gameState, playerId, card, onDefuse);
     // If player survived (defused it and didn't die) and no pending zombie (Zombie Kitten has its own async flow)
     const p = getPlayer(gameState, playerId);
-    if (p && p.alive && !gameState.pendingZombie) {
+    if (p && p.alive && !gameState.pendingZombie && !gameState.pendingDefuse) {
       if (gameState.drawsRequired === 0) {
         tryPassTurn(gameState, playerId);
       }
@@ -679,10 +689,14 @@ module.exports = {
   resolveBarkingKittenAction,
   drawCard,
   handleCombo,
+  validateCombo,
   checkWinCondition,
   eliminatePlayer,
   resolveZombieRevive,
   resolveDefusePutBack,
+  resolveDigDeeper,
+  resolveArmageddonDistribute,
+  resolveArmageddonDecision,
   checkStreakingKittenEffect,
   passTurn,
   resolveExplosion,

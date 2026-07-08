@@ -4,9 +4,13 @@ import { motion } from 'framer-motion';
 
 export default function DiscardPile({ discardPile = [], pendingCombo5, myUserId, onSelectCard, compact = false }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
 
   const topCard = discardPile.length > 0 ? discardPile[discardPile.length - 1] : null;
   const isChoosing = pendingCombo5 && pendingCombo5.playerId === myUserId;
+
+  // Last 3 cards for hover tooltip (excluding the visible top card)
+  const recentCards = discardPile.length > 1 ? discardPile.slice(-4, -1).reverse() : [];
 
   useEffect(() => {
     if (isChoosing) {
@@ -31,7 +35,12 @@ export default function DiscardPile({ discardPile = [], pendingCombo5, myUserId,
     <div className="flex flex-col items-center gap-2" onClick={(e) => e.stopPropagation()}>
       <span className="text-xs font-headline font-black text-white uppercase tracking-wider bg-on-background px-3 py-0.5 rounded-lg border-2 border-on-surface shadow-[1.5px_1.5px_0px_0px_#1a1c1c] rotate-[2deg]">BÀI ĐÃ ĐÁNH</span>
 
-      <div id="discard-pile-element" className="relative">
+      <div
+        id="discard-pile-element"
+        className="relative"
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
         {topCard ? (
           <motion.div
             key={topCard.id}
@@ -39,7 +48,7 @@ export default function DiscardPile({ discardPile = [], pendingCombo5, myUserId,
             animate={{ scale: 1, rotate: 0, opacity: 1 }}
             transition={{ type: 'spring', stiffness: 200, damping: 15 }}
             onClick={() => setIsOpen(true)}
-            className="cursor-pointer hover:-translate-y-1 transition-transform"
+            className="cursor-pointer hover:-translate-y-1.5 transition-transform"
           >
             <Card type={topCard.type} skinIndex={topCard.skinIndex ?? 0} disabled={false} compact={compact} />
           </motion.div>
@@ -53,6 +62,24 @@ export default function DiscardPile({ discardPile = [], pendingCombo5, myUserId,
         {discardPile.length > 0 && (
           <div className="absolute -top-3.5 -right-3.5 h-9 w-9 rounded-full bg-[#1a1c1c] border-3 border-white flex items-center justify-center text-xs font-headline font-black text-white shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]">
             {discardPile.length}
+          </div>
+        )}
+
+        {/* Hover History Tooltip */}
+        {isHovered && recentCards.length > 0 && !isChoosing && (
+          <div className="absolute -left-2 top-full mt-2 z-50 bg-[#1a1c1c] border-2 border-white/30 p-2 shadow-[3px_3px_0px_0px_rgba(255,255,255,0.15)] pointer-events-none animate-fade-in min-w-[130px]">
+            <div className="text-[7px] text-yellow-400 font-headline font-black uppercase tracking-wider mb-1.5 border-b border-white/20 pb-1">
+              Gần đây ({discardPile.length} lá)
+            </div>
+            {recentCards.map((card, i) => {
+              const theme = CARD_THEMES[card.type] || { name: card.type, icon: '🃏' };
+              return (
+                <div key={card.id || i} className="flex items-center gap-1.5 py-0.5 text-[8px] text-white/85 font-headline font-bold">
+                  <span>{theme.icon}</span>
+                  <span className="truncate">{theme.name}</span>
+                </div>
+              );
+            })}
           </div>
         )}
 

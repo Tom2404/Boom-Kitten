@@ -12,12 +12,19 @@ function makeCode() {
 }
 
 function createRoom(hostId, options = {}, username = 'Guest') {
-  const code = makeCode();
+  let code;
+  do {
+    code = makeCode();
+  } while (rooms.has(code));
+
   const edition = VALID_EDITIONS.has(options.edition) ? options.edition : 'original';
   const maxLimit = edition === '2_player' ? 2 : (edition === 'imploding' ? 6 : 5);
   const requestedMax = parseInt(options.maxPlayers, 10);
   const maxPlayers = (!isNaN(requestedMax) && requestedMax >= 2 && requestedMax <= maxLimit) ? requestedMax : maxLimit;
-  const betAmount = parseInt(options.betAmount, 10);
+
+  let betAmount = parseInt(options.betAmount, 10);
+  betAmount = !isNaN(betAmount) && betAmount >= 0 ? betAmount : 50;
+  betAmount = Math.min(betAmount, 10000000); // 10 million limit
 
   let customDefuses = parseInt(options.customDefuses, 10);
   let customExplodingKittens = parseInt(options.customExplodingKittens, 10);
@@ -45,7 +52,7 @@ function createRoom(hostId, options = {}, username = 'Guest') {
     maxHandSize: 10,
     status: 'waiting',
     password: options.password || '',
-    betAmount: !isNaN(betAmount) && betAmount >= 0 ? betAmount : 50,
+    betAmount,
     edition,
     gameState: null,
     customDefuses,
@@ -117,7 +124,9 @@ function updateRoomSettings(roomCode, hostId, newSettings) {
   }
 
   const betAmount = parseInt(newSettings.betAmount, 10);
-  if (!isNaN(betAmount) && betAmount >= 0) room.betAmount = betAmount;
+  if (!isNaN(betAmount) && betAmount >= 0) {
+    room.betAmount = Math.min(betAmount, 10000000);
+  }
 
   if (newSettings.customDefuses !== undefined || newSettings.customExplodingKittens !== undefined) {
     let cd = parseInt(newSettings.customDefuses, 10);

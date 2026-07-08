@@ -8,6 +8,12 @@ const ShuffleDeckEffect = require('./primitives/ShuffleDeckEffect');
 const RequestInteractionEffect = require('./primitives/RequestInteractionEffect');
 const CollectPotLuckResponsesEffect = require('./primitives/CollectPotLuckResponsesEffect');
 const CollectGarbageResponsesEffect = require('./primitives/CollectGarbageResponsesEffect');
+const CollectFavorResponseEffect = require('./primitives/CollectFavorResponseEffect');
+const CollectFeedTheDeadResponsesEffect = require('./primitives/CollectFeedTheDeadResponsesEffect');
+const CollectGraveRobberResponsesEffect = require('./primitives/CollectGraveRobberResponsesEffect');
+const ApplyAlterFutureResponseEffect = require('./primitives/ApplyAlterFutureResponseEffect');
+const ApplyBuryResponseEffect = require('./primitives/ApplyBuryResponseEffect');
+const ApplyDigDeeperResponseEffect = require('./primitives/ApplyDigDeeperResponseEffect');
 const ConsumeDefuseEffect = require('./primitives/ConsumeDefuseEffect');
 const DrawSpecificCardEffect = require('./primitives/DrawSpecificCardEffect');
 const ExtractCardsEffect = require('./primitives/ExtractCardsEffect');
@@ -21,6 +27,7 @@ const ApplyStatusEffect = require('./primitives/ApplyStatusEffect');
 const SwapTopBottomEffect = require('./primitives/SwapTopBottomEffect');
 const TransferCardEffect = require('./primitives/TransferCardEffect');
 const WaitInsertBombEffect = require('./primitives/WaitInsertBombEffect');
+const ResolveComboEffect = require('./primitives/ResolveComboEffect');
 
 // Map string names to classes
 const EFFECT_CLASSES = {
@@ -31,6 +38,12 @@ const EFFECT_CLASSES = {
   RequestInteraction: RequestInteractionEffect,
   CollectPotLuckResponses: CollectPotLuckResponsesEffect,
   CollectGarbageResponses: CollectGarbageResponsesEffect,
+  CollectFavorResponse: CollectFavorResponseEffect,
+  CollectFeedTheDeadResponses: CollectFeedTheDeadResponsesEffect,
+  CollectGraveRobberResponses: CollectGraveRobberResponsesEffect,
+  ApplyAlterFutureResponse: ApplyAlterFutureResponseEffect,
+  ApplyBuryResponse: ApplyBuryResponseEffect,
+  ApplyDigDeeperResponse: ApplyDigDeeperResponseEffect,
   ConsumeDefuse: ConsumeDefuseEffect,
   DrawSpecificCard: DrawSpecificCardEffect,
   ExtractCards: ExtractCardsEffect,
@@ -44,6 +57,7 @@ const EFFECT_CLASSES = {
   SwapTopBottom: SwapTopBottomEffect,
   TransferCard: TransferCardEffect,
   WaitInsertBomb: WaitInsertBombEffect,
+  ResolveCombo: ResolveComboEffect,
 };
 
 class EffectFactory {
@@ -55,6 +69,10 @@ class EffectFactory {
    * @returns {Array<Object>} An array of effect instances.
    */
   static createEffects(type, payload) {
+    if (type && type.startsWith('combo_')) {
+      return [new ResolveComboEffect(payload || {})];
+    }
+
     const cardDef = CARD_DEFINITIONS[type];
     
     // If the card is defined and has primitive effects mapped

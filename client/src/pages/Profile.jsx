@@ -356,19 +356,19 @@ export default function Profile() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
             <div className="bg-white border-2 border-[var(--pop-black)] rounded-none p-4 text-center shadow-[3px_3px_0_var(--pop-black)]">
               <span className="text-[10px] font-pop-accent font-bold text-[var(--pop-black)]/60 uppercase block">{t('profile_total_games')}</span>
-              <span className="font-pop-display font-black text-3xl text-[var(--pop-black)]">{profile.stats.totalGames}</span>
+              <span className="font-pop-display font-black text-3xl text-[var(--pop-black)]">{profile?.stats?.totalGames || 0}</span>
             </div>
             <div className="bg-[var(--pop-amber)] border-2 border-[var(--pop-black)] rounded-none p-4 text-center shadow-[3px_3px_0_var(--pop-black)] text-[var(--pop-black)]">
               <span className="text-[10px] font-pop-accent font-black text-[var(--pop-black)]/60 uppercase block">{t('profile_wins')}</span>
-              <span className="font-pop-display font-black text-3xl text-[var(--pop-black)]">{profile.stats.wins}</span>
+              <span className="font-pop-display font-black text-3xl text-[var(--pop-black)]">{profile?.stats?.wins || 0}</span>
             </div>
             <div className="bg-[var(--pop-red)] border-2 border-[var(--pop-black)] rounded-none p-4 text-center shadow-[3px_3px_0_var(--pop-black)] text-white">
               <span className="text-[10px] font-pop-accent font-bold text-red-100 uppercase block">{t('profile_losses')}</span>
-              <span className="font-pop-display font-black text-3xl text-white">{profile.stats.losses}</span>
+              <span className="font-pop-display font-black text-3xl text-white">{profile?.stats?.losses || 0}</span>
             </div>
             <div className="bg-[var(--pop-cream)] border-2 border-[var(--pop-black)] rounded-none p-4 text-center shadow-[3px_3px_0_var(--pop-black)] text-[var(--pop-black)] flex flex-col items-center justify-center">
               <span className="text-[10px] font-pop-accent font-bold text-[var(--pop-black)]/60 uppercase block">{t('profile_longest_streak')}</span>
-              <span className="font-pop-display font-black text-3xl text-[var(--pop-black)] flex items-center justify-center gap-1 mt-0.5 font-mono">🔥 {profile.stats.longestStreak}</span>
+              <span className="font-pop-display font-black text-3xl text-[var(--pop-black)] flex items-center justify-center gap-1 mt-0.5 font-mono">🔥 {profile?.stats?.longestStreak || 0}</span>
             </div>
           </div>
         </div>

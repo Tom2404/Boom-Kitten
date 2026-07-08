@@ -1,5 +1,6 @@
 const BaseAction = require('./BaseAction');
 const InteractionManager = require('../interactions/InteractionManager');
+const { validateInteractionResponse } = require('../interactions/interactionGuards');
 
 class SubmitInteractionResponseAction extends BaseAction {
   validate(context, payload) {
@@ -21,13 +22,19 @@ class SubmitInteractionResponseAction extends BaseAction {
       return { valid: false, reason: 'User already responded' };
     }
 
-    // Further validation could be done based on activeInteraction.type (e.g. check if cardId is in hand)
+    if (payload.interactionId && gameState.activeInteraction.id !== payload.interactionId) {
+      return { valid: false, reason: 'Interaction ID mismatch' };
+    }
+
+    const responseValidation = validateInteractionResponse(gameState, userId, responseData);
+    if (!responseValidation.valid) {
+      return responseValidation;
+    }
 
     return { valid: true };
   }
 
   execute(context, payload) {
-    console.log('--- SubmitInteractionResponseAction execute called for userId:', payload.userId);
     const { userId, responseData } = payload;
     // Record response, InteractionManager will handle completion if everyone responded
     InteractionManager.recordResponse(context, userId, responseData);

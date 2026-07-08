@@ -1,18 +1,19 @@
-import { useMemo, useState, useEffect, Component } from 'react';
+import { useMemo, useState, useEffect, Component, Suspense, lazy } from 'react';
 import Home from './pages/Home.jsx';
-import Login from './pages/Login.jsx';
-import Register from './pages/Register.jsx';
-import Lobby from './pages/Lobby.jsx';
-import Game from './pages/Game.jsx';
-import Profile from './pages/Profile.jsx';
-import Leaderboard from './pages/Leaderboard.jsx';
-import Shop from './pages/Shop.jsx';
-import Admin from './pages/Admin.jsx';
 import Navbar from './components/Navbar.jsx';
 import { useSocket } from './hooks/useSocket.js';
 import { useLanguage } from './context/LanguageContext.jsx';
 import CustomDialog from './components/CustomDialog.jsx';
-import { VFXOverlay } from './components/VFXOverlay.jsx';
+
+const Login = lazy(() => import('./pages/Login.jsx'));
+const Register = lazy(() => import('./pages/Register.jsx'));
+const Lobby = lazy(() => import('./pages/Lobby.jsx'));
+const Game = lazy(() => import('./pages/Game.jsx'));
+const Profile = lazy(() => import('./pages/Profile.jsx'));
+const Leaderboard = lazy(() => import('./pages/Leaderboard.jsx'));
+const Shop = lazy(() => import('./pages/Shop.jsx'));
+const Admin = lazy(() => import('./pages/Admin.jsx'));
+const VFXOverlay = lazy(() => import('./components/VFXOverlay.jsx').then((module) => ({ default: module.VFXOverlay })));
 
 class ErrorBoundary extends Component {
   constructor(props) {
@@ -219,7 +220,9 @@ export default function App() {
       {/* Main Page Area */}
       <main className={`flex-grow ${isInMatch ? 'p-4 w-full max-w-none' : 'p-4 md:p-8 max-w-7xl mx-auto w-full'}`}>
         <ErrorBoundary>
-          <Page setPage={setPage} />
+          <Suspense fallback={<div className="font-pop-body text-center py-10">Loading...</div>}>
+            <Page setPage={setPage} />
+          </Suspense>
         </ErrorBoundary>
       </main>
 
@@ -248,7 +251,11 @@ export default function App() {
         onConfirm={dialogState.onConfirm}
         onCancel={() => setDialogState({ isOpen: false })}
       />
-      <VFXOverlay />
+      {page === 'Game' && (
+        <Suspense fallback={null}>
+          <VFXOverlay />
+        </Suspense>
+      )}
     </div>
   );
 }

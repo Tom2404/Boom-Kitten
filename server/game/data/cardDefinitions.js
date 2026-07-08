@@ -36,7 +36,7 @@ const CARD_DEFINITIONS = {
     skins: 6, 
     counts: { original: 4, '2_player': 2, zombie: 3 },
     effects: [
-      { type: 'RequestInteraction', params: { type: 'favor', duration: 15000 } }
+      { type: 'RequestInteraction', params: { type: 'favor', duration: 15000, onCompleteEffects: [{ type: 'CollectFavorResponse', params: {} }] } }
     ]
   },
   
@@ -64,14 +64,14 @@ const CARD_DEFINITIONS = {
     skins: 1, 
     counts: { zombie: 2 },
     effects: [
-      { type: 'RequestInteraction', params: { type: 'feed_the_dead', duration: 15000, onCompleteEffects: [{ type: 'CollectPotLuckResponses', params: {} }] } }
-    ] // Wait, feed the dead is not like pot luck. Feed the dead means everyone gives 1 card to the target dead player. Let's create CollectFeedTheDeadResponses Effect later or now. Let's just put RequestInteraction.
+      { type: 'RequestInteraction', params: { type: 'feed_the_dead', duration: 15000, onCompleteEffects: [{ type: 'CollectFeedTheDeadResponses', params: {} }] } }
+    ]
   },
   grave_robber: { 
     skins: 1, 
     counts: { zombie: 2 },
     effects: [
-      { type: 'RequestInteraction', params: { type: 'grave_robber', duration: 15000, onCompleteEffects: [{ type: 'CollectPotLuckResponses', params: {} }] } } // Same, will create specific effect
+      { type: 'RequestInteraction', params: { type: 'grave_robber', duration: 15000, onCompleteEffects: [{ type: 'CollectGraveRobberResponses', params: {} }] } }
     ]
   },
   clairvoyance_now: { skins: 2, counts: { zombie: 2, barking: 2 } },
@@ -79,7 +79,7 @@ const CARD_DEFINITIONS = {
     skins: 4, 
     counts: { zombie: 2 },
     effects: [
-      { type: 'RequestInteraction', params: { type: 'dig_deeper', duration: 15000 } }
+      { type: 'RequestInteraction', params: { type: 'dig_deeper', duration: 15000, onCompleteEffects: [{ type: 'ApplyDigDeeperResponse', params: {} }] } }
     ]
   },
   
@@ -103,7 +103,7 @@ const CARD_DEFINITIONS = {
     skins: 4, 
     counts: { imploding: 3 },
     effects: [
-      { type: 'RequestInteraction', params: { type: 'alter_the_future', metadata: { count: 3 } } }
+      { type: 'RequestInteraction', params: { type: 'alter_the_future', duration: 15000, metadata: { count: 3 }, onCompleteEffects: [{ type: 'ApplyAlterFutureResponse', params: {} }] } }
     ]
   },
   draw_from_bottom: { 
@@ -175,7 +175,7 @@ const CARD_DEFINITIONS = {
     skins: 1, 
     counts: { streaking: 2 },
     effects: [
-      { type: 'RequestInteraction', params: { type: 'alter_the_future', metadata: { count: 5 } } }
+      { type: 'RequestInteraction', params: { type: 'alter_the_future', duration: 15000, metadata: { count: 5 }, onCompleteEffects: [{ type: 'ApplyAlterFutureResponse', params: {} }] } }
     ]
   },
   swap_top_and_bottom: { 

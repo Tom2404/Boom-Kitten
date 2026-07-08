@@ -25,7 +25,6 @@ class ActionDispatcher {
     // 1. Validate the action
     const validation = action.validate(context, payload);
     if (!validation.valid) {
-      console.log(`[ActionDispatcher] Validation failed for ${actionType}: ${validation.error || validation.reason}`);
       return { success: false, error: validation.error || validation.reason };
     }
 

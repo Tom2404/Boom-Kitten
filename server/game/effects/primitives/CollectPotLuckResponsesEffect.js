@@ -17,9 +17,10 @@ class CollectPotLuckResponsesEffect extends BaseEffect {
       const p = state.players[idxCur];
       const cardData = responses[p.userId];
       
-      if (cardData && cardData.cardId) {
+      const cardId = typeof cardData === 'string' ? cardData : cardData?.cardId;
+      if (cardId) {
         // Remove from hand
-        const handIdx = p.hand.findIndex(c => c.id === cardData.cardId);
+        const handIdx = p.hand.findIndex(c => c.id === cardId);
         if (handIdx !== -1) {
           const [card] = p.hand.splice(handIdx, 1);
           delete card.marked;

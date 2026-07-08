@@ -7,7 +7,9 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "validate:vfx": "node scripts/validate-vfx-assets.mjs",
+    "validate:vfx-registry": "node scripts/validate-vfx-registry.mjs"
   },
   "keywords": [],
   "author": "",

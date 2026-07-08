@@ -1,4 +1,5 @@
 const BaseEffect = require('./BaseEffect');
+const { drawCard } = require('../../gameLogic');
 
 class DrawSpecificCardEffect extends BaseEffect {
   execute(context, payload = {}) {
@@ -7,6 +8,11 @@ class DrawSpecificCardEffect extends BaseEffect {
     if (!player) return { status: 'FAILED' };
 
     const position = this.params.position || 'bottom'; // 'bottom' or 'top' or index
+
+    if (position === 'bottom' || position === 'top') {
+      drawCard(state, payload.userId, position === 'bottom', payload.onDefuseCallback);
+      return { status: 'SUCCESS' };
+    }
     
     if (state.deck.length === 0) {
       return { status: 'NO_EFFECT' };

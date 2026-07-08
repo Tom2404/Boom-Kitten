@@ -1,5 +1,5 @@
 import React, { useState, useRef, useMemo } from 'react';
-import Card from './Card.jsx';
+import Card, { CARD_THEMES } from './Card.jsx';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Priority order for auto-sort: low number = high priority = leftmost in hand.
@@ -460,14 +460,14 @@ export default function PlayerHand({
                       transition: { duration: 0.2 }
                     }}
                     whileHover={{
-                      y: baseY - 42,
+                      y: baseY - 48,
                       rotate: 0,
-                      scale: 1.15,
+                      scale: 1.18,
                       zIndex: 200,
-                      transition: { duration: 0.15, ease: 'easeOut' }
+                      transition: { duration: 0.12, ease: 'easeOut' }
                     }}
                     style={cardStyle}
-                    className="flex-shrink-0"
+                    className="flex-shrink-0 group relative"
                   >
                   <Card
                     type={card.type}
@@ -480,6 +480,12 @@ export default function PlayerHand({
                       }
                     }}
                   />
+                  {/* Card name tooltip on hover */}
+                  <div className="absolute -top-7 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-100 pointer-events-none z-[300] whitespace-nowrap">
+                    <span className="bg-[#1a1c1c] text-white text-[8px] font-headline font-black uppercase tracking-wider px-2 py-0.5 border border-white/20 shadow-[1px_1px_0px_0px_rgba(255,255,255,0.15)]">
+                      {CARD_THEMES[card.type]?.name || card.type}
+                    </span>
+                  </div>
                 </motion.div>
               );
             })}

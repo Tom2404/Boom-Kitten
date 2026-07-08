@@ -10,8 +10,9 @@ class CollectGarbageResponsesEffect extends BaseEffect {
     // Collect cards
     Object.entries(responses).forEach(([playerId, cardData]) => {
       const p = state.players.find(player => player.userId === playerId);
-      if (p && cardData && cardData.cardId) {
-        const handIdx = p.hand.findIndex(c => c.id === cardData.cardId);
+      const cardId = typeof cardData === 'string' ? cardData : cardData?.cardId;
+      if (p && cardId) {
+        const handIdx = p.hand.findIndex(c => c.id === cardId);
         if (handIdx !== -1) {
           const [card] = p.hand.splice(handIdx, 1);
           delete card.marked;

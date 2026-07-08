@@ -1,6 +1,7 @@
 import * as PIXI from 'pixi.js';
 import { particleManager } from './ParticleManager';
 import { AssetLoader } from './AssetLoader';
+import { getPixiResolution } from './config/vfxQuality';
 
 class VFXManager {
   constructor() {
@@ -9,6 +10,7 @@ class VFXManager {
     this.isInitialized = false;
     this.isInitializing = false;
     this.assetLoader = null;
+    this.readyPromise = null;
   }
 
   /**
@@ -16,14 +18,16 @@ class VFXManager {
    * @param {HTMLCanvasElement} canvasView 
    */
   init(canvasView) {
-    if (this.isInitialized || this.isInitializing) return;
+    if (this.isInitialized) return Promise.resolve(true);
+    if (this.isInitializing) return this.readyPromise;
     this.isInitializing = true;
 
     this.app = new PIXI.Application();
     this.assetLoader = new AssetLoader(this);
     
     // PixiJS v8 standard initialization
-    this.setupApp(canvasView, this.app);
+    this.readyPromise = this.setupApp(canvasView, this.app);
+    return this.readyPromise;
   }
 
   async setupApp(canvasView, currentApp) {
@@ -32,7 +36,7 @@ class VFXManager {
         canvas: canvasView,
         resizeTo: window,
         backgroundAlpha: 0, // Đảm bảo nền trong suốt để thấy React Layer bên dưới
-        resolution: window.devicePixelRatio || 1,
+        resolution: getPixiResolution(),
         autoDensity: true,
       });
 
@@ -50,11 +54,37 @@ class VFXManager {
 
       this.isInitialized = true;
       console.log('[VFXManager] PixiJS Initialized.');
+      return true;
     } catch (error) {
       console.error('[VFXManager] Init Error:', error);
+      return false;
     } finally {
       this.isInitializing = false;
     }
+  }
+
+  async whenReady(timeoutMs = 2000) {
+    if (this.isInitialized) return true;
+    if (this.readyPromise) return this.readyPromise;
+
+    const startedAt = Date.now();
+    return new Promise((resolve) => {
+      const check = () => {
+        if (this.isInitialized) {
+          resolve(true);
+          return;
+        }
+
+        if (Date.now() - startedAt >= timeoutMs) {
+          resolve(false);
+          return;
+        }
+
+        window.setTimeout(check, 50);
+      };
+
+      check();
+    });
   }
 
   setupLayers() {
@@ -87,7 +117,29 @@ class VFXManager {
     return this.layers[name];
   }
 
+  clearLayer(name) {
+    const layer = this.layers[name];
+    if (!layer) return;
+    layer.removeChildren().forEach((child) => {
+      if (child && !child.destroyed) {
+        child.destroy({ children: true });
+      }
+    });
+  }
+
+  clearTransientLayers() {
+    [
+      'EFFECTS_UNDER',
+      'ACTIVE_CARD',
+      'EFFECTS_OVER',
+      'SCREEN_EFFECTS',
+      'UI_POPUP',
+      'DEBUG',
+    ].forEach((name) => this.clearLayer(name));
+  }
+
   destroy() {
+    this.clearTransientLayers();
     if (this.app) {
       try {
         this.app.destroy(false, { children: true });
@@ -100,6 +152,7 @@ class VFXManager {
     }
     this.isInitialized = false;
     this.isInitializing = false;
+    this.readyPromise = null;
   }
 }
 
