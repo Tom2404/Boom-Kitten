@@ -5,6 +5,7 @@ const ShopItem = require('../models/ShopItem');
 const Quest = require('../models/Quest');
 const Transaction = require('../models/Transaction');
 const AuditLog = require('../models/AuditLog');
+const Season = require('../models/Season');
 const authMiddleware = require('../middleware/authMiddleware');
 const adminMiddleware = require('../middleware/adminMiddleware');
 
@@ -573,6 +574,146 @@ function getSeasonEndReward(rank) {
 }
 
 // POST /api/admin/season-reset - Reset season, award Pink Coins based on Rank, and reset ELO
+// GET /api/admin/seasons - List all seasons
+router.get('/seasons', async (req, res, next) => {
+  try {
+    const seasons = await Season.find().sort({ seasonNumber: -1 });
+    return res.json({ success: true, seasons });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// POST /api/admin/seasons - Create a new season
+router.post('/seasons', async (req, res, next) => {
+  try {
+    const { seasonNumber, name, startDate, endDate, resetStrategy, softResetRatio, resetEloValue } = req.body;
+
+    if (!seasonNumber || !name || !startDate || !endDate) {
+      return res.status(400).json({ message: 'Thiếu thông tin bắt buộc để tạo mùa giải.' });
+    }
+
+    // Check if season number already exists
+    const existing = await Season.findOne({ seasonNumber });
+    if (existing) {
+      return res.status(400).json({ message: `Mùa giải số ${seasonNumber} đã tồn tại.` });
+    }
+
+    const season = await Season.create({
+      seasonNumber,
+      name,
+      startDate: new Date(startDate),
+      endDate: new Date(endDate),
+      settings: {
+        resetStrategy: resetStrategy || 'soft_reset_ratio',
+        softResetRatio: softResetRatio !== undefined ? Number(softResetRatio) : 0.5,
+        resetEloValue: resetEloValue !== undefined ? Number(resetEloValue) : 1000
+      },
+      createdBy: req.user.id
+    });
+
+    // Create Audit Log
+    await AuditLog.create({
+      adminId: req.user.id,
+      action: 'SEASON_CREATE',
+      targetType: 'season',
+      targetId: season._id.toString(),
+      after: season,
+      reason: `Scheduled season ${seasonNumber}`
+    });
+
+    return res.json({ success: true, season });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// PUT /api/admin/seasons/:id - Update a season
+router.put('/seasons/:id', async (req, res, next) => {
+  try {
+    const { name, startDate, endDate, resetStrategy, softResetRatio, resetEloValue, status } = req.body;
+    const season = await Season.findById(req.params.id);
+
+    if (!season) {
+      return res.status(404).json({ message: 'Không tìm thấy mùa giải.' });
+    }
+
+    if (season.isResetExecuted && status === 'active') {
+      return res.status(400).json({ message: 'Không thể kích hoạt lại mùa giải đã chạy reset.' });
+    }
+
+    const beforeState = JSON.parse(JSON.stringify(season));
+
+    if (name) season.name = name;
+    if (startDate) season.startDate = new Date(startDate);
+    if (endDate) season.endDate = new Date(endDate);
+    if (status) season.status = status;
+    
+    if (resetStrategy) season.settings.resetStrategy = resetStrategy;
+    if (softResetRatio !== undefined) season.settings.softResetRatio = Number(softResetRatio);
+    if (resetEloValue !== undefined) season.settings.resetEloValue = Number(resetEloValue);
+
+    await season.save();
+
+    // Create Audit Log
+    await AuditLog.create({
+      adminId: req.user.id,
+      action: 'SEASON_UPDATE',
+      targetType: 'season',
+      targetId: season._id.toString(),
+      before: beforeState,
+      after: season,
+      reason: 'Updated season details'
+    });
+
+    return res.json({ success: true, season });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// DELETE /api/admin/seasons/:id - Delete a scheduled season
+router.delete('/seasons/:id', async (req, res, next) => {
+  try {
+    const season = await Season.findById(req.params.id);
+    if (!season) {
+      return res.status(404).json({ message: 'Không tìm thấy mùa giải.' });
+    }
+
+    if (season.status === 'active' || season.isResetExecuted) {
+      return res.status(400).json({ message: 'Không thể xóa mùa giải đang hoạt động hoặc đã hoàn thành.' });
+    }
+
+    const beforeState = JSON.parse(JSON.stringify(season));
+    await Season.findByIdAndDelete(req.params.id);
+
+    // Create Audit Log
+    await AuditLog.create({
+      adminId: req.user.id,
+      action: 'SEASON_DELETE',
+      targetType: 'season',
+      targetId: req.params.id,
+      before: beforeState,
+      reason: 'Deleted scheduled season'
+    });
+
+    return res.json({ success: true, message: 'Xóa mùa giải thành công.' });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+function getTieredResetElo(rank) {
+  if (!rank) return 1000;
+  if (rank === 'Legend') return 1800; // Gold IV
+  if (rank.startsWith('Diamond')) return 1500; // Silver III
+  if (rank.startsWith('Platinum')) return 1300; // Bronze I
+  if (rank.startsWith('Gold')) return 1200; // Bronze II
+  if (rank.startsWith('Silver')) return 1100; // Bronze III
+  return 1000; // Bronze IV
+}
+
+// POST /api/admin/season-reset - Reset season, award Pink Coins based on Rank, and reset ELO
 router.post('/season-reset', async (req, res, next) => {
   try {
     const { confirmText, reason } = req.body;
@@ -582,6 +723,16 @@ router.post('/season-reset', async (req, res, next) => {
     if (!reason) {
       return res.status(400).json({ message: 'Lý do reset mùa giải là bắt buộc.' });
     }
+
+    // Find the season to reset
+    const seasonToReset = await Season.findOne({
+      isResetExecuted: false,
+      status: { $in: ['active', 'ended'] }
+    }).sort({ seasonNumber: 1 });
+
+    const strategy = seasonToReset?.settings?.resetStrategy || 'soft_reset_ratio';
+    const ratio = seasonToReset?.settings?.softResetRatio !== undefined ? seasonToReset.settings.softResetRatio : 0.5;
+    const baseElo = seasonToReset?.settings?.resetEloValue !== undefined ? seasonToReset.settings.resetEloValue : 1000;
 
     const users = await User.find();
     let updatedCount = 0;
@@ -599,10 +750,21 @@ router.post('/season-reset', async (req, res, next) => {
         // Grant reward
         user.gems = gemsBefore + reward;
         
+        // Calculate new ELO based on strategy
+        let newElo = baseElo;
+        if (strategy === 'soft_reset_ratio') {
+          newElo = baseElo + Math.max(0, eloBefore - baseElo) * ratio;
+        } else if (strategy === 'soft_reset_tiered') {
+          newElo = getTieredResetElo(currentRank);
+          newElo = Math.max(baseElo, Math.min(eloBefore, newElo));
+        }
+
+        newElo = Math.round(newElo);
+        
         // Reset ELO and landmarks for next season
-        user.eloPoints = 1000;
-        user.highestEloReached = 1000;
-        user.rank = 'Bronze IV';
+        user.eloPoints = newElo;
+        user.seasonHighestElo = newElo;
+        user.highestEloReached = newElo; // Sync legacy field
         
         await user.save();
         updatedCount++;
@@ -617,17 +779,24 @@ router.post('/season-reset', async (req, res, next) => {
           balanceBefore: gemsBefore,
           balanceAfter: user.gems,
           source: 'season_reset',
-          description: `Seasonal End Reward for rank ${currentRank}`,
+          description: `Seasonal End Reward for rank ${currentRank} (Season ${seasonToReset?.seasonNumber || 1})`,
         });
       })
     );
+
+    // Mark season as reset executed
+    if (seasonToReset) {
+      seasonToReset.isResetExecuted = true;
+      seasonToReset.status = 'ended';
+      await seasonToReset.save();
+    }
 
     // Broadcast to everyone via socket
     const io = req.app.get('io');
     if (io) {
       io.emit('announcement:broadcast', {
         title: 'Reset Mùa Giải!',
-        message: 'Mùa giải đã chính thức khép lại! Điểm ELO của bạn đã được thiết lập lại. Quà thăng hạng mùa giải đã được gửi vào tài khoản!',
+        message: `Mùa giải ${seasonToReset?.name || ''} đã chính thức khép lại! Điểm ELO của bạn đã được thiết lập lại. Quà thăng hạng mùa giải đã được gửi vào tài khoản!`,
         type: 'event',
         durationSeconds: 60,
         createdAt: new Date(),
@@ -636,7 +805,7 @@ router.post('/season-reset', async (req, res, next) => {
 
       // Maintain legacy event compatibility
       io.emit('server_announcement', {
-        text: 'Mùa giải đã chính thức khép lại! Điểm ELO của bạn đã được thiết lập lại. Quà thăng hạng mùa giải (Xu Hồng) đã được gửi vào hòm đồ của bạn! Hãy sẵn sàng cho mùa giải mới!',
+        text: `Mùa giải ${seasonToReset?.name || ''} đã chính thức khép lại! Điểm ELO của bạn đã được thiết lập lại. Quà thăng hạng mùa giải (Xu Hồng) đã được gửi vào hòm đồ của bạn! Hãy sẵn sàng cho mùa giải mới!`,
         sentAt: new Date().toISOString(),
         sender: 'Hệ Thống'
       });
@@ -647,15 +816,16 @@ router.post('/season-reset', async (req, res, next) => {
       adminId: req.user.id,
       action: 'SEASON_RESET',
       targetType: 'season',
+      targetId: seasonToReset?._id?.toString() || 'legacy',
       reason,
-      after: { affectedUsers: updatedCount, totalGemsAwarded },
+      after: { affectedUsers: updatedCount, totalGemsAwarded, strategy, seasonNumber: seasonToReset?.seasonNumber },
     });
 
     return res.json({
       success: true,
       data: {
         affectedUsers: updatedCount,
-        resetEloTo: 1000,
+        strategy,
         totalGemsAwarded
       }
     });

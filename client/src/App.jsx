@@ -139,6 +139,13 @@ export default function App() {
     }
   }, [language]);
 
+  // Global access guard for admin role to restrict user-facing routes
+  useEffect(() => {
+    if (userRole === 'admin' && ['Game', 'Leaderboard', 'Mission', 'Shop', 'Profile'].includes(page)) {
+      setPage('Admin');
+    }
+  }, [page, userRole]);
+
   const [dialogState, setDialogState] = useState({
     isOpen: false,
     title: '',
@@ -268,8 +275,8 @@ export default function App() {
           </div>
           <p className="text-xs text-[var(--pop-black)]/60 font-bold uppercase tracking-wider">
             {language === 'en' 
-              ? "© 2026 Exploding Kittens Inc. Warning: Don't touch the red button."
-              : "© 2026 Exploding Kittens Inc. Cảnh báo: Đừng chạm vào nút đỏ."
+              ? "© 2026 BOOM-KITTEN — WARNING: DON'T TOUCH THE RED BUTTON."
+              : "© 2026 BOOM-KITTEN — CẢNH BÁO: ĐỪNG CHẠM VÀO NÚT ĐỎ."
             }
           </p>
         </div>

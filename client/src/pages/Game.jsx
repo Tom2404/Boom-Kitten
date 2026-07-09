@@ -947,6 +947,7 @@ export default function Game({ setPage }) {
   const [lobbyEdition, setLobbyEdition] = useState('original');
   const [isEditionDropdownOpen, setIsEditionDropdownOpen] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
+  const [activeSeason, setActiveSeason] = useState(null);
   
   const isDailyRewardClaimed = useMemo(() => {
     if (!userProfile?.lastDailyRewardDate) return false;
@@ -1056,8 +1057,23 @@ export default function Game({ setPage }) {
     }
   };
 
+  const fetchActiveSeason = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/seasons/active`);
+      const data = await res.json();
+      if (res.ok && data.active) {
+        setActiveSeason(data.season);
+      } else {
+        setActiveSeason(null);
+      }
+    } catch (e) {
+      console.error('Lỗi khi tải thông tin mùa giải:', e);
+    }
+  };
+
   useEffect(() => {
     fetchUserProfile();
+    fetchActiveSeason();
   }, [roomState]);
 
   const handleQuickPlay = async () => {
@@ -1700,6 +1716,7 @@ export default function Game({ setPage }) {
 
   const lobbyViewProps = {
     roomState,
+    activeSeason,
     CheckIcon,
     CoinIcon,
     EDITIONS_MAP,

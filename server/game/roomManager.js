@@ -180,6 +180,7 @@ function startGame(roomCode) {
     roomCode,
     players: dealt.players,
     activePlayerIds: dealt.players.map((p) => p.userId),
+    eliminatedPlayers: [],
     deck: dealt.deck,
     discardPile: [],
     currentPlayerIndex: 0,

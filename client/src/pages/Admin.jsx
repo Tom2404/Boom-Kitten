@@ -3,6 +3,160 @@ import { PRESET_AVATARS } from '../components/PlayerAvatar.jsx';
 import { CoinIcon, GemIcon } from '../components/CoinDisplay.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import CustomDialog from '../components/CustomDialog.jsx';
+// Retro Pixel SVG Icons
+const PixelStatsIcon = () => (
+  <svg className="w-5 h-5 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+    <path d="M3 20h18M5 20V12h3v8M10 20V7h3v13M15 20V15h3v5" strokeLinecap="square" strokeLinejoin="miter"/>
+  </svg>
+);
+
+const PixelPlayersIcon = () => (
+  <svg className="w-5 h-5 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+    <circle cx="12" cy="6" r="3" strokeLinecap="square" />
+    <path d="M4 22v-2a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v2" strokeLinecap="square" strokeLinejoin="miter" />
+    <circle cx="6" cy="7" r="2" />
+    <circle cx="18" cy="7" r="2" />
+  </svg>
+);
+
+const PixelCatalogIcon = () => (
+  <svg className="w-5 h-5 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+    <rect x="3" y="8" width="18" height="13" strokeLinecap="square" />
+    <path d="M8 8V5a4 4 0 0 1 8 0v3" strokeLinecap="square" />
+  </svg>
+);
+
+const PixelQuestsIcon = () => (
+  <svg className="w-5 h-5 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+    <circle cx="12" cy="12" r="9" strokeLinecap="square" />
+    <circle cx="12" cy="12" r="5" strokeLinecap="square" />
+    <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+  </svg>
+);
+
+const PixelAnnouncementIcon = () => (
+  <svg className="w-5 h-5 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+    <path d="M4 17h4l7 4V3L8 7H4a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1ZM19 8c1.5 2 1.5 6 0 8" strokeLinecap="square" strokeLinejoin="miter" />
+  </svg>
+);
+
+const PixelLogsIcon = () => (
+  <svg className="w-5 h-5 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+    <path d="M4 4h16v16H4zM8 9h8M8 13h8M8 17h5" strokeLinecap="square" />
+  </svg>
+);
+
+const PixelSeasonIcon = () => (
+  <svg className="w-5 h-5 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+    <path d="M5 2h14v3l-5 5v4l5 5v3H5v-3l5-5v-4L5 5zM10 5h4M10 19h4" strokeLinecap="square" strokeLinejoin="miter" />
+  </svg>
+);
+
+const PixelWrenchIcon = () => (
+  <svg className="w-8 h-8 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+    <path d="M14.7 9.3 21 3M18 3h3v3M14.7 9.3a4.5 4.5 0 1 0-5.4 5.4l-6.3 6.3M9.3 14.7a4.5 4.5 0 0 0 0-5.4M3 21h3v-3" strokeLinecap="square" strokeLinejoin="miter" />
+  </svg>
+);
+
+const PixelSignalIcon = () => (
+  <svg className="w-6 h-6 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+    <path d="M12 20h.01M8 16a6 6 0 0 1 8 0M5 12a10 10 0 0 1 14 0M2 8a14 14 0 0 1 20 0" strokeLinecap="square" strokeLinejoin="miter" />
+  </svg>
+);
+
+const PixelLockIcon = () => (
+  <svg className="w-6 h-6 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+    <rect x="5" y="11" width="14" height="10" strokeLinecap="square" />
+    <path d="M8 11V7a4 4 0 0 1 8 0v4" strokeLinecap="square" />
+  </svg>
+);
+
+const PixelClockIcon = () => (
+  <svg className="w-5 h-5 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+    <circle cx="12" cy="12" r="9" strokeLinecap="square" />
+    <path d="M12 7v5l3 2" strokeLinecap="square" />
+  </svg>
+);
+
+const PixelAlertIcon = () => (
+  <svg className="w-5 h-5 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+    <path d="M12 3L3 20h18L12 3zM12 9v4M12 17h.01" strokeLinecap="square" strokeLinejoin="miter" />
+  </svg>
+);
+
+const PixelTrophyIcon = () => (
+  <svg className="w-5 h-5 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+    <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6 M18 9h1.5a2.5 2.5 0 0 0 0-5H18 M6 4h12v10a6 6 0 0 1-12 0 V4 M12 14v4 M8 18h8 M6 22h12" strokeLinecap="square" strokeLinejoin="miter" />
+  </svg>
+);
+
+const PixelCalculatorIcon = () => (
+  <svg className="w-5 h-5 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+    <rect x="4" y="3" width="16" height="18" strokeLinecap="square" />
+    <path d="M7 7h10M7 11h2M11 11h2M15 11h2M7 15h2M11 15h2M15 15h2M7 18h2M11 18h6" strokeLinecap="square" />
+  </svg>
+);
+
+const formatResetStrategy = (strategy) => {
+  if (strategy === 'soft_reset_ratio') return 'Nén ELO theo tỉ lệ';
+  if (strategy === 'soft_reset_tiered') return 'Reset theo mốc rank';
+  if (strategy === 'hard_reset') return 'Reset trắng';
+  return strategy;
+};
+
+const formatSeasonStatus = (status) => {
+  if (status === 'scheduled') return 'Đã lập lịch';
+  if (status === 'active') return 'Đang diễn ra';
+  if (status === 'ended') return 'Đã kết thúc';
+  return status;
+};
+
+const formatCountdown = (targetDate, now) => {
+  const diff = new Date(targetDate) - now;
+  if (diff <= 0) return '00:00:00';
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+  const minutes = Math.floor((diff / (1000 * 60)) % 60);
+  const seconds = Math.floor((diff / 1000) % 60);
+  return `${days > 0 ? `${days} ngày ` : ''}${hours.toString().padStart(2, '0')} giờ ${minutes.toString().padStart(2, '0')} phút ${seconds.toString().padStart(2, '0')} giây`;
+};
+
+const getEloResetPreview = (strategy, ratio, baseElo, currentElo) => {
+  const base = Number(baseElo) || 1000;
+  if (strategy === 'hard_reset') {
+    return base;
+  }
+  if (strategy === 'soft_reset_tiered') {
+    if (currentElo >= 2800) return 1800; // Legend -> Gold IV (1800 ELO)
+    if (currentElo >= 2200) return 1500; // Diamond -> Silver III (1500 ELO)
+    if (currentElo >= 1800) return 1300; // Platinum -> Bronze I (1300 ELO)
+    if (currentElo >= 1500) return 1200; // Gold -> Bronze II (1200 ELO)
+    if (currentElo >= 1200) return 1100; // Silver -> Bronze III (1100 ELO)
+    return base; // Bronze / default
+  }
+  const r = Number(ratio) || 0.5;
+  return Math.max(base, Math.round(base + Math.max(0, currentElo - base) * r));
+};
+
+const renderPixelMeter = (percentage, colorClass) => {
+  const totalSegments = 10;
+  const filledSegments = Math.max(1, Math.min(totalSegments, Math.round((percentage / 100) * totalSegments)));
+  return (
+    <div className="flex gap-[3px] border-2 border-[#111111] p-[3px] bg-white w-full">
+      {Array.from({ length: totalSegments }).map((_, idx) => {
+        const isFilled = idx < filledSegments;
+        return (
+          <div
+            key={idx}
+            className={`h-2.5 flex-1 border border-[#111111]/10 ${
+              isFilled ? colorClass : 'bg-[#f1f5f9]'
+            }`}
+          />
+        );
+      })}
+    </div>
+  );
+};
 
 export default function Admin({ setPage }) {
   const { t, language } = useLanguage();
@@ -75,6 +229,23 @@ export default function Admin({ setPage }) {
   const [seasonSuccess, setSeasonSuccess] = useState('');
   const [seasonError, setSeasonError] = useState('');
   const [seasonResetData, setSeasonResetData] = useState(null);
+
+  const [seasonsList, setSeasonsList] = useState([]);
+  const [newSeasonNum, setNewSeasonNum] = useState('');
+  const [newSeasonName, setNewSeasonName] = useState('');
+  const [newSeasonStart, setNewSeasonStart] = useState('');
+  const [newSeasonEnd, setNewSeasonEnd] = useState('');
+  const [newSeasonStrategy, setNewSeasonStrategy] = useState('soft_reset_ratio');
+  const [newSeasonRatio, setNewSeasonRatio] = useState(0.5);
+  const [newSeasonBaseElo, setNewSeasonBaseElo] = useState(1000);
+  const [formErrors, setFormErrors] = useState({});
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [adminTimeNow, setAdminTimeNow] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setAdminTimeNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Audit and Transaction Logs state
   const [logs, setLogs] = useState([]);
@@ -157,11 +328,15 @@ export default function Admin({ setPage }) {
 
   useEffect(() => {
     if (!isAdmin) return;
-    if (activeTab === 'stats') fetchStats();
+    if (activeTab === 'stats') {
+      fetchStats();
+      fetchLogs();
+    }
     if (activeTab === 'catalog') fetchCatalog();
     if (activeTab === 'players') fetchPlayers();
     if (activeTab === 'quests') fetchQuests();
     if (activeTab === 'logs') fetchLogs();
+    if (activeTab === 'season') fetchSeasons();
   }, [activeTab, playerPage, playerSearch, playerRoleFilter, playerStatusFilter, logPage, logTypeTab, logFilterUserId, logFilterType, logFilterCurrency]);
 
   if (!isAdmin) {
@@ -529,6 +704,91 @@ export default function Admin({ setPage }) {
     }
   };
 
+  const fetchSeasons = async () => {
+    setSeasonError('');
+    const res = await adminApiCall('/api/admin/seasons');
+    if (res.ok && res.data.success) {
+      setSeasonsList(res.data.seasons);
+    } else {
+      setSeasonError(res.data?.message || 'Không thể tải danh sách mùa giải.');
+    }
+  };
+
+  const handleCreateSeason = async (e) => {
+    e.preventDefault();
+    setSeasonError('');
+    setSeasonSuccess('');
+    
+    const errors = {};
+    if (!newSeasonNum) errors.seasonNumber = 'Số mùa giải bắt buộc phải nhập.';
+    if (!newSeasonName) errors.name = 'Tên mùa giải bắt buộc phải nhập.';
+    if (!newSeasonStart) errors.startDate = 'Ngày bắt đầu bắt buộc phải chọn.';
+    if (!newSeasonEnd) errors.endDate = 'Ngày kết thúc bắt buộc phải chọn.';
+    
+    if (newSeasonStart && newSeasonEnd && new Date(newSeasonEnd) <= new Date(newSeasonStart)) {
+      errors.endDate = 'Ngày kết thúc phải sau ngày bắt đầu.';
+    }
+
+    if (newSeasonStrategy === 'soft_reset_ratio') {
+      const ratio = Number(newSeasonRatio);
+      if (isNaN(ratio) || ratio < 0 || ratio > 1) {
+        errors.softResetRatio = 'Tỉ lệ phải nằm trong khoảng từ 0.0 đến 1.0.';
+      }
+    }
+
+    const baseElo = Number(newSeasonBaseElo);
+    if (isNaN(baseElo) || baseElo < 1000) {
+      errors.resetEloValue = 'ELO cơ sở không được nhỏ hơn 1000.';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+    setFormErrors({});
+
+    const payload = {
+      seasonNumber: Number(newSeasonNum),
+      name: newSeasonName,
+      startDate: newSeasonStart,
+      endDate: newSeasonEnd,
+      resetStrategy: newSeasonStrategy,
+      softResetRatio: newSeasonStrategy === 'soft_reset_ratio' ? Number(newSeasonRatio) : undefined,
+      resetEloValue: baseElo
+    };
+
+    const res = await adminApiCall('/api/admin/seasons', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+    if (res.ok && res.data.success) {
+      setSeasonSuccess(`Đã lập lịch thành công Season ${newSeasonNum}!`);
+      setNewSeasonNum('');
+      setNewSeasonName('');
+      setNewSeasonStart('');
+      setNewSeasonEnd('');
+      setNewSeasonRatio(0.5);
+      setNewSeasonBaseElo(1000);
+      setFormErrors({});
+      fetchSeasons();
+    } else {
+      setSeasonError(res.data?.message || 'Thất bại khi lập lịch mùa giải.');
+    }
+  };
+
+  const handleDeleteSeason = async (id) => {
+    setSeasonError('');
+    setSeasonSuccess('');
+    const res = await adminApiCall(`/api/admin/seasons/${id}`, { method: 'DELETE' });
+    if (res.ok && res.data.success) {
+      setSeasonSuccess('Xóa mùa giải thành công.');
+      setConfirmDeleteId(null);
+      fetchSeasons();
+    } else {
+      setSeasonError(res.data?.message || 'Xóa mùa giải thất bại.');
+    }
+  };
+
   // Perform Season Reset
   const handleSeasonReset = async (e) => {
     e.preventDefault();
@@ -598,6 +858,7 @@ export default function Admin({ setPage }) {
         }
 
         .pixel-btn {
+          font-family: 'Montserrat', sans-serif;
           border: 3px solid #111111;
           box-shadow: 3px 3px 0 #111111;
           font-weight: 800;
@@ -617,6 +878,7 @@ export default function Admin({ setPage }) {
         }
 
         .pixel-btn-tab {
+          font-family: 'Montserrat', sans-serif;
           border: 3px solid #111111;
           box-shadow: 3px 3px 0 #111111;
           transition: transform 0.1s, box-shadow 0.1s;
@@ -631,8 +893,6 @@ export default function Admin({ setPage }) {
         .pixel-btn-tab.active {
           transform: translate(2px, 2px);
           box-shadow: 1px 1px 0 #111111;
-          background-color: var(--pop-orange) !important;
-          color: #ffffff !important;
         }
 
         .pixel-input, .pixel-select {
@@ -743,7 +1003,7 @@ export default function Admin({ setPage }) {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b-4 border-[#111111] pb-6">
           <div className="text-left">
             <div className="flex items-center gap-2">
-              <span className="text-3xl">🛠️</span>
+              <span className="text-[var(--pop-amber)] flex items-center"><PixelWrenchIcon /></span>
               <h2 className="text-3xl md:text-4xl font-pop-display font-black uppercase tracking-tight">
                 BẢNG ĐIỀU KHIỂN ADMIN
               </h2>
@@ -755,11 +1015,13 @@ export default function Admin({ setPage }) {
           
           {/* Arcade status badges */}
           <div className="flex gap-2">
-            <span className="pixel-badge bg-[var(--pop-amber)] text-xs text-[var(--pop-black)] shadow-[2px_2px_0_#111111]">
-              [ 🔴 ADMIN MODE ]
+            <span className="pixel-badge bg-[var(--pop-amber)] text-xs text-[var(--pop-black)] shadow-[2px_2px_0_#111111] flex items-center gap-1.5">
+              <span className="inline-block w-2 h-2 rounded-full bg-red-600 animate-pulse"></span>
+              [ ADMIN MODE ]
             </span>
-            <span className="pixel-badge bg-emerald-400 text-xs text-[var(--pop-black)] shadow-[2px_2px_0_#111111] animate-pulse">
-              [ 🌐 SECURE LIVE ]
+            <span className="pixel-badge bg-emerald-400 text-xs text-[var(--pop-black)] shadow-[2px_2px_0_#111111] flex items-center gap-1.5">
+              <span className="inline-block w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span>
+              [ SECURE LIVE ]
             </span>
           </div>
         </div>
@@ -767,68 +1029,311 @@ export default function Admin({ setPage }) {
         {/* Tab Cartridges Navigation */}
         <div className="flex gap-2.5 overflow-x-auto pb-3 border-b-3 border-[#111111] custom-scrollbar">
           {[
-            { id: 'stats', label: 'Thống Kê 📊' },
-            { id: 'players', label: 'Người Dùng 👥' },
-            { id: 'catalog', label: 'Shop Game 🛒' },
-            { id: 'quests', label: 'Nhiệm Vụ 🎯' },
-            { id: 'announcement', label: 'Thông Báo 📢' },
-            { id: 'logs', label: 'Nhật Ký Hệ Thống 📝' },
-            { id: 'season', label: 'Mùa Giải ⏳' },
+            { id: 'stats', label: 'THỐNG KÊ', icon: <PixelStatsIcon /> },
+            { id: 'players', label: 'QUẢN LÝ NGƯỜI DÙNG', icon: <PixelPlayersIcon /> },
+            { id: 'catalog', label: 'SHOP GAME', icon: <PixelCatalogIcon /> },
+            { id: 'quests', label: 'NHIỆM VỤ', icon: <PixelQuestsIcon /> },
+            { id: 'announcement', label: 'THÔNG BÁO', icon: <PixelAnnouncementIcon /> },
+            { id: 'logs', label: 'NHẬT KÝ HỆ THỐNG', icon: <PixelLogsIcon /> },
+            { id: 'season', label: 'MÙA GIẢI', icon: <PixelSeasonIcon />, isDanger: true },
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`pixel-btn-tab px-4 py-2.5 bg-white text-xs font-pop-accent font-black uppercase whitespace-nowrap
-                ${activeTab === tab.id ? 'active' : ''}`}
+              className={`pixel-btn-tab px-4 py-2.5 text-xs font-pop-accent font-black uppercase whitespace-nowrap flex items-center gap-1.5 transition-all
+                ${activeTab === tab.id 
+                  ? (tab.isDanger ? 'bg-[var(--pop-red)] text-white border-[#111111] active' : 'bg-[var(--pop-orange)] text-white border-[#111111] active') 
+                  : 'bg-white text-[var(--pop-black)] hover:bg-[#ffe7b3] border-[#111111]'}`}
             >
-              {tab.label}
+              {tab.icon}
+              <span>{tab.label}</span>
             </button>
           ))}
         </div>
 
         {/* TAB CONTENT: STATS */}
         {activeTab === 'stats' && (
-          <div className="flex flex-col gap-6 text-left animate-fade-in">
-            <h3 className="text-lg font-pop-display font-black uppercase tracking-wide">
-              Meters & Sensors (Số liệu hệ thống)
+          <div className="w-full text-left flex flex-col gap-6 animate-fade-in font-pop-body">
+            
+            {/* Boom-Kitten Thematic Status Strip */}
+            <div className="flex flex-wrap gap-4 bg-[#fffaf0] border-3 border-[#111111] p-3.5 shadow-[4px_4px_0_#111111] font-mono text-[10px] md:text-xs font-bold text-slate-700 justify-between items-center relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-[repeating-linear-gradient(45deg,#facc15_0,#facc15_10px,#111111_10px,#111111_20px)] opacity-5 pointer-events-none"></div>
+              <div className="flex items-center gap-2">
+                <div className="w-2.5 h-2.5 border-2 border-[#111111] shadow-[1px_1px_0_#111] bg-emerald-500 animate-pulse"></div>
+                <span>TRẠNG THÁI MÈO BOM: ĐANG NGỦ 💤</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2.5 h-2.5 border-2 border-[#111111] shadow-[1px_1px_0_#111] bg-emerald-500"></div>
+                <span>MỨC ĐỘ THẢM HỌA: AN TOÀN 🟢</span>
+              </div>
+              <div className="text-[9px] text-slate-400 uppercase tracking-widest font-black">
+                SYSTEM PROTOCOL: BK-V2.0
+              </div>
+            </div>
+
+            <h3 className="text-sm font-pop-display font-black uppercase tracking-wider border-b-2 border-slate-200 pb-1">
+              ĐỒNG HỒ & CẢM BIẾN (METERS & SENSORS)
             </h3>
             
             {stats ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div className="pixel-card p-5 border-l-[12px] border-l-[var(--pop-amber)]">
-                  <span className="text-[10px] font-pop-accent font-black text-slate-500 uppercase block">Tổng tài khoản</span>
-                  <span className="font-pop-display font-black text-4xl mt-1 block">{stats.totalUsers}</span>
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {/* Total Accounts */}
+                  <div className="pixel-card p-5 border-l-[12px] border-l-slate-700 bg-[#fffaf0] flex flex-col justify-between min-h-[150px] relative overflow-hidden">
+                    <div className="absolute -top-3 -right-3 opacity-5 pointer-events-none">
+                      <span className="material-symbols-outlined text-[64px]">group</span>
+                    </div>
+                    <div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[8px] font-mono font-bold text-slate-400 bg-slate-200/50 px-1.5 py-0.5 border border-slate-300">[SENSOR-01]</span>
+                        <span className="text-slate-400"><PixelPlayersIcon /></span>
+                      </div>
+                      <span className="text-[11px] font-pop-accent font-black text-slate-600 uppercase block mt-1">Tổng tài khoản</span>
+                      <span className="font-pop-display font-black text-4xl mt-1 block text-slate-800">
+                        {stats.totalUsers} <span className="text-xs font-pop-accent font-black text-slate-500">USERS</span>
+                      </span>
+                    </div>
+                    <hr className="border-t-2 border-dashed border-[#111111]/10 my-3" />
+                    <div>
+                      <div className="flex justify-between text-[9px] font-pop-accent font-black text-slate-500">
+                        <span>CAPACITY STATUS</span>
+                        <span>DATABASE OK</span>
+                      </div>
+                      <div className="mt-1.5">
+                        {renderPixelMeter(80, 'bg-slate-700')}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Online Players */}
+                  <div className={`pixel-card p-5 border-l-[12px] border-l-emerald-500 flex flex-col justify-between min-h-[150px] relative overflow-hidden
+                    ${stats.activeUsers > 0 ? 'bg-[#ecfdf5]' : 'bg-[#fff7ed]'}`}>
+                    <div className="absolute -top-3 -right-3 opacity-5 pointer-events-none">
+                      <span className="material-symbols-outlined text-[64px]">sensors</span>
+                    </div>
+                    <div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[8px] font-mono font-bold text-slate-400 bg-slate-200/50 px-1.5 py-0.5 border border-slate-300">[SENSOR-02]</span>
+                        <span className="text-emerald-500"><PixelSignalIcon /></span>
+                      </div>
+                      <span className={`text-[11px] font-pop-accent font-black uppercase block mt-1 ${stats.activeUsers > 0 ? 'text-emerald-700' : 'text-amber-700'}`}>Người chơi Online</span>
+                      {stats.activeUsers > 0 ? (
+                        <span className="font-pop-display font-black text-4xl text-emerald-600 mt-1 block">
+                          {stats.activeUsers} <span className="text-xs font-pop-accent font-black text-emerald-600">PLAYERS</span>
+                        </span>
+                      ) : (
+                        <span className="font-pop-display font-black text-xl text-amber-600 mt-2 block animate-pulse">
+                          0 PLAYERS <span className="text-[9px] font-pop-accent font-black block text-amber-500 mt-1 uppercase">SERVER ĐANG YÊN ẮNG...</span>
+                        </span>
+                      )}
+                    </div>
+                    <hr className="border-t-2 border-dashed border-[#111111]/10 my-3" />
+                    <div>
+                      <div className={`flex justify-between text-[9px] font-pop-accent font-black ${stats.activeUsers > 0 ? 'text-emerald-700' : 'text-amber-700'}`}>
+                        <span>SOCKET TRANSMISSION</span>
+                        <span className="flex items-center gap-1.5">
+                          <span className={`inline-block w-2.5 h-2.5 border border-[#111] shadow-[1px_1px_0_#111] ${stats.activeUsers > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`}></span>
+                          {stats.activeUsers > 0 ? 'LIVE SOCKET' : 'IDLE'}
+                        </span>
+                      </div>
+                      <div className="mt-1.5">
+                        {renderPixelMeter(stats.activeUsers > 0 ? 100 : 10, stats.activeUsers > 0 ? 'bg-emerald-500' : 'bg-amber-400')}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Banned Accounts */}
+                  <div className={`pixel-card p-5 border-l-[12px] border-l-[var(--pop-red)] flex flex-col justify-between min-h-[150px] relative overflow-hidden
+                    ${stats.bannedUsers > 0 ? 'bg-[#fff1f2] animate-pulse' : 'bg-[#fffaf0]'}`}>
+                    <div className="absolute -top-3 -right-3 opacity-5 pointer-events-none">
+                      <span className="material-symbols-outlined text-[64px]">block</span>
+                    </div>
+                    <div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[8px] font-mono font-bold text-slate-400 bg-slate-200/50 px-1.5 py-0.5 border border-slate-300">[SENSOR-03]</span>
+                        <span className="text-[var(--pop-red)]"><PixelLockIcon /></span>
+                      </div>
+                      <span className="text-[11px] font-pop-accent font-black text-red-500 uppercase block mt-1">Tài khoản bị khóa</span>
+                      <span className="font-pop-display font-black text-4xl text-[var(--pop-red)] mt-1 block">
+                        {stats.bannedUsers} <span className="text-xs font-pop-accent font-black text-red-500">USERS</span>
+                      </span>
+                    </div>
+                    <hr className="border-t-2 border-dashed border-[#111111]/10 my-3" />
+                    <div>
+                      <div className="flex justify-between text-[9px] font-pop-accent font-black text-red-500">
+                        <span>THREAT SENSOR</span>
+                        <span>{stats.bannedUsers > 0 ? 'ACTION NEEDED' : 'AN TOÀN'}</span>
+                      </div>
+                      <div className="mt-1.5">
+                        {renderPixelMeter(stats.bannedUsers > 0 ? 50 : 0, 'bg-[var(--pop-red)]')}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Online Rooms */}
+                  <div className="pixel-card p-5 border-l-[12px] border-l-sky-500 bg-[#eff6ff] flex flex-col justify-between min-h-[150px] relative overflow-hidden">
+                    <div className="absolute -top-3 -right-3 opacity-5 pointer-events-none">
+                      <span className="material-symbols-outlined text-[64px]">meeting_room</span>
+                    </div>
+                    <div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[8px] font-mono font-bold text-slate-400 bg-slate-200/50 px-1.5 py-0.5 border border-slate-300">[SENSOR-04]</span>
+                        <span className="text-sky-500"><PixelStatsIcon /></span>
+                      </div>
+                      <span className="text-[11px] font-pop-accent font-black text-sky-600 uppercase block mt-1">Số phòng chơi trực tuyến</span>
+                      {stats.totalRooms > 0 ? (
+                        <span className="font-pop-display font-black text-4xl text-sky-600 mt-1 block">
+                          {stats.totalRooms} <span className="text-xs font-pop-accent font-black text-sky-500">ROOMS</span>
+                        </span>
+                      ) : (
+                        <span className="font-pop-display font-black text-xl text-slate-500 mt-2 block animate-pulse">
+                          0 ROOMS <span className="text-[9px] font-pop-accent font-black block text-slate-400 mt-1 uppercase">CHỜ GHÉP TRẬN...</span>
+                        </span>
+                      )}
+                    </div>
+                    <hr className="border-t-2 border-dashed border-[#111111]/10 my-3" />
+                    <div>
+                      <div className="flex justify-between text-[9px] font-pop-accent font-black text-sky-600">
+                        <span>MATCHMAKING SYSTEM</span>
+                        <span>{stats.totalRooms > 0 ? 'BATTLE LIVE' : 'CHỜ GHÉP TRẬN'}</span>
+                      </div>
+                      <div className="mt-1.5">
+                        {renderPixelMeter(stats.totalRooms > 0 ? 70 : 0, 'bg-sky-500')}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Shop Items */}
+                  <div className="pixel-card p-5 border-l-[12px] border-l-purple-500 bg-[#faf5ff] flex flex-col justify-between min-h-[150px] relative overflow-hidden">
+                    <div className="absolute -top-3 -right-3 opacity-5 pointer-events-none">
+                      <span className="material-symbols-outlined text-[64px]">shopping_bag</span>
+                    </div>
+                    <div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[8px] font-mono font-bold text-slate-400 bg-slate-200/50 px-1.5 py-0.5 border border-slate-300">[SENSOR-05]</span>
+                        <span className="text-purple-500"><PixelCatalogIcon /></span>
+                      </div>
+                      <span className="text-[11px] font-pop-accent font-black text-purple-600 uppercase block mt-1">Vật phẩm shop (Active / Tổng)</span>
+                      {stats.totalShopItems > 0 ? (
+                        <span className="font-pop-display font-black text-4xl text-purple-700 mt-1 block">
+                          {stats.activeShopItems} <span className="text-xs font-pop-accent font-black text-purple-500">/ {stats.totalShopItems}</span>
+                        </span>
+                      ) : (
+                        <span className="font-pop-display font-black text-xl text-slate-500 mt-2 block animate-pulse">
+                          0 / 0 <span className="text-[9px] font-pop-accent font-black block text-slate-400 mt-1 uppercase">CỬA HÀNG TRỐNG TRƠN</span>
+                        </span>
+                      )}
+                    </div>
+                    <hr className="border-t-2 border-dashed border-[#111111]/10 my-3" />
+                    <div>
+                      <div className="flex justify-between text-[9px] font-pop-accent font-black text-purple-600">
+                        <span>ACTIVE RATE</span>
+                        <span>{Math.round((stats.activeShopItems / (stats.totalShopItems || 1)) * 100)}% ACTIVE</span>
+                      </div>
+                      <div className="mt-1.5">
+                        {renderPixelMeter((stats.activeShopItems / (stats.totalShopItems || 1)) * 100, 'bg-purple-500')}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Active Quests */}
+                  <div className="pixel-card p-5 border-l-[12px] border-l-orange-500 bg-[#fff7ed] flex flex-col justify-between min-h-[150px] relative overflow-hidden">
+                    <div className="absolute -top-3 -right-3 opacity-5 pointer-events-none">
+                      <span className="material-symbols-outlined text-[64px]">task_alt</span>
+                    </div>
+                    <div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[8px] font-mono font-bold text-slate-400 bg-slate-200/50 px-1.5 py-0.5 border border-slate-300">[SENSOR-06]</span>
+                        <span className="text-orange-500"><PixelQuestsIcon /></span>
+                      </div>
+                      <span className="text-[11px] font-pop-accent font-black text-orange-600 block uppercase mt-1">Nhiệm vụ active</span>
+                      <span className="font-pop-display font-black text-4xl text-orange-700 mt-1 block">
+                        {stats.activeMissions} <span className="text-xs font-pop-accent font-black text-orange-500">/ {stats.totalMissions}</span>
+                      </span>
+                    </div>
+                    <hr className="border-t-2 border-dashed border-[#111111]/10 my-3" />
+                    <div>
+                      <div className="flex justify-between text-[9px] font-pop-accent font-black text-orange-600">
+                        <span>QUEST BOARD STATUS</span>
+                        <span>QUEST BOARD READY</span>
+                      </div>
+                      <div className="mt-1.5">
+                        {renderPixelMeter((stats.activeMissions / (stats.totalMissions || 1)) * 100, 'bg-orange-500')}
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="pixel-card p-5 border-l-[12px] border-l-emerald-500 bg-emerald-50/20">
-                  <span className="text-[10px] font-pop-accent font-black text-emerald-600 uppercase block">Người chơi Online</span>
-                  <span className="font-pop-display font-black text-4xl text-emerald-600 mt-1 block">{stats.activeUsers}</span>
-                </div>
-                
-                <div className="pixel-card p-5 border-l-[12px] border-l-[var(--pop-red)] bg-red-50/10">
-                  <span className="text-[10px] font-pop-accent font-black text-red-500 uppercase block">Tài khoản bị khóa</span>
-                  <span className="font-pop-display font-black text-4xl text-[var(--pop-red)] mt-1 block">{stats.bannedUsers}</span>
-                </div>
+                {/* Quick Actions, Live Alerts, and Log Preview Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+                  {/* Quick Actions Panel */}
+                  <div className="pixel-card p-5 text-left bg-white border-l-[12px] border-l-[var(--pop-amber)] flex flex-col gap-3 relative">
+                    <h4 className="font-pop-display font-black text-xs uppercase tracking-wider border-b-2 border-[#111111] pb-1.5 flex items-center gap-1.5">
+                      <span>TÁC VỤ NHANH</span>
+                    </h4>
+                    <div className="flex flex-col gap-2.5">
+                      <button onClick={() => setActiveTab('announcement')} className="pixel-btn bg-[#fffaf0] hover:bg-[#ffe7b3] py-2.5 text-xs font-black text-left px-3 flex items-center gap-2 transition-all active:translate-y-0.5">
+                        <PixelAnnouncementIcon /> GỬI THÔNG BÁO TRỰC TIẾP
+                      </button>
+                      <button onClick={() => setActiveTab('players')} className="pixel-btn bg-[#fffaf0] hover:bg-[#ffe7b3] py-2.5 text-xs font-black text-left px-3 flex items-center gap-2 transition-all active:translate-y-0.5">
+                        <PixelPlayersIcon /> QUẢN LÝ NGƯỜI CHƠI
+                      </button>
+                      <button onClick={() => setActiveTab('catalog')} className="pixel-btn bg-[#fffaf0] hover:bg-[#ffe7b3] py-2.5 text-xs font-black text-left px-3 flex items-center gap-2 transition-all active:translate-y-0.5">
+                        <PixelCatalogIcon /> CẤU HÌNH CỬA HÀNG
+                      </button>
+                      <button onClick={() => setActiveTab('season')} className="pixel-btn bg-[var(--pop-red)] hover:opacity-90 py-2.5 text-xs font-black text-left px-3 flex items-center gap-2 text-white transition-all active:translate-y-0.5 shadow-[4px_4px_0_#111]">
+                        <PixelSeasonIcon /> QUẢN LÝ MÙA GIẢI
+                      </button>
+                    </div>
+                  </div>
 
-                <div className="pixel-card p-5 border-l-[12px] border-l-sky-500 bg-sky-50/25">
-                  <span className="text-[10px] font-pop-accent font-black text-sky-600 uppercase block">Số phòng chơi trực tuyến</span>
-                  <span className="font-pop-display font-black text-4xl text-sky-600 mt-1 block">{stats.totalRooms}</span>
-                </div>
-                
-                <div className="pixel-card p-5 border-l-[12px] border-l-purple-500 bg-purple-50/20">
-                  <span className="text-[10px] font-pop-accent font-black text-purple-600 uppercase block">Vật phẩm shop (Active / Tổng)</span>
-                  <span className="font-pop-display font-black text-4xl text-purple-700 mt-1 block">
-                    {stats.activeShopItems} <span className="text-xl font-bold">/ {stats.totalShopItems}</span>
-                  </span>
-                </div>
+                  {/* Live Alerts Panel */}
+                  <div className="pixel-card p-5 text-left bg-white border-l-[12px] border-l-[var(--pop-red)] flex flex-col gap-3">
+                    <h4 className="font-pop-display font-black text-xs uppercase tracking-wider border-b-2 border-[#111111] pb-1.5">
+                      CẢNH BÁO LIVE
+                    </h4>
+                    <div className="flex flex-col gap-3 font-pop-body text-xs font-bold text-slate-700 mt-1">
+                      <div className="flex items-center gap-2 border-b border-slate-100 pb-1.5">
+                        <span className={`w-2.5 h-2.5 border-2 border-[#111111] shadow-[1px_1px_0_#111] shrink-0 ${stats.bannedUsers > 0 ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'}`}></span>
+                        <span>Khóa tài khoản: {stats.bannedUsers} ({stats.bannedUsers > 0 ? 'CẦN CHÚ Ý' : 'AN TOÀN'})</span>
+                      </div>
+                      <div className="flex items-center gap-2 border-b border-slate-100 pb-1.5">
+                        <span className={`w-2.5 h-2.5 border-2 border-[#111111] shadow-[1px_1px_0_#111] shrink-0 ${stats.totalRooms > 0 ? 'bg-sky-500 animate-pulse' : 'bg-slate-300'}`}></span>
+                        <span>Trận đấu đang chơi: {stats.totalRooms} ({stats.totalRooms > 0 ? 'LIVE MATCHES' : 'IDLE'})</span>
+                      </div>
+                      <div className="flex items-center gap-2 border-b border-slate-100 pb-1.5">
+                        <span className={`w-2.5 h-2.5 border-2 border-[#111111] shadow-[1px_1px_0_#111] shrink-0 ${stats.totalShopItems === 0 ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`}></span>
+                        <span>Vật phẩm trong shop: {stats.totalShopItems} ({stats.totalShopItems === 0 ? 'CẦN THÊM MỚI' : 'OK'})</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 border-2 border-[#111111] shadow-[1px_1px_0_#111] bg-emerald-500 shrink-0"></span>
+                        <span>Cơ sở dữ liệu: ĐÃ KẾT NỐI 🟢</span>
+                      </div>
+                    </div>
+                  </div>
 
-                <div className="pixel-card p-5 border-l-[12px] border-l-orange-500 bg-orange-50/20">
-                  <span className="text-[10px] font-pop-accent font-black text-orange-600 block uppercase">Nhiệm vụ active</span>
-                  <span className="font-pop-display font-black text-4xl text-orange-700 mt-1 block">
-                    {stats.activeMissions} <span className="text-xl font-bold">/ {stats.totalMissions}</span>
-                  </span>
+                  {/* System Log Preview */}
+                  <div className="pixel-card p-5 text-left bg-[#101820] text-[#d1fae5] border-l-[12px] border-l-slate-700 font-mono text-[10px] flex flex-col gap-3 shadow-[inset_0_4px_12px_rgba(0,0,0,0.6)]">
+                    <h4 className="font-pop-display font-black text-xs uppercase tracking-wider text-slate-300 border-b border-neutral-800 pb-1.5">
+                      NHẬT KÝ HỆ THỐNG (TERMINAL)
+                    </h4>
+                    <div className="flex flex-col gap-1.5 max-h-[160px] overflow-y-auto custom-scrollbar">
+                      {logs && logs.length > 0 ? (
+                        logs.slice(0, 5).map((log, idx) => (
+                          <div key={log._id || idx} className="whitespace-pre-wrap leading-normal border-b border-neutral-800/40 pb-1.5 last:border-b-0">
+                            <span className="text-slate-400 font-semibold">[{new Date(log.createdAt).toLocaleTimeString()}]</span>{' '}
+                            <span className="text-amber-300 font-bold">{log.createdBy || 'system'}</span>{' '}
+                            <span className={`${log.type === 'WARN' || log.type === 'ERROR' ? 'text-red-400' : 'text-sky-300'} font-bold`}>{log.type}:</span>{' '}
+                            <span className="text-emerald-100">{log.description}</span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-slate-500 text-center py-6">KHÔNG CÓ HOẠT ĐỘNG GẦN ĐÂY — Terminal đang chờ tín hiệu...</div>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
+              </>
             ) : (
               <div className="pixel-card p-12 text-center flex flex-col items-center justify-center gap-3">
                 <span className="text-3xl animate-bounce">💾</span>
@@ -1820,30 +2325,20 @@ export default function Admin({ setPage }) {
           </div>
         )}
 
-        {/* TAB CONTENT: SEASON RESET TOOLS */}
+        {/* TAB CONTENT: SEASON TOOLS */}
         {activeTab === 'season' && (
-          <div className="max-w-xl text-left flex flex-col gap-6 animate-fade-in">
-            <div className="danger-stripes p-5 shadow-[4px_4px_0_#111111] flex flex-col gap-2">
-              <h4 className="font-pop-display font-black text-lg text-red-700 uppercase flex items-center gap-2">
-                ⚠️ KHU VỰC CẢNH BÁO NGUY HIỂM / DANGER ZONE
-              </h4>
-              <p className="text-xs font-bold uppercase leading-relaxed text-red-900">
-                Thao tác "Reset Mùa Giải" sẽ quét sạch xếp hạng hiện tại và phát thưởng cho người chơi:
-              </p>
-              <ul className="text-xs list-disc pl-5 flex flex-col gap-1 text-red-800 font-semibold leading-relaxed">
-                <li>Đặt lại điểm ELO của mọi người chơi về mức cơ bản (1,000 ELO).</li>
-                <li>Tự động chuyển đổi các mốc xếp hạng người chơi đã tích lũy thành PinkCoin.</li>
-                <li>Thao tác này là bất khả đảo ngược và không thể phục hồi dữ liệu cũ.</li>
-              </ul>
-            </div>
-
+          <div className="w-full text-left flex flex-col gap-8 animate-fade-in font-pop-body">
+            {/* Top Messages */}
             {seasonSuccess && (
-              <div className="pixel-card bg-emerald-600 text-white p-4">
-                <p className="uppercase text-center text-sm font-black">🎉 {seasonSuccess}</p>
+              <div className="pixel-card bg-emerald-600 text-white p-4 animate-scale-in border-3 border-[#111111] shadow-[4px_4px_0_#111111]">
+                <p className="uppercase text-center text-sm font-black flex items-center justify-center gap-2">
+                  <span className="material-symbols-outlined">check_circle</span>
+                  {seasonSuccess}
+                </p>
                 {seasonResetData && (
-                  <div className="mt-3 text-[11px] font-mono leading-relaxed border-t border-emerald-500 pt-2 flex flex-col gap-1 bg-emerald-700/30 p-2">
+                  <div className="mt-3 text-[11px] font-mono leading-relaxed border-t border-emerald-500/50 pt-2 flex flex-col gap-1 bg-emerald-700/30 p-2">
                     <p>• Số tài khoản bị reset: {seasonResetData.affectedUsers}</p>
-                    <p>• Điểm ELO đặt lại: {seasonResetData.resetEloTo} ELO</p>
+                    <p>• Cơ chế nén: {formatResetStrategy(seasonResetData.strategy)}</p>
                     <p>• Tổng phần thưởng phát ra: {seasonResetData.totalGemsAwarded} PinkCoin 💎</p>
                   </div>
                 )}
@@ -1851,48 +2346,496 @@ export default function Admin({ setPage }) {
             )}
 
             {seasonError && (
-              <div className="pixel-card bg-[var(--pop-red)] text-white p-3 text-xs font-pop-accent font-black text-center uppercase">
+              <div className="pixel-card bg-[var(--pop-red)] text-white p-3 text-xs font-pop-accent font-black text-center uppercase animate-scale-in border-3 border-[#111111] shadow-[4px_4px_0_#111111]">
                 🔴 {seasonError}
               </div>
             )}
 
-            <form onSubmit={handleSeasonReset} className="flex flex-col gap-4 mt-2">
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-pop-accent font-black text-[var(--pop-black)] uppercase tracking-wider">
-                  Lý do thiết lập lại (Audit Log)
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ví dụ: Đóng Season 1 & Bắt đầu Season 2..."
-                  value={seasonReason}
-                  onChange={(e) => setSeasonReason(e.target.value)}
-                  className="pixel-input bg-white px-4 py-2 text-xs font-bold"
-                />
+            {/* Split layout: Schedule Form vs Status & Preview */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+              {/* Left Column: Create / Edit Season Form */}
+              <div className="lg:col-span-5 flex flex-col gap-4 bg-white border-3 border-[var(--pop-black)] p-5 shadow-[4px_4px_0_var(--pop-black)] relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-16 h-16 bg-sky-100 rounded-bl-full flex items-center justify-center pointer-events-none opacity-50">
+                  <PixelSeasonIcon />
+                </div>
+                <h4 className="font-pop-display font-black text-sm uppercase border-b-2 border-slate-200 pb-2 flex items-center gap-2">
+                  <span>LẬP LỊCH MÙA GIẢI MỚI</span>
+                </h4>
+                <form onSubmit={handleCreateSeason} className="flex flex-col gap-3">
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="flex flex-col gap-0.5 col-span-1">
+                      <label className="text-[8px] font-black uppercase text-slate-500">Mùa giải #</label>
+                      <input
+                        type="number"
+                        placeholder="Số"
+                        value={newSeasonNum}
+                        onChange={(e) => {
+                          setNewSeasonNum(e.target.value);
+                          if (formErrors.seasonNumber) {
+                            setFormErrors({ ...formErrors, seasonNumber: null });
+                          }
+                        }}
+                        className={`pixel-input bg-white px-2 py-1.5 text-xs font-bold ${formErrors.seasonNumber ? 'border-red-500' : 'border-[#111111]'}`}
+                        required
+                      />
+                      {formErrors.seasonNumber && (
+                        <span className="text-[7px] text-red-600 font-bold uppercase mt-0.5">{formErrors.seasonNumber}</span>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-0.5 col-span-2">
+                      <label className="text-[8px] font-black uppercase text-slate-500">Tên mùa giải</label>
+                      <input
+                        type="text"
+                        placeholder="Ví dụ: Rực Lửa"
+                        value={newSeasonName}
+                        onChange={(e) => {
+                          setNewSeasonName(e.target.value);
+                          if (formErrors.name) {
+                            setFormErrors({ ...formErrors, name: null });
+                          }
+                        }}
+                        className={`pixel-input bg-white px-2 py-1.5 text-xs font-bold ${formErrors.name ? 'border-red-500' : 'border-[#111111]'}`}
+                        required
+                      />
+                      {formErrors.name && (
+                        <span className="text-[7px] text-red-600 font-bold uppercase mt-0.5">{formErrors.name}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="flex flex-col gap-0.5">
+                      <label className="text-[8px] font-black uppercase text-slate-500">Ngày bắt đầu</label>
+                      <input
+                        type="datetime-local"
+                        value={newSeasonStart}
+                        onChange={(e) => {
+                          setNewSeasonStart(e.target.value);
+                          if (formErrors.startDate) {
+                            setFormErrors({ ...formErrors, startDate: null });
+                          }
+                        }}
+                        className={`pixel-input bg-white px-2 py-1.5 text-xs font-bold font-mono ${formErrors.startDate ? 'border-red-500' : 'border-[#111111]'}`}
+                        required
+                      />
+                      {formErrors.startDate && (
+                        <span className="text-[7px] text-red-600 font-bold uppercase mt-0.5">{formErrors.startDate}</span>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                      <label className="text-[8px] font-black uppercase text-slate-500">Ngày kết thúc</label>
+                      <input
+                        type="datetime-local"
+                        value={newSeasonEnd}
+                        onChange={(e) => {
+                          setNewSeasonEnd(e.target.value);
+                          if (formErrors.endDate) {
+                            setFormErrors({ ...formErrors, endDate: null });
+                          }
+                        }}
+                        className={`pixel-input bg-white px-2 py-1.5 text-xs font-bold font-mono ${formErrors.endDate ? 'border-red-500' : 'border-[#111111]'}`}
+                        required
+                      />
+                      {formErrors.endDate && (
+                        <span className="text-[7px] text-red-600 font-bold uppercase mt-0.5">{formErrors.endDate}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-0.5">
+                    <label className="text-[8px] font-black uppercase text-slate-500">Cơ chế Reset ELO</label>
+                    <select
+                      value={newSeasonStrategy}
+                      onChange={(e) => setNewSeasonStrategy(e.target.value)}
+                      className="pixel-select bg-white px-2 py-1.5 text-xs font-bold border-[#111111]"
+                    >
+                      <option value="soft_reset_ratio">Nén ELO theo tỉ lệ (Soft Reset Ratio)</option>
+                      <option value="soft_reset_tiered">Lùi bậc phân hạng (Tiered Drop)</option>
+                      <option value="hard_reset">Reset trắng (Về ELO cơ sở)</option>
+                    </select>
+                  </div>
+
+                  <div className="flex flex-col gap-0.5">
+                    <label className="text-[8px] font-black uppercase text-slate-500">ELO cơ sở (Mặc định: 1000)</label>
+                    <input
+                      type="number"
+                      value={newSeasonBaseElo}
+                      onChange={(e) => {
+                        setNewSeasonBaseElo(e.target.value);
+                        if (formErrors.resetEloValue) {
+                          setFormErrors({ ...formErrors, resetEloValue: null });
+                        }
+                      }}
+                      className={`pixel-input bg-white px-2 py-1.5 text-xs font-bold font-mono ${formErrors.resetEloValue ? 'border-red-500' : 'border-[#111111]'}`}
+                      required
+                    />
+                    {formErrors.resetEloValue && (
+                      <span className="text-[7px] text-red-600 font-bold uppercase mt-0.5">{formErrors.resetEloValue}</span>
+                    )}
+                  </div>
+
+                  {newSeasonStrategy === 'soft_reset_ratio' ? (
+                    <div className="flex flex-col gap-0.5 animate-fade-in">
+                      <div className="flex justify-between items-center">
+                        <label className="text-[8px] font-black uppercase text-slate-500">Tỉ lệ nén ELO (Ratio)</label>
+                        <span className="text-[10px] font-black font-mono text-indigo-700 bg-indigo-50 px-1 border border-indigo-200">{newSeasonRatio}</span>
+                      </div>
+                      <input
+                        type="range"
+                        step="0.1"
+                        min="0"
+                        max="1"
+                        value={newSeasonRatio}
+                        onChange={(e) => {
+                          setNewSeasonRatio(e.target.value);
+                          if (formErrors.softResetRatio) {
+                            setFormErrors({ ...formErrors, softResetRatio: null });
+                          }
+                        }}
+                        className="w-full cursor-pointer h-2 bg-slate-200 border-2 border-[#111111]"
+                      />
+                      {formErrors.softResetRatio && (
+                        <span className="text-[7px] text-red-600 font-bold uppercase mt-0.5">{formErrors.softResetRatio}</span>
+                      )}
+                      <span className="text-[7px] text-slate-400 font-bold mt-0.5 leading-normal">
+                        Helper: 0.5 = giữ lại 50% lượng ELO vượt mốc cơ sở. 1.0 = giữ nguyên ELO vượt mốc. 0.0 = reset toàn bộ về mốc cơ sở.
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-0.5 bg-slate-50 border-2 border-dashed border-slate-300 p-2 text-center text-slate-400 font-bold text-[8px] leading-normal uppercase">
+                      Tỉ lệ nén ELO không áp dụng cho cơ chế này
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    className="pixel-btn bg-sky-600 hover:bg-sky-700 text-white font-black text-xs py-2.5 mt-2 uppercase transition-all flex items-center justify-center gap-1.5"
+                  >
+                    <span>Lập Lịch Mùa Giải Mới</span>
+                  </button>
+                </form>
               </div>
 
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-pop-accent font-black text-[var(--pop-red)] uppercase tracking-wider">
-                  Nhập chính xác từ khóa "RESET" để mở khóa nút hành động
-                </label>
-                <input
-                  type="text"
-                  placeholder="Nhập RESET..."
-                  value={seasonConfirmText}
-                  onChange={(e) => setSeasonConfirmText(e.target.value)}
-                  className="pixel-input border-[var(--pop-red)] bg-white px-4 py-2 text-xs font-bold text-[var(--pop-red)]"
-                />
-              </div>
+              {/* Right Column: Cards */}
+              <div className="lg:col-span-7 flex flex-col gap-6">
+                {/* 1. Current / Next Season Status Card */}
+                {(() => {
+                  const activeSeason = seasonsList.find(s => s.status === 'active');
+                  const waitingResetSeason = seasonsList.find(s => s.status === 'ended' && !s.isResetExecuted);
+                  const scheduledSeason = seasonsList.find(s => s.status === 'scheduled');
 
-              <button
-                type="submit"
-                disabled={seasonConfirmText !== 'RESET' || !seasonReason.trim()}
-                className="pixel-btn pixel-btn-danger w-full mt-2 py-4 text-xs font-black disabled:opacity-40 disabled:pointer-events-none"
-              >
-                KHỞI ĐỘNG RESET MÙA GIẢI / RESET SEASON NOW 💥
-              </button>
-            </form>
+                  if (activeSeason) {
+                    const diff = new Date(activeSeason.endDate) - adminTimeNow;
+                    const isOverdue = diff <= 0;
+                    return (
+                      <div className="pixel-panel bg-white p-5 shadow-[4px_4px_0_var(--pop-black)] flex flex-col gap-3">
+                        <div className="flex justify-between items-start border-b-2 border-slate-100 pb-2">
+                          <div>
+                            <span className="text-[8px] font-black tracking-widest text-neutral-400 uppercase">Mùa giải hiện tại</span>
+                            <h4 className="font-pop-display font-black text-sm uppercase text-slate-700 mt-0.5">
+                              Season #{activeSeason.seasonNumber} — {activeSeason.name}
+                            </h4>
+                          </div>
+                          <span className="pixel-badge bg-emerald-400 text-[8px] text-[var(--pop-black)] shadow-[1px_1px_0_#111] uppercase py-0.5 px-2 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
+                            Đang diễn ra
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 text-[10px] font-bold">
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[8px] text-slate-400 uppercase">Ngày bắt đầu</span>
+                            <span className="font-mono text-neutral-700">{new Date(activeSeason.startDate).toLocaleString()}</span>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[8px] text-slate-400 uppercase">Ngày kết thúc</span>
+                            <span className="font-mono text-neutral-700">{new Date(activeSeason.endDate).toLocaleString()}</span>
+                          </div>
+                          <div className="flex flex-col gap-1 col-span-2 bg-slate-50 border-2 border-[#111111] p-3 flex-row justify-between items-center">
+                            <div className="flex items-center gap-2 text-indigo-700">
+                              <PixelClockIcon />
+                              <span className="uppercase text-[8px]">Thời gian còn lại</span>
+                            </div>
+                            <span className="font-mono font-black text-xs text-sky-700">
+                              {isOverdue ? 'Mùa giải đã hết thời gian, đang chờ reset' : formatCountdown(activeSeason.endDate, adminTimeNow)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  if (waitingResetSeason) {
+                    return (
+                      <div className="pixel-panel bg-white p-5 shadow-[4px_4px_0_var(--pop-black)] border-red-500 flex flex-col gap-3">
+                        <div className="flex justify-between items-start border-b-2 border-red-100 pb-2">
+                          <div>
+                            <span className="text-[8px] font-black tracking-widest text-neutral-400 uppercase">Mùa giải đã kết thúc</span>
+                            <h4 className="font-pop-display font-black text-sm uppercase text-red-700 mt-0.5">
+                              Season #{waitingResetSeason.seasonNumber} — {waitingResetSeason.name}
+                            </h4>
+                          </div>
+                          <span className="pixel-badge bg-red-400 text-[8px] text-white shadow-[1px_1px_0_#111] uppercase py-0.5 px-2 flex items-center gap-1 font-black">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-700 animate-pulse"></span>
+                            Chờ kết toán
+                          </span>
+                        </div>
+                        <p className="text-[10px] font-bold text-red-800 leading-normal bg-red-50 p-3 border-2 border-red-200">
+                          ⚠️ Mùa giải đã hết hạn diễn ra. Người chơi không thể tích lũy thêm điểm ELO. Admin cần thực hiện Reset Mùa Giải trong Panel bên dưới để cập nhật điểm ELO và chuyển giao mùa.
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  if (scheduledSeason) {
+                    return (
+                      <div className="pixel-panel bg-white p-5 shadow-[4px_4px_0_var(--pop-black)] flex flex-col gap-3">
+                        <div className="flex justify-between items-start border-b-2 border-slate-100 pb-2">
+                          <div>
+                            <span className="text-[8px] font-black tracking-widest text-neutral-400 uppercase">Mùa giải tiếp theo</span>
+                            <h4 className="font-pop-display font-black text-sm uppercase text-slate-700 mt-0.5">
+                              Season #{scheduledSeason.seasonNumber} — {scheduledSeason.name}
+                            </h4>
+                          </div>
+                          <span className="pixel-badge bg-amber-400 text-[8px] text-[var(--pop-black)] shadow-[1px_1px_0_#111] uppercase py-0.5 px-2 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse"></span>
+                            Đã lập lịch
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 text-[10px] font-bold">
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[8px] text-slate-400 uppercase">Ngày bắt đầu</span>
+                            <span className="font-mono text-neutral-700">{new Date(scheduledSeason.startDate).toLocaleString()}</span>
+                          </div>
+                          <div className="flex flex-col gap-1 bg-slate-50 border-2 border-[#111111] p-3 col-span-2 flex-row justify-between items-center">
+                            <div className="flex items-center gap-2 text-indigo-700">
+                              <PixelClockIcon />
+                              <span className="uppercase text-[8px]">Bắt đầu sau</span>
+                            </div>
+                            <span className="font-mono font-black text-xs text-amber-700">
+                              {formatCountdown(scheduledSeason.startDate, adminTimeNow)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="pixel-panel bg-amber-50/50 p-5 shadow-[4px_4px_0_var(--pop-black)] border-dashed border-amber-400 text-center flex flex-col items-center justify-center py-8">
+                      <span className="text-[32px] text-amber-500 animate-bounce">
+                        ⚠️
+                      </span>
+                      <h4 className="font-pop-display font-black text-xs uppercase text-amber-800 mt-2">
+                        Chưa có mùa giải nào được lập lịch
+                      </h4>
+                      <p className="text-[9px] text-amber-700 font-bold max-w-xs mt-1 leading-normal uppercase">
+                        Vui lòng điền thông tin vào biểu mẫu ở cột bên trái để lập lịch mùa giải mới.
+                      </p>
+                    </div>
+                  );
+                })()}
+
+                {/* 2. ELO Reset Preview Card */}
+                <div className="pixel-panel bg-white p-5 shadow-[4px_4px_0_var(--pop-black)] flex flex-col gap-3">
+                  <h4 className="font-pop-display font-black text-xs uppercase border-b-2 border-slate-100 pb-2 flex items-center gap-2">
+                    <PixelCalculatorIcon />
+                    <span>XEM TRƯỚC ELO SAU RESET</span>
+                  </h4>
+                  <div className="text-[8px] font-black uppercase text-slate-400 flex justify-between px-2">
+                    <span>Cơ chế: {formatResetStrategy(newSeasonStrategy)}</span>
+                    {newSeasonStrategy === 'soft_reset_ratio' && <span>Tỉ lệ: {newSeasonRatio}</span>}
+                    <span>Mốc cơ sở: {newSeasonBaseElo}</span>
+                  </div>
+                  
+                  <div className="grid grid-cols-4 gap-2 text-center mt-1">
+                    {[1000, 1800, 2400, 3000].map((elo) => {
+                      const after = getEloResetPreview(newSeasonStrategy, newSeasonRatio, newSeasonBaseElo, elo);
+                      return (
+                        <div key={elo} className="border-2 border-[#111111] p-2 bg-slate-50 flex flex-col gap-1">
+                          <span className="text-[9px] text-slate-400 font-mono font-bold">Hiện tại</span>
+                          <span className="text-[11px] font-black text-neutral-800 font-mono">{elo}</span>
+                          <span className="text-[12px] font-black text-sky-700">↓</span>
+                          <span className="text-[9px] text-slate-400 font-mono font-bold">Sau Reset</span>
+                          <span className="text-[11px] font-black text-indigo-700 font-mono">{after}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 3. Danger Zone / Reset Season Panel */}
+                {(() => {
+                  const targetResetSeason = seasonsList.find(s => !s.isResetExecuted && (s.status === 'active' || s.status === 'ended'));
+                  const canReset = targetResetSeason;
+
+                  return (
+                    <div className="pixel-panel-danger p-4 shadow-[4px_4px_0_#111111] flex flex-col gap-3">
+                      <h4 className="font-pop-display font-black text-sm text-red-700 uppercase flex items-center gap-1.5">
+                        <PixelAlertIcon />
+                        <span>KHU VỰC NGUY HIỂM / RESET MÙA GIẢI</span>
+                      </h4>
+                      <p className="text-[9px] font-bold uppercase text-red-900 leading-normal">
+                        Thao tác này sẽ kết toán mùa giải hiện tại, cập nhật ELO người chơi theo cơ chế đã cấu hình và không thể hoàn tác.
+                      </p>
+                      
+                      <form onSubmit={handleSeasonReset} className="flex flex-col gap-2.5 bg-red-100/60 p-3 border-2 border-red-500">
+                        <div className="flex flex-col gap-0.5">
+                          <label className="text-[8px] font-black text-red-800 uppercase">Lý do Reset (Audit Log)</label>
+                          <input
+                            type="text"
+                            placeholder="Ví dụ: Đóng Season 1..."
+                            value={seasonReason}
+                            onChange={(e) => setSeasonReason(e.target.value)}
+                            className="pixel-input bg-white px-2 py-1.5 text-xs font-bold border-[#111]"
+                            required
+                          />
+                        </div>
+                        
+                        <div className="flex flex-col gap-0.5">
+                          <label className="text-[8px] font-black text-red-800 uppercase">Nhập RESET để xác nhận</label>
+                          <input
+                            type="text"
+                            placeholder="Nhập RESET..."
+                            value={seasonConfirmText}
+                            onChange={(e) => setSeasonConfirmText(e.target.value)}
+                            className="pixel-input bg-white px-2 py-1.5 text-xs font-bold border-red-400 text-red-600"
+                            required
+                          />
+                        </div>
+                        
+                        <div className="relative group">
+                          <button
+                            type="submit"
+                            disabled={!canReset || seasonConfirmText !== 'RESET' || !seasonReason.trim()}
+                            className="pixel-btn pixel-btn-danger w-full py-2.5 text-xs font-black disabled:opacity-40 disabled:pointer-events-none transition-all"
+                          >
+                            KÍCH HOẠT RESET MÙA GIẢI 💥
+                          </button>
+                          {!canReset && (
+                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block bg-neutral-900 text-white text-[8px] font-bold uppercase p-2 border border-white shadow-md text-center w-64 pointer-events-none">
+                              Chỉ có thể reset khi mùa giải đã kết thúc và chưa được kết toán.
+                            </div>
+                          )}
+                        </div>
+                      </form>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* Seasons List Table */}
+            <div className="bg-white border-3 border-[var(--pop-black)] p-5 shadow-[4px_4px_0_var(--pop-black)] mt-4">
+              <h4 className="font-pop-display font-black text-sm uppercase border-b-2 border-slate-200 pb-2 flex items-center gap-1.5">
+                <PixelTrophyIcon />
+                <span>DANH SÁCH MÙA GIẢI ĐÃ LẬP LỊCH / THỰC HIỆN</span>
+              </h4>
+              <div className="overflow-x-auto mt-4">
+                <table className="w-full text-left text-xs font-bold border-collapse">
+                  <thead>
+                    <tr className="border-b-3 border-[var(--pop-black)] bg-slate-100 text-[10px]">
+                      <th className="py-2.5 px-3">SEASON #</th>
+                      <th className="py-2.5 px-3">TÊN MÙA GIẢI</th>
+                      <th className="py-2.5 px-3">THỜI GIAN DIỄN RA</th>
+                      <th className="py-2.5 px-3">CƠ CHẾ RESET</th>
+                      <th className="py-2.5 px-3">TRẠNG THÁI</th>
+                      <th className="py-2.5 px-3">KẾT TOÁN?</th>
+                      <th className="py-2.5 px-3 text-center">HÀNH ĐỘNG</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {seasonsList.length === 0 ? (
+                      <tr>
+                        <td colSpan="7" className="py-4 text-center text-neutral-500 font-medium">
+                          Chưa có mùa giải nào được lập lịch.
+                        </td>
+                      </tr>
+                    ) : (
+                      seasonsList.map((s) => (
+                        <tr key={s._id} className="border-b border-slate-200 hover:bg-slate-50 transition-colors">
+                          <td className="py-2.5 px-3 font-mono text-indigo-700">#{s.seasonNumber}</td>
+                          <td className="py-2.5 px-3 font-black text-slate-700">{s.name}</td>
+                          <td className="py-2.5 px-3 text-[9px] font-mono leading-relaxed text-slate-500">
+                            {new Date(s.startDate).toLocaleString()} <br/> <span className="text-slate-300">-></span> <br/> {new Date(s.endDate).toLocaleString()}
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <span className="uppercase text-[9px] bg-indigo-50 border border-indigo-200 text-indigo-700 px-1.5 py-0.5 rounded font-mono">
+                              {formatResetStrategy(s.settings?.resetStrategy)}
+                            </span>
+                            {s.settings?.resetStrategy === 'soft_reset_ratio' && (
+                              <span className="text-[9px] font-black text-slate-400 ml-1">({s.settings?.softResetRatio})</span>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <span className={`uppercase text-[9px] px-1.5 py-0.5 rounded font-black border
+                              ${s.status === 'active' 
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-300' 
+                                : s.status === 'ended' 
+                                ? 'bg-red-50 text-red-700 border-red-300' 
+                                : 'bg-amber-50 text-amber-700 border-amber-300'
+                              }`}
+                            >
+                              {formatSeasonStatus(s.status)}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3">
+                            {s.isResetExecuted ? (
+                              <span className="text-emerald-600 font-bold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded inline-flex items-center gap-1">Đã kết toán</span>
+                            ) : (
+                              <span className="text-red-500 font-bold bg-red-50 border border-red-200 px-2 py-0.5 rounded inline-flex items-center gap-1">Chưa kết toán</span>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3 text-center">
+                            {s.status === 'scheduled' && !s.isResetExecuted ? (
+                              confirmDeleteId === s._id ? (
+                                <div className="flex items-center justify-center gap-1">
+                                  <button
+                                    onClick={() => handleDeleteSeason(s._id)}
+                                    className="pixel-btn bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-1 text-[8px] font-black uppercase"
+                                  >
+                                    Có
+                                  </button>
+                                  <button
+                                    onClick={() => setConfirmDeleteId(null)}
+                                    className="pixel-btn bg-slate-400 hover:bg-slate-500 text-white px-2 py-1 text-[8px] font-black uppercase"
+                                  >
+                                    Hủy
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => setConfirmDeleteId(s._id)}
+                                  className="pixel-btn bg-red-600 hover:bg-red-700 text-white px-2.5 py-1 text-[9px] font-black"
+                                >
+                                  Xóa
+                                </button>
+                              )
+                            ) : (
+                              <button
+                                disabled
+                                className="pixel-btn bg-slate-100 text-slate-300 border-slate-200 px-2.5 py-1 text-[9px] font-black cursor-not-allowed uppercase"
+                                title="Chỉ được xóa mùa giải chưa bắt đầu"
+                              >
+                                Xóa
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         )}
+
+        {/* FOOTER WARNING HAZARD STRIP */}
+        <div className="w-[calc(100%+3rem)] -mx-6 md:w-[calc(100%+4rem)] md:-mx-8 -mb-6 md:-mb-8 mt-12 bg-[repeating-linear-gradient(45deg,#facc15,#facc15_10px,#111111_10px,#111111_20px)] h-8 border-t-4 border-[#111111] flex items-center justify-center overflow-hidden pointer-events-none select-none">
+          <span className="bg-[#111111] text-[#fffaf0] font-pop-accent font-black text-[9px] md:text-xs uppercase tracking-widest px-4 py-1 border-x-4 border-[#111111]">
+            ⚠ MÈO NỔ ADMIN CONSOLE © 2026 — ĐỪNG VUỐT VE CON MÈO BOM.
+          </span>
+        </div>
       </div>
 
       {/* SHOP ITEM EDIT MODAL OVERLAY */}
