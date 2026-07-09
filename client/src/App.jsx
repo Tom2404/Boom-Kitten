@@ -38,14 +38,47 @@ class ErrorBoundary extends Component {
   }
 }
 
-const PAGES = { Home, Login, Register, Lobby, Game, Profile, Leaderboard, Shop, Admin };
+const Mission = lazy(() => import('./pages/Mission.jsx'));
+
+const PAGES = { Home, Login, Register, Lobby, Game, Profile, Leaderboard, Shop, Admin, Mission };
 
 export default function App() {
   const { language, setLanguage, t } = useLanguage();
-  const [page, setPage] = useState('Home');
+  
+  // Initialize state synchronously from token to prevent flashing incorrect UI
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    return !!localStorage.getItem('accessToken');
+  });
+
+  const [userRole, setUserRole] = useState(() => {
+    const token = localStorage.getItem('accessToken');
+    if (token) {
+      try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const payload = JSON.parse(window.atob(base64));
+        return payload.role || 'user';
+      } catch (e) {}
+    }
+    return 'user';
+  });
+
+  const [page, setPage] = useState(() => {
+    const token = localStorage.getItem('accessToken');
+    if (token) {
+      try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const payload = JSON.parse(window.atob(base64));
+        if (payload.role === 'admin') {
+          return 'Admin';
+        }
+      } catch (e) {}
+    }
+    return 'Home';
+  });
+
   const [announcement, setAnnouncement] = useState(null);
-  const [userRole, setUserRole] = useState('user');
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [activeRoom, setActiveRoom] = useState(null);
   const socket = useSocket();
 
@@ -105,6 +138,13 @@ export default function App() {
       document.body.classList.remove('lang-vi');
     }
   }, [language]);
+
+  // Global access guard for admin role to restrict user-facing routes
+  useEffect(() => {
+    if (userRole === 'admin' && ['Game', 'Leaderboard', 'Mission', 'Shop', 'Profile'].includes(page)) {
+      setPage('Admin');
+    }
+  }, [page, userRole]);
 
   const [dialogState, setDialogState] = useState({
     isOpen: false,
@@ -235,8 +275,8 @@ export default function App() {
           </div>
           <p className="text-xs text-[var(--pop-black)]/60 font-bold uppercase tracking-wider">
             {language === 'en' 
-              ? "© 2026 Exploding Kittens Inc. Warning: Don't touch the red button."
-              : "© 2026 Exploding Kittens Inc. Cảnh báo: Đừng chạm vào nút đỏ."
+              ? "© 2026 BOOM-KITTEN — WARNING: DON'T TOUCH THE RED BUTTON."
+              : "© 2026 BOOM-KITTEN — CẢNH BÁO: ĐỪNG CHẠM VÀO NÚT ĐỎ."
             }
           </p>
         </div>

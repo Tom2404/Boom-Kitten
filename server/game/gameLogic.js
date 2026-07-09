@@ -48,6 +48,12 @@ function eliminatePlayer(gameState, playerId) {
   const player = getPlayer(gameState, playerId);
   if (!player) return gameState;
   player.alive = false;
+  if (!gameState.eliminatedPlayers) {
+    gameState.eliminatedPlayers = [];
+  }
+  if (!gameState.eliminatedPlayers.includes(playerId)) {
+    gameState.eliminatedPlayers.push(playerId);
+  }
   if (gameState.edition !== 'zombie') {
     if (player.hand && player.hand.length > 0) {
       if (!gameState.discardPile) {

@@ -12,6 +12,8 @@ const userRoutes = require('./routes/user');
 const shopRoutes = require('./routes/shop');
 const leaderboardRoutes = require('./routes/leaderboard');
 const adminRoutes = require('./routes/admin');
+const missionRoutes = require('./routes/mission');
+const seasonRoutes = require('./routes/season');
 const errorHandler = require('./middleware/errorHandler');
 const registerGameSocket = require('./sockets/gameSocket');
 
@@ -57,6 +59,8 @@ app.use('/api/rooms', roomRoutes);
 app.use('/api/shop', shopRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/missions', missionRoutes);
+app.use('/api/seasons', seasonRoutes);
 app.use(errorHandler);
 
 registerGameSocket(io);

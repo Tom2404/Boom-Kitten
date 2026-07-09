@@ -4,6 +4,7 @@ const ShopItem = require('../models/ShopItem');
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const authMiddleware = require('../middleware/authMiddleware');
+const AuditLog = require('../models/AuditLog');
 
 const router = express.Router();
 
@@ -18,8 +19,9 @@ router.get('/items', async (_req, res, next) => {
   try {
     const now = new Date();
     const items = await ShopItem.find({
+      isActive: { $ne: false },
       $or: [{ isLimited: false }, { availableUntil: { $gte: now } }],
-    });
+    }).sort({ sortOrder: 1, createdAt: -1 });
     return res.json(items);
   } catch (error) {
     return next(error);
@@ -127,7 +129,7 @@ router.get('/owned', async (req, res, next) => {
 // Admin-only endpoints for managing shop items
 router.post('/items', adminMiddleware, async (req, res, next) => {
   try {
-    const { name, type, price, rarity, isLimited, availableUntil, imageUrl, previewUrl } = req.body;
+    const { name, type, price, rarity, isLimited, availableUntil, imageUrl, previewUrl, isActive, sortOrder } = req.body;
     if (!name || !type) return res.status(400).json({ message: 'Name and type are required' });
     const item = await ShopItem.create({
       name,
@@ -138,7 +140,19 @@ router.post('/items', adminMiddleware, async (req, res, next) => {
       availableUntil,
       imageUrl: imageUrl ?? '',
       previewUrl: previewUrl ?? '',
+      isActive: isActive ?? true,
+      sortOrder: sortOrder ?? 0,
     });
+
+    await AuditLog.create({
+      adminId: req.user.id,
+      action: 'SHOP_ITEM_CREATE',
+      targetType: 'shop_item',
+      targetId: item._id.toString(),
+      after: item.toObject(),
+      reason: 'Created shop item administrative action',
+    });
+
     return res.status(201).json(item);
   } catch (error) {
     return next(error);
@@ -147,7 +161,10 @@ router.post('/items', adminMiddleware, async (req, res, next) => {
 
 router.put('/items/:id', adminMiddleware, async (req, res, next) => {
   try {
-    const { name, type, price, rarity, isLimited, availableUntil, imageUrl, previewUrl } = req.body;
+    const { name, type, price, rarity, isLimited, availableUntil, imageUrl, previewUrl, isActive, sortOrder } = req.body;
+    const itemBefore = await ShopItem.findById(req.params.id);
+    if (!itemBefore) return res.status(404).json({ message: 'Shop item not found' });
+
     const item = await ShopItem.findByIdAndUpdate(
       req.params.id,
       {
@@ -160,11 +177,53 @@ router.put('/items/:id', adminMiddleware, async (req, res, next) => {
           availableUntil,
           imageUrl,
           previewUrl,
+          isActive,
+          sortOrder,
         },
       },
       { new: true, runValidators: true }
     );
-    if (!item) return res.status(404).json({ message: 'Shop item not found' });
+
+    await AuditLog.create({
+      adminId: req.user.id,
+      action: 'SHOP_ITEM_UPDATE',
+      targetType: 'shop_item',
+      targetId: item._id.toString(),
+      before: itemBefore.toObject(),
+      after: item.toObject(),
+      reason: 'Updated shop item administrative action',
+    });
+
+    return res.json(item);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.patch('/items/:id/status', adminMiddleware, async (req, res, next) => {
+  try {
+    const { isActive } = req.body;
+    if (isActive === undefined) return res.status(400).json({ message: 'isActive status is required' });
+
+    const itemBefore = await ShopItem.findById(req.params.id);
+    if (!itemBefore) return res.status(404).json({ message: 'Shop item not found' });
+
+    const item = await ShopItem.findByIdAndUpdate(
+      req.params.id,
+      { $set: { isActive: !!isActive } },
+      { new: true }
+    );
+
+    await AuditLog.create({
+      adminId: req.user.id,
+      action: 'SHOP_ITEM_STATUS',
+      targetType: 'shop_item',
+      targetId: item._id.toString(),
+      before: itemBefore.toObject(),
+      after: item.toObject(),
+      reason: `Changed shop item active status to ${isActive}`,
+    });
+
     return res.json(item);
   } catch (error) {
     return next(error);
@@ -173,8 +232,20 @@ router.put('/items/:id', adminMiddleware, async (req, res, next) => {
 
 router.delete('/items/:id', adminMiddleware, async (req, res, next) => {
   try {
-    const item = await ShopItem.findByIdAndDelete(req.params.id);
-    if (!item) return res.status(404).json({ message: 'Shop item not found' });
+    const itemBefore = await ShopItem.findById(req.params.id);
+    if (!itemBefore) return res.status(404).json({ message: 'Shop item not found' });
+
+    await ShopItem.findByIdAndDelete(req.params.id);
+
+    await AuditLog.create({
+      adminId: req.user.id,
+      action: 'SHOP_ITEM_DELETE',
+      targetType: 'shop_item',
+      targetId: req.params.id,
+      before: itemBefore.toObject(),
+      reason: 'Deleted shop item administrative action',
+    });
+
     return res.json({ success: true, message: 'Shop item deleted successfully' });
   } catch (error) {
     return next(error);

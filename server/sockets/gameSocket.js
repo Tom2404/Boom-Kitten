@@ -39,10 +39,16 @@ const {
   eliminatePlayer,
 } = require('../game/gameLogic');
 const User = require('../models/User');
+const findUserByIdSafe = async (id) => {
+  if (mongoose.connection.readyState !== 1) return null;
+  return await User.findById(id);
+};
 const GameHistory = require('../models/GameHistory');
 const Transaction = require('../models/Transaction');
 const Quest = require('../models/Quest');
 const UserQuestProgress = require('../models/UserQuestProgress');
+const { calculateMultiplayerElo } = require('../utils/eloCalculator');
+const Season = require('../models/Season');
 
 async function updateQuestProgress(userId, actionType, count = 1) {
   try {
@@ -175,9 +181,16 @@ async function finalizeGame(io, room) {
   room.status = 'finished';
   emitRoomUpdated(io.to(room.code), room);
 
-  const rankings = room.gameState.players
-    .map((player) => ({ userId: player.userId, result: player.userId === winnerId ? 'win' : 'lose' }))
-    .sort((a, b) => (a.result === 'win' ? -1 : 1));
+  const rankings = room.gameState.players.map((player) => {
+    const isWinner = player.userId === winnerId;
+    const elimIndex = room.gameState.eliminatedPlayers ? room.gameState.eliminatedPlayers.indexOf(player.userId) : -1;
+    const placement = isWinner 
+      ? 1 
+      : (elimIndex >= 0 
+          ? room.gameState.players.length - elimIndex 
+          : room.gameState.players.length);
+    return { userId: player.userId, placement, result: isWinner ? 'win' : 'lose' };
+  }).sort((a, b) => a.placement - b.placement);
 
   const eloChanges = {};
   const pinkCoinChanges = {};
@@ -200,58 +213,40 @@ async function finalizeGame(io, room) {
       })
     );
 
+    // Fetch active season
+    const now = new Date();
+    const activeSeason = await Season.findOne({
+      startDate: { $lte: now },
+      endDate: { $gte: now },
+      status: 'active'
+    });
+
     const playersInGame = room.gameState.players.filter(p => dbUsers[p.userId]);
 
-    if (playersInGame.length >= 2) {
-      const winnerPlayer = playersInGame.find(p => p.userId === winnerId);
-      const loserPlayers = playersInGame.filter(p => p.userId !== winnerId);
+    const isRanked = room.gameMode === 'ranked';
+    const hasEnoughRealPlayers = playersInGame.length >= 2;
 
-      if (winnerPlayer) {
-        const winnerUser = dbUsers[winnerPlayer.userId];
-        const wElo = winnerUser.eloPoints || 1000;
+    if (isRanked && hasEnoughRealPlayers) {
+      const calculatorInput = playersInGame.map(p => {
+        const dbUser = dbUsers[p.userId];
+        const rankEntry = rankings.find(r => r.userId === p.userId);
+        return {
+          userId: p.userId,
+          eloBefore: dbUser.eloPoints || 1000,
+          gamesPlayed: dbUser.stats?.totalGames || 0,
+          placement: rankEntry ? rankEntry.placement : playersInGame.length
+        };
+      });
 
-        // Opponents' average ELO
-        let oppEloSum = 0;
-        loserPlayers.forEach(lp => {
-          oppEloSum += dbUsers[lp.userId].eloPoints || 1000;
-        });
-        const oppEloAvg = loserPlayers.length > 0 ? (oppEloSum / loserPlayers.length) : 1000;
+      const calculatedEloList = calculateMultiplayerElo(calculatorInput);
 
-        // Expected score for winner
-        const wExpected = 1 / (1 + Math.pow(10, (oppEloAvg - wElo) / 400));
-
-        // Winner Elo change: K=32, minimum +15
-        let wDelta = Math.round(32 * (1 - wExpected));
-        if (wDelta < 15) wDelta = 15;
-
-        // Streak bonus
-        const currentStreak = winnerUser.stats.currentStreak || 0;
-        if (currentStreak + 1 >= 3) {
-          wDelta += 10;
-        }
-
-        eloChanges[winnerPlayer.userId] = wDelta;
-
-        // Losers Elo changes: K=16, against winner
-        loserPlayers.forEach(lp => {
-          const lUser = dbUsers[lp.userId];
-          const lElo = lUser.eloPoints || 1000;
-
-          // Expected score for loser vs winner
-          const lExpected = 1 / (1 + Math.pow(10, (wElo - lElo) / 400));
-
-          // Loser Elo change: maximum loss -30, minimum loss -5
-          let lDelta = Math.round(-16 * lExpected);
-          if (lDelta < -30) lDelta = -30;
-          if (lDelta > -5) lDelta = -5;
-
-          eloChanges[lp.userId] = lDelta;
-        });
-      }
+      calculatedEloList.forEach(resElo => {
+        eloChanges[resElo.userId] = resElo.eloDelta;
+      });
     } else {
-      // Fallback
+      // No ELO changes in casual mode or with < 2 players
       playersInGame.forEach(p => {
-        eloChanges[p.userId] = p.userId === winnerId ? 25 : -15;
+        eloChanges[p.userId] = 0;
       });
     }
 
@@ -331,16 +326,25 @@ async function finalizeGame(io, room) {
     const validWinner = mongoose.Types.ObjectId.isValid(winnerId);
     const validPlayers = rankings
       .filter((entry) => mongoose.Types.ObjectId.isValid(entry.userId))
-      .map((entry, index) => ({
-        userId: entry.userId,
-        rank: index + 1,
-        result: entry.result,
-        eloChange: eloChanges[entry.userId] || 0,
-      }));
+      .map((entry) => {
+        const dbUser = dbUsers[entry.userId];
+        const eloAfter = dbUser ? dbUser.eloPoints : 1000;
+        const change = eloChanges[entry.userId] || 0;
+        const eloBefore = eloAfter - change;
+        return {
+          userId: entry.userId,
+          rank: entry.placement,
+          result: entry.result,
+          eloBefore,
+          eloAfter,
+          eloChange: change,
+        };
+      });
 
     if (validWinner && validPlayers.length > 0) {
       await GameHistory.create({
         roomId: room.code,
+        seasonId: activeSeason ? activeSeason._id : undefined,
         players: validPlayers,
         winner: winnerId,
         duration: 0,
@@ -984,11 +988,15 @@ module.exports = function registerGameSocket(io) {
     };
 
     socket.on('room:create', async ({ password, edition, maxPlayers, betAmount, customDefuses, customExplodingKittens }) => {
+      if (!socket.user) {
+        socket.emit('error', { code: 'AUTH_REQUIRED', message: 'Bạn cần đăng nhập để tạo phòng.' });
+        return;
+      }
       try {
         await ensureLeaveOtherRooms(null);
         let username = socket.user?.username ?? `Guest-${guestId.slice(6, 11)}`;
         if (socket.user?.id) {
-          const dbUser = await User.findById(socket.user.id);
+          const dbUser = await findUserByIdSafe(socket.user.id);
           if (dbUser) {
             username = dbUser.username;
             const requestedBet = parseInt(betAmount, 10);
@@ -1013,12 +1021,16 @@ module.exports = function registerGameSocket(io) {
     });
 
     socket.on('room:join', async ({ roomCode, password }) => {
+      if (!socket.user) {
+        socket.emit('error', { code: 'AUTH_REQUIRED', message: 'Bạn cần đăng nhập để tham gia phòng.' });
+        return;
+      }
       try {
         await ensureLeaveOtherRooms(roomCode);
         let username = socket.user?.username ?? `Guest-${guestId.slice(6, 11)}`;
         const roomBefore = getRoomState(roomCode);
         if (socket.user?.id) {
-          const dbUser = await User.findById(socket.user.id);
+          const dbUser = await findUserByIdSafe(socket.user.id);
           if (dbUser) {
             username = dbUser.username;
             if (roomBefore && dbUser.coins < roomBefore.betAmount) {
@@ -1044,7 +1056,7 @@ module.exports = function registerGameSocket(io) {
         if (isReady && socket.user?.id) {
           const roomBefore = getRoomState(roomCode);
           if (roomBefore && roomBefore.betAmount > 0) {
-            const dbUser = await User.findById(socket.user.id);
+            const dbUser = await findUserByIdSafe(socket.user.id);
             if (dbUser && dbUser.coins < roomBefore.betAmount) {
               throw new Error('Không đủ GoldCoin để sẵn sàng');
             }
@@ -1064,7 +1076,7 @@ module.exports = function registerGameSocket(io) {
         const newBet = parseInt(settings.betAmount, 10);
         if (roomBefore && !isNaN(newBet) && newBet > 0) {
           if (socket.user?.id) {
-            const dbUser = await User.findById(socket.user.id);
+            const dbUser = await findUserByIdSafe(socket.user.id);
             if (dbUser && dbUser.coins < newBet) {
               throw new Error('Bạn không đủ GoldCoin để đặt mức cược này');
             }

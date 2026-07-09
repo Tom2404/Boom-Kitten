@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLanguage } from '../context/LanguageContext.jsx';
-import { PixelHomeIcon, PixelPlayIcon, PixelTrophyIcon, PixelShopIcon, PixelProfileIcon } from './PixelIcons.jsx';
+import { PixelHomeIcon, PixelPlayIcon, PixelTrophyIcon, PixelShopIcon, PixelProfileIcon, PixelStarIcon } from './PixelIcons.jsx';
 
 /**
  * Navbar component for the Exploding Kittens homepage (Pop Art Style).
@@ -113,49 +113,79 @@ export default function Navbar({ page, setPage, isLoggedIn, userRole, handleLogo
             {t('home')}
           </button>
           
-          <button 
-            onClick={() => setPage('Game')}
-            className={`flex items-center gap-1.5 uppercase tracking-wider transition-all duration-200 border-b-2 py-1 px-1 cursor-pointer
-              ${page === 'Game' 
-                ? 'text-white border-[var(--pop-red)] font-black translate-y-[-1px]' 
-                : 'text-[#888] border-transparent hover:text-white hover:border-white/40'}`}
-          >
-            <PixelPlayIcon size={12} className={page === 'Game' ? 'text-[var(--pop-red)]' : 'text-neutral-500'} />
-            {t('arena')}
-          </button>
-          
-          <button 
-            onClick={() => setPage('Leaderboard')}
-            className={`flex items-center gap-1.5 uppercase tracking-wider transition-all duration-200 border-b-2 py-1 px-1 cursor-pointer
-              ${page === 'Leaderboard' 
-                ? 'text-white border-[var(--pop-red)] font-black translate-y-[-1px]' 
-                : 'text-[#888] border-transparent hover:text-white hover:border-white/40'}`}
-          >
-            <PixelTrophyIcon size={12} className={page === 'Leaderboard' ? 'text-[var(--pop-red)]' : 'text-neutral-500'} />
-            {t('leaderboard')}
-          </button>
-          
-          <button 
-            onClick={() => setPage('Shop')}
-            className={`flex items-center gap-1.5 uppercase tracking-wider transition-all duration-200 border-b-2 py-1 px-1 cursor-pointer
-              ${page === 'Shop' 
-                ? 'text-white border-[var(--pop-red)] font-black translate-y-[-1px]' 
-                : 'text-[#888] border-transparent hover:text-white hover:border-white/40'}`}
-          >
-            <PixelShopIcon size={12} className={page === 'Shop' ? 'text-[var(--pop-red)]' : 'text-neutral-500'} />
-            {t('shop')}
-          </button>
-
-          {isLoggedIn && (
+          {userRole !== 'admin' && (
             <button 
-              onClick={() => setPage('Profile')}
+              onClick={() => setPage('Game')}
               className={`flex items-center gap-1.5 uppercase tracking-wider transition-all duration-200 border-b-2 py-1 px-1 cursor-pointer
-                ${page === 'Profile' 
+                ${page === 'Game' 
                   ? 'text-white border-[var(--pop-red)] font-black translate-y-[-1px]' 
                   : 'text-[#888] border-transparent hover:text-white hover:border-white/40'}`}
             >
-              <PixelProfileIcon size={12} className={page === 'Profile' ? 'text-[var(--pop-red)]' : 'text-neutral-500'} />
-              {t('profile')}
+              <PixelPlayIcon size={12} className={page === 'Game' ? 'text-[var(--pop-red)]' : 'text-neutral-500'} />
+              {t('arena')}
+            </button>
+          )}
+          
+          {userRole !== 'admin' && (
+            <>
+              <button 
+                onClick={() => setPage('Leaderboard')}
+                className={`flex items-center gap-1.5 uppercase tracking-wider transition-all duration-200 border-b-2 py-1 px-1 cursor-pointer
+                  ${page === 'Leaderboard' 
+                    ? 'text-white border-[var(--pop-red)] font-black translate-y-[-1px]' 
+                    : 'text-[#888] border-transparent hover:text-white hover:border-white/40'}`}
+              >
+                <PixelTrophyIcon size={12} className={page === 'Leaderboard' ? 'text-[var(--pop-red)]' : 'text-neutral-500'} />
+                {t('leaderboard')}
+              </button>
+
+              <button 
+                onClick={() => setPage('Mission')}
+                className={`flex items-center gap-1.5 uppercase tracking-wider transition-all duration-200 border-b-2 py-1 px-1 cursor-pointer
+                  ${page === 'Mission' 
+                    ? 'text-white border-[var(--pop-red)] font-black translate-y-[-1px]' 
+                    : 'text-[#888] border-transparent hover:text-white hover:border-white/40'}`}
+              >
+                <PixelStarIcon size={12} className={page === 'Mission' ? 'text-[var(--pop-red)]' : 'text-neutral-500'} />
+                {t('mission')}
+              </button>
+
+              <button 
+                onClick={() => setPage('Shop')}
+                className={`flex items-center gap-1.5 uppercase tracking-wider transition-all duration-200 border-b-2 py-1 px-1 cursor-pointer
+                  ${page === 'Shop' 
+                    ? 'text-white border-[var(--pop-red)] font-black translate-y-[-1px]' 
+                    : 'text-[#888] border-transparent hover:text-white hover:border-white/40'}`}
+              >
+                <PixelShopIcon size={12} className={page === 'Shop' ? 'text-[var(--pop-red)]' : 'text-neutral-500'} />
+                {t('shop')}
+              </button>
+
+              {isLoggedIn && (
+                <button 
+                  onClick={() => setPage('Profile')}
+                  className={`flex items-center gap-1.5 uppercase tracking-wider transition-all duration-200 border-b-2 py-1 px-1 cursor-pointer
+                    ${page === 'Profile' 
+                      ? 'text-white border-[var(--pop-red)] font-black translate-y-[-1px]' 
+                      : 'text-[#888] border-transparent hover:text-white hover:border-white/40'}`}
+                >
+                  <PixelProfileIcon size={12} className={page === 'Profile' ? 'text-[var(--pop-red)]' : 'text-neutral-500'} />
+                  {t('profile')}
+                </button>
+              )}
+            </>
+          )}
+          
+          {isLoggedIn && userRole === 'admin' && (
+            <button 
+              onClick={() => setPage('Admin')}
+              className={`flex items-center gap-1.5 uppercase tracking-wider transition-all duration-200 border-b-2 py-1 px-2 cursor-pointer font-black rounded-sm
+                ${page === 'Admin' 
+                  ? 'text-[var(--pop-amber)] border-[var(--pop-amber)] translate-y-[-1px]' 
+                  : 'text-[var(--pop-amber)] border-transparent hover:text-white hover:border-[var(--pop-amber)]'}`}
+            >
+              <span className="animate-pulse">🛠️</span>
+              Quản Lý
             </button>
           )}
         </div>
@@ -170,7 +200,7 @@ export default function Navbar({ page, setPage, isLoggedIn, userRole, handleLogo
               className="bg-[var(--pop-amber)] text-[var(--pop-black)] pop-border-2 px-3 py-1 font-bold uppercase tracking-wider transform -rotate-2 hover:scale-105 active:scale-95 transition-all"
               style={{ boxShadow: '2px 2px 0 var(--pop-red)' }}
             >
-              {t('admin')}
+              Quản Lý
             </button>
           )}
 

@@ -41,7 +41,7 @@ export default function Home({ setPage, isLoggedIn, userRole, handleLogout }) {
       />
 
       {/* 02. HERO */}
-      <Hero setPage={setPage} />
+      <Hero setPage={setPage} isLoggedIn={isLoggedIn} userRole={userRole} />
 
       {/* 03. STATS */}
       <Stats />
@@ -56,7 +56,7 @@ export default function Home({ setPage, isLoggedIn, userRole, handleLogout }) {
       <DeckShowcase />
 
       {/* 07. CTA FINAL */}
-      <CTAFinal setPage={setPage} />
+      <CTAFinal setPage={setPage} isLoggedIn={isLoggedIn} userRole={userRole} />
 
       {/* 08. FOOTER */}
       <Footer setPage={setPage} />

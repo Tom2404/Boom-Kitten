@@ -4,12 +4,15 @@ const mongoose = require('mongoose');
 const gameHistorySchema = new mongoose.Schema(
   {
     roomId: { type: String, required: true, index: true },
+    seasonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Season', index: true },
     gameMode: { type: String, enum: ['ranked', 'custom', 'tournament'], default: 'ranked' },
     players: [
       {
         userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
         rank: { type: Number },                   // Vị trí kết thúc ván (1: Thắng, 2+: Bị loại)
         result: { type: String, enum: ['win', 'lose'], required: true },
+        eloBefore: { type: Number },
+        eloAfter: { type: Number },
         eloChange: { type: Number, required: true, default: 0 }, // ELO cộng/trừ trong trận đấu
       },
     ],

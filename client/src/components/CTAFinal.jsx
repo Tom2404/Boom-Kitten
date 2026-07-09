@@ -11,7 +11,7 @@ import { useLanguage } from '../context/LanguageContext.jsx';
  * @param {Object} props
  * @param {function} props.setPage - Router state setter from App.jsx
  */
-export default function CTAFinal({ setPage }) {
+export default function CTAFinal({ setPage, isLoggedIn, userRole }) {
   const { language } = useLanguage();
 
   const t = {
@@ -70,7 +70,13 @@ export default function CTAFinal({ setPage }) {
           <PopButton
             variant="dark"
             shadowColor="var(--pop-orange)"
-            onClick={() => setPage('Login')}
+            onClick={() => {
+              if (isLoggedIn) {
+                setPage(userRole === 'admin' ? 'Admin' : 'Game');
+              } else {
+                setPage('Login');
+              }
+            }}
             className="mb-4"
           >
             {t.cta}

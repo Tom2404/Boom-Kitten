@@ -18,6 +18,8 @@ const shopItemSchema = new mongoose.Schema(
     availableUntil: { type: Date },
     imageUrl: { type: String, default: '' },
     previewUrl: { type: String, default: '' },
+    isActive: { type: Boolean, default: true },
+    sortOrder: { type: Number, default: 0 },
   },
   { timestamps: true },
 );

@@ -45,6 +45,8 @@ const userSchema = new mongoose.Schema(
     },
     eloPoints: { type: Number, default: 1000, index: true },
     highestEloReached: { type: Number, default: 1000 },
+    seasonHighestElo: { type: Number, default: 1000 },
+    allTimeHighestElo: { type: Number, default: 1000 },
     
     // Status and dates
     lastLoginDate: { type: Date },
@@ -91,14 +93,25 @@ userSchema.pre('save', function (next) {
   if (this.highestEloReached === undefined) {
     this.highestEloReached = 1000;
   }
+  if (this.seasonHighestElo === undefined) {
+    this.seasonHighestElo = this.highestEloReached || 1000;
+  }
+  if (this.allTimeHighestElo === undefined) {
+    this.allTimeHighestElo = this.highestEloReached || 1000;
+  }
 
   if (this.isModified('eloPoints') || this.isNew) {
     const oldRank = this.rank || 'Bronze IV';
     const newRank = getRankFromElo(this.eloPoints);
     this.rank = newRank;
 
-    // Award Pink Coins only if ELO exceeds historical peak
-    if (this.eloPoints > this.highestEloReached) {
+    // Update all-time peak ELO
+    if (this.eloPoints > this.allTimeHighestElo) {
+      this.allTimeHighestElo = this.eloPoints;
+    }
+
+    // Award Pink Coins only if ELO exceeds seasonal peak
+    if (this.eloPoints > this.seasonHighestElo) {
       const oldRankVal = getRankValue(oldRank);
       const newRankVal = getRankValue(newRank);
 
@@ -116,7 +129,8 @@ userSchema.pre('save', function (next) {
         this.gems = (this.gems || 0) + reward;
       }
 
-      this.highestEloReached = this.eloPoints;
+      this.seasonHighestElo = this.eloPoints;
+      this.highestEloReached = this.eloPoints; // Sync legacy field
     }
   }
   next();

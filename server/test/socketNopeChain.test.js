@@ -4,6 +4,8 @@ const http = require('http');
 const { Server } = require('socket.io');
 const { io: Client } = require('socket.io-client');
 const registerGameSocket = require('../sockets/gameSocket');
+const jwt = require('jsonwebtoken');
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret-key-123';
 const { getRoomState, leaveRoom, startGame, toggleReady } = require('../game/roomManager');
 
 function waitFor(socket, eventName, predicate = () => true, timeoutMs = 1500) {
@@ -56,8 +58,9 @@ async function createSocketHarness(t) {
   const clients = [];
 
   async function connect(guestId) {
+    const token = jwt.sign({ sub: guestId, username: guestId }, process.env.JWT_SECRET);
     const socket = Client(url, {
-      auth: { guestId },
+      auth: { guestId, token },
       forceNew: true,
       reconnection: false,
       transports: ['websocket'],
