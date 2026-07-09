@@ -20,7 +20,7 @@ export function CoinIcon({ className = "w-5 h-5" }) {
 export function GemIcon({ className = "w-5 h-5" }) {
   return (
     <img 
-      src={goldCoin} 
+      src={pinkCoin} 
       alt="Pink Coin" 
       className={`${className} object-contain select-none`} 
     />

@@ -42,8 +42,21 @@ export default function Login({ setPage }) {
 
       setIsError(false);
       setMessage(t('login_success'));
+
+      let redirectPage = 'Game';
+      try {
+        const base64Url = data.accessToken.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const payload = JSON.parse(window.atob(base64));
+        if (payload.role === 'admin') {
+          redirectPage = 'Admin';
+        }
+      } catch (e) {
+        console.error('Error decoding login payload', e);
+      }
+
       setTimeout(() => {
-        setPage('Game');
+        setPage(redirectPage);
       }, 1000);
     } catch (err) {
       setIsError(true);

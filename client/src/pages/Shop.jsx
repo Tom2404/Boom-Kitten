@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { gsap } from 'gsap';
 import { CoinIcon, GemIcon } from '../components/CoinDisplay.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
+import CustomDialog from '../components/CustomDialog.jsx';
 
 const RARITY_COLORS = {
   common: 'bg-slate-200 text-slate-800',
@@ -10,7 +11,7 @@ const RARITY_COLORS = {
   legendary: 'bg-yellow-200 text-yellow-800',
 };
 
-export default function Shop() {
+export default function Shop({ setPage }) {
   const { t } = useLanguage();
   const [items, setItems] = useState([]);
   const [ownedItems, setOwnedItems] = useState({ ownedSkins: [], ownedEmotes: [], ownedAvatarFrames: [] });
@@ -20,6 +21,15 @@ export default function Shop() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [isError, setIsError] = useState(false);
+  const [dialogState, setDialogState] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: '',
+    cancelText: '',
+    onConfirm: null,
+    onCancel: null,
+  });
 
   const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5000';
 
@@ -80,8 +90,19 @@ export default function Shop() {
 
     const token = localStorage.getItem('accessToken');
     if (!token) {
-      setIsError(true);
-      setMessage(t('shop_login_required'));
+      setDialogState({
+        isOpen: true,
+        title: t('loginRequiredQuickPlay') ? '🔒 Yêu cầu đăng nhập' : '🔒 Login Required',
+        message: t('loginRequiredShop') || 'Bạn cần đăng nhập để mua vật phẩm.',
+        isConfirm: true,
+        confirmText: t('loginRequiredQuickPlay') ? 'Đăng nhập' : 'Login',
+        cancelText: t('loginRequiredQuickPlay') ? 'Hủy' : 'Cancel',
+        onConfirm: () => {
+          setDialogState({ isOpen: false });
+          setPage('Login');
+        },
+        onCancel: () => setDialogState({ isOpen: false })
+      });
       return;
     }
 
@@ -350,6 +371,16 @@ export default function Shop() {
           <div className="w-48 h-48 rounded-full border-8 border-white"></div>
         </div>
       </div>
+      <CustomDialog
+        isOpen={dialogState.isOpen}
+        title={dialogState.title}
+        message={dialogState.message}
+        isConfirm={true}
+        confirmText={dialogState.confirmText}
+        cancelText={dialogState.cancelText}
+        onConfirm={dialogState.onConfirm}
+        onCancel={dialogState.onCancel || (() => setDialogState({ isOpen: false }))}
+      />
     </div>
   );
 }

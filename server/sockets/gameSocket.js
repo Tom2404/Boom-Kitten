@@ -39,6 +39,10 @@ const {
   eliminatePlayer,
 } = require('../game/gameLogic');
 const User = require('../models/User');
+const findUserByIdSafe = async (id) => {
+  if (mongoose.connection.readyState !== 1) return null;
+  return await User.findById(id);
+};
 const GameHistory = require('../models/GameHistory');
 const Transaction = require('../models/Transaction');
 const Quest = require('../models/Quest');
@@ -984,11 +988,15 @@ module.exports = function registerGameSocket(io) {
     };
 
     socket.on('room:create', async ({ password, edition, maxPlayers, betAmount, customDefuses, customExplodingKittens }) => {
+      if (!socket.user) {
+        socket.emit('error', { code: 'AUTH_REQUIRED', message: 'Bạn cần đăng nhập để tạo phòng.' });
+        return;
+      }
       try {
         await ensureLeaveOtherRooms(null);
         let username = socket.user?.username ?? `Guest-${guestId.slice(6, 11)}`;
         if (socket.user?.id) {
-          const dbUser = await User.findById(socket.user.id);
+          const dbUser = await findUserByIdSafe(socket.user.id);
           if (dbUser) {
             username = dbUser.username;
             const requestedBet = parseInt(betAmount, 10);
@@ -1013,12 +1021,16 @@ module.exports = function registerGameSocket(io) {
     });
 
     socket.on('room:join', async ({ roomCode, password }) => {
+      if (!socket.user) {
+        socket.emit('error', { code: 'AUTH_REQUIRED', message: 'Bạn cần đăng nhập để tham gia phòng.' });
+        return;
+      }
       try {
         await ensureLeaveOtherRooms(roomCode);
         let username = socket.user?.username ?? `Guest-${guestId.slice(6, 11)}`;
         const roomBefore = getRoomState(roomCode);
         if (socket.user?.id) {
-          const dbUser = await User.findById(socket.user.id);
+          const dbUser = await findUserByIdSafe(socket.user.id);
           if (dbUser) {
             username = dbUser.username;
             if (roomBefore && dbUser.coins < roomBefore.betAmount) {
@@ -1044,7 +1056,7 @@ module.exports = function registerGameSocket(io) {
         if (isReady && socket.user?.id) {
           const roomBefore = getRoomState(roomCode);
           if (roomBefore && roomBefore.betAmount > 0) {
-            const dbUser = await User.findById(socket.user.id);
+            const dbUser = await findUserByIdSafe(socket.user.id);
             if (dbUser && dbUser.coins < roomBefore.betAmount) {
               throw new Error('Không đủ GoldCoin để sẵn sàng');
             }
@@ -1064,7 +1076,7 @@ module.exports = function registerGameSocket(io) {
         const newBet = parseInt(settings.betAmount, 10);
         if (roomBefore && !isNaN(newBet) && newBet > 0) {
           if (socket.user?.id) {
-            const dbUser = await User.findById(socket.user.id);
+            const dbUser = await findUserByIdSafe(socket.user.id);
             if (dbUser && dbUser.coins < newBet) {
               throw new Error('Bạn không đủ GoldCoin để đặt mức cược này');
             }

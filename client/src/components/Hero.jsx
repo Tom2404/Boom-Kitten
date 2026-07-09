@@ -12,7 +12,7 @@ import { useLanguage } from '../context/LanguageContext.jsx';
  * @param {Object} props
  * @param {function} props.setPage - Router state setter from App.jsx
  */
-export default function Hero({ setPage }) {
+export default function Hero({ setPage, isLoggedIn, userRole }) {
   const { language } = useLanguage();
 
   const scrollToSection = (id) => {
@@ -143,7 +143,13 @@ export default function Hero({ setPage }) {
           <PopButton 
             variant="primary" 
             shadowColor="var(--pop-black)"
-            onClick={() => setPage('Login')}
+            onClick={() => {
+              if (isLoggedIn) {
+                setPage(userRole === 'admin' ? 'Admin' : 'Game');
+              } else {
+                setPage('Login');
+              }
+            }}
           >
             {t.ctaPrimary}
           </PopButton>

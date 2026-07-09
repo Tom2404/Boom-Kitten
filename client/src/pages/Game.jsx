@@ -769,7 +769,7 @@ function ExclusiveCard({ cardType, name, skinIndex = 0, fanAngle = 0, fanY = 0 }
   );
 }
 
-export default function Game() {
+export default function Game({ setPage }) {
   const {
     socket,
     roomState,
@@ -836,6 +836,43 @@ export default function Game() {
   const hasInitializedTurnRef = React.useRef(false);
 
   const { t, language } = useLanguage();
+
+  const [myUser, setMyUser] = useState(null);
+
+  const [dialogState, setDialogState] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: null,
+  });
+
+  const isAuthenticated = !!localStorage.getItem('accessToken') && !!myUser && !myUser.id.startsWith('guest-');
+
+  const showLoginRequired = (actionType) => {
+    let msg = t('loginRequired') || 'Bạn cần đăng nhập để thực hiện chức năng này.';
+    if (actionType === 'quick_play') {
+      msg = t('loginRequiredQuickPlay') || 'Bạn cần đăng nhập để sử dụng Quick Play.';
+    } else if (actionType === 'create_room') {
+      msg = t('loginRequiredCreateRoom') || 'Bạn cần đăng nhập để tạo phòng.';
+    } else if (actionType === 'join_room') {
+      msg = t('loginRequiredJoinRoom') || 'Bạn cần đăng nhập để tham gia phòng.';
+    }
+
+    setDialogState({
+      isOpen: true,
+      title: language === 'vi' ? '🔒 Yêu cầu đăng nhập' : '🔒 Login Required',
+      message: msg,
+      isConfirm: true,
+      confirmText: language === 'vi' ? 'Đăng nhập' : 'Login',
+      cancelText: language === 'vi' ? 'Hủy' : 'Cancel',
+      onConfirm: () => {
+        setDialogState({ isOpen: false });
+        setPage('Login');
+      },
+      onCancel: () => setDialogState({ isOpen: false })
+    });
+  };
+
 
   useEffect(() => {
     document.body.classList.add('pop-art-theme');
@@ -938,17 +975,9 @@ export default function Game() {
   const [lastClickedEdition, setLastClickedEdition] = useState(null);
   // For bet chip press animation
   const [pressedChip, setPressedChip] = useState(null);
-  
-  const [myUser, setMyUser] = useState(null);
   const [revealCard, setRevealCard] = useState(null);
   const prevHandRef = useRef([]);
   const [rightPanelTab, setRightPanelTab] = useState('chat');
-  const [dialogState, setDialogState] = useState({
-    isOpen: false,
-    title: '',
-    message: '',
-    onConfirm: null,
-  });
 
   const [localClairvoyance, setLocalClairvoyance] = useState(null);
   const [drewKittenAlert, setDrewKittenAlert] = useState(null);
@@ -1033,6 +1062,10 @@ export default function Game() {
 
   const handleQuickPlay = async () => {
     if (isQuickPlaySearching) return;
+    if (!isAuthenticated) {
+      showLoginRequired('quick_play');
+      return;
+    }
     setIsQuickPlaySearching(true);
     try {
       const res = await fetch(`${API_URL}/api/rooms`);
@@ -1290,6 +1323,11 @@ export default function Game() {
         );
         const payload = JSON.parse(jsonPayload);
         const isExpired = payload.exp * 1000 < Date.now();
+
+        if (!isExpired && payload.role === 'admin') {
+          setPage('Admin');
+          return;
+        }
 
         if (isExpired) {
           const guestId = localStorage.getItem('guestId');
@@ -1641,12 +1679,8 @@ export default function Game() {
 
   if (!myUser) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center gap-6 bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-8 max-w-md mx-auto">
-        <LockIcon className="w-16 h-16 text-on-surface animate-bounce" strokeWidth={2.5} />
-        <h2 className="text-2xl font-headline font-black text-on-surface uppercase">Yêu Cầu Đăng Nhập</h2>
-        <p className="text-xs font-bold text-on-surface-variant max-w-sm">
-          Bạn cần đăng nhập tài khoản để có thể tạo phòng hoặc tham gia chơi bài Mèo Nổ.
-        </p>
+      <div className="text-center py-12">
+        <p className="font-headline font-black uppercase text-xl animate-pulse">{t('profile_loading') || 'Loading...'}</p>
       </div>
     );
   }
@@ -1679,7 +1713,13 @@ export default function Game() {
     PixelStarIcon,
     PlayModeCard,
     createPassword,
-    createRoom,
+    createRoom: (opts, username) => {
+      if (!isAuthenticated) {
+        showLoginRequired('create_room');
+        return;
+      }
+      createRoom(opts, username);
+    },
     createRoomIcon,
     createRoomStep,
     detailFading,
@@ -1688,15 +1728,34 @@ export default function Game() {
     getCardImageUrl,
     getEditionDetails,
     handleDailyReward,
-    handleJoinRoomCode,
+    handleJoinRoomCode: (code, password) => {
+      if (!isAuthenticated) {
+        showLoginRequired('join_room');
+        return;
+      }
+      handleJoinRoomCode(code, password);
+    },
     handleQuickPlay,
     idRoomImg,
     isCreateModalOpen,
     isCreatingRoom,
+    setIsCreatingRoom: (val) => {
+      if (val && !isAuthenticated) {
+        showLoginRequired('create_room');
+        return;
+      }
+      setIsCreatingRoom(val);
+    },
     isDailyRewardClaimed,
     isEditionDropdownOpen,
     isQuickPlaySearching,
-    joinRoom,
+    joinRoom: (code, pwd) => {
+      if (!isAuthenticated) {
+        showLoginRequired('join_room');
+        return;
+      }
+      joinRoom(code, pwd);
+    },
     language,
     lastClickedEdition,
     lobbyBetAmount,

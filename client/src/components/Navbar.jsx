@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLanguage } from '../context/LanguageContext.jsx';
-import { PixelHomeIcon, PixelPlayIcon, PixelTrophyIcon, PixelShopIcon, PixelProfileIcon } from './PixelIcons.jsx';
+import { PixelHomeIcon, PixelPlayIcon, PixelTrophyIcon, PixelShopIcon, PixelProfileIcon, PixelStarIcon } from './PixelIcons.jsx';
 
 /**
  * Navbar component for the Exploding Kittens homepage (Pop Art Style).
@@ -113,16 +113,18 @@ export default function Navbar({ page, setPage, isLoggedIn, userRole, handleLogo
             {t('home')}
           </button>
           
-          <button 
-            onClick={() => setPage('Game')}
-            className={`flex items-center gap-1.5 uppercase tracking-wider transition-all duration-200 border-b-2 py-1 px-1 cursor-pointer
-              ${page === 'Game' 
-                ? 'text-white border-[var(--pop-red)] font-black translate-y-[-1px]' 
-                : 'text-[#888] border-transparent hover:text-white hover:border-white/40'}`}
-          >
-            <PixelPlayIcon size={12} className={page === 'Game' ? 'text-[var(--pop-red)]' : 'text-neutral-500'} />
-            {t('arena')}
-          </button>
+          {userRole !== 'admin' && (
+            <button 
+              onClick={() => setPage('Game')}
+              className={`flex items-center gap-1.5 uppercase tracking-wider transition-all duration-200 border-b-2 py-1 px-1 cursor-pointer
+                ${page === 'Game' 
+                  ? 'text-white border-[var(--pop-red)] font-black translate-y-[-1px]' 
+                  : 'text-[#888] border-transparent hover:text-white hover:border-white/40'}`}
+            >
+              <PixelPlayIcon size={12} className={page === 'Game' ? 'text-[var(--pop-red)]' : 'text-neutral-500'} />
+              {t('arena')}
+            </button>
+          )}
           
           <button 
             onClick={() => setPage('Leaderboard')}
@@ -134,6 +136,18 @@ export default function Navbar({ page, setPage, isLoggedIn, userRole, handleLogo
             <PixelTrophyIcon size={12} className={page === 'Leaderboard' ? 'text-[var(--pop-red)]' : 'text-neutral-500'} />
             {t('leaderboard')}
           </button>
+
+          <button 
+            onClick={() => setPage('Mission')}
+            className={`flex items-center gap-1.5 uppercase tracking-wider transition-all duration-200 border-b-2 py-1 px-1 cursor-pointer
+              ${page === 'Mission' 
+                ? 'text-white border-[var(--pop-red)] font-black translate-y-[-1px]' 
+                : 'text-[#888] border-transparent hover:text-white hover:border-white/40'}`}
+          >
+            <PixelStarIcon size={12} className={page === 'Mission' ? 'text-[var(--pop-red)]' : 'text-neutral-500'} />
+            {t('mission')}
+          </button>
+
           
           <button 
             onClick={() => setPage('Shop')}
