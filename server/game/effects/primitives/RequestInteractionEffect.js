@@ -19,6 +19,7 @@ class RequestInteractionEffect extends BaseEffect {
       pot_luck: alivePlayers.map((p) => p.userId),
       garbage_collection: alivePlayers.map((p) => p.userId),
       grave_robber: state.players.filter((p) => !p.alive && p.hand.length > 0).map((p) => p.userId),
+      combo_5: [owner],
     };
 
     const metadata = {
@@ -65,6 +66,8 @@ class RequestInteractionEffect extends BaseEffect {
       state.pendingGraveRobber = { playerId: payload.userId, startedAt: Date.now() };
     } else if (interactionType === 'armageddon') {
       state.pendingArmageddon = { playerId: payload.userId, targetPlayerId: payload.targetPlayerId, stage: 'distribute', startedAt: Date.now() };
+    } else if (interactionType === 'combo_5') {
+      state.pendingCombo5 = { playerId: payload.userId, startedAt: Date.now() };
     }
 
     return { status: 'WAIT_INPUT', data: { interaction } };

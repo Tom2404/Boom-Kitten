@@ -3,12 +3,12 @@ const assert = require('node:assert');
 
 function getTieredResetElo(rank) {
   if (!rank) return 1000;
-  if (rank === 'Legend') return 1800; // Gold IV
+  if (rank === 'Legend') return 1800; // Platinum IV
   if (rank.startsWith('Diamond')) return 1500; // Silver III
   if (rank.startsWith('Platinum')) return 1300; // Bronze I
   if (rank.startsWith('Gold')) return 1200; // Bronze II
-  if (rank.startsWith('Silver')) return 1100; // Bronze III
-  return 1000; // Bronze IV
+  if (rank.startsWith('Silver')) return 1100; // Bronze I
+  return 1000; // Bronze II
 }
 
 test('Season Reset ELO Strategy Formulas', async (t) => {

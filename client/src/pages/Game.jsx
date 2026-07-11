@@ -1483,12 +1483,7 @@ export default function Game({ setPage }) {
     // Emitted immediately when a card is played while the Nope window is opened.
     // Must NOT trigger any main / card-specific VFX here.
     // Only allowed: small card-fly animation, log, toast.
-    const handleCardPlayedPending = ({ playerId, cardType }) => {
-      const sourceId = playerId === myUser?.id ? 'player-hand-container' : `player-avatar-${playerId}`;
-      setTimeout(() => {
-        // Small card fly into discard — neutral animation, not the main VFX
-        playFlyingCard(sourceId, 'discard-pile-element', cardType);
-      }, 50);
+    const handleCardPlayedPending = () => {
       // No main VFX here. All main VFX are deferred to game:actionResolved.
     };
 
@@ -1497,14 +1492,7 @@ export default function Game({ setPage }) {
     //   1. Nope card (animationOnly: true) — small card fly
     //   2. Discard actions emitted by game:discard handler (no Nope window)
     // Must NOT trigger main VFX for regular action cards.
-    const handleCardPlayed = ({ playerId, cardType, animationOnly }) => {
-      // Guard: only process nope cards or explicit animation-only payloads
-      if (cardType !== 'nope' && !animationOnly) return;
-
-      const sourceId = playerId === myUser?.id ? 'player-hand-container' : `player-avatar-${playerId}`;
-      setTimeout(() => {
-        playFlyingCard(sourceId, 'discard-pile-element', cardType);
-      }, 50);
+    const handleCardPlayed = () => {
       // No main VFX here.
     };
 
@@ -1791,7 +1779,6 @@ export default function Game({ setPage }) {
     setDetailFading,
     setHoveredEdition,
     setIsCreateModalOpen,
-    setIsCreatingRoom,
     setIsEditionDropdownOpen,
     setLastClickedEdition,
     setLobbyBetAmount,

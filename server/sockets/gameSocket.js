@@ -48,6 +48,7 @@ const Transaction = require('../models/Transaction');
 const Quest = require('../models/Quest');
 const UserQuestProgress = require('../models/UserQuestProgress');
 const { calculateMultiplayerElo } = require('../utils/eloCalculator');
+const { applyTierProtection } = require('../utils/rankSystem');
 const Season = require('../models/Season');
 
 async function updateQuestProgress(userId, actionType, count = 1) {
@@ -234,6 +235,7 @@ async function finalizeGame(io, room) {
           userId: p.userId,
           eloBefore: dbUser.eloPoints || 1000,
           gamesPlayed: dbUser.stats?.totalGames || 0,
+          winStreak: rankEntry?.placement === 1 ? (dbUser.stats?.currentStreak || 0) + 1 : 0,
           placement: rankEntry ? rankEntry.placement : playersInGame.length
         };
       });
@@ -286,8 +288,20 @@ async function finalizeGame(io, room) {
         }
 
         // Apply Elo Points change
-        const eloChange = eloChanges[entry.userId] || 0;
-        user.eloPoints = Math.max(1000, (user.eloPoints || 1000) + eloChange);
+        const eloBefore = user.eloPoints || 1000;
+        const requestedEloChange = eloChanges[entry.userId] || 0;
+        const protectedResult = isRanked
+          ? applyTierProtection({
+              eloBefore,
+              eloAfter: Math.max(1000, eloBefore + requestedEloChange),
+              protectionGames: user.rankProtectionGames || 0,
+              protectedFloor: user.rankProtectedFloor || 0,
+            })
+          : { eloAfter: eloBefore, protectionGames: user.rankProtectionGames || 0, protectedFloor: user.rankProtectedFloor || 0 };
+        user.eloPoints = protectedResult.eloAfter;
+        user.rankProtectionGames = protectedResult.protectionGames;
+        user.rankProtectedFloor = protectedResult.protectedFloor;
+        eloChanges[entry.userId] = user.eloPoints - eloBefore;
 
         await user.save();
 
@@ -1688,7 +1702,26 @@ module.exports = function registerGameSocket(io) {
     });
 
     socket.on('game:combo5:respond', async ({ cardId }) => {
-      // Ignored for now. PlayComboAction handles it.
+      const roomCode = [...socket.rooms].find((room) => room.length === 6);
+      if (!roomCode) return;
+      const room = getRoomState(roomCode);
+      if (!room?.gameState?.activeInteraction || room.gameState.activeInteraction.type !== 'combo_5') return;
+
+      const playersBefore = room.gameState.players.map((p) => ({ userId: p.userId, alive: p.alive }));
+      const turnBefore = room.gameState.currentPlayerIndex;
+      const context = new GameContext(room.gameState, new EffectQueue());
+      const result = dispatcher.dispatch('SUBMIT_INTERACTION', context, {
+        userId,
+        interactionId: room.gameState.activeInteraction.id,
+        responseData: { cardId },
+      });
+
+      if (!result.success) {
+        socket.emit('error', { message: result.error || result.reason || 'Không thể lấy lá bài đã chọn!' });
+        return;
+      }
+
+      await afterGameStateChanged(room, playersBefore, turnBefore);
     });
 
     socket.on('game:bury:respond', async ({ cardId, insertPosition, interactionId }) => {

@@ -43,7 +43,7 @@ export default function PlayerAvatar({
     }
   };
 
-  const currentRank = rank || publicProfile?.rank || 'Bronze IV';
+  const currentRank = rank || publicProfile?.rank || 'Bronze II';
   const currentElo = eloPoints || publicProfile?.eloPoints || 1000;
 
   return (

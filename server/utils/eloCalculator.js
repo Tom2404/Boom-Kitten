@@ -11,11 +11,19 @@ function getActualScore(playerPlacement, opponentPlacement) {
 }
 
 function getKFactor({ elo, gamesPlayed }) {
-  if (gamesPlayed < 10) return 40;
-  if (elo >= 3000) return 16;
-  if (elo >= 2400) return 24;
-  if (elo >= 1600) return 28;
-  return 32;
+  if (gamesPlayed < 10) return 60;
+  if (gamesPlayed < 30) return 45;
+  if (elo >= 2600) return 20;
+  if (elo >= 2200) return 28;
+  if (elo >= 1800) return 32;
+  return 36;
+}
+
+function getStreakBonus(winStreak) {
+  if (winStreak >= 4) return 10;
+  if (winStreak === 3) return 6;
+  if (winStreak === 2) return 3;
+  return 0;
 }
 
 function clamp(value, min, max) {
@@ -48,8 +56,13 @@ function calculateMultiplayerElo(players) {
     const averagePairDelta = totalPairDelta / (playerCount - 1);
     const rawDelta = k * averagePairDelta * multiplier;
 
-    const maxChange = (player.gamesPlayed || 0) < 10 ? 70 : 50;
-    const finalDelta = Math.round(clamp(rawDelta, -maxChange, maxChange));
+    const gamesPlayed = player.gamesPlayed || 0;
+    const maxChange = gamesPlayed < 10 ? 80 : gamesPlayed < 30 ? 65 : 50;
+    let finalDelta = Math.round(clamp(rawDelta, -maxChange, maxChange));
+    const isTopHalf = player.placement <= Math.ceil(playerCount / 2);
+
+    if (gamesPlayed < 10 && isTopHalf && finalDelta < 0) finalDelta = 0;
+    if (player.placement === 1) finalDelta += getStreakBonus(player.winStreak || 0);
 
     const eloAfter = Math.max(MIN_ELO, player.eloBefore + finalDelta);
 
@@ -67,5 +80,6 @@ module.exports = {
   getExpectedScore,
   getActualScore,
   getKFactor,
+  getStreakBonus,
   calculateMultiplayerElo,
 };

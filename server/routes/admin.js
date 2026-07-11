@@ -8,6 +8,7 @@ const AuditLog = require('../models/AuditLog');
 const Season = require('../models/Season');
 const authMiddleware = require('../middleware/authMiddleware');
 const adminMiddleware = require('../middleware/adminMiddleware');
+const { resolveLogUserIds } = require('../utils/adminLogFilters');
 
 const router = express.Router();
 
@@ -353,11 +354,19 @@ router.get('/transactions', async (req, res, next) => {
     const skip = (page - 1) * limit;
 
     const logType = req.query.logType || 'transaction';
+    const matchedUserIds = req.query.userId
+      ? await resolveLogUserIds(req.query.userId, (search) => User.find({
+          $or: [
+            { username: { $regex: escapeRegExp(search), $options: 'i' } },
+            { email: { $regex: escapeRegExp(search), $options: 'i' } },
+          ],
+        }).select('_id'))
+      : null;
 
     if (logType === 'audit') {
       const query = {};
-      if (req.query.userId) {
-        query.adminId = req.query.userId;
+      if (matchedUserIds) {
+        query.adminId = { $in: matchedUserIds };
       }
       if (req.query.type) {
         query.action = req.query.type;
@@ -384,8 +393,8 @@ router.get('/transactions', async (req, res, next) => {
       });
     } else {
       const query = {};
-      if (req.query.userId) {
-        query.userId = req.query.userId;
+      if (matchedUserIds) {
+        query.userId = { $in: matchedUserIds };
       }
       if (req.query.type) {
         query.type = req.query.type;
@@ -705,12 +714,12 @@ router.delete('/seasons/:id', async (req, res, next) => {
 
 function getTieredResetElo(rank) {
   if (!rank) return 1000;
-  if (rank === 'Legend') return 1800; // Gold IV
+  if (rank === 'Legend') return 1800; // Platinum IV
   if (rank.startsWith('Diamond')) return 1500; // Silver III
   if (rank.startsWith('Platinum')) return 1300; // Bronze I
   if (rank.startsWith('Gold')) return 1200; // Bronze II
-  if (rank.startsWith('Silver')) return 1100; // Bronze III
-  return 1000; // Bronze IV
+  if (rank.startsWith('Silver')) return 1100; // Bronze I
+  return 1000; // Bronze II
 }
 
 // POST /api/admin/season-reset - Reset season, award Pink Coins based on Rank, and reset ELO
@@ -740,7 +749,7 @@ router.post('/season-reset', async (req, res, next) => {
 
     await Promise.all(
       users.map(async (user) => {
-        const currentRank = user.rank || 'Bronze IV';
+        const currentRank = user.rank || 'Bronze II';
         const reward = getSeasonEndReward(currentRank);
 
         // Save states

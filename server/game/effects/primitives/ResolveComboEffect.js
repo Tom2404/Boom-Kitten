@@ -24,6 +24,14 @@ class ResolveComboEffect extends BaseEffect {
       }).execute(context, payload);
     }
 
+    if (cardIds.length === 5) {
+      return new RequestInteractionEffect({
+        type: 'combo_5',
+        duration: 15000,
+        onCompleteEffects: [{ type: 'CollectCombo5Response', params: {} }],
+      }).execute(context, payload);
+    }
+
     return { status: 'SUCCESS', data: result };
   }
 }

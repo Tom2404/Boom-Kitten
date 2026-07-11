@@ -11,6 +11,7 @@ const LEGACY_PENDING_KEYS = [
   'pendingGraveRobber',
   'pendingDigDeeper',
   'pendingArmageddon',
+  'pendingCombo5',
 ];
 
 function hasBlockingInteraction(state, { includePendingAction = true, includeNowWindow = false } = {}) {
@@ -106,6 +107,14 @@ function validateDigDeeperResponse(responseData) {
   return { valid: true };
 }
 
+function validateCombo5Response(state, responseData) {
+  const cardId = getCardId(responseData);
+  if (!cardId || !state.discardPile.some((card) => card.id === cardId)) {
+    return { valid: false, reason: 'Lá bài đã chọn không còn trong chồng bài bỏ!' };
+  }
+  return { valid: true };
+}
+
 function validateInteractionResponse(state, userId, responseData) {
   const interaction = state.activeInteraction;
   if (!interaction) {
@@ -126,6 +135,8 @@ function validateInteractionResponse(state, userId, responseData) {
       return validateOwnedCardResponse(state, userId, responseData, { allowEmptyHandSkip: true });
     case 'dig_deeper':
       return validateDigDeeperResponse(responseData);
+    case 'combo_5':
+      return validateCombo5Response(state, responseData);
     default:
       return { valid: true };
   }

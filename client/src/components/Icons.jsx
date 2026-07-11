@@ -29,7 +29,7 @@ export function PlatinumBadge(props) { return <PixelIcon name="badge_platinum" {
 export function DiamondBadge(props) { return <PixelIcon name="badge_diamond" {...props} />; }
 export function LegendBadge(props) { return <PixelIcon name="badge_legend" {...props} />; }
 
-export function RankBadge({ rank = "Bronze IV", className = "w-5 h-5", showText = false }) {
+export function RankBadge({ rank = "Bronze II", className = "w-5 h-5", showText = false }) {
   if (rank.startsWith('Bronze')) return <BronzeBadge className={className} />;
   if (rank.startsWith('Silver')) return <SilverBadge className={className} />;
   if (rank.startsWith('Gold')) return <GoldBadge className={className} />;

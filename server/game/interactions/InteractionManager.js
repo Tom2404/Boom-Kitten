@@ -13,6 +13,7 @@ class InteractionManager {
       grave_robber: 'pendingGraveRobber',
       dig_deeper: 'pendingDigDeeper',
       armageddon: 'pendingArmageddon',
+      combo_5: 'pendingCombo5',
     };
     const key = pendingByType[interactionType];
     if (key) {

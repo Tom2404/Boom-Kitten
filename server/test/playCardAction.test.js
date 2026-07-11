@@ -77,6 +77,31 @@ function createCombo2Context() {
   };
 }
 
+function createCombo5Context() {
+  const comboCards = ['taco', 'watermelon', 'beard', 'rainbow', 'potato'].map((type) => ({
+    id: `cat-${type}`,
+    type: `cat_${type}`,
+  }));
+  const state = {
+    players: [
+      { userId: 'p1', username: 'P1', alive: true, hand: comboCards },
+      { userId: 'p2', username: 'P2', alive: true, hand: [] },
+    ],
+    currentPlayerIndex: 0,
+    playDirection: 1,
+    drawsRequired: 1,
+    deck: [],
+    discardPile: [{ id: 'skip-discarded', type: 'skip' }],
+    maxHandSize: 10,
+  };
+
+  return {
+    state,
+    comboCardIds: comboCards.map((card) => card.id),
+    context: new GameContext(state, new EffectQueue()),
+  };
+}
+
 function playCard(context, state, userId, cardType, targetPlayerId = null, options = {}) {
   const initPayload = { userId, cardType, targetPlayerId, options };
   const initResult = dispatcher.dispatch('PLAY_CARD_INIT', context, initPayload);
@@ -118,6 +143,42 @@ test('PLAY_CARD resolves effect after init when the action is not canceled', () 
   assert.equal(result.success, true);
   assert.equal(state.currentPlayerIndex, 1);
   assert.equal(state.discardPile.length, 1);
+});
+
+test('combo 5 waits for its owner to select a card from the discard pile', () => {
+  const { state, context, comboCardIds } = createCombo5Context();
+
+  const result = dispatcher.dispatch('PLAY_CARD', context, {
+    userId: 'p1',
+    cardType: 'combo_5',
+    options: { cardIds: comboCardIds },
+  });
+
+  assert.equal(result.success, true);
+  assert.equal(state.pendingCombo5.playerId, 'p1');
+  assert.equal(state.activeInteraction.type, 'combo_5');
+  assert.deepEqual(state.activeInteraction.participants, ['p1']);
+});
+
+test('combo 5 response moves the selected discard card to the owner hand', () => {
+  const { state, context, comboCardIds } = createCombo5Context();
+  dispatcher.dispatch('PLAY_CARD', context, {
+    userId: 'p1',
+    cardType: 'combo_5',
+    options: { cardIds: comboCardIds },
+  });
+
+  const result = dispatcher.dispatch('SUBMIT_INTERACTION', context, {
+    userId: 'p1',
+    interactionId: state.activeInteraction.id,
+    responseData: { cardId: 'skip-discarded' },
+  });
+
+  assert.equal(result.success, true);
+  assert.equal(state.activeInteraction, null);
+  assert.equal(state.pendingCombo5, null);
+  assert.equal(state.discardPile.some((card) => card.id === 'skip-discarded'), false);
+  assert.equal(state.players[0].hand.some((card) => card.id === 'skip-discarded'), true);
 });
 
 test('PLAY_CARD resolve creates a socket-compatible active interaction', () => {
