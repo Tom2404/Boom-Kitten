@@ -1,6 +1,6 @@
 import React, { useState, useRef, useMemo } from 'react';
 import Card, { CARD_THEMES } from './Card.jsx';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 
 // Priority order for auto-sort: low number = high priority = leftmost in hand.
 // Same-type cards share the same priority so they cluster naturally.
@@ -91,6 +91,7 @@ export default function PlayerHand({
   players = [],
   myUserId
 }) {
+  const reduceMotion = useReducedMotion();
   const [selectedIds, setSelectedIds] = useState([]);
   const [combo3Pending, setCombo3Pending] = useState(null); // { ids, targetPlayerId }
   const [combo3Step, setCombo3Step] = useState('target'); // 'target' | 'card'
@@ -350,7 +351,7 @@ export default function PlayerHand({
   };
 
   return (
-    <div className={`w-full bg-white border-4 rounded-3xl p-5 flex flex-col gap-4 transition-all duration-300
+    <section aria-label="Bài của bạn" className={`w-full bg-white border-4 rounded-[4px] p-3 sm:p-4 md:p-5 flex flex-col gap-3 md:gap-4 transition-all duration-300
       ${hand.length > maxHandSize 
         ? 'border-rose-500 shadow-[6px_6px_0px_0px_rgba(239,68,68,1)]' 
         : 'border-on-surface shadow-[6px_6px_0px_0px_rgba(26,28,28,1)]'}`}>
@@ -419,7 +420,8 @@ export default function PlayerHand({
             onMouseLeave={handleMouseLeave}
             onMouseUp={handleMouseUp}
             onMouseMove={handleMouseMove}
-            className={`flex ${justifyClass} overflow-x-auto pb-8 pt-12 px-6 custom-scrollbar max-w-full cursor-grab active:cursor-grabbing select-none`}
+            aria-label={`Bài trên tay, ${hand.length} lá`}
+            className={`flex ${justifyClass} touch-pan-x overflow-x-auto pb-5 pt-9 px-3 sm:pb-8 sm:pt-12 sm:px-6 custom-scrollbar max-w-full cursor-grab active:cursor-grabbing select-none`}
           >
             <AnimatePresence mode="popLayout">
               {sortedHand.map((card, index) => {
@@ -442,7 +444,7 @@ export default function PlayerHand({
                   <motion.div
                     key={card.id}
                     layout
-                    initial={{ opacity: 0, x: 200, y: 150, scale: 0.3, rotate: 45 }}
+                    initial={reduceMotion ? false : { opacity: 0, x: 200, y: 150, scale: 0.3, rotate: 45 }}
                     animate={{
                       opacity: 1,
                       x: 0,
@@ -450,7 +452,7 @@ export default function PlayerHand({
                       rotate: isSelected ? 0 : baseRotate,
                       scale: isSelected ? 1.05 : 1,
                       zIndex: isSelected ? 100 : 10 + index,
-                      transition: { type: 'spring', stiffness: 150, damping: 18 }
+                      transition: reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 150, damping: 18 }
                     }}
                     exit={{
                       opacity: 0,
@@ -459,7 +461,7 @@ export default function PlayerHand({
                       rotate: -15,
                       transition: { duration: 0.2 }
                     }}
-                    whileHover={{
+                    whileHover={reduceMotion ? undefined : {
                       y: baseY - 48,
                       rotate: 0,
                       scale: 1.18,
@@ -607,6 +609,6 @@ export default function PlayerHand({
           </div>
         </div>
       )}
-    </div>
+    </section>
   );
 }

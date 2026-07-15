@@ -1,5 +1,6 @@
 import React from 'react';
 import { useGameContext } from '../GameContext.jsx';
+import TurnBanner from './TurnBanner.jsx';
 
 export default function GameTable(props) {
   const context = useGameContext();
@@ -13,6 +14,7 @@ export default function GameTable(props) {
     activePlayerId,
     discardCard,
     displayedDiscardPile,
+    displayState,
     drawCard,
     gameState,
     getOrderedOpponents,
@@ -35,32 +37,15 @@ export default function GameTable(props) {
   return (
     <>
 {/* Game Board (Left 3 or 4 columns depending on sidebar toggle) */}
-<div id="game-board-container" className={`${isSidebarOpen ? 'md:col-span-3' : 'md:col-span-4'} flex flex-col justify-between gap-0 border-4 border-[var(--pop-black)] rounded-none shadow-[8px_8px_0_var(--pop-black)] overflow-hidden bg-[var(--pop-cream)]`}>
+<div id="game-board-container" className={`${isSidebarOpen ? 'lg:col-span-3' : 'lg:col-span-4'} flex min-w-0 flex-col justify-between overflow-hidden border-4 border-[var(--pop-black)] bg-[var(--pop-cream)] shadow-[5px_5px_0_var(--pop-black)] md:shadow-[8px_8px_0_var(--pop-black)]`}>
 
-  {/* Subheader: Turn indicator status */}
-  <div className="flex justify-between items-center bg-white border-b-3 border-[var(--pop-black)] px-6 py-2.5 z-10">
-    <div className="flex items-center gap-1.5">
-      <span className="text-[9px] font-pop-accent font-black text-[var(--pop-black)]/70 uppercase tracking-widest">Trận đấu đang chơi</span>
-      <span className="h-2 w-2 rounded-none bg-[var(--pop-amber)] animate-pulse border-2 border-[var(--pop-black)]" />
-    </div>
-    {isMyTurn ? (
-      <span className="bg-[var(--pop-amber)] text-[var(--pop-black)] font-pop-accent font-black text-[10px] px-3.5 py-1.5 rounded-none border-2 border-[var(--pop-black)] shadow-[1.5px_1.5px_0_var(--pop-black)] animate-pulse">
-        LƯỢT CỦA BẠN: CẦN BỐC {gameState.drawsRequired} LÁ!
-      </span>
-    ) : (
-      gameState.drawsRequired > 1 && (
-        <span className="bg-[var(--pop-red)] text-white font-pop-accent font-black text-[10px] px-3.5 py-1.5 rounded-none border-2 border-[var(--pop-black)] shadow-[1.5px_1.5px_0_var(--pop-black)] animate-bounce">
-          LƯỢT DỒN BỐC: {gameState.drawsRequired} LẦN!
-        </span>
-      )
-    )}
-  </div>
+  <TurnBanner state={displayState} />
 
   {/* Game Canvas Container */}
-  <div className="flex-grow flex flex-col justify-between dotted-grid-bg p-6 relative select-none min-h-[460px]">
+  <div className="dotted-grid-bg relative flex min-h-[430px] flex-grow select-none flex-col justify-between p-3 sm:p-4 md:min-h-[460px] md:p-6">
 
     {/* Opponents Row at the top (Horizontal layout) */}
-    <div className="flex justify-center items-center gap-5 md:gap-10 w-[calc(100%+3rem)] -mx-6 -mt-6 py-3.5 z-10 border-b-3 border-[var(--pop-black)] bg-white/90 shadow-[0_4px_0_var(--pop-black)] mb-4">
+    <div className="z-10 -mx-3 -mt-3 mb-3 flex w-[calc(100%+1.5rem)] items-center justify-start gap-4 overflow-x-auto border-b-3 border-[var(--pop-black)] bg-white/95 px-4 py-3 shadow-[0_3px_0_var(--pop-black)] sm:-mx-4 sm:-mt-4 sm:w-[calc(100%+2rem)] md:-mx-6 md:-mt-6 md:mb-4 md:w-[calc(100%+3rem)] md:justify-center md:gap-10 md:py-3.5">
       {getOrderedOpponents().map((opp) => (
         <div key={opp.userId} className="relative transition-transform duration-150 hover:scale-[1.02]">
           <PlayerAvatar
@@ -77,7 +62,7 @@ export default function GameTable(props) {
     </div>
 
     {/* Board Center: Deck and Discard Pile */}
-    <div className="flex-grow flex items-center justify-center py-6 z-10 w-full relative">
+    <div className="relative z-10 flex w-full flex-grow items-center justify-center py-3 md:py-6">
       {/* Rotating play direction arrows background using pixel-art asset */}
       <div className="turn-direction-indicator">
         <div className={reversePulse ? "turn-direction-pulse" : ""}>
@@ -91,7 +76,7 @@ export default function GameTable(props) {
         </div>
       </div>
 
-      <div className="grid grid-cols-[auto_minmax(160px,220px)_auto] items-center justify-center gap-6 md:gap-8 z-10 relative">
+      <div className="relative z-10 grid w-full grid-cols-[minmax(76px,1fr)_minmax(112px,1.15fr)_minmax(76px,1fr)] items-center justify-center gap-2 sm:grid-cols-[auto_minmax(150px,210px)_auto] sm:gap-4 md:gap-8">
         <div id="board-center-target" className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-0 h-0 pointer-events-none" />
         <DeckPile
           count={gameState.deckCount ?? 0}
@@ -103,12 +88,12 @@ export default function GameTable(props) {
         />
 
         {/* Announcer and Status Message Board */}
-        <div className="flex flex-col items-center gap-3 max-w-[240px] text-center z-10">
-          <div className="bg-white border-3 border-on-surface rounded-2xl px-4 py-3.5 shadow-[4px_4px_0px_0px_#1a1c1c] min-w-[200px]">
-            <span className="text-[9px] font-headline font-black text-primary uppercase tracking-widest block mb-1">
+        <div className="z-10 flex min-w-0 flex-col items-center gap-2 text-center sm:max-w-[210px] md:gap-3 md:max-w-[240px]">
+          <div className="w-full min-w-0 border-3 border-[var(--pop-black)] bg-white px-2 py-2 shadow-[3px_3px_0_var(--pop-black)] sm:min-w-[150px] md:min-w-[200px] md:px-4 md:py-3.5 md:shadow-[4px_4px_0_var(--pop-black)]">
+            <span className="mb-1 block font-pop-accent text-[9px] font-black uppercase tracking-widest text-[var(--pop-red)]">
               Hành Động
             </span>
-            <p className="text-xs font-sans font-bold text-on-surface leading-relaxed min-h-[44px] flex items-center justify-center">
+            <p className="flex min-h-[36px] items-center justify-center font-pop-body text-[10px] font-bold leading-snug text-[var(--pop-black)] sm:text-xs md:min-h-[44px] md:leading-relaxed">
               {getStatusDisplay()}
             </p>
           </div>
@@ -118,6 +103,7 @@ export default function GameTable(props) {
               Mục tiêu: {opponents.find((o) => o.userId === targetPlayerId)?.username || targetPlayerId}
               <button
                 onClick={() => setTargetPlayerId(null)}
+                aria-label="Bỏ chọn mục tiêu"
                 className="hover:scale-110 ml-1.5"
               >
                 ✕
@@ -137,11 +123,11 @@ export default function GameTable(props) {
     </div>
 
     {/* Bottom Row: Player avatar & Hand, nested inside the solid deep red Pop Art bar */}
-    <div className={`w-[calc(100%+3rem)] -mx-6 -mb-6 bg-[var(--pop-red)] border-t-4 p-5 z-10 flex flex-col md:flex-row gap-5 items-stretch justify-between transition-all duration-300
+    <div className={`z-10 -mx-3 -mb-3 flex w-[calc(100%+1.5rem)] flex-col items-stretch justify-between gap-3 border-t-4 bg-[var(--pop-red)] p-3 transition-all duration-300 sm:-mx-4 sm:-mb-4 sm:w-[calc(100%+2rem)] md:-mx-6 md:-mb-6 md:w-[calc(100%+3rem)] md:flex-row md:gap-5 md:p-5
       ${isMyTurn
         ? 'border-[var(--pop-amber)] animate-pulse-gold-glow'
         : 'border-[var(--pop-black)] shadow-[0_-4px_0_var(--pop-black)]'}`}>
-      <div className="flex items-center justify-center bg-black/15 p-4 rounded-none border-3 border-dashed border-white/30 flex-shrink-0">
+      <div className="hidden flex-shrink-0 items-center justify-center border-3 border-dashed border-white/30 bg-black/15 p-4 md:flex">
         {myPlayerState && (
           <div className="flex flex-col items-center gap-4 relative">
             <PlayerAvatar
@@ -177,10 +163,10 @@ export default function GameTable(props) {
 
       {/* Utility sidebar icons in Bottom Bar */}
       <div className="flex md:flex-col justify-center gap-2 flex-shrink-0 self-center">
-        <button className="p-2.5 rounded-none border-2 border-[var(--pop-black)] bg-white shadow-[2px_2px_0_var(--pop-black)] hover:translate-y-[-1px] hover:shadow-[3px_3px_0_var(--pop-black)] active:translate-y-0.5 active:shadow-none transition-all text-[var(--pop-black)]" title="Biểu cảm nhanh">
+        <button disabled aria-label="Biểu cảm nhanh, mở trong bảng chat" className="p-2.5 border-2 border-[var(--pop-black)] bg-white text-[var(--pop-black)] opacity-50 shadow-[2px_2px_0_var(--pop-black)]" title="Biểu cảm nhanh, mở trong bảng chat">
           <SmileIcon className="w-5 h-5" />
         </button>
-        <button className="p-2.5 rounded-none border-2 border-[var(--pop-black)] bg-white shadow-[2px_2px_0_var(--pop-black)] hover:translate-y-[-1px] hover:shadow-[3px_3px_0_var(--pop-black)] active:translate-y-0.5 active:shadow-none transition-all text-[var(--pop-black)]" title="Xem khay bài">
+        <button disabled aria-label="Khay bài, sắp ra mắt" className="p-2.5 border-2 border-[var(--pop-black)] bg-white text-[var(--pop-black)] opacity-50 shadow-[2px_2px_0_var(--pop-black)]" title="Khay bài, sắp ra mắt">
           <CardDrawerIcon className="w-5 h-5" />
         </button>
       </div>

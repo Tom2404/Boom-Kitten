@@ -1899,3 +1899,19 @@ body.lang-vi .font-pixel-body {
     filter: brightness(1) saturate(1);
   }
 }
+
+/* Active game design system */
+.pop-art-theme { --game-surface:#fffaf2; --game-surface-raised:#fff; --game-ink:#171313; --game-muted:#665e5a; --game-brand:var(--pop-red); --game-turn:var(--pop-amber); --game-danger:#b4232c; --game-border:3px; --game-radius:4px; --game-shadow-sm:3px 3px 0 var(--game-ink); --game-shadow-md:6px 6px 0 var(--game-ink); }
+.game-turn-banner { position:relative; z-index:10; display:grid; grid-template-columns:minmax(0,1fr) minmax(16rem,.72fr); align-items:center; gap:1rem; padding:.875rem 1.25rem; color:var(--game-ink); border-bottom:var(--game-border) solid var(--game-ink); background:var(--game-surface-raised); }
+.game-turn-banner--active { background:var(--game-turn); }
+.game-turn-banner--active::before { content:''; width:.55rem; position:absolute; inset:0 auto 0 0; background:var(--game-brand); }
+.game-turn-banner--syncing { background:#f3eee8; }
+.game-turn-banner__eyebrow,.game-loading-state__eyebrow { margin:0 0 .15rem; color:var(--game-muted); font-family:'Roboto Mono',monospace; font-size:.7rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+.game-turn-banner__title,.game-loading-state__title { margin:0; font-family:'Anybody',sans-serif; font-size:clamp(1rem,2vw,1.35rem); font-weight:900; line-height:1.1; text-transform:uppercase; }
+.game-turn-banner__description { margin:0; color:var(--game-muted); font-size:.78rem; font-weight:700; line-height:1.45; }
+.game-loading-state { min-height:60vh; display:flex; align-items:center; justify-content:center; gap:1.5rem; padding:2rem; border:4px solid var(--game-ink,#171313); background:var(--game-surface,#fffaf2); box-shadow:var(--game-shadow-md,6px 6px 0 #171313); }
+.game-loading-state__deck { width:4.5rem; aspect-ratio:.7; border:3px solid var(--game-ink); background:var(--game-brand); box-shadow:5px 5px 0 var(--game-ink); animation:game-deck-wait 1.4s ease-in-out infinite; }
+.game-loading-state__copy { margin:.5rem 0 0; color:var(--game-muted); font-size:.875rem; font-weight:700; }
+@keyframes game-deck-wait { 50% { transform:translateY(-6px) rotate(2deg); } }
+@media (max-width:767px) { .game-turn-banner { grid-template-columns:1fr; gap:.25rem; padding:.75rem 1rem; } .game-turn-banner__description { font-size:.72rem; } .turn-direction-arrows { width:180px; height:180px; opacity:.14; } .game-loading-state { min-height:50vh; flex-direction:column; text-align:center; } }
+@media (prefers-reduced-motion:reduce) { .game-loading-state__deck,.turn-direction-arrows,.animate-pulse-gold-glow,.active-turn-pulse,.animate-pulse,.animate-bounce,.animate-ping { animation:none!important; } .pop-art-theme *,.pop-art-theme *::before,.pop-art-theme *::after { scroll-behavior:auto!important; transition-duration:.01ms!important; } }

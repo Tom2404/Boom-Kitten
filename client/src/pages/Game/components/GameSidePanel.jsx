@@ -13,6 +13,7 @@ export default function GameSidePanel() {
     sendChatMessage,
     sendEmote,
     setRightPanelTab,
+    setIsSidebarOpen,
   } = context;
   const [chatInput, setChatInput] = React.useState('');
 
@@ -27,13 +28,16 @@ export default function GameSidePanel() {
   return (
     <>
 {/* Chat & Lịch Sử Panel (Right 1 column) */}
-<div className={`md:col-span-1 bg-white border-4 border-[var(--pop-black)] shadow-[8px_8px_0_var(--pop-black)] rounded-none p-5 flex flex-col justify-between h-[82vh] ${isSidebarOpen ? 'flex' : 'hidden'}`}>
+<aside id="game-side-panel" aria-label="Chat và lịch sử trận đấu" className={`fixed inset-x-3 bottom-3 top-20 z-40 flex flex-col justify-between border-4 border-[var(--pop-black)] bg-white p-4 shadow-[8px_8px_0_var(--pop-black)] lg:static lg:col-span-1 lg:h-[82vh] lg:p-5 ${isSidebarOpen ? 'flex' : 'hidden'}`}>
+<button type="button" onClick={() => setIsSidebarOpen(false)} className="mb-2 self-end border-2 border-[var(--pop-black)] bg-[var(--pop-cream)] px-3 py-1 font-pop-accent text-xs font-black uppercase shadow-[2px_2px_0_var(--pop-black)] lg:hidden" aria-label="Đóng chat và lịch sử">Đóng</button>
 <div className="flex flex-col gap-4 flex-1 overflow-hidden">
 
   {/* Header Tab Switcher */}
-  <div className="flex border-b-4 border-[var(--pop-black)] pb-2.5 gap-2">
+  <div className="flex gap-2 border-b-4 border-[var(--pop-black)] pb-2.5" role="tablist" aria-label="Nội dung bên trận đấu">
     <button
       onClick={() => setRightPanelTab('chat')}
+      role="tab"
+      aria-selected={rightPanelTab === 'chat'}
       className={`flex-1 py-1.5 rounded-none border-3 border-[var(--pop-black)] font-pop-accent font-black text-xs uppercase shadow-[2px_2px_0_var(--pop-black)] transition-all
         ${rightPanelTab === 'chat'
           ? 'bg-[var(--pop-red)] text-white -translate-y-0.5 shadow-[4px_4px_0_var(--pop-black)]'
@@ -43,6 +47,8 @@ export default function GameSidePanel() {
     </button>
     <button
       onClick={() => setRightPanelTab('log')}
+      role="tab"
+      aria-selected={rightPanelTab === 'log'}
       className={`flex-1 py-1.5 rounded-none border-3 border-[var(--pop-black)] font-pop-accent font-black text-xs uppercase shadow-[2px_2px_0_var(--pop-black)] transition-all
         ${rightPanelTab === 'log'
           ? 'bg-[var(--pop-red)] text-white -translate-y-0.5 shadow-[4px_4px_0_var(--pop-black)]'
@@ -95,7 +101,7 @@ export default function GameSidePanel() {
             );
           })
         )}
-      </div>
+        </div>
     </div>
   )}
 
@@ -141,7 +147,7 @@ export default function GameSidePanel() {
     Gửi
   </button>
 </form>
-      </div>
+      </aside>
     </>
   );
 }

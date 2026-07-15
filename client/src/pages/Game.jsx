@@ -772,6 +772,7 @@ function ExclusiveCard({ cardType, name, skinIndex = 0, fanAngle = 0, fanY = 0 }
 export default function Game({ setPage }) {
   const {
     socket,
+    connectionState,
     roomState,
     gameState,
     privateHand,
@@ -1899,6 +1900,7 @@ export default function Game({ setPage }) {
     armageddonRequest,
     buryRequest,
     chatMessages,
+    connectionState,
     defuseRequest,
     dialogState,
     digDeeperRequest,
