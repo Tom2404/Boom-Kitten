@@ -1,0 +1,11 @@
+
+> meo-no-server@1.0.0 dev
+> node --watch index.js
+
+Failed running 'index.js'. Waiting for file changes before restarting...
+Restarting 'index.js'
+Server listening on http://localhost:5000
+Restarting 'index.js'
+Restarting 'index.js'
+Server listening on http://localhost:5000
+Failed running 'index.js'. Waiting for file changes before restarting...

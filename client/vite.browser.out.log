@@ -1,0 +1,32 @@
+
+> meo-no-client@1.0.0 dev
+> vite --host 127.0.0.1
+
+
+  [32m[1mVITE[22m v5.4.21[39m  [2mready in [0m[1m1077[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://127.0.0.1:[1m2404[22m/[39m
+[2m2:46:31 PM[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/pages/Game/components/OpponentRail.jsx[22m
+[2m2:46:31 PM[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/pages/Game/components/OpponentRail.jsx[22m
+[2m2:46:48 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/styles.css[22m
+[2m2:47:09 PM[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/pages/Game/components/GameSidePanel.jsx[22m
+[2m2:47:18 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/styles.css[22m
+[2m2:47:30 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/styles.css[22m
+[2m2:47:44 PM[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/components/PlayerHand.jsx[22m
+[2m2:47:54 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/styles.css[22m
+[2m2:48:08 PM[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/components/PlayerHand.jsx[22m
+[2m2:48:18 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/styles.css[22m
+[2m2:48:43 PM[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/utils/gameRoomUi.js[22m
+[2m2:49:09 PM[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/components/PlayerAvatar.jsx[22m
+[2m2:49:18 PM[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/pages/Game/components/GameHeader.jsx[22m
+[2m2:49:35 PM[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/components/PlayerHand.jsx[22m
+[2m2:49:43 PM[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/components/PlayerHand.jsx[22m
+[2m2:49:52 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/styles.css[22m
+[2m2:58:55 PM[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/components/ActionModals.jsx[22m
+[2m2:58:55 PM[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/components/DrawReveal.jsx[22m
+[2m2:59:12 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/styles.css[22m
+[2m3:00:27 PM[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/components/ActionModals.jsx[22m
+[2m3:11:24 PM[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/vfx/ParticleManager.js[22m
+[2m3:11:24 PM[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/vfx/PrimitiveEffects.js[22m
+[2m3:11:24 PM[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/vfx/VFXManager.js[22m
+[2m3:16:17 PM[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/vfx/VFXManager.js[22m

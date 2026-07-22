@@ -772,6 +772,7 @@ function ExclusiveCard({ cardType, name, skinIndex = 0, fanAngle = 0, fanY = 0 }
 export default function Game({ setPage }) {
   const {
     socket,
+    connectionState,
     roomState,
     gameState,
     privateHand,
@@ -1474,21 +1475,26 @@ export default function Game({ setPage }) {
     if (!socket) return;
 
     const handleCardDrawn = ({ playerId }) => {
-      setTimeout(() => {
+      // Keep the draw feedback on the shared VFX pipeline. The server emits
+      // this event before mutating the private hand, so it is safe for every
+      // client to show the flight while only the drawing player sees the card
+      // reveal from the private-hand diff below.
+      const queueDrawEffect = () => {
         playDrawCard(playerId);
-      }, 50);
+      };
+
+      if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+        window.requestAnimationFrame(queueDrawEffect);
+      } else {
+        setTimeout(queueDrawEffect, 50);
+      }
     };
 
     // ─── game:cardPlayedPending ──────────────────────────────────────────────
     // Emitted immediately when a card is played while the Nope window is opened.
     // Must NOT trigger any main / card-specific VFX here.
     // Only allowed: small card-fly animation, log, toast.
-    const handleCardPlayedPending = ({ playerId, cardType }) => {
-      const sourceId = playerId === myUser?.id ? 'player-hand-container' : `player-avatar-${playerId}`;
-      setTimeout(() => {
-        // Small card fly into discard — neutral animation, not the main VFX
-        playFlyingCard(sourceId, 'discard-pile-element', cardType);
-      }, 50);
+    const handleCardPlayedPending = () => {
       // No main VFX here. All main VFX are deferred to game:actionResolved.
     };
 
@@ -1497,14 +1503,7 @@ export default function Game({ setPage }) {
     //   1. Nope card (animationOnly: true) — small card fly
     //   2. Discard actions emitted by game:discard handler (no Nope window)
     // Must NOT trigger main VFX for regular action cards.
-    const handleCardPlayed = ({ playerId, cardType, animationOnly }) => {
-      // Guard: only process nope cards or explicit animation-only payloads
-      if (cardType !== 'nope' && !animationOnly) return;
-
-      const sourceId = playerId === myUser?.id ? 'player-hand-container' : `player-avatar-${playerId}`;
-      setTimeout(() => {
-        playFlyingCard(sourceId, 'discard-pile-element', cardType);
-      }, 50);
+    const handleCardPlayed = () => {
       // No main VFX here.
     };
 
@@ -1791,7 +1790,6 @@ export default function Game({ setPage }) {
     setDetailFading,
     setHoveredEdition,
     setIsCreateModalOpen,
-    setIsCreatingRoom,
     setIsEditionDropdownOpen,
     setLastClickedEdition,
     setLobbyBetAmount,
@@ -1912,6 +1910,7 @@ export default function Game({ setPage }) {
     armageddonRequest,
     buryRequest,
     chatMessages,
+    connectionState,
     defuseRequest,
     dialogState,
     digDeeperRequest,

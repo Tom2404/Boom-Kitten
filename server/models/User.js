@@ -1,5 +1,7 @@
 // User schema stores auth, cosmetics, economy, social graph, and ranking stats.
 const mongoose = require('mongoose');
+const { normalizeLegacyRank } = require('../utils/rankNormalization');
+const { getRankFromElo, getRankValue, getTierFromRank } = require('../utils/rankSystem');
 
 const userSchema = new mongoose.Schema(
   {
@@ -34,19 +36,21 @@ const userSchema = new mongoose.Schema(
     rank: {
       type: String,
       enum: [
-        'Bronze IV', 'Bronze III', 'Bronze II', 'Bronze I',
-        'Silver IV', 'Silver III', 'Silver II', 'Silver I',
-        'Gold IV', 'Gold III', 'Gold II', 'Gold I',
+        'Bronze II', 'Bronze I',
+        'Silver III', 'Silver II', 'Silver I',
+        'Gold III', 'Gold II', 'Gold I',
         'Platinum IV', 'Platinum III', 'Platinum II', 'Platinum I',
         'Diamond IV', 'Diamond III', 'Diamond II', 'Diamond I',
         'Legend'
       ],
-      default: 'Bronze IV',
+      default: 'Bronze II',
     },
     eloPoints: { type: Number, default: 1000, index: true },
     highestEloReached: { type: Number, default: 1000 },
     seasonHighestElo: { type: Number, default: 1000 },
     allTimeHighestElo: { type: Number, default: 1000 },
+    rankProtectionGames: { type: Number, default: 0, min: 0 },
+    rankProtectedFloor: { type: Number, default: 0, min: 0 },
     
     // Status and dates
     lastLoginDate: { type: Date },
@@ -58,35 +62,13 @@ const userSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-// Helper function to calculate rank from ELO
-function getRankFromElo(elo) {
-  if (elo >= 3000) return 'Legend';
-  const tiers = ['Bronze', 'Silver', 'Gold', 'Platinum', 'Diamond'];
-  const clampedElo = Math.max(1000, elo);
-  const tierIndex = Math.min(tiers.length - 1, Math.floor((clampedElo - 1000) / 400));
-  const tier = tiers[tierIndex];
-  const subdivisionIndex = Math.min(3, Math.floor(((clampedElo - 1000) % 400) / 100));
-  const subdivisions = ['IV', 'III', 'II', 'I'];
-  return `${tier} ${subdivisions[subdivisionIndex]}`;
-}
-
-const RANK_ORDER = [
-  'Bronze IV', 'Bronze III', 'Bronze II', 'Bronze I',
-  'Silver IV', 'Silver III', 'Silver II', 'Silver I',
-  'Gold IV', 'Gold III', 'Gold II', 'Gold I',
-  'Platinum IV', 'Platinum III', 'Platinum II', 'Platinum I',
-  'Diamond IV', 'Diamond III', 'Diamond II', 'Diamond I',
-  'Legend'
-];
-
-function getRankValue(rankName) {
-  return RANK_ORDER.indexOf(rankName);
-}
-
-function getTierFromRank(rankName) {
-  if (!rankName) return 'Bronze';
-  return rankName.split(' ')[0];
-}
+// Normalize records created before rank subdivisions were introduced.
+// This must run before validation so legacy values such as "Bronze" do not
+// block unrelated saves (currency adjustments, ELO updates, season resets).
+userSchema.pre('validate', function (next) {
+  this.rank = normalizeLegacyRank(this.rank);
+  next();
+});
 
 // Automatically update rank and award Pink Coins (gems) on rank-up
 userSchema.pre('save', function (next) {
@@ -101,7 +83,7 @@ userSchema.pre('save', function (next) {
   }
 
   if (this.isModified('eloPoints') || this.isNew) {
-    const oldRank = this.rank || 'Bronze IV';
+    const oldRank = this.rank || 'Bronze II';
     const newRank = getRankFromElo(this.eloPoints);
     this.rank = newRank;
 

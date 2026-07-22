@@ -15,6 +15,7 @@ export function useRoomSync({
   const [gameEnded, setGameEnded] = useState(null);
   const [chatMessages, setChatMessages] = useState([]);
   const [actionLog, setActionLog] = useState([]);
+  const [connectionState, setConnectionState] = useState(socket.connected ? 'connected' : 'connecting');
 
   const roomStateRef = useRef(roomState);
   const gameStateRef = useRef(gameState);
@@ -117,6 +118,10 @@ export function useRoomSync({
       setStatusMessage(t('log_error', { message }));
     };
 
+    const onConnect = () => setConnectionState('connected');
+    const onDisconnect = () => setConnectionState('reconnecting');
+    const onConnectError = () => setConnectionState('error');
+
     socket.on('room:updated', onRoomUpdated);
     socket.on('game:stateUpdate', onStateUpdate);
     socket.on('game:privateHand', onPrivateHand);
@@ -124,6 +129,9 @@ export function useRoomSync({
     socket.on('error', onError);
     socket.on('room:kicked', onRoomKicked);
     socket.on('game:ended', onGameEnded);
+    socket.on('connect', onConnect);
+    socket.on('disconnect', onDisconnect);
+    socket.on('connect_error', onConnectError);
 
     return () => {
       socket.off('room:updated', onRoomUpdated);
@@ -133,6 +141,9 @@ export function useRoomSync({
       socket.off('chat:message', onChatMessage);
       socket.off('error', onError);
       socket.off('room:kicked', onRoomKicked);
+      socket.off('connect', onConnect);
+      socket.off('disconnect', onDisconnect);
+      socket.off('connect_error', onConnectError);
     };
   }, [socket]);
 
@@ -148,5 +159,6 @@ export function useRoomSync({
     chatMessages,
     actionLog,
     setActionLog,
+    connectionState,
   };
 }

@@ -3,6 +3,7 @@ import { formatCardName } from '../utils/cardHelpers.js';
 import { getCardImageUrl } from '../utils/cardSkins.js';
 import { RankBadge } from './Icons.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
+import { getPlayerStatus } from '../utils/gameRoomUi.js';
 
 const RANK_BADGES = {
   Bronze: '🟫 BRONZE',
@@ -31,6 +32,7 @@ export default function PlayerAvatar({
   edition,
   isWaitingBK,
   status,
+  compact = false,
 }) {
   const { t } = useLanguage();
   const { userId, username, alive, handCount, avatar, activeAvatarFrame, eloPoints, rank, markedCards, pendingTakeFrom } = player;
@@ -43,8 +45,57 @@ export default function PlayerAvatar({
     }
   };
 
-  const currentRank = rank || publicProfile?.rank || 'Bronze IV';
+  const currentRank = rank || publicProfile?.rank || 'Bronze II';
   const currentElo = eloPoints || publicProfile?.eloPoints || 1000;
+
+  if (compact) {
+    const Seat = isTargetable ? 'button' : 'article';
+    const avatarContent = avatar && PRESET_AVATARS[avatar]
+      ? PRESET_AVATARS[avatar]
+      : username?.slice(0, 2).toUpperCase() || '?';
+    const playerStatus = getPlayerStatus({
+      alive,
+      isCurrentTurn,
+      isTargetable,
+      isSelectedTarget,
+      isWaiting: Boolean(isWaitingBK || pendingTakeFrom),
+    });
+
+    return (
+      <Seat
+        {...(isTargetable ? { type: 'button' } : {})}
+        id={`player-avatar-${userId}`}
+        onClick={handleSelect}
+        className={`game-opponent-seat ${isCurrentTurn ? 'game-opponent-seat--active' : ''} ${isTargetable ? 'game-opponent-seat--targetable' : ''} ${isSelectedTarget ? 'game-opponent-seat--selected' : ''} ${!alive ? 'game-opponent-seat--out' : ''}`}
+        data-player-status={playerStatus}
+        aria-label={isTargetable ? `${isSelectedTarget ? 'Bỏ chọn' : 'Chọn'} ${username || userId} làm mục tiêu` : undefined}
+        aria-pressed={isTargetable ? Boolean(isSelectedTarget) : undefined}
+      >
+        <span className="game-opponent-seat__portrait" aria-hidden="true">
+          {avatar && !PRESET_AVATARS[avatar] ? (
+            <img src={avatar} alt="" />
+          ) : (
+            <span>{alive ? avatarContent : 'RIP'}</span>
+          )}
+        </span>
+        <span className="game-opponent-seat__identity">
+          <strong>{username || userId}</strong>
+          <small>{alive ? `${handCount ?? 0} lá${isCurrentTurn ? ', đang lượt' : ''}` : edition === 'zombie' ? 'Zombie' : 'Đã nổ'}</small>
+        </span>
+        {isWaitingBK && alive && <span className="game-opponent-seat__alert">Sủa</span>}
+        {pendingTakeFrom && alive && <span className="game-opponent-seat__alert">Bị cướp</span>}
+        {visibleMarkedCards.length > 0 && (
+          <span className="game-opponent-seat__marked" aria-label={`${visibleMarkedCards.length + hiddenMarkedCount} lá bài bị lộ`}>
+            {visibleMarkedCards.map((card) => {
+              const imageUrl = getCardImageUrl(card.type, card.skinIndex ?? 0);
+              return imageUrl ? <img key={card.id} src={imageUrl} alt={formatCardName(card.type)} /> : null;
+            })}
+            {hiddenMarkedCount > 0 && <b>+{hiddenMarkedCount}</b>}
+          </span>
+        )}
+      </Seat>
+    );
+  }
 
   return (
     <div className="flex flex-row items-start gap-2 relative">

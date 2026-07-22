@@ -11,6 +11,7 @@ class VFXManager {
     this.isInitializing = false;
     this.assetLoader = null;
     this.readyPromise = null;
+    this.lifecycleId = 0;
   }
 
   /**
@@ -21,16 +22,17 @@ class VFXManager {
     if (this.isInitialized) return Promise.resolve(true);
     if (this.isInitializing) return this.readyPromise;
     this.isInitializing = true;
+    const lifecycleId = ++this.lifecycleId;
 
     this.app = new PIXI.Application();
     this.assetLoader = new AssetLoader(this);
     
     // PixiJS v8 standard initialization
-    this.readyPromise = this.setupApp(canvasView, this.app);
+    this.readyPromise = this.setupApp(canvasView, this.app, lifecycleId);
     return this.readyPromise;
   }
 
-  async setupApp(canvasView, currentApp) {
+  async setupApp(canvasView, currentApp, lifecycleId) {
     try {
       await currentApp.init({
         canvas: canvasView,
@@ -40,7 +42,7 @@ class VFXManager {
         autoDensity: true,
       });
 
-      if (this.app !== currentApp) return; // Bị destroy hoặc thay thế giữa chừng
+      if (this.app !== currentApp || this.lifecycleId !== lifecycleId) return;
 
       this.setupLayers();
       particleManager.init(this); // Khởi tạo Particle Engine
@@ -50,7 +52,7 @@ class VFXManager {
         await this.assetLoader.loadAll();
       }
 
-      if (this.app !== currentApp) return; // Bị destroy hoặc thay thế giữa chừng lúc đang load asset
+      if (this.app !== currentApp || this.lifecycleId !== lifecycleId) return;
 
       this.isInitialized = true;
       console.log('[VFXManager] PixiJS Initialized.');
@@ -59,7 +61,9 @@ class VFXManager {
       console.error('[VFXManager] Init Error:', error);
       return false;
     } finally {
-      this.isInitializing = false;
+      if (this.lifecycleId === lifecycleId) {
+        this.isInitializing = false;
+      }
     }
   }
 
@@ -128,6 +132,7 @@ class VFXManager {
   }
 
   clearTransientLayers() {
+    particleManager.clear();
     [
       'EFFECTS_UNDER',
       'ACTIVE_CARD',
@@ -139,20 +144,33 @@ class VFXManager {
   }
 
   destroy() {
+    const currentApp = this.app;
+    const pendingReady = this.readyPromise;
+    const wasInitializing = this.isInitializing;
+    this.lifecycleId += 1;
     this.clearTransientLayers();
-    if (this.app) {
-      try {
-        this.app.destroy(false, { children: true });
-      } catch (e) {
-        console.warn('[VFXManager] Destroy Error:', e);
-      }
-      this.app = null;
-      this.layers = {};
-      this.assetLoader = null;
-    }
+    particleManager.destroy();
+    this.app = null;
+    this.layers = {};
+    this.assetLoader = null;
     this.isInitialized = false;
     this.isInitializing = false;
     this.readyPromise = null;
+
+    const destroyApp = () => {
+      if (!currentApp) return;
+      try {
+        currentApp.destroy(false, { children: true });
+      } catch (e) {
+        console.warn('[VFXManager] Destroy Error:', e);
+      }
+    };
+
+    if (wasInitializing && pendingReady) {
+      Promise.resolve(pendingReady).finally(destroyApp);
+    } else {
+      destroyApp();
+    }
   }
 }
 

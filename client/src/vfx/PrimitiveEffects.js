@@ -1,5 +1,7 @@
 import * as PIXI from 'pixi.js';
 import { gsap } from 'gsap';
+import { particleManager } from './ParticleManager';
+import { createTrailSeed, sampleGlitterTrailPoint } from './config/glitterTrailConfig';
 
 export const isReducedMotion = () => {
   if (typeof window === 'undefined' || !window.matchMedia) return false;
@@ -330,53 +332,38 @@ export const PrimitiveEffects = {
       duration = 0.72,
       spread = 44,
       layerName = 'EFFECTS_OVER',
+      seed = createTrailSeed(start, end, count),
     } = options;
     const layer = vfxManager?.getLayer?.(layerName);
     const tl = gsap.timeline();
     if (!layer) return tl;
 
     const reduced = isReducedMotion();
-    const group = new PIXI.Container();
-    layer.addChild(group);
-    const particles = reduced ? Math.min(count, 8) : count;
-    const dx = end.x - start.x;
-    const dy = end.y - start.y;
-    const length = Math.max(1, Math.hypot(dx, dy));
-    const normal = { x: -dy / length, y: dx / length };
-    const back = { x: -dx / length, y: -dy / length };
+    const actualDuration = reduced ? Math.min(duration, 0.24) : duration;
+    const trail = particleManager.createGlitterTrail({
+      color,
+      accent,
+      count: reduced ? Math.min(count, 8) : count,
+      size,
+      spread,
+      duration: actualDuration,
+      layerName,
+    });
+    if (!trail) return tl;
 
-    for (let i = 0; i < particles; i += 1) {
-      const progress = i / Math.max(1, particles - 1);
-      const jitter = ((i % 5) - 2) * spread * 0.16;
-      const pixelSize = size * (0.65 + (i % 4) * 0.14);
-      const pixel = makePixelRect(pixelSize, pixelSize, i % 4 === 0 ? accent : color, 0.92);
-      pixel.position.set(
-        start.x + dx * progress + normal.x * jitter,
-        start.y + dy * progress + normal.y * jitter,
-      );
-      pixel.alpha = 0;
-      pixel.scale.set(0.45);
-      group.addChild(pixel);
-
-      const delay = reduced ? i * 0.01 : i * 0.018;
-      tl.to(pixel, {
-        alpha: 1,
-        scaleX: 1,
-        scaleY: 1,
-        duration: duration * 0.18,
-        ease: 'steps(3)',
-      }, delay).to(pixel, {
-        x: pixel.x + back.x * (38 + (i % 4) * 16),
-        y: pixel.y + back.y * (38 + (i % 4) * 16),
-        alpha: 0,
-        scaleX: 0.35,
-        scaleY: 0.35,
-        duration: duration * 0.58,
-        ease: 'power2.out',
-      }, delay + duration * 0.16);
-    }
-
-    tl.call(() => safeDestroy(group));
+    const head = { progress: 0 };
+    const stopTrail = () => trail.stop();
+    tl.call(() => trail.start(start), null, 0).to(head, {
+      progress: 1,
+      duration: actualDuration,
+      ease: 'power1.inOut',
+      onUpdate: () => {
+        trail.moveTo(sampleGlitterTrailPoint(start, end, head.progress, { spread, seed }));
+      },
+      onComplete: stopTrail,
+      onInterrupt: stopTrail,
+    }, 0);
+    tl.eventCallback('onInterrupt', stopTrail);
     return tl;
   },
 

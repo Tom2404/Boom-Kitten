@@ -358,6 +358,16 @@ export default function Card({ type, skinIndex = 0, selected, onClick, disabled,
     <>
       <div
         onClick={!disabled ? onClick : undefined}
+        role={onClick && !disabled ? 'button' : undefined}
+        tabIndex={onClick && !disabled ? 0 : undefined}
+        aria-pressed={onClick && !disabled ? Boolean(selected) : undefined}
+        aria-label={onClick && !disabled ? `${selected ? 'Bỏ chọn' : 'Chọn'} ${cardName}` : undefined}
+        onKeyDown={onClick && !disabled ? (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onClick();
+          }
+        } : undefined}
         onDoubleClick={!disabled ? (e) => {
           e.stopPropagation();
           setIsDetailOpen(true);
@@ -377,16 +387,18 @@ export default function Card({ type, skinIndex = 0, selected, onClick, disabled,
         )}
         {/* Info button */}
         {!hideInfo && (
-          <span
+          <button
+            type="button"
             onClick={(e) => {
               e.stopPropagation();
               setIsDetailOpen(true);
             }}
-            className="absolute top-1 right-1 z-20 material-symbols-outlined text-[16px] leading-none text-slate-300 bg-slate-900/60 hover:bg-slate-900 p-1 rounded-full hover:scale-110 transition-transform cursor-pointer shadow-sm border border-white/20"
+            aria-label={`${t('card_detail_title')}: ${cardName}`}
+            className="absolute top-1 right-1 z-20 material-symbols-outlined text-[16px] leading-none text-slate-300 bg-slate-900/80 hover:bg-slate-900 p-1 rounded-md hover:scale-105 transition-transform cursor-pointer shadow-sm border border-white/30"
             title={t('card_detail_title')}
           >
             info
-          </span>
+          </button>
         )}
 
         {/* Main Image Area - filling the middle */}

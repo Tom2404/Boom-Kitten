@@ -1,6 +1,7 @@
 import React, { useState, useRef, useMemo } from 'react';
 import Card, { CARD_THEMES } from './Card.jsx';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { getHandActionLabel, getHandDockState } from '../utils/gameRoomUi.js';
 
 // Priority order for auto-sort: low number = high priority = leftmost in hand.
 // Same-type cards share the same priority so they cluster naturally.
@@ -91,6 +92,8 @@ export default function PlayerHand({
   players = [],
   myUserId
 }) {
+  const reduceMotion = useReducedMotion();
+  const dockState = getHandDockState({ handCount: hand.length, maxHandSize, isMyTurn });
   const [selectedIds, setSelectedIds] = useState([]);
   const [combo3Pending, setCombo3Pending] = useState(null); // { ids, targetPlayerId }
   const [combo3Step, setCombo3Step] = useState('target'); // 'target' | 'card'
@@ -311,23 +314,23 @@ export default function PlayerHand({
     }
   }, [selectedIds, hand, maxHandSize, isComboPlayable, isSinglePlayable]);
 
-  const buttonText = useMemo(() => {
-    if (hand.length > maxHandSize) {
-      return "Bỏ Bài";
-    }
-    if (selectedIds.length === 0) {
-      return "Đánh Bài";
-    }
-    const selected = hand.filter((c) => selectedIds.includes(c.id));
-    const firstCard = selected[0];
-    const isCat = isCatCardType(firstCard.type);
+  const buttonText = getHandActionLabel({
+    canPerformAction,
+    comboCount: selectedCards.length > 0 && isCatCardType(selectedCards[0].type)
+      ? selectedCards.length
+      : 0,
+    isMyTurn,
+    mustDiscard: hand.length > maxHandSize,
+    selectedCount: selectedIds.length,
+  });
 
-    if (isCat) {
-      return `Combo ${selected.length} Lá Mèo`;
-    } else {
-      return "Đánh Bài";
-    }
-  }, [selectedIds, hand, maxHandSize]);
+  const actionHint = hand.length > maxHandSize
+    ? `Bạn phải bỏ bài xuống còn ${maxHandSize} lá.`
+    : selectedIds.length === 0
+      ? (isMyTurn ? 'Chọn một lá để chơi, hoặc chọn các lá mèo để tạo combo.' : 'Chờ đến lượt của bạn để thực hiện hành động.')
+      : !canPerformAction
+        ? 'Lựa chọn hiện tại chưa hợp lệ cho hành động này.'
+        : 'Sẵn sàng thực hiện hành động.';
 
   const handleButtonClick = () => {
     if (!canPerformAction) return;
@@ -350,35 +353,32 @@ export default function PlayerHand({
   };
 
   return (
-    <div className={`w-full bg-white border-4 rounded-3xl p-5 flex flex-col gap-4 transition-all duration-300
-      ${hand.length > maxHandSize 
-        ? 'border-rose-500 shadow-[6px_6px_0px_0px_rgba(239,68,68,1)]' 
-        : 'border-on-surface shadow-[6px_6px_0px_0px_rgba(26,28,28,1)]'}`}>
+    <section aria-label="Bài của bạn" className={`game-hand game-hand--${dockState}`}>
       {/* Control Actions Bar */}
-      <div className="flex justify-between items-center border-b-3 border-on-surface pb-3 flex-wrap gap-4">
-        <div className="flex items-center gap-2">
-          <span className="text-base font-headline font-black text-on-surface uppercase">BÀI CỦA BẠN</span>
-          <span className="bg-primary-fixed text-xs px-2.5 py-0.5 rounded-full text-on-surface border-2 border-on-surface shadow-[1px_1px_0px_0px_#1a1c1c] font-headline font-black">
+      <div className="game-hand__toolbar">
+        <div className="game-hand__summary">
+          <span>Bài của bạn</span>
+          <span className="game-hand__count">
             {hand.length} lá
           </span>
           {isMyTurn && hand.length <= maxHandSize && (
-            <span className="bg-yellow-400 text-slate-950 text-xs px-3 py-0.5 rounded-full font-headline font-black border-2 border-on-surface shadow-[1px_1px_0px_0px_#1a1c1c] animate-pulse">
-              ĐẾN LƯỢT!
+            <span className="game-hand__state">
+              Đến lượt
             </span>
           )}
           {hand.length > maxHandSize && (
-            <span className="bg-rose-500 text-white text-xs px-3 py-0.5 rounded-full font-headline font-black border-2 border-on-surface shadow-[1px_1px_0px_0px_#1a1c1c] animate-pulse">
-              BẮT BUỘC HỦY BÀI (&gt;{maxHandSize} LÁ)!
+            <span className="game-hand__state">
+              Phải bỏ bài (&gt;{maxHandSize} lá)
             </span>
           )}
         </div>
 
-        <div className="flex gap-2 items-center flex-wrap">
+        <div className="game-hand__actions">
 
           {selectedIds.length > 0 && (
             <button
               onClick={clearSelection}
-              className="px-4 py-1.5 rounded-xl text-xs bg-surface border-2 border-on-surface hover:bg-slate-100 font-headline font-black uppercase shadow-[1.5px_1.5px_0px_0px_#1a1c1c] active:translate-y-0.5 active:shadow-none"
+              className="game-pixel-button game-pixel-button--muted"
             >
               Hủy Chọn ({selectedIds.length})
             </button>
@@ -387,26 +387,24 @@ export default function PlayerHand({
           <button
             onClick={handleButtonClick}
             disabled={!canPerformAction}
-            className={`rounded-xl font-headline font-black uppercase transition-all duration-100 relative
-              ${hand.length > maxHandSize
-                ? 'px-7 py-2.5 text-sm bg-rose-500 text-white border-3 border-on-surface border-b-[6px] shadow-[4px_4px_0px_0px_#1a1c1c] hover:scale-105 hover:-translate-y-0.5 active:translate-x-1 active:translate-y-1 active:border-b-3 active:shadow-none animate-bounce z-30'
-                : 'btn-detonator px-5 py-1.5 text-xs'
-              }`}
+            aria-describedby="game-hand-action-hint"
+            className={`game-pixel-button ${hand.length > maxHandSize ? 'game-pixel-button--danger' : 'game-pixel-button--primary'}`}
           >
             {buttonText}
           </button>
         </div>
       </div>
+      <p id="game-hand-action-hint" className="game-hand__helper" role="status">{actionHint}</p>
 
       {/* Cards List container with horizontal scrolling */}
       {hand.length === 0 ? (
-        <div className="h-44 flex items-center justify-center text-on-surface-variant text-sm border-3 border-dashed border-on-surface rounded-2xl bg-surface font-headline font-black uppercase">
+        <div className="game-hand__empty">
           Không có lá bài nào trên tay. Hãy bốc bài!
         </div>
       ) : (() => {
         const totalCards = sortedHand.length;
         const midIndex = (totalCards - 1) / 2;
-        const overlap = totalCards > 1 ? Math.min(40, 12 + (totalCards - 2) * 3) : 0;
+        const overlap = totalCards > 1 ? Math.min(32, 10 + (totalCards - 2) * 2.5) : 0;
         const justifyClass = totalCards <= 6
           ? 'justify-center'
           : (totalCards <= 11 ? 'justify-start md:justify-center' : 'justify-start');
@@ -419,7 +417,8 @@ export default function PlayerHand({
             onMouseLeave={handleMouseLeave}
             onMouseUp={handleMouseUp}
             onMouseMove={handleMouseMove}
-            className={`flex ${justifyClass} overflow-x-auto pb-8 pt-12 px-6 custom-scrollbar max-w-full cursor-grab active:cursor-grabbing select-none`}
+            aria-label={`Bài trên tay, ${hand.length} lá`}
+            className={`game-hand__cards ${justifyClass}`}
           >
             <AnimatePresence mode="popLayout">
               {sortedHand.map((card, index) => {
@@ -442,7 +441,7 @@ export default function PlayerHand({
                   <motion.div
                     key={card.id}
                     layout
-                    initial={{ opacity: 0, x: 200, y: 150, scale: 0.3, rotate: 45 }}
+                    initial={reduceMotion ? false : { opacity: 0, x: 200, y: 150, scale: 0.3, rotate: 45 }}
                     animate={{
                       opacity: 1,
                       x: 0,
@@ -450,7 +449,7 @@ export default function PlayerHand({
                       rotate: isSelected ? 0 : baseRotate,
                       scale: isSelected ? 1.05 : 1,
                       zIndex: isSelected ? 100 : 10 + index,
-                      transition: { type: 'spring', stiffness: 150, damping: 18 }
+                      transition: reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 150, damping: 18 }
                     }}
                     exit={{
                       opacity: 0,
@@ -459,10 +458,10 @@ export default function PlayerHand({
                       rotate: -15,
                       transition: { duration: 0.2 }
                     }}
-                    whileHover={{
-                      y: baseY - 48,
+                    whileHover={reduceMotion ? undefined : {
+                      y: baseY - 36,
                       rotate: 0,
-                      scale: 1.18,
+                      scale: 1.08,
                       zIndex: 200,
                       transition: { duration: 0.12, ease: 'easeOut' }
                     }}
@@ -503,7 +502,7 @@ export default function PlayerHand({
               {combo3Step === 'target' ? (
                 <>
                   <div className="flex flex-col gap-1">
-                    <span className="text-lg font-headline font-black text-primary uppercase tracking-wide">3 Mèo Combo: Bước 1</span>
+                      <span className="game-modal-step game-modal-step--active text-lg font-headline font-black text-primary uppercase tracking-wide">3 Mèo Combo: Bước 1 / 2</span>
                     <p className="text-xs font-bold text-slate-500">Chọn mục tiêu để lấy bài:</p>
                   </div>
                   <div className="flex flex-col gap-2 max-h-60 overflow-y-auto pr-1">
@@ -534,7 +533,7 @@ export default function PlayerHand({
               ) : (
                 <>
                   <div className="flex flex-col gap-1">
-                    <span className="text-lg font-headline font-black text-primary uppercase tracking-wide">3 Mèo Combo: Bước 2</span>
+                      <span className="game-modal-step game-modal-step--active text-lg font-headline font-black text-primary uppercase tracking-wide">3 Mèo Combo: Bước 2 / 2</span>
                     <p className="text-xs font-bold text-slate-500">
                       Chọn loại bài muốn lấy từ <span className="text-indigo-600 font-bold uppercase">{players.find(p => p.userId === combo3Pending.targetPlayerId)?.username || 'đối thủ'}</span>:
                     </p>
@@ -607,6 +606,6 @@ export default function PlayerHand({
           </div>
         </div>
       )}
-    </div>
+    </section>
   );
 }

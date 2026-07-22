@@ -1,5 +1,6 @@
 const BaseEffect = require('./BaseEffect');
 const InteractionManager = require('../../interactions/InteractionManager');
+const { getInteractionParticipants } = require('../../interactions/interactionPolicy');
 
 class RequestInteractionEffect extends BaseEffect {
   execute(context, payload = {}) {
@@ -8,18 +9,6 @@ class RequestInteractionEffect extends BaseEffect {
     const duration = this.params.duration || 10000; // time limit in ms, optional
 
     const owner = payload.userId;
-    const alivePlayers = state.players.filter((p) => p.alive);
-    const participantsByType = {
-      alter_the_future: [owner],
-      bury: [owner],
-      dig_deeper: [owner],
-      armageddon: [owner],
-      favor: payload.targetPlayerId ? [payload.targetPlayerId] : [],
-      feed_the_dead: alivePlayers.filter((p) => p.userId !== owner).map((p) => p.userId),
-      pot_luck: alivePlayers.map((p) => p.userId),
-      garbage_collection: alivePlayers.map((p) => p.userId),
-      grave_robber: state.players.filter((p) => !p.alive && p.hand.length > 0).map((p) => p.userId),
-    };
 
     const metadata = {
       ...(this.params.metadata || {}),
@@ -38,7 +27,11 @@ class RequestInteractionEffect extends BaseEffect {
     const interaction = InteractionManager.createInteraction(context, {
       type: interactionType,
       owner,
-      participants: participantsByType[interactionType] || [owner],
+      participants: getInteractionParticipants(state, {
+        type: interactionType,
+        owner,
+        targetPlayerId: payload.targetPlayerId,
+      }),
       metadata,
       timeout: duration,
       onCompleteEffects: this.params.onCompleteEffects || [],
@@ -65,6 +58,8 @@ class RequestInteractionEffect extends BaseEffect {
       state.pendingGraveRobber = { playerId: payload.userId, startedAt: Date.now() };
     } else if (interactionType === 'armageddon') {
       state.pendingArmageddon = { playerId: payload.userId, targetPlayerId: payload.targetPlayerId, stage: 'distribute', startedAt: Date.now() };
+    } else if (interactionType === 'combo_5') {
+      state.pendingCombo5 = { playerId: payload.userId, startedAt: Date.now() };
     }
 
     return { status: 'WAIT_INPUT', data: { interaction } };

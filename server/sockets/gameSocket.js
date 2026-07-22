@@ -6,8 +6,14 @@ const GameContext = require('../game/state/GameContext');
 const EffectQueue = require('../game/effects/EffectQueue');
 const { hasBlockingInteraction } = require('../game/interactions/interactionGuards');
 const {
+  getNopeResponseOwnerId,
+  isNopeResponderEligible,
+  sanitizeActiveInteractionForPublic,
+} = require('../game/interactions/interactionPolicy');
+const {
   buildInteractionRequestPayload,
   buildNormalizedInteractionRequest,
+  buildReconnectInteractionRequest,
   getInteractionEventName,
 } = require('./interactionEvents');
 const {
@@ -48,6 +54,7 @@ const Transaction = require('../models/Transaction');
 const Quest = require('../models/Quest');
 const UserQuestProgress = require('../models/UserQuestProgress');
 const { calculateMultiplayerElo } = require('../utils/eloCalculator');
+const { applyTierProtection } = require('../utils/rankSystem');
 const Season = require('../models/Season');
 
 async function updateQuestProgress(userId, actionType, count = 1) {
@@ -120,6 +127,7 @@ function sanitizePublicGameState(gameState) {
         }
       : null,
     pendingTargetSelect: gameState.pendingTargetSelect || null,
+    activeInteraction: sanitizeActiveInteractionForPublic(gameState.activeInteraction),
     players: gameState.players.map((player) => ({
       userId: player.userId,
       username: player.username,
@@ -234,6 +242,7 @@ async function finalizeGame(io, room) {
           userId: p.userId,
           eloBefore: dbUser.eloPoints || 1000,
           gamesPlayed: dbUser.stats?.totalGames || 0,
+          winStreak: rankEntry?.placement === 1 ? (dbUser.stats?.currentStreak || 0) + 1 : 0,
           placement: rankEntry ? rankEntry.placement : playersInGame.length
         };
       });
@@ -286,8 +295,20 @@ async function finalizeGame(io, room) {
         }
 
         // Apply Elo Points change
-        const eloChange = eloChanges[entry.userId] || 0;
-        user.eloPoints = Math.max(1000, (user.eloPoints || 1000) + eloChange);
+        const eloBefore = user.eloPoints || 1000;
+        const requestedEloChange = eloChanges[entry.userId] || 0;
+        const protectedResult = isRanked
+          ? applyTierProtection({
+              eloBefore,
+              eloAfter: Math.max(1000, eloBefore + requestedEloChange),
+              protectionGames: user.rankProtectionGames || 0,
+              protectedFloor: user.rankProtectedFloor || 0,
+            })
+          : { eloAfter: eloBefore, protectionGames: user.rankProtectionGames || 0, protectedFloor: user.rankProtectedFloor || 0 };
+        user.eloPoints = protectedResult.eloAfter;
+        user.rankProtectionGames = protectedResult.protectionGames;
+        user.rankProtectedFloor = protectedResult.protectedFloor;
+        eloChanges[entry.userId] = user.eloPoints - eloBefore;
 
         await user.save();
 
@@ -440,6 +461,7 @@ module.exports = function registerGameSocket(io) {
     const timeoutMs = getNowWindowTimeout();
     action.timeoutMs = timeoutMs;
     action.passedPlayers = [];
+    action.responseOwnerId = getNopeResponseOwnerId(action);
     room.gameState.pendingAction = action;
 
     io.to(room.code).emit('game:nopeWindow', {
@@ -447,6 +469,7 @@ module.exports = function registerGameSocket(io) {
       timeoutMs,
       cardType: action.cardType,
       actingPlayerId: action.playerId,
+      responseOwnerId: action.responseOwnerId,
       targetPlayerId: action.targetPlayerId,
       nopeCount: action.nopeCount || 0,
     });
@@ -951,6 +974,10 @@ module.exports = function registerGameSocket(io) {
           if (player) {
             socket.emit('game:privateHand', { cards: getPrivateHandCards(player) });
           }
+          const resumedRequest = buildReconnectInteractionRequest(activeRoom.gameState, userId);
+          if (resumedRequest) {
+            socket.emit('interaction:request', resumedRequest);
+          }
         }
       }, 200);
     }
@@ -1453,6 +1480,7 @@ module.exports = function registerGameSocket(io) {
       const room = getRoomState(roomCode);
       const pending = room?.gameState?.pendingAction;
       if (!pending || pending.eventId !== originalEventId) return;
+      if (!isNopeResponderEligible(room.gameState, pending, userId)) return;
 
       if (!isNopeableAction(pending.cardType)) {
         socket.emit('error', { message: 'Không thể Nope hành động này!' });
@@ -1475,6 +1503,7 @@ module.exports = function registerGameSocket(io) {
       });
 
       pending.nopeCount += 1;
+      pending.responseOwnerId = userId;
       updateQuestProgress(userId, 'nope_card', 1);
 
       const newEventId = `${Date.now()}-${Math.random()}`;
@@ -1488,6 +1517,7 @@ module.exports = function registerGameSocket(io) {
       const room = getRoomState(roomCode);
       const pending = room?.gameState?.pendingAction;
       if (!pending || pending.eventId !== eventId) return;
+      if (!isNopeResponderEligible(room.gameState, pending, userId)) return;
 
       if (!pending.passedPlayers) {
         pending.passedPlayers = [];
@@ -1498,7 +1528,7 @@ module.exports = function registerGameSocket(io) {
       }
 
       const activePlayers = room.gameState.players.filter(
-        (p) => p.alive && p.userId !== pending.playerId
+        (p) => p.alive && p.userId !== getNopeResponseOwnerId(pending)
       );
 
       if (pending.passedPlayers.length >= activePlayers.length) {
@@ -1688,7 +1718,26 @@ module.exports = function registerGameSocket(io) {
     });
 
     socket.on('game:combo5:respond', async ({ cardId }) => {
-      // Ignored for now. PlayComboAction handles it.
+      const roomCode = [...socket.rooms].find((room) => room.length === 6);
+      if (!roomCode) return;
+      const room = getRoomState(roomCode);
+      if (!room?.gameState?.activeInteraction || room.gameState.activeInteraction.type !== 'combo_5') return;
+
+      const playersBefore = room.gameState.players.map((p) => ({ userId: p.userId, alive: p.alive }));
+      const turnBefore = room.gameState.currentPlayerIndex;
+      const context = new GameContext(room.gameState, new EffectQueue());
+      const result = dispatcher.dispatch('SUBMIT_INTERACTION', context, {
+        userId,
+        interactionId: room.gameState.activeInteraction.id,
+        responseData: { cardId },
+      });
+
+      if (!result.success) {
+        socket.emit('error', { message: result.error || result.reason || 'Không thể lấy lá bài đã chọn!' });
+        return;
+      }
+
+      await afterGameStateChanged(room, playersBefore, turnBefore);
     });
 
     socket.on('game:bury:respond', async ({ cardId, insertPosition, interactionId }) => {

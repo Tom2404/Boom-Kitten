@@ -29,11 +29,9 @@ export default function DiscardPile({ discardPile = [], pendingCombo5, myUserId,
     setIsOpen(false);
   };
 
-  const pileSizeClass = compact ? 'h-36 w-28' : 'h-44 w-32';
-
   return (
-    <div className="flex flex-col items-center gap-2" onClick={(e) => e.stopPropagation()}>
-      <span className="text-xs font-headline font-black text-white uppercase tracking-wider bg-on-background px-3 py-0.5 rounded-lg border-2 border-on-surface shadow-[1.5px_1.5px_0px_0px_#1a1c1c] rotate-[2deg]">BÀI ĐÃ ĐÁNH</span>
+    <div className={`game-pile game-pile--discard ${compact ? 'game-pile--compact' : ''}`} onClick={(e) => e.stopPropagation()}>
+      <span className="game-pile__label">Bài đã đánh</span>
 
       <div
         id="discard-pile-element"
@@ -48,19 +46,19 @@ export default function DiscardPile({ discardPile = [], pendingCombo5, myUserId,
             animate={{ scale: 1, rotate: 0, opacity: 1 }}
             transition={{ type: 'spring', stiffness: 200, damping: 15 }}
             onClick={() => setIsOpen(true)}
-            className="cursor-pointer hover:-translate-y-1.5 transition-transform"
+            className="game-pile__discard-card"
           >
             <Card type={topCard.type} skinIndex={topCard.skinIndex ?? 0} disabled={false} compact={compact} />
           </motion.div>
         ) : (
-          <div className={`${pileSizeClass} rounded-xl border-3 border-dashed border-on-surface flex items-center justify-center text-white/50 text-xs bg-white/5 font-headline font-black uppercase shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]`}>
+          <div className="game-pile__empty">
             Trống
           </div>
         )}
 
         {/* Floating badge for pile size - black with white text */}
         {discardPile.length > 0 && (
-          <div className="absolute -top-3.5 -right-3.5 h-9 w-9 rounded-full bg-[#1a1c1c] border-3 border-white flex items-center justify-center text-xs font-headline font-black text-white shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]">
+          <div className="game-pile__count">
             {discardPile.length}
           </div>
         )}
@@ -87,25 +85,20 @@ export default function DiscardPile({ discardPile = [], pendingCombo5, myUserId,
         {isChoosing && (
           <button
             onClick={() => setIsOpen(true)}
-            className="absolute inset-0 rounded-xl bg-purple-500/30 border-3 border-purple-500 animate-pulse flex flex-col items-center justify-center gap-2 text-center p-2"
+            className="game-pile__combo-prompt"
           >
-            <span className="text-[10px] font-headline font-black text-white uppercase tracking-wider bg-purple-600 px-2 py-0.5 rounded border border-on-surface shadow">Chọn Bài (Combo 5)</span>
+            <span>Chọn bài · Combo 5</span>
           </button>
         )}
       </div>
  
-      <div className="flex flex-col items-center">
-        <span className="text-[9px] font-headline font-black text-slate-400 text-center max-w-[120px] leading-tight uppercase mt-1">
-          DISCARD
-        </span>
-        <button
-          onClick={() => setIsOpen(true)}
-          disabled={discardPile.length === 0}
-          className="text-[10px] font-headline font-black text-slate-400 hover:text-white underline disabled:opacity-50 disabled:no-underline uppercase mt-1"
-        >
-          Xem chồng bài bỏ
-        </button>
-      </div>
+      <button
+        onClick={() => setIsOpen(true)}
+        disabled={discardPile.length === 0}
+        className="game-pile__hint game-pile__history"
+      >
+        Xem chồng bài bỏ
+      </button>
 
       {/* Discard Pile Modal Viewer */}
       {isOpen && (() => {

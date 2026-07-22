@@ -7,6 +7,7 @@ import { useRoomSync } from './useRoomSync.js';
 
 export const USE_GAME_RETURN_KEYS = [
   'socket',
+  'connectionState',
   'roomState',
   'setRoomState',
   'gameState',
@@ -108,6 +109,7 @@ export function useGame() {
 
   return {
     socket,
+    connectionState: roomSync.connectionState,
     roomState: roomSync.roomState,
     setRoomState: roomSync.setRoomState,
     gameState: roomSync.gameState,

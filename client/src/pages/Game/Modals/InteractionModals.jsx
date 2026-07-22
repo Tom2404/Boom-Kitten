@@ -1,4 +1,5 @@
 import React from 'react';
+import { canRespondToNopeWindow } from '../../../utils/gameRoomUi.js';
 import { useGameContext } from '../GameContext.jsx';
 
 export default function InteractionModals(props) {
@@ -106,6 +107,10 @@ export default function InteractionModals(props) {
     hasNopeCard={hasNopeCard}
     onPlayNope={() => playNope(nopeWindow.eventId)}
     onPass={() => passNope(nopeWindow.eventId)}
+    canRespond={canRespondToNopeWindow({
+      myUserId: myUser.id,
+      responseOwnerId: nopeWindow.responseOwnerId || nopeWindow.actingPlayerId,
+    })}
     actingPlayerName={getPlayerDisplayName(nopeWindow.actingPlayerId)}
     cardType={nopeWindow.cardType}
     targetPlayerName={nopeWindow.targetPlayerId ? getPlayerDisplayName(nopeWindow.targetPlayerId) : null}

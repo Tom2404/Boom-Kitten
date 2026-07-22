@@ -28,6 +28,7 @@ const SwapTopBottomEffect = require('./primitives/SwapTopBottomEffect');
 const TransferCardEffect = require('./primitives/TransferCardEffect');
 const WaitInsertBombEffect = require('./primitives/WaitInsertBombEffect');
 const ResolveComboEffect = require('./primitives/ResolveComboEffect');
+const CollectCombo5ResponseEffect = require('./primitives/CollectCombo5ResponseEffect');
 
 // Map string names to classes
 const EFFECT_CLASSES = {
@@ -58,6 +59,7 @@ const EFFECT_CLASSES = {
   TransferCard: TransferCardEffect,
   WaitInsertBomb: WaitInsertBombEffect,
   ResolveCombo: ResolveComboEffect,
+  CollectCombo5Response: CollectCombo5ResponseEffect,
 };
 
 class EffectFactory {

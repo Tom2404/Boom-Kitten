@@ -6,6 +6,10 @@ export default defineConfig({
   plugins: [react()],
   server: { port: 2404 },
   build: {
+    // Pixi is isolated in its own lazy-loaded vendor chunk. Its minified size is
+    // expected to exceed Vite's generic 500 kB warning threshold, while gzip is
+    // substantially smaller and the game code stays out of the initial bundle.
+    chunkSizeWarningLimit: 900,
     rollupOptions: {
       output: {
         manualChunks(id) {

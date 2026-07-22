@@ -4,9 +4,10 @@ import { gsap } from 'gsap';
 import CustomDialog from '../components/CustomDialog.jsx';
 import { CoinIcon, GemIcon } from '../components/CoinDisplay.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
+import { getRankProgress } from '../utils/rankProgress.js';
 
 export default function Profile() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [profile, setProfile] = useState(null);
   const [username, setUsername] = useState('');
   const [avatar, setAvatar] = useState('');
@@ -169,6 +170,7 @@ export default function Profile() {
       </div>
     );
   }
+  const rankProgress = getRankProgress(profile.eloPoints);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 font-pop-body">
@@ -197,6 +199,15 @@ export default function Profile() {
           <span className="bg-[var(--pop-red)] text-white font-pop-accent font-bold text-xs px-4 py-1.5 rounded-none border-2 border-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)] uppercase mt-3">
             🏆 {profile.rank} • {profile.eloPoints} {t('profile_elo')}
           </span>
+          <div className="mt-4 w-full border-2 border-[var(--pop-black)] bg-[var(--pop-cream)] p-3 shadow-[2px_2px_0_var(--pop-black)]">
+            <div className="mb-1.5 flex items-center justify-between gap-2 text-[10px] font-black uppercase">
+              <span>{rankProgress.currentRank}</span>
+              <span>{rankProgress.nextRank ? `${rankProgress.remaining} ELO ${language === 'en' ? 'to' : 'đến'} ${rankProgress.nextRank}` : 'MAX RANK'}</span>
+            </div>
+            <div className="h-3 border-2 border-[var(--pop-black)] bg-white" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(rankProgress.progress)}>
+              <div className="h-full bg-[var(--pop-amber)] transition-[width]" style={{ width: `${rankProgress.progress}%` }} />
+            </div>
+          </div>
 
           <div className="w-full grid grid-cols-2 gap-4 mt-6 pt-6 border-t-3 border-dashed border-[var(--pop-black)]/20">
             <div className="bg-white border-2 border-[var(--pop-black)] rounded-none p-3 text-center shadow-[2px_2px_0_var(--pop-black)] flex flex-col items-center justify-center">
