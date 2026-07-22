@@ -166,11 +166,11 @@ export default function GameBoardView() {
   const hasNopeCard = privateHand.some((c) => c.type === 'nope');
 
   return (
-    <div ref={mainContainerRef} className="relative flex w-full min-w-0 flex-col gap-3 select-none md:gap-5">
+    <div ref={mainContainerRef} className="game-room select-none">
       {errorToast}
       <GameHeader />
 
-      <div className="relative grid min-h-[75vh] min-w-0 grid-cols-1 gap-4 lg:grid-cols-4 lg:gap-6">
+      <div className="game-room__stage">
         <GameTable
           activePlayerId={activePlayerId}
           displayedDiscardPile={displayedDiscardPile}
@@ -196,5 +196,4 @@ export default function GameBoardView() {
     </div>
   );
 
-  return null;
 }

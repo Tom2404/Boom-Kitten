@@ -5,6 +5,7 @@ import { ImageButton } from './ui/ImageButton.jsx';
 import { IconButton } from './ui/IconButton.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { CARD_THEMES } from './Card.jsx';
+import { OverlayPortal } from './ui/OverlayPortal.jsx';
 
 // ==========================================
 // NEO-BRUTALIST MODAL WRAPPER (WITH TIMING CURVES)
@@ -34,11 +35,13 @@ export function BrutalModal({ children, isOpen, onClose, maxWidth = 'max-w-xl', 
   const shellBg = theme === 'dark' ? 'neo-brutal-modal-dark' : 'neo-brutal-modal-light';
 
   return (
-    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${isClosing ? 'backdrop-blur-close-anim' : 'backdrop-blur-open-anim'}`}>
-      <div className={`w-full ${maxWidth} neo-brutal-modal ${shellBg} p-6 md:p-8 flex flex-col items-center gap-6 text-center ${isClosing ? 'modal-exit-anim' : 'modal-entrance-anim'}`}>
-        {children(handleClose)}
+    <OverlayPortal>
+      <div className={`game-modal-layer fixed inset-0 z-[10000] flex items-center justify-center p-4 ${isClosing ? 'backdrop-blur-close-anim' : 'backdrop-blur-open-anim'}`} role="presentation">
+        <div className={`w-full ${maxWidth} neo-brutal-modal ${shellBg} p-6 md:p-8 flex flex-col items-center gap-6 text-center ${isClosing ? 'modal-exit-anim' : 'modal-entrance-anim'}`} role="dialog" aria-modal="true">
+          {children(handleClose)}
+        </div>
       </div>
-    </div>
+    </OverlayPortal>
   );
 }
 
@@ -217,6 +220,7 @@ export function NopeCountdown({
   hasNopeCard, 
   onPlayNope, 
   onPass, 
+  canRespond = true,
   actingPlayerName, 
   cardType, 
   targetPlayerName, 
@@ -267,7 +271,7 @@ export function NopeCountdown({
   ];
 
   const isNopeable = cardType && (NOPEABLE_ACTIONS.includes(cardType) || cardType.startsWith('combo_'));
-  const canNope = !isNowOnly && hasNopeCard && isNopeable;
+  const canNope = canRespond && !isNowOnly && hasNopeCard && isNopeable;
 
   const getCardDisplayName = (type) => {
     if (!type) return '';
@@ -284,9 +288,11 @@ export function NopeCountdown({
   const nowsInHand = hand.filter(c => c.type.endsWith('_now'));
 
   return (
-    <div
-      className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-[9000] flex flex-col gap-0 min-w-[320px] max-w-[460px] w-[95%] animate-fade-in"
-    >
+    <OverlayPortal>
+      <div className="game-modal-layer fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-slate-950/45 backdrop-blur-[2px]">
+      <div
+        className="flex flex-col gap-0 min-w-[320px] max-w-[560px] w-[95%] max-h-[calc(100dvh-2rem)] overflow-y-auto animate-fade-in"
+      >
       <div className="bg-[#fafaf5] border-3 border-slate-900 shadow-[6px_6px_0px_0px_#0f0f0f] rounded-none overflow-hidden flex flex-col">
         <div
           className={`px-4 py-2 flex items-center justify-between ${
@@ -360,12 +366,14 @@ export function NopeCountdown({
             </div>
 
             <div className="flex gap-2 flex-shrink-0 items-center">
-              <ImageButton variant="secondary"
-                onClick={onPass}
-                className="font-headline font-black border-2 border-slate-900 shadow-[2px_2px_0px_0px_#1a1c1c] px-3.5 py-2 rounded-none text-[10px]  hover:bg-slate-350 hover:scale-105 active:scale-95 transition-all uppercase text-slate-900 text-slate-800"
-              >
-                Pass
-              </ImageButton>
+              {canRespond && (
+                <ImageButton variant="secondary"
+                  onClick={onPass}
+                  className="font-headline font-black border-2 border-slate-900 shadow-[2px_2px_0px_0px_#1a1c1c] px-3.5 py-2 rounded-none text-[10px] hover:bg-slate-350 hover:scale-105 active:scale-95 transition-all uppercase text-slate-800"
+                >
+                  Pass
+                </ImageButton>
+              )}
 
               {canNope && (
                 <button
@@ -438,7 +446,9 @@ export function NopeCountdown({
           />
         </div>
       </div>
-    </div>
+      </div>
+      </div>
+    </OverlayPortal>
   );
 }
 

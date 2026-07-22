@@ -1475,9 +1475,19 @@ export default function Game({ setPage }) {
     if (!socket) return;
 
     const handleCardDrawn = ({ playerId }) => {
-      setTimeout(() => {
+      // Keep the draw feedback on the shared VFX pipeline. The server emits
+      // this event before mutating the private hand, so it is safe for every
+      // client to show the flight while only the drawing player sees the card
+      // reveal from the private-hand diff below.
+      const queueDrawEffect = () => {
         playDrawCard(playerId);
-      }, 50);
+      };
+
+      if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+        window.requestAnimationFrame(queueDrawEffect);
+      } else {
+        setTimeout(queueDrawEffect, 50);
+      }
     };
 
     // ─── game:cardPlayedPending ──────────────────────────────────────────────

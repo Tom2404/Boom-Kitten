@@ -54,7 +54,7 @@ export default function WaitingRoomView() {
         </div>
 
         {/* LOBBY CONTAINER */}
-        <div className="bg-[var(--pop-cream)] border-[6px] border-white rounded-lg p-5 w-full max-w-[1000px] shadow-[8px_8px_0_white] flex flex-col gap-5 relative z-10">
+        <div className="waiting-room-shell bg-[var(--pop-cream)] border-[6px] border-white rounded-lg p-5 w-full max-w-[1000px] shadow-[8px_8px_0_white] flex flex-col gap-5 relative z-10">
 
           {/* Header */}
           <div className="flex flex-col md:flex-row justify-between items-center border-b-4 border-dashed border-[var(--pop-black)] pb-3 gap-4">
@@ -90,7 +90,7 @@ export default function WaitingRoomView() {
           <div className="flex flex-col lg:flex-row gap-5">
 
             {/* Player List */}
-            <div className="flex-[2] grid grid-cols-1 sm:grid-cols-2 gap-4 content-start">
+            <div className="waiting-room-roster flex-[2] grid grid-cols-1 sm:grid-cols-2 gap-4 content-start">
 
               {roomState.players.map((player) => {
                 const isMe = player.userId === myUser.id;
@@ -146,7 +146,7 @@ export default function WaitingRoomView() {
             </div>
 
             {/* Sidebar */}
-            <div className="flex-[1] flex flex-col gap-4 content-start">
+            <div className="waiting-room-sidebar flex-[1] flex flex-col gap-4 content-start">
 
               {/* Cài đặt phòng */}
               <div className="bg-white border-4 border-[var(--pop-black)] p-4 shadow-[4px_4px_0_rgba(0,0,0,0.2)]">
@@ -190,13 +190,16 @@ export default function WaitingRoomView() {
               </div>
 
               {/* Chat */}
-              <div className="bg-white border-4 border-[var(--pop-black)] p-4 shadow-[4px_4px_0_rgba(0,0,0,0.2)] flex flex-col flex-grow min-h-[220px]">
+              <div className="waiting-room-chat bg-white border-4 border-[var(--pop-black)] p-4 shadow-[4px_4px_0_rgba(0,0,0,0.2)] flex flex-col flex-grow min-h-[220px]">
                 <h3 className="font-pop-display font-black text-sm uppercase m-0 text-[var(--pop-black)] border-b-2 border-[var(--pop-black)] pb-2 mb-3">
                   CHAT
                 </h3>
 
                 <div className="bg-[var(--pop-cream)] border-[3px] border-inset border-[var(--pop-black)] p-2 h-[120px] overflow-y-auto font-pop-body text-xs flex flex-col gap-1 mb-2 shadow-inner">
-                  <div className="text-[var(--pop-black)]/50 italic text-center py-2">Tính năng chat sắp ra mắt...</div>
+                  <div className="waiting-room-chat__empty text-[var(--pop-black)]/60 text-center py-2">
+                    <strong className="block text-[var(--pop-black)]">Chat mở khi trận bắt đầu</strong>
+                    <span className="block mt-1">Hãy sao chép mã phòng để mời đồng đội.</span>
+                  </div>
                 </div>
 
                 <form className="flex gap-2" onSubmit={(e) => e.preventDefault()}>
@@ -216,7 +219,7 @@ export default function WaitingRoomView() {
           </div>
 
           {/* Footer (Buttons) */}
-          <div className="flex justify-center flex-wrap gap-5 mt-3 pt-4 border-t-4 border-dashed border-[var(--pop-black)]">
+          <div className="waiting-room-actions flex justify-center flex-wrap gap-5 mt-3 pt-4 border-t-4 border-dashed border-[var(--pop-black)]">
 
             {!isHost ? (
               <button

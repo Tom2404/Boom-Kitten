@@ -6,8 +6,14 @@ const GameContext = require('../game/state/GameContext');
 const EffectQueue = require('../game/effects/EffectQueue');
 const { hasBlockingInteraction } = require('../game/interactions/interactionGuards');
 const {
+  getNopeResponseOwnerId,
+  isNopeResponderEligible,
+  sanitizeActiveInteractionForPublic,
+} = require('../game/interactions/interactionPolicy');
+const {
   buildInteractionRequestPayload,
   buildNormalizedInteractionRequest,
+  buildReconnectInteractionRequest,
   getInteractionEventName,
 } = require('./interactionEvents');
 const {
@@ -121,6 +127,7 @@ function sanitizePublicGameState(gameState) {
         }
       : null,
     pendingTargetSelect: gameState.pendingTargetSelect || null,
+    activeInteraction: sanitizeActiveInteractionForPublic(gameState.activeInteraction),
     players: gameState.players.map((player) => ({
       userId: player.userId,
       username: player.username,
@@ -454,6 +461,7 @@ module.exports = function registerGameSocket(io) {
     const timeoutMs = getNowWindowTimeout();
     action.timeoutMs = timeoutMs;
     action.passedPlayers = [];
+    action.responseOwnerId = getNopeResponseOwnerId(action);
     room.gameState.pendingAction = action;
 
     io.to(room.code).emit('game:nopeWindow', {
@@ -461,6 +469,7 @@ module.exports = function registerGameSocket(io) {
       timeoutMs,
       cardType: action.cardType,
       actingPlayerId: action.playerId,
+      responseOwnerId: action.responseOwnerId,
       targetPlayerId: action.targetPlayerId,
       nopeCount: action.nopeCount || 0,
     });
@@ -965,6 +974,10 @@ module.exports = function registerGameSocket(io) {
           if (player) {
             socket.emit('game:privateHand', { cards: getPrivateHandCards(player) });
           }
+          const resumedRequest = buildReconnectInteractionRequest(activeRoom.gameState, userId);
+          if (resumedRequest) {
+            socket.emit('interaction:request', resumedRequest);
+          }
         }
       }, 200);
     }
@@ -1467,6 +1480,7 @@ module.exports = function registerGameSocket(io) {
       const room = getRoomState(roomCode);
       const pending = room?.gameState?.pendingAction;
       if (!pending || pending.eventId !== originalEventId) return;
+      if (!isNopeResponderEligible(room.gameState, pending, userId)) return;
 
       if (!isNopeableAction(pending.cardType)) {
         socket.emit('error', { message: 'Không thể Nope hành động này!' });
@@ -1489,6 +1503,7 @@ module.exports = function registerGameSocket(io) {
       });
 
       pending.nopeCount += 1;
+      pending.responseOwnerId = userId;
       updateQuestProgress(userId, 'nope_card', 1);
 
       const newEventId = `${Date.now()}-${Math.random()}`;
@@ -1502,6 +1517,7 @@ module.exports = function registerGameSocket(io) {
       const room = getRoomState(roomCode);
       const pending = room?.gameState?.pendingAction;
       if (!pending || pending.eventId !== eventId) return;
+      if (!isNopeResponderEligible(room.gameState, pending, userId)) return;
 
       if (!pending.passedPlayers) {
         pending.passedPlayers = [];
@@ -1512,7 +1528,7 @@ module.exports = function registerGameSocket(io) {
       }
 
       const activePlayers = room.gameState.players.filter(
-        (p) => p.alive && p.userId !== pending.playerId
+        (p) => p.alive && p.userId !== getNopeResponseOwnerId(pending)
       );
 
       if (pending.passedPlayers.length >= activePlayers.length) {

@@ -38,8 +38,27 @@ function buildNormalizedInteractionRequest(interaction, participantId, requestPa
   };
 }
 
+function buildReconnectInteractionRequest(gameState, participantId, now = Date.now()) {
+  const interaction = gameState?.activeInteraction;
+  if (!interaction?.participants?.includes(participantId)) return null;
+  if (!['WAITING', 'PARTIAL'].includes(interaction.status)) return null;
+
+  const elapsed = Math.max(0, now - interaction.startedAt);
+  const timeoutMs = Math.max(0, interaction.timeout - elapsed);
+  if (timeoutMs === 0) return null;
+
+  const requestPayload = buildInteractionRequestPayload(interaction, gameState);
+  return {
+    ...buildNormalizedInteractionRequest(interaction, participantId, requestPayload),
+    timeoutMs,
+    resumed: true,
+    responded: interaction.responses?.[participantId] !== undefined,
+  };
+}
+
 module.exports = {
   buildInteractionRequestPayload,
   buildNormalizedInteractionRequest,
+  buildReconnectInteractionRequest,
   getInteractionEventName,
 };

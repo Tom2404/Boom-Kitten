@@ -14,6 +14,7 @@ export default function TurnBanner({ state }) {
       aria-live="polite"
       aria-atomic="true"
     >
+      <span className="game-turn-banner__signal" aria-hidden="true" />
       <div className="min-w-0">
         <p className="game-turn-banner__eyebrow">{state.eyebrow}</p>
         <h2 id="game-turn-title" className="game-turn-banner__title">{state.title}</h2>

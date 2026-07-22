@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { getInteractionRequestState } from '../utils/gameRoomUi.js';
 
 export function useGameInteractions({ socket, t, setStatusMessage }) {
   const [nopeWindow, setNopeWindow] = useState(null);
@@ -92,8 +93,8 @@ export function useGameInteractions({ socket, t, setStatusMessage }) {
   };
 
   useEffect(() => {
-    const onNopeWindow = ({ eventId, timeoutMs, cardType, actingPlayerId, targetPlayerId, nopeCount }) => {
-      setNopeWindow({ eventId, timeoutMs, active: true, cardType, actingPlayerId, targetPlayerId, nopeCount: nopeCount ?? 0, isNowOnly: false });
+    const onNopeWindow = ({ eventId, timeoutMs, cardType, actingPlayerId, responseOwnerId, targetPlayerId, nopeCount }) => {
+      setNopeWindow({ eventId, timeoutMs, active: true, cardType, actingPlayerId, responseOwnerId: responseOwnerId || actingPlayerId, targetPlayerId, nopeCount: nopeCount ?? 0, isNowOnly: false });
       setStatusMessage(t('status_waiting_nope'));
       setTimeout(() => {
         setNopeWindow(prev => prev?.eventId === eventId ? { ...prev, active: false } : prev);
@@ -189,6 +190,12 @@ export function useGameInteractions({ socket, t, setStatusMessage }) {
         timeoutMs: payload.timeoutMs,
         interactionId: payload.interactionId,
       };
+
+      if (getInteractionRequestState(request) === 'waiting') {
+        setActiveInteractionRequest(null);
+        setStatusMessage('Đã gửi phản hồi. Đang chờ những người chơi còn lại.');
+        return;
+      }
 
       const handlersByType = {
         alter_the_future: () => setAlterFutureRequest({
