@@ -9,6 +9,46 @@ body {
   font-family: 'DM Sans', sans-serif;
 }
 
+/* Admin is a quiet operations surface; keep these tokens scoped away from the game UI. */
+.admin-console {
+  --admin-canvas: #f6f6f3;
+  --admin-surface: #ffffff;
+  --admin-surface-muted: #f0f1ed;
+  --admin-surface-raised: #fafaf8;
+  --admin-text: #20231f;
+  --admin-text-muted: #666a63;
+  --admin-border: #dedfd9;
+  --admin-border-strong: #c8cac2;
+  --admin-accent: #b43b2b;
+  --admin-accent-hover: #963124;
+  --admin-accent-soft: #f7e9e5;
+  --admin-focus: #2563eb;
+  --admin-success-bg: #edf3ec;
+  --admin-success-text: #346538;
+  --admin-success-hover: #294f2c;
+  --admin-warning-bg: #fbf3db;
+  --admin-warning-text: #805800;
+  --admin-danger-bg: #fdebec;
+  --admin-danger-text: #9f2f2d;
+  --admin-danger-hover: #852624;
+  --admin-info-bg: #e6f2f8;
+  --admin-info-text: #245f7f;
+  color: var(--admin-text);
+  font-family: 'DM Sans', 'Helvetica Neue', sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-console *,
+  .admin-console *::before,
+  .admin-console *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
 /* Custom Cartoon Brutalist Styles */
 .brutal-border {
   border: 3px solid #1a1c1c;

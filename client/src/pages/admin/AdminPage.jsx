@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
-import { Button } from './ui.jsx';
-import { getAdminPayload } from './utils.js';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Alert, Button, SkeletonBlock } from './ui.jsx';
 import OverviewPanel from './OverviewPanel.jsx';
 import PlayersPanel from './PlayersPanel.jsx';
 import CatalogPanel from './CatalogPanel.jsx';
@@ -8,33 +7,89 @@ import QuestsPanel from './QuestsPanel.jsx';
 import AnnouncementsPanel from './AnnouncementsPanel.jsx';
 import LogsPanel from './LogsPanel.jsx';
 import SeasonsPanel from './SeasonsPanel.jsx';
+import ModerationPanel from './ModerationPanel.jsx';
+import RoomsPanel from './RoomsPanel.jsx';
+import JobsPanel from './JobsPanel.jsx';
+import TournamentsPanel from './TournamentsPanel.jsx';
+import LiveOpsPanel from './LiveOpsPanel.jsx';
+import ProductAnalyticsPanel from './ProductAnalyticsPanel.jsx';
+import IncidentsPanel from './IncidentsPanel.jsx';
 import { useLanguage } from '../../context/LanguageContext.jsx';
+import { getVisibleAdminNavigation, resolveAdminTab } from './adminNavigation.js';
+import { useAdminApi } from './useAdminApi.js';
 
-const NAV_ITEMS = [
-  { id: 'overview', icon: 'monitoring', vi: ['Tổng quan', 'Sức khỏe hệ thống'], en: ['Overview', 'System health'] },
-  { id: 'players', icon: 'group', vi: ['Người chơi', 'Tài khoản, ví, ELO'], en: ['Players', 'Accounts, wallet, ELO'] },
-  { id: 'catalog', icon: 'storefront', vi: ['Shop', 'Vật phẩm và trạng thái'], en: ['Shop', 'Items and availability'] },
-  { id: 'quests', icon: 'flag', vi: ['Nhiệm vụ', 'Mục tiêu và thưởng'], en: ['Quests', 'Goals and rewards'] },
-  { id: 'announcements', icon: 'campaign', vi: ['Thông báo', 'Broadcast trực tiếp'], en: ['Announcements', 'Live broadcasts'] },
-  { id: 'logs', icon: 'receipt_long', vi: ['Nhật ký', 'Audit và giao dịch'], en: ['Logs', 'Audit and transactions'] },
-  { id: 'seasons', icon: 'emoji_events', vi: ['Mùa giải', 'Reset và lịch mùa'], en: ['Seasons', 'Reset and scheduling'] },
-];
+function getRequestedTab() {
+  if (typeof window === 'undefined') return 'overview';
+  return new URLSearchParams(window.location.search).get('adminTab') || 'overview';
+}
 
 export default function AdminPage({ setPage }) {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState(getRequestedTab);
+  const [session, setSession] = useState({ loading: true, data: null, error: '' });
   const { language, setLanguage } = useLanguage();
+  const { request, token } = useAdminApi();
   const isEnglish = language === 'en';
-  const payload = getAdminPayload();
-  const isAdmin = payload?.role === 'admin';
+  const permissions = session.data?.permissions || [];
+  const navigation = useMemo(() => getVisibleAdminNavigation(permissions), [permissions]);
 
-  if (!isAdmin) {
+  const loadSession = useCallback(async () => {
+    if (!token) {
+      setSession({ loading: false, data: null, error: isEnglish ? 'Sign in with an admin account to continue.' : 'Hãy đăng nhập bằng tài khoản quản trị để tiếp tục.' });
+      return;
+    }
+    setSession((current) => ({ ...current, loading: true, error: '' }));
+    const response = await request('/api/admin/me');
+    if (response.ok) {
+      setSession({ loading: false, data: response.data?.data, error: '' });
+      return;
+    }
+    setSession({
+      loading: false,
+      data: null,
+      error: response.data?.error?.message || response.data?.message || response.error || (isEnglish ? 'Admin session could not be verified.' : 'Không thể xác minh phiên quản trị.'),
+    });
+  }, [isEnglish, request, token]);
+
+  useEffect(() => { loadSession(); }, [loadSession]);
+
+  useEffect(() => {
+    if (session.loading || navigation.length === 0) return;
+    const nextTab = resolveAdminTab(activeTab, navigation);
+    if (nextTab !== activeTab) setActiveTab(nextTab);
+  }, [activeTab, navigation, session.loading]);
+
+  const navigateToTab = useCallback((tab) => {
+    const nextTab = resolveAdminTab(tab, navigation);
+    if (!nextTab) return;
+    setActiveTab(nextTab);
+    const url = new URL(window.location.href);
+    url.searchParams.set('adminTab', nextTab);
+    window.history.replaceState({}, '', url);
+  }, [navigation]);
+
+  if (session.loading) {
     return (
-      <main className="mx-auto flex w-full max-w-md flex-col gap-5 border-[4px] border-[var(--pop-black)] bg-[#fff7df] p-6 text-center shadow-[6px_6px_0_var(--pop-black)]">
-        <h1 className="font-pop-display text-2xl font-black text-red-700">Không có quyền truy cập</h1>
-        <p className="text-sm font-semibold leading-6 text-slate-600">Bạn cần đăng nhập bằng tài khoản quản trị viên để mở bảng điều hành.</p>
-        <Button variant="primary" onClick={() => setPage('Login')}>
-          Đăng nhập Admin
-        </Button>
+      <main className="admin-console min-h-[calc(100vh-96px)] bg-[var(--admin-canvas)] px-4 py-8" aria-busy="true" aria-label={isEnglish ? 'Verifying admin session' : 'Đang xác minh phiên quản trị'}>
+        <div className="mx-auto w-full max-w-5xl rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5">
+          <p className="mb-4 text-sm font-semibold text-[var(--admin-text-muted)]">Boom-Kitten Operations</p>
+          <SkeletonBlock rows={5} />
+        </div>
+      </main>
+    );
+  }
+
+  if (!session.data) {
+    return (
+      <main className="admin-console min-h-[calc(100vh-96px)] bg-[var(--admin-canvas)] px-4 py-10">
+        <div className="mx-auto flex w-full max-w-md flex-col gap-5 rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface)] p-6 text-center shadow-[0_16px_48px_rgba(32,35,31,0.06)]">
+          <span className="material-symbols-outlined text-4xl text-[var(--admin-danger-text)]" aria-hidden="true">admin_panel_settings</span>
+          <h1 className="text-2xl font-semibold tracking-[-0.03em] text-[var(--admin-text)]">{isEnglish ? 'Admin access unavailable' : 'Không thể truy cập Admin'}</h1>
+          <Alert tone="danger">{session.error}</Alert>
+          <div className="grid grid-cols-2 gap-3">
+            <Button variant="secondary" onClick={loadSession}>{isEnglish ? 'Try again' : 'Thử lại'}</Button>
+            <Button variant="primary" onClick={() => setPage('Login')}>{isEnglish ? 'Sign in' : 'Đăng nhập'}</Button>
+          </div>
+        </div>
       </main>
     );
   }
@@ -42,56 +97,84 @@ export default function AdminPage({ setPage }) {
   const renderPanel = () => {
     switch (activeTab) {
       case 'players':
-        return <PlayersPanel onNavigate={setActiveTab} language={language} />;
+        return <PlayersPanel onNavigate={navigateToTab} language={language} permissions={permissions} adminUsername={session.data.admin.username} policy={session.data.policy || {}} />;
       case 'catalog':
-        return <CatalogPanel />;
+        return <CatalogPanel permissions={permissions} />;
       case 'quests':
-        return <QuestsPanel />;
+        return <QuestsPanel permissions={permissions} />;
       case 'announcements':
-        return <AnnouncementsPanel />;
+        return <AnnouncementsPanel permissions={permissions} />;
       case 'logs':
-        return <LogsPanel language={language} />;
+        return <LogsPanel language={language} permissions={permissions} onNavigate={navigateToTab} />;
       case 'seasons':
-        return <SeasonsPanel />;
+        return <SeasonsPanel permissions={permissions} adminUsername={session.data.admin.username} />;
+      case 'moderation':
+        return <ModerationPanel permissions={permissions} adminId={session.data.admin.id} language={language} />;
+      case 'rooms':
+        return <RoomsPanel permissions={permissions} adminUsername={session.data.admin.username} language={language} />;
+      case 'jobs':
+        return <JobsPanel permissions={permissions} language={language} />;
+      case 'tournaments':
+        return <TournamentsPanel permissions={permissions} adminUsername={session.data.admin.username} />;
+      case 'live_ops':
+        return <LiveOpsPanel permissions={permissions} adminUsername={session.data.admin.username} />;
+      case 'analytics':
+        return <ProductAnalyticsPanel />;
+      case 'incidents':
+        return <IncidentsPanel permissions={permissions} adminId={session.data.admin.id} onNavigate={navigateToTab} />;
       default:
-        return <OverviewPanel onNavigate={setActiveTab} language={language} />;
+        return <OverviewPanel onNavigate={navigateToTab} language={language} />;
     }
   };
 
   return (
-    <main className="min-h-[calc(100vh-96px)] bg-[#f7e7c6] bg-[linear-gradient(90deg,rgba(77,48,37,.05)_1px,transparent_1px),linear-gradient(rgba(77,48,37,.05)_1px,transparent_1px)] bg-[size:16px_16px] px-3 py-4 font-sans text-[var(--pop-black)] md:px-6 lg:px-8">
-      <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-5 lg:flex-row">
-        <aside className="lg:w-64 lg:shrink-0 lg:self-start">
-          <div className="border-[4px] border-[var(--pop-black)] bg-[#fff7df] p-3 shadow-[6px_6px_0_var(--pop-black)]">
-            <div className="border-b-[3px] border-[var(--pop-black)] px-2 pb-3">
-              <p className="font-sans text-xs font-black uppercase tracking-widest text-[var(--pop-red)]">● Boom-Kitten Ops</p>
-              <h1 className="mt-2 font-pop-display text-xl font-black uppercase text-[var(--pop-black)]">Admin Console</h1>
-              <p className="mt-2 font-sans text-sm font-bold text-[#65483d]">OPERATOR: {payload?.username || 'Quản trị viên'}</p>
+    <main className="admin-console min-h-[calc(100vh-96px)] bg-[var(--admin-canvas)] px-3 py-4 md:px-6 md:py-6 lg:px-8">
+      <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6 lg:flex-row">
+        <aside className="lg:sticky lg:top-4 lg:w-72 lg:shrink-0 lg:self-start">
+          <div className="rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface)] p-3 shadow-[0_1px_2px_rgba(32,35,31,0.03)]">
+            <div className="border-b border-[var(--admin-border)] px-2 pb-4 pt-1">
+              <p className="flex items-center gap-2 text-xs font-semibold tracking-[0.08em] text-[var(--admin-accent)]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[var(--admin-accent)]" aria-hidden="true" />
+                Boom-Kitten Ops
+              </p>
+              <h1 className="mt-2 text-balance text-xl font-semibold tracking-[-0.03em] text-[var(--admin-text)]">Admin Console</h1>
+              <p className="mt-2 truncate font-mono text-sm font-medium text-[var(--admin-text-muted)]">{session.data.admin.username}</p>
+              <div className="mt-2 flex items-center justify-between gap-2 text-xs font-medium text-[var(--admin-text-muted)]">
+                <span>{session.data.admin.role.replaceAll('_', ' ')}</span>
+                <span>{permissions.length} {isEnglish ? 'capabilities' : 'quyền'}</span>
+              </div>
             </div>
 
-            <nav className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-1" aria-label="Admin sections">
-              {NAV_ITEMS.map((item) => {
-                const active = activeTab === item.id;
-                const [label, description] = item[language] || item.vi;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setActiveTab(item.id)}
-                    className={`flex min-h-12 items-center gap-3 border-[3px] px-3 py-2 text-left font-sans transition focus:outline-none focus:ring-2 focus:ring-[#2563eb] focus:ring-offset-2 ${
-                      active ? 'translate-x-1 border-[var(--pop-black)] bg-[var(--pop-amber)] text-[var(--pop-black)] shadow-[3px_3px_0_var(--pop-black)]' : 'border-transparent text-[#4d3025] hover:border-[var(--pop-black)] hover:bg-[#f5e7c8]'
-                    }`}
-                    aria-current={active ? 'page' : undefined}
-                  >
-                    <span className="material-symbols-outlined" aria-hidden="true">{item.icon}</span>
-                    <span><span className="block text-base font-black uppercase">{label}</span>
-                    <span className="hidden text-sm font-semibold text-[#76574a] lg:block">{description}</span></span>
-                  </button>
-                );
-              })}
+            <nav className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-1" aria-label={isEnglish ? 'Admin sections' : 'Khu vực quản trị'}>
+              {navigation.map((group) => (
+                <section key={group.id} aria-labelledby={`admin-nav-${group.id}`}>
+                  <h2 id={`admin-nav-${group.id}`} className="mb-1 px-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--admin-text-muted)]">{group[language] || group.vi}</h2>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-1">
+                    {group.items.map((item) => {
+                      const active = activeTab === item.id;
+                      const [label, description] = item[language] || item.vi;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => navigateToTab(item.id)}
+                          className={`flex min-h-12 items-center gap-3 rounded-lg border px-3 py-2 text-left transition duration-200 focus:outline-none focus:ring-2 focus:ring-[var(--admin-focus)] focus:ring-offset-2 active:scale-[0.99] ${
+                            active ? 'border-[var(--admin-accent)] bg-[var(--admin-danger-bg)] text-[var(--admin-accent)]' : 'border-transparent text-[var(--admin-text)] hover:border-[var(--admin-border)] hover:bg-[var(--admin-surface-muted)]'
+                          }`}
+                          aria-current={active ? 'page' : undefined}
+                        >
+                          <span className="material-symbols-outlined text-[20px]" aria-hidden="true">{item.icon}</span>
+                          <span className="min-w-0"><span className="block truncate text-sm font-semibold">{label}</span>
+                          <span className="hidden truncate text-xs text-[var(--admin-text-muted)] lg:block">{description}</span></span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+              ))}
             </nav>
-            <div className="mt-4 border-t-[3px] border-[var(--pop-black)] pt-3">
-              <p className="mb-2 text-xs font-black uppercase tracking-wider text-[#65483d]">{isEnglish ? 'Language' : 'Ngôn ngữ'}</p>
+            <div className="mt-4 border-t border-[var(--admin-border)] pt-3">
+              <p className="mb-2 px-1 text-xs font-medium text-[var(--admin-text-muted)]">{isEnglish ? 'Language' : 'Ngôn ngữ'}</p>
               <div className="grid grid-cols-2 gap-2" role="group" aria-label="Language">
                 <Button className="min-h-9 px-2 py-1" variant={!isEnglish ? 'primary' : 'secondary'} onClick={() => setLanguage('vi')} aria-pressed={!isEnglish}>VI</Button>
                 <Button className="min-h-9 px-2 py-1" variant={isEnglish ? 'primary' : 'secondary'} onClick={() => setLanguage('en')} aria-pressed={isEnglish}>EN</Button>
@@ -101,9 +184,12 @@ export default function AdminPage({ setPage }) {
         </aside>
 
         <section className="min-w-0 flex-1">
-          <div className="mb-4 flex items-center justify-between border-[3px] border-[var(--pop-black)] bg-[var(--pop-black)] px-4 py-2 font-sans text-sm text-[#fff7df] shadow-[4px_4px_0_#c44d2d]">
-            <span className="font-bold uppercase tracking-wider">{isEnglish ? 'System status: operational' : 'Trạng thái hệ thống: ổn định'}</span>
-            <span className="text-[#86efac]">● LIVE</span>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-4 py-2.5 text-sm text-[var(--admin-text-muted)]">
+            <span className="font-medium">{isEnglish ? 'Session verified against current permissions' : 'Phiên đã xác minh theo quyền hiện hành'}</span>
+            <span className="inline-flex items-center gap-2 font-mono text-xs text-[var(--admin-success-text)]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[var(--admin-success-text)]" aria-hidden="true" />
+              {session.data.admin.role.replaceAll('_', ' ')}
+            </span>
           </div>
           {renderPanel()}
         </section>

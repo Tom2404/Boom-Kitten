@@ -28,5 +28,21 @@ export function useAdminApi() {
     [apiUrl, token],
   );
 
-  return useMemo(() => ({ request, token }), [request, token]);
+  const download = useCallback(async (endpoint, fallbackName = 'download.csv') => {
+    if (!token) return { ok: false, error: 'No admin token' };
+    try {
+      const response = await fetch(`${apiUrl}${endpoint}`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!response.ok) return { ok: false, status: response.status, error: await response.text() };
+      const blob = await response.blob();
+      const disposition = response.headers.get('content-disposition') || '';
+      const filename = disposition.match(/filename="?([^";]+)"?/i)?.[1] || fallbackName;
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url; link.download = filename; link.click();
+      URL.revokeObjectURL(url);
+      return { ok: true };
+    } catch (error) { return { ok: false, error: error.message }; }
+  }, [apiUrl, token]);
+
+  return useMemo(() => ({ download, request, token }), [download, request, token]);
 }

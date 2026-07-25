@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { ImageButton } from '../components/ui/ImageButton.jsx';
 import { IconButton } from '../components/ui/IconButton.jsx';
+import { fetchPublicLiveOpsConfig, SAFE_LIVE_OPS_FALLBACK } from './admin/adminLiveOps.js';
 
 export default function Lobby({ setPage }) {
   const { language, t } = useLanguage();
@@ -10,6 +11,7 @@ export default function Lobby({ setPage }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedEdition, setSelectedEdition] = useState('all');
   const [directCode, setDirectCode] = useState('');
+  const [liveOps, setLiveOps] = useState({ version: 0, config: SAFE_LIVE_OPS_FALLBACK, fallback: true });
 
   const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5000';
 
@@ -30,6 +32,7 @@ export default function Lobby({ setPage }) {
 
   useEffect(() => {
     fetchRooms();
+    fetchPublicLiveOpsConfig().then(setLiveOps);
     const interval = setInterval(fetchRooms, 6000);
     return () => clearInterval(interval);
   }, []);
@@ -59,6 +62,7 @@ export default function Lobby({ setPage }) {
 
   return (
     <div className="bg-white border-3 border-[var(--pop-black)] shadow-[6px_6px_0_var(--pop-black)] rounded-none p-6 md:p-8 flex flex-col gap-6 w-full max-w-5xl mx-auto my-6 text-left font-pop-body text-[var(--pop-black)]">
+      {liveOps.config.maintenanceMode && <div role="alert" className="border-3 border-[var(--pop-black)] bg-[var(--pop-red)] p-4 font-pop-accent font-black uppercase text-white shadow-[4px_4px_0_var(--pop-black)]">{language === 'vi' ? 'Hệ thống đang bảo trì — tạm dừng tạo và tham gia phòng mới.' : 'Maintenance in progress — new room creation and joining are temporarily paused.'} <span className="font-mono text-xs">config v{liveOps.version}</span></div>}
       
       {/* Header section */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b-3 border-[var(--pop-black)] pb-4 gap-4">
@@ -83,6 +87,7 @@ export default function Lobby({ setPage }) {
           variant="danger"
           size="md"
           onClick={() => setPage('Game')}
+          disabled={liveOps.config.maintenanceMode}
           className="uppercase text-xs"
         >
           {language === 'vi' ? 'Tạo phòng của bạn ➕' : 'Create Room ➕'}
@@ -114,7 +119,7 @@ export default function Lobby({ setPage }) {
             variant="primary"
             size="md"
             onClick={handleDirectJoin}
-            disabled={directCode.length < 4}
+            disabled={directCode.length < 4 || liveOps.config.maintenanceMode}
             className="w-full font-pop-accent font-black uppercase text-xs"
           >
             {language === 'vi' ? 'GIA NHẬP PHÒNG 🚀' : 'JOIN ROOM 🚀'}
@@ -191,6 +196,7 @@ export default function Lobby({ setPage }) {
               variant="secondary"
               size="md"
               onClick={() => setPage('Game')}
+              disabled={liveOps.config.maintenanceMode}
               className="mt-2 font-pop-accent font-black uppercase text-xs"
             >
               {language === 'vi' ? 'TẠO PHÒNG MỚI NGAY' : 'CREATE ROOM NOW'}
@@ -241,7 +247,7 @@ export default function Lobby({ setPage }) {
                     variant={isPlaying || isFull ? "secondary" : "primary"}
                     size="sm"
                     onClick={() => handleJoinRoom(room.code, room.password)}
-                    disabled={isPlaying || isFull}
+                    disabled={isPlaying || isFull || liveOps.config.maintenanceMode}
                     className="w-full font-pop-accent font-black uppercase"
                   >
                     {isPlaying 

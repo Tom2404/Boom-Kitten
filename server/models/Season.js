@@ -13,6 +13,11 @@ const seasonSchema = new mongoose.Schema(
       default: 'scheduled' 
     },
     isResetExecuted: { type: Boolean, default: false },
+    resetState: { type: String, enum: ['pending', 'processing', 'completed', 'failed'], default: 'pending' },
+    resetRequestId: { type: String },
+    resetStartedAt: { type: Date },
+    resetCompletedAt: { type: Date },
+    resetFailureCount: { type: Number, default: 0, min: 0 },
     settings: {
       resetStrategy: { 
         type: String, 
@@ -29,6 +34,8 @@ const seasonSchema = new mongoose.Schema(
 
 // Indexes
 seasonSchema.index({ status: 1 });
+seasonSchema.index({ resetState: 1, resetStartedAt: 1 });
+seasonSchema.index({ resetRequestId: 1 }, { sparse: true });
 seasonSchema.index({ startDate: 1, endDate: 1 });
 
 module.exports = mongoose.model('Season', seasonSchema);

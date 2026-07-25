@@ -1,6 +1,7 @@
 import React from 'react';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { PixelHomeIcon, PixelPlayIcon, PixelTrophyIcon, PixelShopIcon, PixelProfileIcon, PixelStarIcon } from './PixelIcons.jsx';
+import { isAdminRole } from '../utils/adminRoles.js';
 
 /**
  * Navbar component for the Exploding Kittens homepage (Pop Art Style).
@@ -16,6 +17,7 @@ import { PixelHomeIcon, PixelPlayIcon, PixelTrophyIcon, PixelShopIcon, PixelProf
  */
 export default function Navbar({ page, setPage, isLoggedIn, userRole, handleLogout }) {
   const { language, setLanguage, t } = useLanguage();
+  const isAdmin = isAdminRole(userRole);
   
   // Hover & Active states for buttons to animate mechanical transitions
   const [langHover, setLangHover] = React.useState(false);
@@ -82,9 +84,51 @@ export default function Navbar({ page, setPage, isLoggedIn, userRole, handleLogo
     };
   };
 
+  if (page === 'Admin') {
+    return (
+      <nav className="admin-topbar sticky top-0 z-40 w-full border-b border-[var(--admin-border)] bg-[var(--admin-surface)]/95 backdrop-blur-sm" aria-label={language === 'en' ? 'Admin account' : 'Tài khoản quản trị'}>
+        <div className="mx-auto flex min-h-14 w-full max-w-[1600px] items-center justify-between gap-4 px-4 md:px-6 lg:px-8">
+          <button
+            type="button"
+            onClick={() => setPage('Home')}
+            className="flex items-center gap-2 rounded-md text-left text-[var(--admin-text)] transition-colors hover:text-[var(--admin-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-focus)] focus:ring-offset-2"
+          >
+            <span className="flex h-8 w-8 items-center justify-center rounded-md bg-[var(--admin-danger-bg)] text-[var(--admin-accent)]" aria-hidden="true">
+              <span className="material-symbols-outlined text-[20px]">admin_panel_settings</span>
+            </span>
+            <span>
+              <span className="block text-sm font-semibold tracking-[-0.01em]">Boom-Kitten</span>
+              <span className="block text-[11px] text-[var(--admin-text-muted)]">Operations</span>
+            </span>
+          </button>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="min-h-9 rounded-md border border-[var(--admin-border-strong)] bg-[var(--admin-surface)] px-3 text-xs font-semibold text-[var(--admin-text)] transition-colors hover:bg-[var(--admin-surface-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-focus)] focus:ring-offset-2"
+              onClick={() => setLanguage(language === 'en' ? 'vi' : 'en')}
+              aria-label={language === 'en' ? 'Switch to Vietnamese' : 'Chuyển sang tiếng Anh'}
+            >
+              {language === 'en' ? 'VI' : 'EN'}
+            </button>
+            {isLoggedIn && (
+              <button
+                type="button"
+                className="min-h-9 rounded-md border border-transparent px-3 text-xs font-semibold text-[var(--admin-text-muted)] transition-colors hover:bg-[var(--admin-surface-muted)] hover:text-[var(--admin-text)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-focus)] focus:ring-offset-2"
+                onClick={handleLogout}
+              >
+                {t('logout')}
+              </button>
+            )}
+          </div>
+        </div>
+      </nav>
+    );
+  }
+
   return (
     <nav className="sticky top-0 w-full h-[60px] bg-[var(--pop-black)] border-b-2 border-white/10 z-50 select-none">
-      <div className="max-w-7xl mx-auto h-full px-4 md:px-12 flex justify-between items-center">
+      <div className="max-w-7xl mx-auto h-full px-2 sm:px-4 md:px-12 flex justify-between items-center">
         
         {/* LOGO */}
         <div 
@@ -94,7 +138,7 @@ export default function Navbar({ page, setPage, isLoggedIn, userRole, handleLogo
           {/* Red diamond */}
           <div className="w-[14px] h-[14px] bg-[var(--pop-red)] rotate-45 pop-border-2 border-white" />
           
-          <span className="font-pop-display text-lg md:text-[22px] tracking-tight uppercase">
+          <span className="hidden min-[400px]:inline font-pop-display text-lg md:text-[22px] tracking-tight uppercase">
             <span className="text-white">Mèo</span>
             <span className="text-[var(--pop-red)]">Nổ</span>
           </span>
@@ -113,7 +157,7 @@ export default function Navbar({ page, setPage, isLoggedIn, userRole, handleLogo
             {t('home')}
           </button>
           
-          {userRole !== 'admin' && (
+          {!isAdmin && (
             <button 
               onClick={() => setPage('Game')}
               className={`flex items-center gap-1.5 uppercase tracking-wider transition-all duration-200 border-b-2 py-1 px-1 cursor-pointer
@@ -126,7 +170,7 @@ export default function Navbar({ page, setPage, isLoggedIn, userRole, handleLogo
             </button>
           )}
           
-          {userRole !== 'admin' && (
+          {!isAdmin && (
             <>
               <button 
                 onClick={() => setPage('Leaderboard')}
@@ -176,7 +220,7 @@ export default function Navbar({ page, setPage, isLoggedIn, userRole, handleLogo
             </>
           )}
           
-          {isLoggedIn && userRole === 'admin' && (
+          {isLoggedIn && isAdmin && (
             <button 
               onClick={() => setPage('Admin')}
               className={`flex items-center gap-1.5 uppercase tracking-wider transition-all duration-200 border-b-2 py-1 px-2 cursor-pointer font-black rounded-sm
@@ -191,13 +235,13 @@ export default function Navbar({ page, setPage, isLoggedIn, userRole, handleLogo
         </div>
 
         {/* ACTIONS: Lang, Login/Register/Logout, Admin */}
-        <div className="flex items-center gap-4 shrink-0 font-pop-accent text-xs">
+        <div className="flex items-center gap-2 sm:gap-4 shrink-0 font-pop-accent text-xs">
           
           {/* Admin badge if role is admin */}
-          {isLoggedIn && userRole === 'admin' && (
+          {isLoggedIn && isAdmin && (
             <button
               onClick={() => setPage('Admin')}
-              className="bg-[var(--pop-amber)] text-[var(--pop-black)] pop-border-2 px-3 py-1 font-bold uppercase tracking-wider transform -rotate-2 hover:scale-105 active:scale-95 transition-all"
+              className="bg-[var(--pop-amber)] text-[var(--pop-black)] pop-border-2 px-2 sm:px-3 py-1 font-bold uppercase tracking-wider transform -rotate-2 hover:scale-105 active:scale-95 transition-all"
               style={{ boxShadow: '2px 2px 0 var(--pop-red)' }}
             >
               Quản Lý
@@ -207,7 +251,7 @@ export default function Navbar({ page, setPage, isLoggedIn, userRole, handleLogo
           {/* Brutalist Language Switcher */}
           <button
             style={langBtnStyle}
-            className="font-pop-accent font-bold px-3 py-1.5 transition-all duration-150 cursor-pointer uppercase"
+            className="font-pop-accent font-bold px-2 sm:px-3 py-1.5 transition-all duration-150 cursor-pointer uppercase"
             onMouseEnter={() => setLangHover(true)}
             onMouseLeave={() => {
               setLangHover(false);
@@ -224,7 +268,7 @@ export default function Navbar({ page, setPage, isLoggedIn, userRole, handleLogo
           {isLoggedIn ? (
             <button
               style={getAuthBtnStyle(false)}
-              className="font-pop-accent font-bold px-4 py-1.5 transition-all duration-150 cursor-pointer uppercase"
+              className="font-pop-accent font-bold px-2 sm:px-4 py-1.5 transition-all duration-150 cursor-pointer uppercase"
               onMouseEnter={() => setAuthHover(true)}
               onMouseLeave={() => {
                 setAuthHover(false);

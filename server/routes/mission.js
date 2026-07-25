@@ -6,6 +6,8 @@ const UserQuestProgress = require('../models/UserQuestProgress');
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const authMiddleware = require('../middleware/authMiddleware');
+const { getRuntimeLiveOpsConfig } = require('../services/admin/liveOpsService');
+const { ApiError } = require('../utils/apiResponse');
 
 const router = express.Router();
 
@@ -32,6 +34,8 @@ function optionalAuth(req, res, next) {
 // GET /api/missions - Get all active missions (with progress if logged in)
 router.get('/', optionalAuth, async (req, res, next) => {
   try {
+    const liveOps = await getRuntimeLiveOpsConfig();
+    if (liveOps.config.maintenanceMode || !liveOps.config.features.missions) throw new ApiError(503, 'FEATURE_UNAVAILABLE', 'Nhiệm vụ đang tạm dừng theo cấu hình Live Ops.');
     const activeQuests = await Quest.find({ isActive: true });
     
     // If guest (not logged in)
@@ -106,6 +110,8 @@ router.get('/', optionalAuth, async (req, res, next) => {
 // POST /api/missions/:questId/claim - Claim quest reward (requires auth)
 router.post('/:questId/claim', authMiddleware, async (req, res, next) => {
   try {
+    const liveOps = await getRuntimeLiveOpsConfig();
+    if (liveOps.config.maintenanceMode || !liveOps.config.features.missions) throw new ApiError(503, 'FEATURE_UNAVAILABLE', 'Nhiệm vụ đang tạm dừng theo cấu hình Live Ops.');
     const { questId } = req.params;
     const quest = await Quest.findById(questId);
     if (!quest) return res.status(404).json({ message: 'Nhiệm vụ không tồn tại' });
@@ -148,8 +154,8 @@ router.post('/:questId/claim', authMiddleware, async (req, res, next) => {
       return res.status(404).json({ message: 'Người chơi không tìm thấy' });
     }
 
-    const rewardCoins = quest.reward?.coins ?? 0;
-    const rewardGems = quest.reward?.gems ?? 0;
+    const rewardCoins = Math.floor((quest.reward?.coins ?? 0) * liveOps.config.rewardMultiplier);
+    const rewardGems = Math.floor((quest.reward?.gems ?? 0) * liveOps.config.rewardMultiplier);
 
     user.coins += rewardCoins;
     user.gems += rewardGems;
@@ -161,6 +167,7 @@ router.post('/:questId/claim', authMiddleware, async (req, res, next) => {
         type: 'earn',
         amount: rewardCoins,
         currency: 'coin',
+        source: `quest:${quest._id}`,
         description: `Nhận thưởng nhiệm vụ: ${quest.title}`,
       });
     }
@@ -171,6 +178,7 @@ router.post('/:questId/claim', authMiddleware, async (req, res, next) => {
         type: 'earn',
         amount: rewardGems,
         currency: 'gem',
+        source: `quest:${quest._id}`,
         description: `Nhận thưởng nhiệm vụ: ${quest.title}`,
       });
     }
@@ -180,6 +188,8 @@ router.post('/:questId/claim', authMiddleware, async (req, res, next) => {
       coins: user.coins,
       gems: user.gems,
       status: 'claimed',
+      liveOpsVersion: liveOps.version,
+      rewardMultiplier: liveOps.config.rewardMultiplier,
     });
   } catch (error) {
     return next(error);

@@ -27,7 +27,9 @@ const {
   kickPlayer,
   toggleReady,
   updateRoomSettings,
+  touchRoom,
 } = require('../game/roomManager');
+const { getRuntimeLiveOpsConfig } = require('../services/admin/liveOpsService');
 const {
   playCard,
   resolveBarkingKittenAction,
@@ -49,13 +51,13 @@ const findUserByIdSafe = async (id) => {
   if (mongoose.connection.readyState !== 1) return null;
   return await User.findById(id);
 };
-const GameHistory = require('../models/GameHistory');
 const Transaction = require('../models/Transaction');
 const Quest = require('../models/Quest');
 const UserQuestProgress = require('../models/UserQuestProgress');
 const { calculateMultiplayerElo } = require('../utils/eloCalculator');
 const { applyTierProtection } = require('../utils/rankSystem');
 const Season = require('../models/Season');
+const { completeMatchHistory, startMatchHistory } = require('../services/matchLifecycleService');
 
 async function updateQuestProgress(userId, actionType, count = 1) {
   try {
@@ -343,7 +345,8 @@ async function finalizeGame(io, room) {
       }),
     );
 
-    // Save GameHistory only if winner and players have valid MongoDB ObjectIds (guests won't be saved to GameHistory, which is correct)
+    // Complete the durable lifecycle record. Guest ids remain in participantIds,
+    // while player result rows retain only valid User references.
     const validWinner = mongoose.Types.ObjectId.isValid(winnerId);
     const validPlayers = rankings
       .filter((entry) => mongoose.Types.ObjectId.isValid(entry.userId))
@@ -363,14 +366,11 @@ async function finalizeGame(io, room) {
       });
 
     if (validWinner && validPlayers.length > 0) {
-      await GameHistory.create({
-        roomId: room.code,
+      await completeMatchHistory({
+        room,
+        validPlayers,
+        winnerId,
         seasonId: activeSeason ? activeSeason._id : undefined,
-        players: validPlayers,
-        winner: winnerId,
-        duration: 0,
-        cardsPlayed: room.gameState.discardPile.length,
-        playedAt: new Date(),
       });
     }
   } catch (err) {
@@ -797,6 +797,7 @@ module.exports = function registerGameSocket(io) {
   async function afterGameStateChanged(room, playersBefore, turnBefore) {
     const gameState = room.gameState;
     if (!gameState) return;
+    touchRoom(room);
 
     // Check if anyone died
     playersBefore.forEach((pBefore) => {
@@ -1020,6 +1021,9 @@ module.exports = function registerGameSocket(io) {
         return;
       }
       try {
+        const liveOps = await getRuntimeLiveOpsConfig();
+        if (liveOps.config.maintenanceMode) throw new Error('Hệ thống đang bảo trì. Tạm thời không thể tạo phòng mới.');
+        if (getPublicRooms().length >= liveOps.config.maxActiveRooms) throw new Error('Hệ thống đã đạt giới hạn phòng đang hoạt động. Vui lòng thử lại sau.');
         await ensureLeaveOtherRooms(null);
         let username = socket.user?.username ?? `Guest-${guestId.slice(6, 11)}`;
         if (socket.user?.id) {
@@ -1271,6 +1275,11 @@ module.exports = function registerGameSocket(io) {
         }
 
         const room = startGame(targetRoomCode);
+        try {
+          room.analyticsHistoryId = await startMatchHistory({ room });
+        } catch (historyError) {
+          console.error('Unable to start match lifecycle history:', historyError);
+        }
         emitRoomUpdated(io.to(targetRoomCode), room);
         io.to(targetRoomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
         sendHands(io, room);

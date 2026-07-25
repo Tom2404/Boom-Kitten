@@ -4,9 +4,34 @@ const ShopItem = require('../models/ShopItem');
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const authMiddleware = require('../middleware/authMiddleware');
-const AuditLog = require('../models/AuditLog');
+const { requireAdminMutationContext } = require('../middleware/adminMutationContext');
+const { executeIdempotentAdminOperation } = require('../services/admin/idempotencyService');
+const {
+  createCatalogItem,
+  deleteCatalogItem,
+  setCatalogItemStatus,
+  updateCatalogItem,
+} = require('../services/admin/catalogService');
+const { getRuntimeLiveOpsConfig } = require('../services/admin/liveOpsService');
+const { ApiError } = require('../utils/apiResponse');
 
 const router = express.Router();
+
+function adminRequestContext(req) {
+  return { requestId: req.requestId, ip: req.ip, userAgent: req.get('user-agent') };
+}
+
+async function sendIdempotentMutation(req, res, { operation, payload, execute }) {
+  const outcome = await executeIdempotentAdminOperation({
+    actorId: req.admin.id,
+    operation,
+    requestId: req.adminMutation.requestId,
+    payload,
+    execute,
+  });
+  if (outcome.replayed) res.setHeader('Idempotency-Replayed', 'true');
+  return res.status(outcome.statusCode).json(outcome.body);
+}
 
 const rarityCoinPrice = {
   common: 200,
@@ -17,6 +42,8 @@ const rarityCoinPrice = {
 
 router.get('/items', async (_req, res, next) => {
   try {
+    const liveOps = await getRuntimeLiveOpsConfig();
+    if (liveOps.config.maintenanceMode || !liveOps.config.features.shop) throw new ApiError(503, 'FEATURE_UNAVAILABLE', 'Shop đang tạm dừng theo cấu hình Live Ops.');
     const now = new Date();
     const items = await ShopItem.find({
       isActive: { $ne: false },
@@ -32,6 +59,8 @@ router.use(authMiddleware);
 
 router.post('/buy', async (req, res, next) => {
   try {
+    const liveOps = await getRuntimeLiveOpsConfig();
+    if (liveOps.config.maintenanceMode || !liveOps.config.features.shop) throw new ApiError(503, 'FEATURE_UNAVAILABLE', 'Shop đang tạm dừng theo cấu hình Live Ops.');
     const { itemId } = req.body;
     const item = await ShopItem.findById(itemId);
     if (!item) return res.status(404).json({ message: 'Item not found' });
@@ -85,6 +114,7 @@ router.post('/buy', async (req, res, next) => {
         type: 'purchase',
         amount: coinPrice,
         currency: 'coin',
+        source: `shop:${item._id}`,
         description: `Purchased ${item.name}`,
       });
     }
@@ -95,6 +125,7 @@ router.post('/buy', async (req, res, next) => {
         type: 'purchase',
         amount: gemPrice,
         currency: 'gem',
+        source: `shop:${item._id}`,
         description: `Purchased ${item.name}`,
       });
     }
@@ -112,9 +143,12 @@ router.post('/buy', async (req, res, next) => {
 });
 
 const adminMiddleware = require('../middleware/adminMiddleware');
+const { requireAdminPermission } = require('../middleware/adminMiddleware');
 
 router.get('/owned', async (req, res, next) => {
   try {
+    const liveOps = await getRuntimeLiveOpsConfig();
+    if (liveOps.config.maintenanceMode || !liveOps.config.features.shop) throw new ApiError(503, 'FEATURE_UNAVAILABLE', 'Shop đang tạm dừng theo cấu hình Live Ops.');
     const user = await User.findById(req.user.id).select('ownedSkins ownedEmotes ownedAvatarFrames');
     return res.json({
       ownedSkins: user?.ownedSkins ?? [],
@@ -127,126 +161,84 @@ router.get('/owned', async (req, res, next) => {
 });
 
 // Admin-only endpoints for managing shop items
-router.post('/items', adminMiddleware, async (req, res, next) => {
+router.post('/items', adminMiddleware, requireAdminPermission('catalog.write'), requireAdminMutationContext({ reasonRequired: false }), async (req, res, next) => {
   try {
-    const { name, type, price, rarity, isLimited, availableUntil, imageUrl, previewUrl, isActive, sortOrder } = req.body;
-    if (!name || !type) return res.status(400).json({ message: 'Name and type are required' });
-    const item = await ShopItem.create({
-      name,
-      type,
-      price: price ?? { coins: 0, gems: 0 },
-      rarity: rarity ?? 'common',
-      isLimited: isLimited ?? false,
-      availableUntil,
-      imageUrl: imageUrl ?? '',
-      previewUrl: previewUrl ?? '',
-      isActive: isActive ?? true,
-      sortOrder: sortOrder ?? 0,
-    });
-
-    await AuditLog.create({
-      adminId: req.user.id,
-      action: 'SHOP_ITEM_CREATE',
-      targetType: 'shop_item',
-      targetId: item._id.toString(),
-      after: item.toObject(),
-      reason: 'Created shop item administrative action',
-    });
-
-    return res.status(201).json(item);
-  } catch (error) {
-    return next(error);
-  }
-});
-
-router.put('/items/:id', adminMiddleware, async (req, res, next) => {
-  try {
-    const { name, type, price, rarity, isLimited, availableUntil, imageUrl, previewUrl, isActive, sortOrder } = req.body;
-    const itemBefore = await ShopItem.findById(req.params.id);
-    if (!itemBefore) return res.status(404).json({ message: 'Shop item not found' });
-
-    const item = await ShopItem.findByIdAndUpdate(
-      req.params.id,
-      {
-        $set: {
-          name,
-          type,
-          price,
-          rarity,
-          isLimited,
-          availableUntil,
-          imageUrl,
-          previewUrl,
-          isActive,
-          sortOrder,
-        },
+    return await sendIdempotentMutation(req, res, {
+      operation: 'catalog.item.create',
+      payload: req.body,
+      execute: async () => {
+        const item = await createCatalogItem({
+          actor: req.admin,
+          input: req.body,
+          mutation: req.adminMutation,
+          request: adminRequestContext(req),
+        });
+        return { statusCode: 201, body: item };
       },
-      { new: true, runValidators: true }
-    );
-
-    await AuditLog.create({
-      adminId: req.user.id,
-      action: 'SHOP_ITEM_UPDATE',
-      targetType: 'shop_item',
-      targetId: item._id.toString(),
-      before: itemBefore.toObject(),
-      after: item.toObject(),
-      reason: 'Updated shop item administrative action',
     });
-
-    return res.json(item);
   } catch (error) {
     return next(error);
   }
 });
 
-router.patch('/items/:id/status', adminMiddleware, async (req, res, next) => {
+router.put('/items/:id', adminMiddleware, requireAdminPermission('catalog.write'), requireAdminMutationContext({ reasonRequired: false }), async (req, res, next) => {
+  try {
+    return await sendIdempotentMutation(req, res, {
+      operation: 'catalog.item.update',
+      payload: { itemId: req.params.id, ...req.body },
+      execute: async () => {
+        const item = await updateCatalogItem({
+          actor: req.admin,
+          itemId: req.params.id,
+          input: req.body,
+          mutation: req.adminMutation,
+          request: adminRequestContext(req),
+        });
+        return { statusCode: 200, body: item };
+      },
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.patch('/items/:id/status', adminMiddleware, requireAdminPermission('catalog.write'), requireAdminMutationContext({ reasonRequired: false }), async (req, res, next) => {
   try {
     const { isActive } = req.body;
-    if (isActive === undefined) return res.status(400).json({ message: 'isActive status is required' });
-
-    const itemBefore = await ShopItem.findById(req.params.id);
-    if (!itemBefore) return res.status(404).json({ message: 'Shop item not found' });
-
-    const item = await ShopItem.findByIdAndUpdate(
-      req.params.id,
-      { $set: { isActive: !!isActive } },
-      { new: true }
-    );
-
-    await AuditLog.create({
-      adminId: req.user.id,
-      action: 'SHOP_ITEM_STATUS',
-      targetType: 'shop_item',
-      targetId: item._id.toString(),
-      before: itemBefore.toObject(),
-      after: item.toObject(),
-      reason: `Changed shop item active status to ${isActive}`,
+    return await sendIdempotentMutation(req, res, {
+      operation: 'catalog.item.status.change',
+      payload: { itemId: req.params.id, isActive },
+      execute: async () => {
+        const item = await setCatalogItemStatus({
+          actor: req.admin,
+          itemId: req.params.id,
+          isActive,
+          mutation: req.adminMutation,
+          request: adminRequestContext(req),
+        });
+        return { statusCode: 200, body: item };
+      },
     });
-
-    return res.json(item);
   } catch (error) {
     return next(error);
   }
 });
 
-router.delete('/items/:id', adminMiddleware, async (req, res, next) => {
+router.delete('/items/:id', adminMiddleware, requireAdminPermission('catalog.write'), requireAdminMutationContext(), async (req, res, next) => {
   try {
-    const itemBefore = await ShopItem.findById(req.params.id);
-    if (!itemBefore) return res.status(404).json({ message: 'Shop item not found' });
-
-    await ShopItem.findByIdAndDelete(req.params.id);
-
-    await AuditLog.create({
-      adminId: req.user.id,
-      action: 'SHOP_ITEM_DELETE',
-      targetType: 'shop_item',
-      targetId: req.params.id,
-      before: itemBefore.toObject(),
-      reason: 'Deleted shop item administrative action',
+    return await sendIdempotentMutation(req, res, {
+      operation: 'catalog.item.delete',
+      payload: { itemId: req.params.id, reason: req.adminMutation.reason },
+      execute: async () => {
+        await deleteCatalogItem({
+          actor: req.admin,
+          itemId: req.params.id,
+          mutation: req.adminMutation,
+          request: adminRequestContext(req),
+        });
+        return { statusCode: 200, body: { success: true, message: 'Shop item deleted successfully' } };
+      },
     });
-
-    return res.json({ success: true, message: 'Shop item deleted successfully' });
   } catch (error) {
     return next(error);
   }

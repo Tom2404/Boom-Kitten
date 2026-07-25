@@ -10,6 +10,7 @@ import DeckPile from '../components/DeckPile.jsx';
 import DiscardPile from '../components/DiscardPile.jsx';
 import Card, { CARD_THEMES } from '../components/Card.jsx';
 import { getCardImageUrl } from '../utils/cardSkins.js';
+import { isAdminRole } from '../utils/adminRoles.js';
 import gsap from 'gsap';
 import { ImageButton } from '../components/ui/ImageButton.jsx';
 import fishboneIcon from '../assets/ui/icons/fishbone.png';
@@ -1341,7 +1342,7 @@ export default function Game({ setPage }) {
         const payload = JSON.parse(jsonPayload);
         const isExpired = payload.exp * 1000 < Date.now();
 
-        if (!isExpired && payload.role === 'admin') {
+        if (!isExpired && isAdminRole(payload.role)) {
           setPage('Admin');
           return;
         }

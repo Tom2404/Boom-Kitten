@@ -4,6 +4,7 @@ import Navbar from './components/Navbar.jsx';
 import { useSocket } from './hooks/useSocket.js';
 import { useLanguage } from './context/LanguageContext.jsx';
 import CustomDialog from './components/CustomDialog.jsx';
+import { isAdminRole } from './utils/adminRoles.js';
 
 const Login = lazy(() => import('./pages/Login.jsx'));
 const Register = lazy(() => import('./pages/Register.jsx'));
@@ -70,7 +71,7 @@ export default function App() {
         const base64Url = token.split('.')[1];
         const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
         const payload = JSON.parse(window.atob(base64));
-        if (payload.role === 'admin') {
+        if (isAdminRole(payload.role)) {
           return 'Admin';
         }
       } catch (e) {}
@@ -141,7 +142,7 @@ export default function App() {
 
   // Global access guard for admin role to restrict user-facing routes
   useEffect(() => {
-    if (userRole === 'admin' && ['Game', 'Leaderboard', 'Mission', 'Shop', 'Profile'].includes(page)) {
+    if (isAdminRole(userRole) && ['Game', 'Leaderboard', 'Mission', 'Shop', 'Profile'].includes(page)) {
       setPage('Admin');
     }
   }, [page, userRole]);
@@ -199,6 +200,7 @@ export default function App() {
 
   const Page = useMemo(() => PAGES[page] ?? Home, [page]);
   const isInMatch = page === 'Game' && activeRoom !== null;
+  const isAdminPage = page === 'Admin';
 
   if (page === 'Home') {
     return (
@@ -234,15 +236,30 @@ export default function App() {
   }
 
   return (
-    <div className="pop-art-theme min-h-screen bg-[var(--pop-cream)] text-[var(--pop-black)] flex flex-col selection:bg-[var(--pop-amber)] selection:text-[var(--pop-black)]">
+    <div className={isAdminPage
+      ? 'admin-console min-h-screen bg-[var(--admin-canvas)] text-[var(--admin-text)] flex flex-col selection:bg-[var(--admin-danger-bg)] selection:text-[var(--admin-text)]'
+      : 'pop-art-theme min-h-screen bg-[var(--pop-cream)] text-[var(--pop-black)] flex flex-col selection:bg-[var(--pop-amber)] selection:text-[var(--pop-black)]'
+    }>
       {/* Floating Server Announcement */}
       {announcement && (
-        <div className="bg-[var(--pop-red)] text-white py-2.5 px-4 pop-border-3 border-x-0 border-t-0 font-pop-accent font-bold text-center z-50 flex items-center justify-between gap-4 shadow-[0_4px_0_var(--pop-black)]">
+        <div className={isAdminPage
+          ? 'z-50 flex items-center justify-between gap-4 border-b border-[var(--admin-border)] bg-[var(--admin-info-bg)] px-4 py-2.5 text-center text-sm font-medium text-[var(--admin-info-text)]'
+          : 'bg-[var(--pop-red)] text-white py-2.5 px-4 pop-border-3 border-x-0 border-t-0 font-pop-accent font-bold text-center z-50 flex items-center justify-between gap-4 shadow-[0_4px_0_var(--pop-black)]'
+        }>
           <div className="flex-1 flex justify-center items-center gap-2">
-            <span className="material-symbols-outlined animate-bounce">campaign</span>
-            <span className="uppercase tracking-wider text-xs md:text-sm">{announcement}</span>
+            <span className={`material-symbols-outlined ${isAdminPage ? 'text-[20px]' : 'animate-bounce'}`}>campaign</span>
+            <span className={isAdminPage ? '' : 'uppercase tracking-wider text-xs md:text-sm'}>{announcement}</span>
           </div>
-          <button onClick={() => setAnnouncement(null)} className="font-bold hover:scale-110 active:scale-95 text-white">✕</button>
+          <button
+            onClick={() => setAnnouncement(null)}
+            className={isAdminPage
+              ? 'rounded p-1 text-[var(--admin-info-text)] transition-colors hover:bg-black/5 focus:outline-none focus:ring-2 focus:ring-[var(--admin-focus)]'
+              : 'font-bold hover:scale-110 active:scale-95 text-white'
+            }
+            aria-label={language === 'en' ? 'Dismiss announcement' : 'Đóng thông báo'}
+          >
+            ✕
+          </button>
         </div>
       )}
 
@@ -258,16 +275,16 @@ export default function App() {
       )}
 
       {/* Main Page Area */}
-      <main className={`flex-grow ${isInMatch ? 'p-4 w-full max-w-none' : 'p-4 md:p-8 max-w-7xl mx-auto w-full'}`}>
+      <main className={`flex-grow ${isAdminPage ? 'w-full' : isInMatch ? 'p-4 w-full max-w-none' : 'p-4 md:p-8 max-w-7xl mx-auto w-full'}`}>
         <ErrorBoundary>
-          <Suspense fallback={<div className="font-pop-body text-center py-10">Loading...</div>}>
+          <Suspense fallback={<div className={isAdminPage ? 'py-10 text-center text-sm text-[var(--admin-text-muted)]' : 'font-pop-body text-center py-10'}>Loading...</div>}>
             <Page setPage={setPage} />
           </Suspense>
         </ErrorBoundary>
       </main>
 
       {/* Footer */}
-      {!isInMatch && (
+      {!isInMatch && !isAdminPage && (
         <footer className="w-full border-t-2 border-[var(--pop-black)] py-8 bg-[var(--pop-cream)] mt-auto font-pop-body">
         <div className="max-w-7xl mx-auto px-4 md:px-12 flex flex-col md:flex-row justify-between items-center gap-4 text-center md:text-left">
           <div className="font-pop-display font-black text-xl text-[var(--pop-red)] uppercase tracking-tight">

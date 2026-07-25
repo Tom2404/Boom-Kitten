@@ -9,8 +9,14 @@ const userSchema = new mongoose.Schema(
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     passwordHash: { type: String, required: true },
     avatar: { type: String, default: '' },
-    role: { type: String, enum: ['user', 'admin'], default: 'user' },
+    role: {
+      type: String,
+      enum: ['user', 'admin', 'super_admin', 'operator', 'moderator', 'analyst'],
+      default: 'user',
+    },
     isBanned: { type: Boolean, default: false },
+    suspendedUntil: { type: Date },
+    warningCount: { type: Number, default: 0, min: 0 },
     
     // Currency
     coins: { type: Number, default: 100, min: 0 },
@@ -120,6 +126,7 @@ userSchema.pre('save', function (next) {
 
 // Compound index for leaderboard ranking performance
 userSchema.index({ eloPoints: -1, 'stats.wins': -1 });
+userSchema.index({ createdAt: 1, _id: 1 });
 
 module.exports = mongoose.model('User', userSchema);
 

@@ -18,5 +18,6 @@ const userQuestProgressSchema = new mongoose.Schema(
 
 // Ensure a user only has one active progress record per quest in a given cycle
 userQuestProgressSchema.index({ userId: 1, questId: 1 }, { unique: true });
+userQuestProgressSchema.index({ status: 1, updatedAt: -1, questId: 1 });
 
 module.exports = mongoose.model('UserQuestProgress', userQuestProgressSchema);
