@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 const transactionSchema = new mongoose.Schema(
   {
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    type: { type: String, enum: ['earn', 'spend', 'purchase', 'admin_adjust', 'season_reward', 'elo_adjust', 'tournament_entry', 'tournament_prize', 'tournament_refund'], required: true },
+    type: { type: String, enum: ['earn', 'spend', 'purchase', 'admin_adjust', 'season_reward', 'elo_adjust', 'tournament_entry', 'tournament_prize', 'tournament_refund', 'wager_lock', 'wager_payout', 'wager_refund', 'gem_conversion'], required: true },
     amount: { type: Number, required: true },
     currency: { type: String, enum: ['coin', 'gem', 'elo'], required: true },
     balanceBefore: { type: Number },

@@ -7,12 +7,3 @@ export function getAdminPanelAccess(permissions = []) {
     canWriteAnnouncements: hasPermission(permissions, 'announcements.write'),
   };
 }
-
-export function getSeasonPanelAccess(permissions = []) {
-  const canWrite = hasPermission(permissions, 'seasons.write');
-  return {
-    canCreate: canWrite,
-    canDelete: canWrite,
-    canReset: hasPermission(permissions, 'seasons.reset'),
-  };
-}

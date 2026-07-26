@@ -18,10 +18,6 @@ function normalizePlayerGame(game, playerId) {
     duration: plain.duration,
     playerCount: plain.participantIds?.length || plain.players?.length || 0,
     result: player?.result,
-    rank: player?.rank,
-    eloBefore: player?.eloBefore,
-    eloAfter: player?.eloAfter,
-    eloChange: player?.eloChange,
   };
 }
 
@@ -42,7 +38,7 @@ async function getPlayerOverview({
   playerId,
 } = {}) {
   if (!mongoose.Types.ObjectId.isValid(playerId)) throw new ApiError(422, 'VALIDATION_ERROR', 'Player ID không hợp lệ.');
-  const user = await UserModel.findById(playerId).select('-passwordHash').lean();
+  const user = await UserModel.findById(playerId).select('-passwordHash -gems -rank -eloPoints -matchmakingRating -highestEloReached -seasonHighestElo -allTimeHighestElo -rankProtectionGames -rankProtectedFloor').lean();
   if (!user) throw new ApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy người chơi.');
   const [gameDocuments, transactions, audits] = await Promise.all([
     GameHistoryModel.find({ 'players.userId': playerId }).sort({ playedAt: -1 }).limit(20).lean(),

@@ -5,7 +5,7 @@ const gameHistorySchema = new mongoose.Schema(
   {
     roomId: { type: String, required: true, index: true },
     seasonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Season', index: true },
-    gameMode: { type: String, enum: ['ranked', 'custom', 'tournament'], default: 'ranked' },
+    gameMode: { type: String, enum: ['matchmaking', 'custom', 'tournament', 'ranked'], default: 'custom' },
     edition: { type: String },
     participantIds: [{ type: String }],
     status: { type: String, enum: ['started', 'completed', 'abandoned'], default: 'completed', index: true },
@@ -19,6 +19,9 @@ const gameHistorySchema = new mongoose.Schema(
         eloBefore: { type: Number },
         eloAfter: { type: Number },
         eloChange: { type: Number, required: true, default: 0 }, // ELO cộng/trừ trong trận đấu
+        matchmakingRatingBefore: { type: Number },
+        matchmakingRatingAfter: { type: Number },
+        matchmakingRatingChange: { type: Number, default: 0 },
       },
     ],
     winner: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

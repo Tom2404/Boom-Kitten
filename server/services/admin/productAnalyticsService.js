@@ -5,7 +5,6 @@ const UserQuestProgress = require('../../models/UserQuestProgress');
 const ShopItem = require('../../models/ShopItem');
 const Quest = require('../../models/Quest');
 const { ApiError } = require('../../utils/apiResponse');
-const { normalizeLegacyRank } = require('../../utils/rankNormalization');
 
 const DAY_MS = 86400000;
 
@@ -59,7 +58,7 @@ function buildRetentionCohorts(users, games) {
 }
 
 function classifyEconomy(rows) {
-  const output = { coin: { source: 0, sink: 0, net: 0 }, gem: { source: 0, sink: 0, net: 0 } };
+  const output = { coin: { source: 0, sink: 0, net: 0 } };
   for (const row of rows) {
     if (!output[row.currency]) continue;
     const signed = ['spend', 'purchase', 'tournament_entry'].includes(row.type) ? -Math.abs(row.amount) : Number(row.amount);
@@ -69,26 +68,14 @@ function classifyEconomy(rows) {
   return output;
 }
 
-function normalizeRankDistribution(rows) {
-  const totals = new Map();
-  for (const row of rows) {
-    const rank = normalizeLegacyRank(row._id);
-    totals.set(rank, (totals.get(rank) || 0) + Number(row.users || 0));
-  }
-  return [...totals.entries()]
-    .map(([rank, users]) => ({ rank, users }))
-    .sort((a, b) => b.users - a.users || a.rank.localeCompare(b.rank));
-}
-
 async function getProductAnalytics({ UserModel = User, GameHistoryModel = GameHistory, TransactionModel = Transaction, ProgressModel = UserQuestProgress, ShopItemModel = ShopItem, QuestModel = Quest, query = {}, now = new Date() } = {}) {
   const range = resolveAnalyticsRange(query, now);
   const users = await UserModel.find({ createdAt: { $gte: range.from, $lt: range.to } }).select('_id createdAt').lean();
   const userIds = users.map((user) => user._id);
   const activityTo = new Date(range.to.getTime() + 7 * DAY_MS);
   const games = userIds.length ? await GameHistoryModel.find({ 'players.userId': { $in: userIds }, playedAt: { $gte: range.from, $lt: activityTo } }).select('players.userId status playedAt startedAt').lean() : [];
-  const [rankRows, transactionRows, shopRows, questRows] = await Promise.all([
-    UserModel.aggregate([{ $group: { _id: '$rank', users: { $sum: 1 } } }, { $sort: { users: -1, _id: 1 } }]),
-    TransactionModel.find({ createdAt: { $gte: range.from, $lt: range.to }, currency: { $in: ['coin', 'gem'] } }).select('type amount currency source description').lean(),
+  const [transactionRows, shopRows, questRows] = await Promise.all([
+    TransactionModel.find({ createdAt: { $gte: range.from, $lt: range.to }, currency: 'coin' }).select('type amount currency source description').lean(),
     TransactionModel.aggregate([{ $match: { type: 'purchase', createdAt: { $gte: range.from, $lt: range.to } } }, { $group: { _id: '$source', purchases: { $sum: 1 }, spent: { $sum: '$amount' } } }, { $sort: { purchases: -1, _id: 1 } }, { $limit: 10 }]),
     ProgressModel.aggregate([{ $match: { status: 'claimed', updatedAt: { $gte: range.from, $lt: range.to } } }, { $group: { _id: '$questId', claims: { $sum: 1 } } }, { $sort: { claims: -1, _id: 1 } }, { $limit: 10 }]),
   ]);
@@ -106,7 +93,6 @@ async function getProductAnalytics({ UserModel = User, GameHistoryModel = GameHi
     },
     funnel: buildFunnel(users, games.filter((game) => new Date(game.playedAt || game.startedAt) < range.to)),
     retention: buildRetentionCohorts(users, games),
-    rankDistribution: normalizeRankDistribution(rankRows),
     economy: classifyEconomy(transactionRows),
     topContent: {
       shop: shopRows.map((row) => { const id = String(row._id || '').replace(/^shop:/, ''); const item = shopById.get(id); return { id: id || null, name: item?.name || String(row._id || 'Legacy purchase'), type: item?.type, purchases: row.purchases, spent: row.spent }; }),
@@ -115,4 +101,4 @@ async function getProductAnalytics({ UserModel = User, GameHistoryModel = GameHi
   };
 }
 
-module.exports = { buildFunnel, buildRetentionCohorts, classifyEconomy, getProductAnalytics, normalizeRankDistribution, resolveAnalyticsRange };
+module.exports = { buildFunnel, buildRetentionCohorts, classifyEconomy, getProductAnalytics, resolveAnalyticsRange };

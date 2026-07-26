@@ -49,7 +49,11 @@ router.get('/items', async (_req, res, next) => {
       isActive: { $ne: false },
       $or: [{ isLimited: false }, { availableUntil: { $gte: now } }],
     }).sort({ sortOrder: 1, createdAt: -1 });
-    return res.json(items);
+    return res.json(items.map((item) => {
+      const value = item.toObject();
+      value.price = { coins: (value.price?.coins ?? 0) + (value.price?.gems ?? 0) * 50 };
+      return value;
+    }));
   } catch (error) {
     return next(error);
   }
@@ -65,20 +69,17 @@ router.post('/buy', async (req, res, next) => {
     const item = await ShopItem.findById(itemId);
     if (!item) return res.status(404).json({ message: 'Item not found' });
 
-    let coinPrice = item.price?.coins ?? 0;
+    let coinPrice = (item.price?.coins ?? 0) + (item.price?.gems ?? 0) * 50;
     if (item.type === 'skin' && coinPrice <= 0) coinPrice = rarityCoinPrice[item.rarity] ?? 200;
     if (item.type === 'emote' && coinPrice <= 0) coinPrice = 100;
     if (item.type === 'emote') coinPrice = Math.max(100, Math.min(coinPrice, 300));
-    const gemPrice = item.price?.gems ?? 0;
-
     const updateQuery = {
       _id: req.user.id,
       coins: { $gte: coinPrice },
-      gems: { $gte: gemPrice }
     };
 
     const updateFields = {
-      $inc: { coins: -coinPrice, gems: -gemPrice }
+      $inc: { coins: -coinPrice }
     };
 
     if (item.type === 'skin') {
@@ -119,21 +120,9 @@ router.post('/buy', async (req, res, next) => {
       });
     }
 
-    if (gemPrice > 0) {
-      await Transaction.create({
-        userId: user._id,
-        type: 'purchase',
-        amount: gemPrice,
-        currency: 'gem',
-        source: `shop:${item._id}`,
-        description: `Purchased ${item.name}`,
-      });
-    }
-
     return res.json({
       success: true,
       coins: user.coins,
-      gems: user.gems,
       activeSkin: user.activeSkin,
       activeAvatarFrame: user.activeAvatarFrame,
     });

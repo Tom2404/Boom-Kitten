@@ -7,10 +7,10 @@ const READ_PERMISSIONS = [
   'rooms.read',
   'catalog.read',
   'quests.read',
-  'seasons.read',
   'announcements.read',
   'live_ops.read',
   'tournaments.read',
+  'wagers.read',
 ];
 
 const ROLE_PERMISSIONS = {
@@ -43,7 +43,6 @@ const ROLE_PERMISSIONS = {
     ...READ_PERMISSIONS,
     'players.export',
     'players.status.write',
-    'players.elo.write',
     'economy.read',
     'economy.adjust',
     'moderation.read',
@@ -54,7 +53,6 @@ const ROLE_PERMISSIONS = {
     'rooms.intervene',
     'catalog.write',
     'quests.write',
-    'seasons.write',
     'announcements.write',
     'announcements.schedule',
     'audit.read',
@@ -63,6 +61,7 @@ const ROLE_PERMISSIONS = {
     'jobs.create',
     'jobs.cancel',
     'tournaments.write',
+    'wagers.resolve',
     'live_ops.draft',
     'incidents.read',
     'incidents.write',
@@ -75,7 +74,6 @@ const SUPER_ADMIN_PERMISSIONS = [
     ...ROLE_PERMISSIONS.moderator,
     ...ROLE_PERMISSIONS.operator,
     'players.role.write',
-    'seasons.reset',
     'tournaments.payout',
     'live_ops.publish',
     'live_ops.rollback',
@@ -87,15 +85,13 @@ const SUPER_ADMIN_PERMISSIONS = [
 ROLE_PERMISSIONS.super_admin = SUPER_ADMIN_PERMISSIONS;
 
 const LIMITED_POLICY = Object.freeze({
-  maxCurrencyAdjustment: Object.freeze({ coin: 10000, gem: 500 }),
-  maxEloDelta: 500,
+  maxCurrencyAdjustment: Object.freeze({ coin: 10000 }),
   maxSuspensionDays: 30,
   maxBulkTargets: 1000,
 });
 
 const SUPER_ADMIN_POLICY = Object.freeze({
   maxCurrencyAdjustment: null,
-  maxEloDelta: null,
   maxSuspensionDays: 365,
   maxBulkTargets: 10000,
 });

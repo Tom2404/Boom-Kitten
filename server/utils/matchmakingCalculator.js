@@ -1,7 +1,7 @@
-const MIN_ELO = 1000;
+const MIN_RATING = 1000;
 
-function getExpectedScore(playerElo, opponentElo) {
-  return 1 / (1 + Math.pow(10, (opponentElo - playerElo) / 400));
+function getExpectedScore(playerRating, opponentRating) {
+  return 1 / (1 + Math.pow(10, (opponentRating - playerRating) / 400));
 }
 
 function getActualScore(playerPlacement, opponentPlacement) {
@@ -10,12 +10,12 @@ function getActualScore(playerPlacement, opponentPlacement) {
   return 0.5;
 }
 
-function getKFactor({ elo, gamesPlayed }) {
+function getKFactor({ rating, gamesPlayed }) {
   if (gamesPlayed < 10) return 60;
   if (gamesPlayed < 30) return 45;
-  if (elo >= 2600) return 20;
-  if (elo >= 2200) return 28;
-  if (elo >= 1800) return 32;
+  if (rating >= 2600) return 20;
+  if (rating >= 2200) return 28;
+  if (rating >= 1800) return 32;
   return 36;
 }
 
@@ -30,7 +30,7 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
-function calculateMultiplayerElo(players) {
+function calculateMatchmakingChanges(players) {
   const playerCount = players.length;
   if (playerCount < 2) return [];
 
@@ -38,7 +38,7 @@ function calculateMultiplayerElo(players) {
 
   return players.map((player) => {
     const k = getKFactor({
-      elo: player.eloBefore,
+      rating: player.ratingBefore,
       gamesPlayed: player.gamesPlayed || 0,
     });
 
@@ -47,7 +47,7 @@ function calculateMultiplayerElo(players) {
     for (const opponent of players) {
       if (opponent.userId === player.userId) continue;
 
-      const expected = getExpectedScore(player.eloBefore, opponent.eloBefore);
+      const expected = getExpectedScore(player.ratingBefore, opponent.ratingBefore);
       const actual = getActualScore(player.placement, opponent.placement);
 
       totalPairDelta += actual - expected;
@@ -64,13 +64,13 @@ function calculateMultiplayerElo(players) {
     if (gamesPlayed < 10 && isTopHalf && finalDelta < 0) finalDelta = 0;
     if (player.placement === 1) finalDelta += getStreakBonus(player.winStreak || 0);
 
-    const eloAfter = Math.max(MIN_ELO, player.eloBefore + finalDelta);
+    const ratingAfter = Math.max(MIN_RATING, player.ratingBefore + finalDelta);
 
     return {
       userId: player.userId,
-      eloBefore: player.eloBefore,
-      eloAfter,
-      eloDelta: eloAfter - player.eloBefore,
+      ratingBefore: player.ratingBefore,
+      ratingAfter,
+      ratingDelta: ratingAfter - player.ratingBefore,
       placement: player.placement,
     };
   });
@@ -81,5 +81,5 @@ module.exports = {
   getActualScore,
   getKFactor,
   getStreakBonus,
-  calculateMultiplayerElo,
+  calculateMatchmakingChanges,
 };

@@ -5,10 +5,11 @@ const Transaction = require('../../models/Transaction');
 const crypto = require('crypto');
 const { ApiError } = require('../../utils/apiResponse');
 const { createAdminAudit } = require('./auditService');
+const { refundCancelledTournamentEntries } = require('../tournamentPlayerService');
 
 const TOURNAMENT_TRANSITIONS = Object.freeze({
   registration: ['active', 'cancelled'],
-  active: ['completed', 'cancelled'],
+  active: ['cancelled'],
   completed: [],
   cancelled: [],
 });
@@ -38,12 +39,16 @@ function validateTournamentInput(input, now = new Date()) {
     name,
     description: typeof input.description === 'string' ? input.description.trim().slice(0, 2000) : '',
     entryFee: integer(input.entryFee ?? 0, 'entryFee', { max: 1000000 }),
-    minEloRequired: integer(input.minEloRequired ?? 0, 'minEloRequired', { max: 100000 }),
-    maxParticipants: integer(input.maxParticipants ?? 16, 'maxParticipants', { min: 2, max: 128 }),
+    maxParticipants: integer(input.maxParticipants ?? 8, 'maxParticipants', { min: 8, max: 8 }),
     prizePool: {
       coins: integer(input.prizePool?.coins ?? 0, 'prizePool.coins', { max: 100000000 }),
-      gems: integer(input.prizePool?.gems ?? 0, 'prizePool.gems', { max: 1000000 }),
     },
+    cosmeticRewards: (input.cosmeticRewards || []).map((reward) => {
+      const type = String(reward.type || '');
+      const itemId = String(reward.itemId || '').trim();
+      if (!['skin', 'emote', 'avatar_frame'].includes(type) || !itemId) throw invalid('Cosmetic reward không hợp lệ.', { cosmeticRewards: 'Cần rank, type và itemId hợp lệ' });
+      return { rank: integer(reward.rank, 'cosmeticRewards.rank', { min: 1, max: 3 }), type, itemId };
+    }),
     startTime,
     registrationClosesAt,
   };
@@ -57,20 +62,6 @@ function getNextTournamentStatus(current, next) {
 function participantIdentity(participant) {
   const user = participant.userId || {};
   return { participantId: String(participant._id), userId: String(user._id || user), username: user.username || 'Unknown' };
-}
-
-function buildInitialBracket(participants) {
-  const seeded = [...participants].sort((left, right) => (Number(right.score) || 0) - (Number(left.score) || 0) || new Date(left.registrationDate || 0) - new Date(right.registrationDate || 0) || String(left._id).localeCompare(String(right._id)));
-  const size = 2 ** Math.ceil(Math.log2(Math.max(2, seeded.length)));
-  const slots = [...seeded, ...Array(size - seeded.length).fill(null)];
-  const matches = [];
-  for (let index = 0; index < size / 2; index += 1) {
-    const left = slots[index];
-    const right = slots[size - 1 - index];
-    const identities = [left, right].filter(Boolean).map(participantIdentity);
-    matches.push({ id: `r1-m${index + 1}`, participantIds: identities.map((item) => item.participantId), participants: identities, bye: identities.length === 1, winnerParticipantId: identities.length === 1 ? identities[0].participantId : null, status: identities.length === 1 ? 'completed' : 'pending' });
-  }
-  return { size, rounds: [{ round: 1, name: 'Opening round', matches }] };
 }
 
 function allocatePool(total, weights) {
@@ -88,9 +79,13 @@ function buildTournamentPayoutPreview(tournament, participants) {
   if (!ranked.length) throw invalid('Chưa có xếp hạng cuối để preview payout.', { participants: 'Cần ít nhất một finalRank' });
   const baseWeights = [60, 30, 10].slice(0, ranked.length);
   const coinAmounts = allocatePool(integer(tournament.prizePool?.coins ?? 0, 'prizePool.coins'), baseWeights);
-  const gemAmounts = allocatePool(integer(tournament.prizePool?.gems ?? 0, 'prizePool.gems'), baseWeights);
-  const rows = ranked.map((participant, index) => ({ ...participantIdentity(participant), rank: participant.finalRank, coins: coinAmounts[index], gems: gemAmounts[index] }));
-  return { tournamentId: String(tournament._id), rows, totals: { coins: coinAmounts.reduce((sum, value) => sum + value, 0), gems: gemAmounts.reduce((sum, value) => sum + value, 0) } };
+  const rows = ranked.map((participant, index) => ({
+    ...participantIdentity(participant),
+    rank: participant.finalRank,
+    coins: coinAmounts[index],
+    cosmetics: (tournament.cosmeticRewards || []).filter((reward) => reward.rank === participant.finalRank).map(({ type, itemId }) => ({ type, itemId })),
+  }));
+  return { tournamentId: String(tournament._id), rows, totals: { coins: coinAmounts.reduce((sum, value) => sum + value, 0) } };
 }
 
 async function createTournamentPayoutPreview({
@@ -171,21 +166,26 @@ async function executeTournamentPayout({
     try {
       participant = await ParticipantModel.findOneAndUpdate(
         { _id: row.participantId, tournamentId, userId: row.userId, payoutStatus: 'pending' },
-        { $set: { payoutStatus: 'processing', payoutRequestId: mutation.requestId, payoutCoins: row.coins, payoutGems: row.gems } },
+        { $set: { payoutStatus: 'processing', payoutRequestId: mutation.requestId, payoutCoins: row.coins } },
         { new: true },
       );
       if (!participant) throw new Error('Recipient payout is already claimed or unavailable.');
       const user = await UserModel.findById(row.userId);
       if (!user) throw new Error('Player account no longer exists.');
+      const cosmeticUpdate = {};
+      const inventoryFields = { skin: 'ownedSkins', emote: 'ownedEmotes', avatar_frame: 'ownedAvatarFrames' };
+      for (const reward of row.cosmetics || []) {
+        const field = inventoryFields[reward.type];
+        if (field) (cosmeticUpdate[field] ||= { $each: [] }).$each.push(reward.itemId);
+      }
       const updatedUser = await UserModel.findOneAndUpdate(
         { _id: row.userId, __v: user.__v },
-        { $inc: { coins: row.coins, gems: row.gems, __v: 1 } },
+        { $inc: { coins: row.coins, __v: 1 }, ...(Object.keys(cosmeticUpdate).length && { $addToSet: cosmeticUpdate }) },
         { new: true, runValidators: true },
       );
       if (!updatedUser) throw new Error('Player balance changed concurrently.');
       const transactions = [];
       if (row.coins > 0) transactions.push({ userId: row.userId, type: 'tournament_prize', amount: row.coins, currency: 'coin', balanceBefore: user.coins, balanceAfter: updatedUser.coins, source: `tournament:${tournamentId}`, createdBy: actor.username, description: `Tournament prize: ${tournament.name}` });
-      if (row.gems > 0) transactions.push({ userId: row.userId, type: 'tournament_prize', amount: row.gems, currency: 'gem', balanceBefore: user.gems, balanceAfter: updatedUser.gems, source: `tournament:${tournamentId}`, createdBy: actor.username, description: `Tournament prize: ${tournament.name}` });
       if (transactions.length) await TransactionModel.insertMany(transactions);
       await ParticipantModel.findByIdAndUpdate(row.participantId, { $set: { payoutStatus: 'completed', payoutAt: now } });
       successes.push(row);
@@ -201,7 +201,7 @@ async function executeTournamentPayout({
     { $set: { payoutState: completed ? 'completed' : 'failed', payoutAt: completed ? now : undefined }, $inc: { stateVersion: 1 } },
     { new: true },
   );
-  const result = { tournamentId: String(tournamentId), totals: tournament.payoutPreview?.totals || { coins: 0, gems: 0 }, recipients: rows.length, succeeded: successes.length, failed: failures.length, failures, completed, stateVersion: finalized?.stateVersion };
+  const result = { tournamentId: String(tournamentId), totals: tournament.payoutPreview?.totals || { coins: 0 }, recipients: rows.length, succeeded: successes.length, failed: failures.length, failures, completed, stateVersion: finalized?.stateVersion };
   await audit({ actor, action: completed ? 'TOURNAMENT_PAYOUT_COMPLETED' : 'TOURNAMENT_PAYOUT_PARTIAL_FAILURE', target: { type: 'tournament', id: String(tournamentId) }, before: { payoutState: 'previewed' }, after: result, reason: mutation.reason, request: { ...request, operationRequestId: mutation.requestId } });
   return result;
 }
@@ -224,7 +224,6 @@ async function registerTournamentParticipant({
   if (tournament.status !== 'registration' || new Date(tournament.registrationClosesAt || tournament.startTime) <= now) throw new ApiError(409, 'STATE_CONFLICT', 'Giải đấu không còn nhận đăng ký.');
   const user = await UserModel.findById(userId);
   if (!user) throw new ApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy người chơi.');
-  if ((user.eloPoints || 0) < tournament.minEloRequired) throw invalid('Người chơi chưa đủ ELO tham gia.', { userId: `Yêu cầu tối thiểu ${tournament.minEloRequired} ELO` });
 
   const slot = await TournamentModel.findOneAndUpdate(
     { _id: tournamentId, status: 'registration', registeredCount: { $lt: tournament.maxParticipants }, registrationClosesAt: { $gt: now } },
@@ -281,17 +280,12 @@ async function transitionTournament({
   if (!before) throw new ApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy giải đấu.');
   getNextTournamentStatus(before.status, nextStatus);
   const participants = await ParticipantModel.find({ tournamentId, paymentStatus: 'paid' }).populate('userId', 'username').sort({ score: -1, registrationDate: 1, _id: 1 }).lean();
-  if (nextStatus === 'active' && participants.length < 2) throw new ApiError(409, 'STATE_CONFLICT', 'Cần ít nhất hai người chơi đã thanh toán để bắt đầu.');
+  if (nextStatus === 'active' && participants.length !== 8) throw new ApiError(409, 'STATE_CONFLICT', 'Format Tournament cần đúng 8 người chơi đã thanh toán.');
   const set = { status: nextStatus };
   if (nextStatus === 'active') {
-    set.bracket = buildInitialBracket(participants);
+    const { buildEightPlayerTournament } = require('../tournamentLifecycleService');
+    set.bracket = buildEightPlayerTournament(String(tournamentId), participants);
     set.startedAt = now;
-  }
-  if (nextStatus === 'completed') {
-    set.completedAt = now;
-    if (participants.length) {
-      await ParticipantModel.bulkWrite?.(participants.map((participant, index) => ({ updateOne: { filter: { _id: participant._id }, update: { $set: { finalRank: index + 1, status: index === 0 ? 'winner' : 'eliminated' } } } })));
-    }
   }
   if (nextStatus === 'cancelled') set.cancelledAt = now;
   const tournament = await TournamentModel.findOneAndUpdate(
@@ -300,13 +294,20 @@ async function transitionTournament({
     { new: true, runValidators: true },
   );
   if (!tournament) throw new ApiError(409, 'STATE_CONFLICT', 'Giải đấu đã thay đổi. Hãy tải lại.');
+  if (nextStatus === 'cancelled') {
+    await refundCancelledTournamentEntries({
+      tournamentId,
+      requestId: mutation.requestId,
+      TournamentModel,
+      ParticipantModel,
+    });
+  }
   await audit({ actor, action: 'TOURNAMENT_STATUS_CHANGED', target: { type: 'tournament', id: String(tournamentId) }, before: { status: before.status, stateVersion: before.stateVersion }, after: { status: tournament.status, stateVersion: tournament.stateVersion, bracket: nextStatus === 'active' ? tournament.bracket : undefined }, reason: mutation.reason, request: { ...request, operationRequestId: mutation.requestId } });
   return tournament;
 }
 
 module.exports = {
   TOURNAMENT_TRANSITIONS,
-  buildInitialBracket,
   buildTournamentPayoutPreview,
   createTournamentPayoutPreview,
   executeTournamentPayout,

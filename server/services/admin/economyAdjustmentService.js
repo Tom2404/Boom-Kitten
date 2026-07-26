@@ -1,7 +1,5 @@
 const { ApiError } = require('../../utils/apiResponse');
-const { getRankFromElo } = require('../../utils/rankSystem');
-
-const CURRENCY_FIELDS = Object.freeze({ coin: 'coins', gem: 'gems' });
+const CURRENCY_FIELDS = Object.freeze({ coin: 'coins' });
 const OPERATIONS = new Set(['add', 'subtract', 'set']);
 
 function validation(message, fields) {
@@ -16,7 +14,7 @@ function requireNonNegativeInteger(value, field) {
 
 function previewCurrencyAdjustment({ currency, operation, amount, balances = {}, policy = {} }) {
   const field = CURRENCY_FIELDS[currency];
-  if (!field) throw validation('Loại tiền không hợp lệ.', { currency: 'Chỉ hỗ trợ coin hoặc gem' });
+  if (!field) throw validation('Loại tiền không hợp lệ.', { currency: 'Chỉ hỗ trợ coin' });
   if (!OPERATIONS.has(operation)) throw validation('Hành động điều chỉnh không hợp lệ.', { operation: 'Chỉ hỗ trợ add, subtract hoặc set' });
   const normalizedAmount = requireNonNegativeInteger(amount, 'amount');
   const before = Number.isSafeInteger(balances[field]) ? balances[field] : 0;
@@ -28,24 +26,4 @@ function previewCurrencyAdjustment({ currency, operation, amount, balances = {},
   return { currency, field, operation, amount: normalizedAmount, before, after, exceedsThreshold: false };
 }
 
-function previewEloAdjustment({ elo, currentElo, policy = {} }) {
-  const after = requireNonNegativeInteger(elo, 'elo');
-  const before = Number.isSafeInteger(currentElo) ? currentElo : 1000;
-  const delta = after - before;
-  const threshold = policy.maxEloDelta ?? null;
-  if (threshold !== null && Math.abs(delta) > threshold) throw new ApiError(422, 'POLICY_LIMIT_EXCEEDED', `Vượt ngưỡng thay đổi ${threshold} ELO cho vai trò hiện tại.`, { threshold, delta });
-  return { before, after, delta, exceedsThreshold: false };
-}
-
-function buildEloSetFields(user, elo) {
-  const value = requireNonNegativeInteger(elo, 'elo');
-  return {
-    eloPoints: value,
-    rank: getRankFromElo(value),
-    highestEloReached: Math.max(Number(user.highestEloReached) || 1000, value),
-    seasonHighestElo: Math.max(Number(user.seasonHighestElo) || 1000, value),
-    allTimeHighestElo: Math.max(Number(user.allTimeHighestElo) || 1000, value),
-  };
-}
-
-module.exports = { CURRENCY_FIELDS, buildEloSetFields, previewCurrencyAdjustment, previewEloAdjustment };
+module.exports = { CURRENCY_FIELDS, previewCurrencyAdjustment };

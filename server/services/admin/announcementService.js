@@ -3,7 +3,7 @@ const User = require('../../models/User');
 const { ApiError } = require('../../utils/apiResponse');
 const { createAdminAudit } = require('./auditService');
 
-const AUDIENCE_TYPES = ['all_online', 'role', 'rank_range'];
+const AUDIENCE_TYPES = ['all_online', 'role'];
 
 function toPlain(value) {
   return value?.toObject ? value.toObject() : value;
@@ -16,7 +16,6 @@ function validateInput(input, now = new Date()) {
   const audience = input.audience || { type: 'all_online' };
   if (!AUDIENCE_TYPES.includes(audience.type)) fields.audience = 'Không hợp lệ';
   if (audience.type === 'role' && (!Array.isArray(audience.roles) || audience.roles.length === 0)) fields.audience = 'Chọn ít nhất một role';
-  if (audience.type === 'rank_range' && Number(audience.minElo ?? 0) > Number(audience.maxElo ?? Number.MAX_SAFE_INTEGER)) fields.audience = 'Khoảng ELO không hợp lệ';
   if (input.sendMode === 'scheduled' && (!input.scheduledFor || new Date(input.scheduledFor) <= now)) fields.scheduledFor = 'Phải là thời điểm trong tương lai';
   if (Object.keys(fields).length) throw new ApiError(422, 'VALIDATION_ERROR', 'Thông báo không hợp lệ.', { fields });
 }
@@ -44,7 +43,6 @@ async function deliverAnnouncement({ io, UserModel = User, announcement }) {
   }
   const query = { isOnline: true };
   if (announcement.audience.type === 'role') query.role = { $in: announcement.audience.roles };
-  if (announcement.audience.type === 'rank_range') query.eloPoints = { $gte: announcement.audience.minElo ?? 0, $lte: announcement.audience.maxElo ?? Number.MAX_SAFE_INTEGER };
   const users = await UserModel.find(query).select('_id');
   for (const user of users) {
     io.to(`user:${user._id}`).emit('announcement:broadcast', payload);

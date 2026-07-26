@@ -5,7 +5,6 @@ const ShopItem = require('../models/ShopItem');
 const Quest = require('../models/Quest');
 const Transaction = require('../models/Transaction');
 const AuditLog = require('../models/AuditLog');
-const Season = require('../models/Season');
 const Announcement = require('../models/Announcement');
 const authMiddleware = require('../middleware/authMiddleware');
 const adminMiddleware = require('../middleware/adminMiddleware');
@@ -16,13 +15,11 @@ const { changePlayerRole } = require('../services/admin/roleService');
 const { executeIdempotentAdminOperation } = require('../services/admin/idempotencyService');
 const { createAdminAudit } = require('../services/admin/auditService');
 const { ApiError } = require('../utils/apiResponse');
-const { performSeasonReset } = require('../services/admin/seasonResetService');
 const { createQuest, deleteQuest, updateQuest } = require('../services/admin/questService');
-const { createSeason, deleteSeason, updateSeason } = require('../services/admin/seasonService');
 const { cancelAnnouncement, createAnnouncement, deliverAnnouncement } = require('../services/admin/announcementService');
 const { getOperationalDashboard } = require('../services/admin/dashboardService');
 const { getPlayerOverview } = require('../services/admin/playerOverviewService');
-const { buildEloSetFields, previewCurrencyAdjustment, previewEloAdjustment } = require('../services/admin/economyAdjustmentService');
+const { previewCurrencyAdjustment } = require('../services/admin/economyAdjustmentService');
 
 const router = express.Router();
 
@@ -121,13 +118,7 @@ router.get('/stats', requireAdminPermission('dashboard.read'), async (req, res, 
       { $match: { type: 'purchase', currency: 'coin' } },
       { $group: { _id: null, total: { $sum: '$amount' } } }
     ]);
-    const gemTransactions = await Transaction.aggregate([
-      { $match: { type: 'purchase', currency: 'gem' } },
-      { $group: { _id: null, total: { $sum: '$amount' } } }
-    ]);
-
     const coinRevenue = coinTransactions[0]?.total ?? 0;
-    const gemRevenue = gemTransactions[0]?.total ?? 0;
 
     const io = req.app.get('io');
     let activeRoomsCount = 0;
@@ -141,7 +132,6 @@ router.get('/stats', requireAdminPermission('dashboard.read'), async (req, res, 
       bannedUsers,
       totalItems,
       coinRevenue,
-      gemRevenue,
       activeRoomsCount
     });
   } catch (error) {
@@ -181,13 +171,13 @@ router.get('/users', requireAdminPermission('players.read'), async (req, res, ne
       }
     }
 
-    const sortBy = req.query.sortBy || 'createdAt';
+    const sortBy = ['createdAt', 'username', 'coins', 'isOnline'].includes(req.query.sortBy) ? req.query.sortBy : 'createdAt';
     const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1;
     const sortQuery = { [sortBy]: sortOrder };
 
     const total = await User.countDocuments(query);
     const users = await User.find(query)
-      .select('-passwordHash')
+      .select('-passwordHash -gems -rank -eloPoints -matchmakingRating -highestEloReached -seasonHighestElo -allTimeHighestElo -rankProtectionGames -rankProtectedFloor')
       .sort(sortQuery)
       .skip(skip)
       .limit(limit);
@@ -343,59 +333,6 @@ router.patch('/users/:userId/currency', requireAdminPermission('economy.adjust')
           target: { type: 'user', id: user._id.toString() },
           before: { [field]: balanceBefore, version: userBefore.__v },
           after: { [field]: balanceAfter, version: user.__v },
-          reason: req.adminMutation.reason,
-          request: { operationRequestId: req.adminMutation.requestId, requestId: req.requestId, ip: req.ip, userAgent: req.get('user-agent') },
-        });
-        return { statusCode: 200, body: { success: true, data: user } };
-      },
-    });
-
-    if (outcome.replayed) res.setHeader('Idempotency-Replayed', 'true');
-    return res.status(outcome.statusCode).json(outcome.body);
-  } catch (error) {
-    return next(error);
-  }
-});
-
-// PATCH /api/admin/users/:userId/elo - Adjust User ELO
-router.patch('/users/:userId/elo', requireAdminPermission('players.elo.write'), requireAdminMutationContext(), async (req, res, next) => {
-  try {
-    const { elo } = req.body;
-
-    const outcome = await executeIdempotentAdminOperation({
-      actorId: req.admin.id,
-      operation: 'player.elo.adjust',
-      requestId: req.adminMutation.requestId,
-      payload: { targetId: req.params.userId, elo, reason: req.adminMutation.reason },
-      execute: async () => {
-        const userBefore = await User.findById(req.params.userId);
-        if (!userBefore) throw new ApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy người chơi.');
-        const preview = previewEloAdjustment({ elo, currentElo: userBefore.eloPoints, policy: req.admin.policy });
-        const { before: eloBefore, after: newElo } = preview;
-        const user = await User.findOneAndUpdate(
-          { _id: req.params.userId, __v: userBefore.__v },
-          { $set: buildEloSetFields(userBefore, newElo), $inc: { __v: 1 } },
-          { new: true, runValidators: true },
-        ).select('-passwordHash');
-        if (!user) throw new ApiError(409, 'STATE_CONFLICT', 'ELO đã thay đổi. Hãy tải lại trước khi thử lại.');
-
-        await Transaction.create({
-          userId: user._id,
-          type: 'elo_adjust',
-          amount: Math.abs(newElo - eloBefore),
-          currency: 'elo',
-          balanceBefore: eloBefore,
-          balanceAfter: newElo,
-          source: 'admin_adjustment',
-          createdBy: req.admin.username,
-          description: `Admin ELO adjustment to ${newElo} (${req.adminMutation.reason})`,
-        });
-        await createAdminAudit({
-          actor: req.admin,
-          action: 'PLAYER_ELO_ADJUSTED',
-          target: { type: 'user', id: user._id.toString() },
-          before: { eloPoints: eloBefore, version: userBefore.__v },
-          after: { eloPoints: newElo, version: user.__v },
           reason: req.adminMutation.reason,
           request: { operationRequestId: req.adminMutation.requestId, requestId: req.requestId, ip: req.ip, userAgent: req.get('user-agent') },
         });
@@ -618,92 +555,6 @@ router.delete('/quests/:id', requireAdminPermission('quests.write'), requireAdmi
         return { statusCode: 200, body: { success: true, message: 'Quest deleted successfully' } };
       },
     });
-  } catch (error) {
-    return next(error);
-  }
-});
-
-// GET /api/admin/seasons - List all seasons
-router.get('/seasons', requireAdminPermission('seasons.read'), async (req, res, next) => {
-  try {
-    const seasons = await Season.find().sort({ seasonNumber: -1 });
-    return res.json({ success: true, seasons });
-  } catch (error) {
-    return next(error);
-  }
-});
-
-// POST /api/admin/seasons - Create a new season
-router.post('/seasons', requireAdminPermission('seasons.write'), requireAdminMutationContext({ reasonRequired: false }), async (req, res, next) => {
-  try {
-    return await sendIdempotentMutation(req, res, {
-      operation: 'season.create',
-      payload: req.body,
-      execute: async () => {
-        const season = await createSeason({ actor: req.admin, input: req.body, mutation: req.adminMutation, request: adminRequestContext(req) });
-        return { statusCode: 200, body: { success: true, season } };
-      },
-    });
-  } catch (error) {
-    return next(error);
-  }
-});
-
-// PUT /api/admin/seasons/:id - Update a season
-router.put('/seasons/:id', requireAdminPermission('seasons.write'), requireAdminMutationContext({ reasonRequired: false }), async (req, res, next) => {
-  try {
-    return await sendIdempotentMutation(req, res, {
-      operation: 'season.update',
-      payload: { seasonId: req.params.id, ...req.body },
-      execute: async () => {
-        const season = await updateSeason({ actor: req.admin, seasonId: req.params.id, input: req.body, mutation: req.adminMutation, request: adminRequestContext(req) });
-        return { statusCode: 200, body: { success: true, season } };
-      },
-    });
-  } catch (error) {
-    return next(error);
-  }
-});
-
-// DELETE /api/admin/seasons/:id - Delete a scheduled season
-router.delete('/seasons/:id', requireAdminPermission('seasons.write'), requireAdminMutationContext(), async (req, res, next) => {
-  try {
-    return await sendIdempotentMutation(req, res, {
-      operation: 'season.delete',
-      payload: { seasonId: req.params.id, reason: req.adminMutation.reason },
-      execute: async () => {
-        await deleteSeason({ actor: req.admin, seasonId: req.params.id, mutation: req.adminMutation, request: adminRequestContext(req) });
-        return { statusCode: 200, body: { success: true, message: 'Xóa mùa giải thành công.' } };
-      },
-    });
-  } catch (error) {
-    return next(error);
-  }
-});
-
-// POST /api/admin/season-reset - Reset season, award Pink Coins based on Rank, and reset ELO
-router.post('/season-reset', requireAdminPermission('seasons.reset'), requireAdminMutationContext({ critical: true }), async (req, res, next) => {
-  try {
-    if (req.body.confirmText !== 'RESET') {
-      throw new ApiError(422, 'ADMIN_CONFIRMATION_REQUIRED', 'Xác nhận reset mùa giải không hợp lệ.');
-    }
-    const outcome = await executeIdempotentAdminOperation({
-      actorId: req.admin.id,
-      operation: 'season.reset',
-      requestId: req.adminMutation.requestId,
-      payload: { reason: req.adminMutation.reason },
-      execute: async () => {
-        const data = await performSeasonReset({
-          actor: req.admin,
-          mutation: req.adminMutation,
-          request: { requestId: req.requestId, ip: req.ip, userAgent: req.get('user-agent') },
-          io: req.app.get('io'),
-        });
-        return { statusCode: 200, body: { success: true, data } };
-      },
-    });
-    if (outcome.replayed) res.setHeader('Idempotency-Replayed', 'true');
-    return res.status(outcome.statusCode).json(outcome.body);
   } catch (error) {
     return next(error);
   }

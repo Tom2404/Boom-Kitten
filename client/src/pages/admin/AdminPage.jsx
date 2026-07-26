@@ -6,11 +6,11 @@ import CatalogPanel from './CatalogPanel.jsx';
 import QuestsPanel from './QuestsPanel.jsx';
 import AnnouncementsPanel from './AnnouncementsPanel.jsx';
 import LogsPanel from './LogsPanel.jsx';
-import SeasonsPanel from './SeasonsPanel.jsx';
 import ModerationPanel from './ModerationPanel.jsx';
 import RoomsPanel from './RoomsPanel.jsx';
 import JobsPanel from './JobsPanel.jsx';
 import TournamentsPanel from './TournamentsPanel.jsx';
+import WagersPanel from './WagersPanel.jsx';
 import LiveOpsPanel from './LiveOpsPanel.jsx';
 import ProductAnalyticsPanel from './ProductAnalyticsPanel.jsx';
 import IncidentsPanel from './IncidentsPanel.jsx';
@@ -106,8 +106,6 @@ export default function AdminPage({ setPage }) {
         return <AnnouncementsPanel permissions={permissions} />;
       case 'logs':
         return <LogsPanel language={language} permissions={permissions} onNavigate={navigateToTab} />;
-      case 'seasons':
-        return <SeasonsPanel permissions={permissions} adminUsername={session.data.admin.username} />;
       case 'moderation':
         return <ModerationPanel permissions={permissions} adminId={session.data.admin.id} language={language} />;
       case 'rooms':
@@ -116,6 +114,8 @@ export default function AdminPage({ setPage }) {
         return <JobsPanel permissions={permissions} language={language} />;
       case 'tournaments':
         return <TournamentsPanel permissions={permissions} adminUsername={session.data.admin.username} />;
+      case 'wagers':
+        return <WagersPanel permissions={permissions} />;
       case 'live_ops':
         return <LiveOpsPanel permissions={permissions} adminUsername={session.data.admin.username} />;
       case 'analytics':

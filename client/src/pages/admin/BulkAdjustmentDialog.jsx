@@ -4,7 +4,7 @@ import { createAdminOperationRequestId } from './adminMutation.js';
 import { buildBulkExecutionPayload, buildBulkPreviewPayload } from './adminBulkJob.js';
 import { formatNumber } from './utils.js';
 
-const initialForm = { type: 'currency', currency: 'coin', operation: 'add', amount: 100, elo: 1000, reason: '' };
+const initialForm = { type: 'currency', currency: 'coin', operation: 'add', amount: 100, reason: '' };
 
 export default function BulkAdjustmentDialog({ filters, language = 'vi', onClose, onQueued, request }) {
   const en = language === 'en';
@@ -65,9 +65,9 @@ export default function BulkAdjustmentDialog({ filters, language = 'vi', onClose
         <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-widest text-[var(--admin-danger-text)]">Select by query · Admin Job</p><h2 id="bulk-adjust-title" className="mt-1 font-sans text-xl font-semibold">{en ? 'Bulk player adjustment' : 'Điều chỉnh hàng loạt người chơi'}</h2><p id="bulk-adjust-description" className="mt-1 text-sm font-semibold text-[var(--admin-text-muted)]">{en ? 'The preview freezes every target matching the current filters before execution.' : 'Preview sẽ chụp cố định toàn bộ người chơi khớp bộ lọc hiện tại trước khi chạy.'}</p></div><Button type="button" variant="secondary" onClick={onClose} disabled={busy} aria-label={en ? 'Close bulk dialog' : 'Đóng bulk dialog'}>✕</Button></div>
         {error && <div className="mt-4"><Alert tone="danger">{error}</Alert></div>}
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          <Field label={en ? 'Adjustment type' : 'Loại điều chỉnh'}><select className={inputClass} value={form.type} onChange={(event) => updateForm({ type: event.target.value })}><option value="currency">Currency</option><option value="elo">ELO</option></select></Field>
-          {form.type === 'currency' ? <Field label={en ? 'Wallet' : 'Ví'}><select className={inputClass} value={form.currency} onChange={(event) => updateForm({ currency: event.target.value })}><option value="coin">GoldCoin</option><option value="gem">PinkCoin</option></select></Field> : <Field label="ELO"><input className={inputClass} type="number" min="0" value={form.elo} onChange={(event) => updateForm({ elo: event.target.value })} /></Field>}
-          {form.type === 'currency' && <><Field label={en ? 'Operation' : 'Phép tính'}><select className={inputClass} value={form.operation} onChange={(event) => updateForm({ operation: event.target.value })}><option value="add">Add</option><option value="subtract">Subtract</option><option value="set">Set</option></select></Field><Field label={en ? 'Amount' : 'Số lượng'}><input className={inputClass} type="number" min="0" value={form.amount} onChange={(event) => updateForm({ amount: event.target.value })} /></Field></>}
+          <Field label={en ? 'Wallet' : 'Ví'}><input className={inputClass} value="Coin" readOnly /></Field>
+          <Field label={en ? 'Operation' : 'Phép tính'}><select className={inputClass} value={form.operation} onChange={(event) => updateForm({ operation: event.target.value })}><option value="add">Add</option><option value="subtract">Subtract</option><option value="set">Set</option></select></Field>
+          <Field label={en ? 'Amount' : 'Số lượng'}><input className={inputClass} type="number" min="0" value={form.amount} onChange={(event) => updateForm({ amount: event.target.value })} /></Field>
           <div className="sm:col-span-2"><Field label={en ? 'Audit reason' : 'Lý do ghi audit'}><input className={inputClass} value={form.reason} onChange={(event) => updateForm({ reason: event.target.value })} placeholder="Ticket BK-1234" /></Field></div>
         </div>
         <div className="mt-4 border border-[var(--admin-border)] bg-[var(--admin-surface-muted)] p-3"><strong className="text-xs uppercase">{en ? 'Current query' : 'Query hiện tại'}</strong><p className="mt-1 break-all font-mono text-xs">{Object.entries(filters).filter(([, value]) => value).map(([key, value]) => `${key}=${value}`).join(' · ') || (en ? 'All players' : 'Tất cả người chơi')}</p></div>

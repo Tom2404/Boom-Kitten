@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { buildFunnel, buildRetentionCohorts, classifyEconomy, normalizeRankDistribution, resolveAnalyticsRange } = require('../services/admin/productAnalyticsService');
+const { buildFunnel, buildRetentionCohorts, classifyEconomy, resolveAnalyticsRange } = require('../services/admin/productAnalyticsService');
 
 test('analytics range is UTC, inclusive by day, and capped at 90 days', () => {
   const range = resolveAnalyticsRange({ from: '2026-07-01', to: '2026-07-07' });
@@ -26,22 +26,8 @@ test('retention cohorts measure exact UTC D1 and D7 activity', () => {
   assert.equal(cohort.d7Rate, 100);
 });
 
-test('economy separates sources and sinks while preserving signed admin adjustments', () => {
+test('economy separates Coin sources and sinks while ignoring legacy currencies', () => {
   const economy = classifyEconomy([{ type: 'earn', currency: 'coin', amount: 100 }, { type: 'purchase', currency: 'coin', amount: 25 }, { type: 'admin_adjust', currency: 'coin', amount: -10 }, { type: 'tournament_prize', currency: 'gem', amount: 5 }]);
   assert.deepEqual(economy.coin, { source: 100, sink: 35, net: 65 });
-  assert.equal(economy.gem.net, 5);
-});
-
-test('rank distribution merges legacy rank labels into canonical ranks', () => {
-  const distribution = normalizeRankDistribution([
-    { _id: 'Bronze', users: 2 },
-    { _id: 'Bronze IV', users: 3 },
-    { _id: 'Bronze II', users: 4 },
-    { _id: 'Silver', users: 1 },
-  ]);
-
-  assert.deepEqual(distribution, [
-    { rank: 'Bronze II', users: 9 },
-    { rank: 'Silver III', users: 1 },
-  ]);
+  assert.equal(economy.gem, undefined);
 });

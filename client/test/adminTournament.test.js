@@ -7,11 +7,21 @@ import {
   tournamentStatusTone,
 } from '../src/pages/admin/adminTournament.js';
 
-test('tournament create payload normalizes numbers, dates, reason and request id', () => {
-  const payload = buildTournamentCreatePayload({ name: ' July Cup ', description: ' Finals ', entryFee: '50', minEloRequired: '1000', maxParticipants: '16', prizeCoins: '500', prizeGems: '10', startTime: '2026-07-25T12:00', registrationClosesAt: '2026-07-25T11:00', reason: ' Schedule ' }, 'req-1');
+test('tournament create payload is Coin-only and normalizes cosmetic rewards', () => {
+  const payload = buildTournamentCreatePayload({
+    name: ' July Cup ', description: ' Finals ', entryFee: '50',
+    maxParticipants: '16', prizeCoins: '500',
+    cosmeticRewards: [
+      { rank: '1', type: 'skin', itemId: ' champion-cat ' },
+      { rank: '', type: 'emote', itemId: '' },
+    ],
+    startTime: '2026-07-25T12:00', registrationClosesAt: '2026-07-25T11:00', reason: ' Schedule ',
+  }, 'req-1');
   assert.equal(payload.name, 'July Cup');
   assert.equal(payload.entryFee, 50);
-  assert.equal(payload.prizePool.gems, 10);
+  assert.deepEqual(payload.prizePool, { coins: 500 });
+  assert.deepEqual(payload.cosmeticRewards, [{ rank: 1, type: 'skin', itemId: 'champion-cat' }]);
+  assert.equal('minEloRequired' in payload, false);
   assert.match(payload.startTime, /^2026-07-25T/);
   assert.equal(payload.reason, 'Schedule');
   assert.equal(payload.requestId, 'req-1');

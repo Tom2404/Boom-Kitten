@@ -33,3 +33,10 @@ test('single-player adjustment preview exposes before, after, delta, and thresho
   );
   assert.deepEqual(preview, { before: 100, after: 12100, delta: 12000, threshold: 10000, exceedsThreshold: true, valid: true });
 });
+
+test('bulk adjustment accepts only the Coin wallet', () => {
+  assert.throws(() => buildBulkPreviewPayload({
+    filters: {}, form: { type: 'currency', currency: 'gem', operation: 'add', amount: 1, reason: 'legacy' }, requestId: 'x',
+  }), /Coin/);
+  assert.equal(calculatePlayerAdjustmentPreview({ coins: 1 }, { type: 'elo', elo: 2 }).valid, false);
+});

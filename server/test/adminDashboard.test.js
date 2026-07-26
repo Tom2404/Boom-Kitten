@@ -35,7 +35,7 @@ test('builds a gap-free daily trend and keeps dates in UTC', () => {
   assert.deepEqual(trend[6], { date: '2027-02-01', value: 1 });
 });
 
-test('summarizes generated and consumed currencies without treating ELO as currency', () => {
+test('summarizes only active Coin flow and ignores legacy currencies', () => {
   const summary = summarizeEconomy([
     { type: 'earn', currency: 'coin', amount: 100 },
     { type: 'purchase', currency: 'coin', amount: 25 },
@@ -46,7 +46,6 @@ test('summarizes generated and consumed currencies without treating ELO as curre
 
   assert.deepEqual(summary, {
     coin: { generated: 100, consumed: 25 },
-    gem: { generated: 7, consumed: 5 },
   });
 });
 

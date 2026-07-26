@@ -14,7 +14,7 @@ function selectCatalogFields(input, { defaults = false } = {}) {
     if (input[field] !== undefined) payload[field] = input[field];
   }
   if (defaults) {
-    if (payload.price === undefined) payload.price = { coins: 0, gems: 0 };
+    if (payload.price === undefined) payload.price = { coins: 0 };
     if (payload.rarity === undefined) payload.rarity = 'common';
     if (payload.isLimited === undefined) payload.isLimited = false;
     if (payload.imageUrl === undefined) payload.imageUrl = '';
@@ -22,6 +22,7 @@ function selectCatalogFields(input, { defaults = false } = {}) {
     if (payload.isActive === undefined) payload.isActive = true;
     if (payload.sortOrder === undefined) payload.sortOrder = 0;
   }
+  if (payload.price !== undefined) payload.price = { coins: Number(payload.price?.coins) || 0 };
   return payload;
 }
 
@@ -30,6 +31,9 @@ function validateCatalogInput(input) {
     throw new ApiError(422, 'VALIDATION_ERROR', 'Tên và loại vật phẩm là bắt buộc.', {
       fields: { ...(!input.name && { name: 'Bắt buộc' }), ...(!input.type && { type: 'Bắt buộc' }) },
     });
+  }
+  if (input.price?.coins !== undefined && (!Number.isFinite(Number(input.price.coins)) || Number(input.price.coins) < 0)) {
+    throw new ApiError(422, 'VALIDATION_ERROR', 'Giá Coin không hợp lệ.', { fields: { 'price.coins': 'Không được âm' } });
   }
 }
 

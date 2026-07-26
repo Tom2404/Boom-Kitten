@@ -1,6 +1,7 @@
 const roomManagerDefault = require('../../game/roomManager');
 const { createAdminAudit } = require('./auditService');
 const { ApiError } = require('../../utils/apiResponse');
+const { refundWager } = require('../wagerLedgerService');
 
 const PLAYING_STALE_MS = 5 * 60 * 1000;
 const WAITING_STALE_MS = 15 * 60 * 1000;
@@ -91,10 +92,19 @@ async function forceCloseRoomForAdmin({
   roomManager = roomManagerDefault,
   io,
   audit = createAdminAudit,
+  refund = refundWager,
 }) {
   const room = roomManager.getRoomState(roomCode);
   if (!room) throw new ApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy phòng chơi đang hoạt động.');
   const before = sanitizeRoomForAdmin(room);
+  if (room.status === 'playing' && room.betAmount > 0 && room.wagerReference) {
+    await refund({
+      roomCode,
+      reference: room.wagerReference,
+      requestId: `admin-refund:${mutation.requestId}`,
+      reason: mutation.reason,
+    });
+  }
   roomManager.forceCloseRoom(roomCode);
   io?.to(roomCode).emit('admin:roomClosed', { roomCode, reason: mutation.reason });
   await audit({
@@ -118,13 +128,27 @@ async function disconnectRoomPlayerForAdmin({
   roomManager = roomManagerDefault,
   io,
   audit = createAdminAudit,
+  refund = refundWager,
 }) {
   const room = roomManager.getRoomState(roomCode);
   if (!room) throw new ApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy phòng chơi đang hoạt động.');
   const player = room.players.find((item) => String(item.userId) === String(userId));
   if (!player) throw new ApiError(404, 'RESOURCE_NOT_FOUND', 'Người chơi không còn ở trong phòng này.');
   const before = sanitizeRoomForAdmin(room);
-  const remainingRoom = roomManager.disconnectPlayer(roomCode, userId);
+  let remainingRoom;
+  if (room.status === 'playing' && room.betAmount > 0 && room.wagerReference) {
+    await refund({
+      roomCode,
+      reference: room.wagerReference,
+      requestId: `admin-refund:${mutation.requestId}`,
+      reason: mutation.reason,
+    });
+    roomManager.forceCloseRoom(roomCode);
+    remainingRoom = null;
+    io?.to(roomCode).emit('admin:roomClosed', { roomCode, reason: mutation.reason });
+  } else {
+    remainingRoom = roomManager.disconnectPlayer(roomCode, userId);
+  }
   io?.to(roomCode).emit('admin:playerDisconnected', { roomCode, userId: String(userId), reason: mutation.reason });
   io?.in(`user:${userId}`).disconnectSockets(true);
   const after = remainingRoom ? sanitizeRoomForAdmin(remainingRoom) : { code: roomCode, status: 'closed_empty' };

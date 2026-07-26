@@ -3,8 +3,7 @@ import { REQUIRED_VFX_ASSET_URLS } from './config/vfxAssets';
 
 /**
  * AssetLoader
- * - Dùng import.meta.glob để gom toàn bộ hình ảnh trong assets/cards
- * - Tải ngầm lên VRAM
+ * - Chỉ tải trước các texture mà hiệu ứng Pixi thực sự sử dụng
  * - Hiển thị màn hình Loading trong lúc tải
  */
 export class AssetLoader {
@@ -20,29 +19,12 @@ export class AssetLoader {
       this.showLoadingScreen();
     }
 
-    // 1. Lấy toàn bộ file ảnh từ src/assets/cards
-    // Lưu ý: import.meta.glob tự động resolve đường dẫn URL sau khi build
-    const modules = import.meta.glob('../assets/cards/**/*.{png,jpg,jpeg}', { eager: false, query: '?url', import: 'default' });
-    
-    // Tạm gom thêm 2 hình VFX đã tạo vào queue
-    const urls = [...REQUIRED_VFX_ASSET_URLS];
-
-    for (const path in modules) {
-      const url = await modules[path]();
-      urls.push(url);
-    }
-
-    // 2. Thêm vào Assets manager của PIXI
-    PIXI.Assets.addBundle('game_assets', urls.map((url, i) => ({ alias: `asset_${i}`, src: url })));
-
-    // 3. Tải và cập nhật thanh tiến trình
-    await PIXI.Assets.loadBundle('game_assets', (progress) => {
+    await PIXI.Assets.load(REQUIRED_VFX_ASSET_URLS, (progress) => {
       if (showUI) {
         this.updateProgress(progress);
       }
     });
 
-    // 4. Hoàn tất
     if (showUI) {
       this.hideLoadingScreen();
     }

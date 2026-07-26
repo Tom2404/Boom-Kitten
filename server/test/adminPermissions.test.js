@@ -36,8 +36,16 @@ test('separates moderator and operator responsibilities', () => {
   assert.equal(hasAdminPermission('moderator', 'moderation.sanction.ban'), true);
   assert.equal(hasAdminPermission('moderator', 'economy.adjust'), false);
   assert.equal(hasAdminPermission('operator', 'economy.adjust'), true);
+  assert.equal(hasAdminPermission('operator', 'wagers.read'), true);
+  assert.equal(hasAdminPermission('operator', 'wagers.resolve'), true);
+  assert.equal(hasAdminPermission('analyst', 'wagers.read'), true);
+  assert.equal(hasAdminPermission('analyst', 'wagers.resolve'), false);
   assert.equal(hasAdminPermission('operator', 'announcements.schedule'), true);
   assert.equal(hasAdminPermission('operator', 'players.role.write'), false);
+  assert.equal(hasAdminPermission('operator', 'players.elo.write'), false);
+  assert.equal(hasAdminPermission('operator', 'seasons.read'), false);
+  assert.equal(hasAdminPermission('operator', 'seasons.write'), false);
+  assert.equal(hasAdminPermission('super_admin', 'seasons.reset'), false);
 });
 
 test('maps legacy admin to the super-admin capability and threshold policy', () => {
@@ -49,14 +57,12 @@ test('maps legacy admin to the super-admin capability and threshold policy', () 
   assert.equal(hasAdminPermission('operator', 'rooms.disconnect'), false);
 
   assert.deepEqual(getAdminPolicy('operator'), {
-    maxCurrencyAdjustment: { coin: 10000, gem: 500 },
-    maxEloDelta: 500,
+    maxCurrencyAdjustment: { coin: 10000 },
     maxSuspensionDays: 30,
     maxBulkTargets: 1000,
   });
   assert.deepEqual(getAdminPolicy('admin'), {
     maxCurrencyAdjustment: null,
-    maxEloDelta: null,
     maxSuspensionDays: 365,
     maxBulkTargets: 10000,
   });

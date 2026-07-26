@@ -10,7 +10,7 @@ const SCOPE_PERMISSIONS = Object.freeze({
 });
 
 const ALLOWED_FILTERS = Object.freeze({
-  players: ['search', 'role', 'status', 'rank', 'isOnline', 'createdFrom', 'createdTo', 'sortBy', 'sortOrder'],
+  players: ['search', 'role', 'status', 'isOnline', 'createdFrom', 'createdTo', 'sortBy', 'sortOrder'],
   reports: ['status', 'category', 'priority', 'assigneeId', 'targetPlayerId', 'from', 'to'],
   logs: ['logType', 'actorId', 'targetType', 'targetId', 'action', 'from', 'to', 'userId', 'type', 'transactionType', 'currency'],
   rooms: ['status', 'search', 'minAgeSeconds'],

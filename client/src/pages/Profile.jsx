@@ -2,12 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { PRESET_AVATARS } from '../components/PlayerAvatar.jsx';
 import { gsap } from 'gsap';
 import CustomDialog from '../components/CustomDialog.jsx';
-import { CoinIcon, GemIcon } from '../components/CoinDisplay.jsx';
+import { CoinIcon } from '../components/CoinDisplay.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
-import { getRankProgress } from '../utils/rankProgress.js';
 
 export default function Profile() {
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
   const [profile, setProfile] = useState(null);
   const [username, setUsername] = useState('');
   const [avatar, setAvatar] = useState('');
@@ -170,8 +169,6 @@ export default function Profile() {
       </div>
     );
   }
-  const rankProgress = getRankProgress(profile.eloPoints);
-
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 font-pop-body">
       {/* Left Column: Personal Info & Avatar Settings */}
@@ -196,30 +193,11 @@ export default function Profile() {
           <h2 className="text-2xl font-pop-display font-black text-[var(--pop-black)] uppercase truncate max-w-full">
             {profile.username}
           </h2>
-          <span className="bg-[var(--pop-red)] text-white font-pop-accent font-bold text-xs px-4 py-1.5 rounded-none border-2 border-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)] uppercase mt-3">
-            🏆 {profile.rank} • {profile.eloPoints} {t('profile_elo')}
-          </span>
-          <div className="mt-4 w-full border-2 border-[var(--pop-black)] bg-[var(--pop-cream)] p-3 shadow-[2px_2px_0_var(--pop-black)]">
-            <div className="mb-1.5 flex items-center justify-between gap-2 text-[10px] font-black uppercase">
-              <span>{rankProgress.currentRank}</span>
-              <span>{rankProgress.nextRank ? `${rankProgress.remaining} ELO ${language === 'en' ? 'to' : 'đến'} ${rankProgress.nextRank}` : 'MAX RANK'}</span>
-            </div>
-            <div className="h-3 border-2 border-[var(--pop-black)] bg-white" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(rankProgress.progress)}>
-              <div className="h-full bg-[var(--pop-amber)] transition-[width]" style={{ width: `${rankProgress.progress}%` }} />
-            </div>
-          </div>
-
-          <div className="w-full grid grid-cols-2 gap-4 mt-6 pt-6 border-t-3 border-dashed border-[var(--pop-black)]/20">
+          <div className="w-full mt-6 pt-6 border-t-3 border-dashed border-[var(--pop-black)]/20">
             <div className="bg-white border-2 border-[var(--pop-black)] rounded-none p-3 text-center shadow-[2px_2px_0_var(--pop-black)] flex flex-col items-center justify-center">
               <span className="text-[10px] font-pop-accent font-bold text-[var(--pop-black)]/60 uppercase block">{t('profile_coins')}</span>
               <span className="font-pop-accent font-black text-[var(--pop-red)] text-lg flex items-center gap-1.5 justify-center mt-1">
                 <CoinIcon className="w-5 h-5 text-[var(--pop-red)]" /> {profile.coins}
-              </span>
-            </div>
-            <div className="bg-white border-2 border-[var(--pop-black)] rounded-none p-3 text-center shadow-[2px_2px_0_var(--pop-black)] flex flex-col items-center justify-center">
-              <span className="text-[10px] font-pop-accent font-bold text-[var(--pop-black)]/60 uppercase block">{t('profile_gems')}</span>
-              <span className="font-pop-accent font-black text-indigo-600 text-lg flex items-center gap-1.5 justify-center mt-1">
-                <GemIcon className="w-5 h-5 text-indigo-600" /> {profile.gems}
               </span>
             </div>
           </div>
@@ -311,7 +289,7 @@ export default function Profile() {
                           {quest.title}
                         </span>
                         <span className="text-[10px] font-pop-accent font-black text-indigo-600 bg-indigo-50 border-2 border-indigo-200 px-2 py-0.5 rounded-none">
-                          +{quest.reward?.coins || 0} {t('shop_gold')} {quest.reward?.gems > 0 && `• +${quest.reward.gems} ${t('shop_pink')}`}
+                          +{quest.reward?.coins || 0} {t('shop_gold')}
                         </span>
                       </div>
                       

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildCriticalAdminPayload, buildDeleteAdminPayload, buildRoleChangePayload, buildRoutineAdminPayload, buildSeasonResetPayload, createAdminOperationRequestId } from '../src/pages/admin/adminMutation.js';
+import { buildCriticalAdminPayload, buildDeleteAdminPayload, buildRoleChangePayload, buildRoutineAdminPayload, createAdminOperationRequestId } from '../src/pages/admin/adminMutation.js';
 
 test('creates a safe prefixed operation request id', () => {
   assert.equal(createAdminOperationRequestId(() => 'uuid-123'), 'adm_uuid-123');
@@ -17,19 +17,6 @@ test('builds the critical role-change contract with reason and username confirma
     role: 'operator',
     reason: 'Approved support access',
     requestId: 'adm_uuid-123',
-    confirmation: { username: 'root-cat' },
-  });
-});
-
-test('builds the critical season-reset contract without relying on a shared static request id', () => {
-  assert.deepEqual(buildSeasonResetPayload({
-    reason: '  Season 4 completed  ',
-    confirmationUsername: 'root-cat',
-    requestId: 'adm_reset-4',
-  }), {
-    confirmText: 'RESET',
-    reason: 'Season 4 completed',
-    requestId: 'adm_reset-4',
     confirmation: { username: 'root-cat' },
   });
 });

@@ -34,7 +34,7 @@ test('bulk player query allowlists filters and escapes search text', () => {
 
 test('bulk operation permission follows the nested operation type', () => {
   assert.equal(getBulkOperationPermission({ type: 'currency' }), 'economy.adjust');
-  assert.equal(getBulkOperationPermission({ type: 'elo' }), 'players.elo.write');
+  assert.throws(() => getBulkOperationPermission({ type: 'elo' }), (error) => error.code === 'VALIDATION_ERROR');
   assert.throws(() => getBulkOperationPermission({ type: 'role' }), (error) => error.code === 'VALIDATION_ERROR');
 });
 

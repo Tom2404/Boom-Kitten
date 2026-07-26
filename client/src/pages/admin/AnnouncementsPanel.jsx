@@ -15,8 +15,6 @@ export default function AnnouncementsPanel({ permissions = [] }) {
   const [scheduledFor, setScheduledFor] = useState('');
   const [audienceType, setAudienceType] = useState('all_online');
   const [roles, setRoles] = useState(['user']);
-  const [minElo, setMinElo] = useState(1000);
-  const [maxElo, setMaxElo] = useState(3000);
   const [operationRequestId, setOperationRequestId] = useState(createAdminOperationRequestId);
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(true);
@@ -47,11 +45,7 @@ export default function AnnouncementsPanel({ permissions = [] }) {
       setSending(false);
       return setResult({ tone: 'danger', text: 'Chọn thời điểm phát thông báo.' });
     }
-    const audience = audienceType === 'role'
-      ? { type: 'role', roles }
-      : audienceType === 'rank_range'
-        ? { type: 'rank_range', minElo: Number(minElo), maxElo: Number(maxElo) }
-        : { type: 'all_online' };
+    const audience = audienceType === 'role' ? { type: 'role', roles } : { type: 'all_online' };
     const res = await request('/api/admin/announcements', {
       method: 'POST',
       body: JSON.stringify(buildRoutineAdminPayload({ title: title.trim(), message: message.trim(), type, durationSeconds: Number(duration), sendMode, scheduledFor: sendMode === 'scheduled' ? new Date(scheduledFor).toISOString() : undefined, audience }, operationRequestId)),
@@ -101,11 +95,10 @@ export default function AnnouncementsPanel({ permissions = [] }) {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Chế độ"><select className={inputClass} value={sendMode} onChange={(event) => setSendMode(event.target.value)}><option value="now">Gửi ngay</option><option value="draft">Lưu nháp</option>{canSchedule && <option value="scheduled">Lên lịch</option>}</select></Field>
-              <Field label="Audience"><select className={inputClass} value={audienceType} onChange={(event) => setAudienceType(event.target.value)}><option value="all_online">Tất cả online</option><option value="role">Theo role</option><option value="rank_range">Theo khoảng ELO</option></select></Field>
+              <Field label="Audience"><select className={inputClass} value={audienceType} onChange={(event) => setAudienceType(event.target.value)}><option value="all_online">Tất cả online</option><option value="role">Theo role</option></select></Field>
             </div>
             {sendMode === 'scheduled' && <Field label={`Thời điểm phát (${timezone})`}><input className={inputClass} type="datetime-local" value={scheduledFor} onChange={(event) => setScheduledFor(event.target.value)} /></Field>}
             {audienceType === 'role' && <Field label="Role người nhận"><select multiple className={inputClass} value={roles} onChange={(event) => setRoles(Array.from(event.target.selectedOptions, (option) => option.value))}><option value="user">User</option><option value="operator">Operator</option><option value="moderator">Moderator</option><option value="analyst">Analyst</option><option value="super_admin">Super admin</option></select></Field>}
-            {audienceType === 'rank_range' && <div className="grid grid-cols-2 gap-3"><Field label="ELO tối thiểu"><input className={inputClass} type="number" min="0" value={minElo} onChange={(event) => setMinElo(event.target.value)} /></Field><Field label="ELO tối đa"><input className={inputClass} type="number" min="0" value={maxElo} onChange={(event) => setMaxElo(event.target.value)} /></Field></div>}
           </div>
           <Button type="submit" variant="primary" className="mt-4 w-full" disabled={sending}>{sending ? 'Đang gửi...' : 'Phát thông báo'}</Button>
         </form>}

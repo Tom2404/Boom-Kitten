@@ -76,8 +76,6 @@ export default function LogsPanel({ language = 'vi', permissions = [], onNavigat
                 <option value="earn">Nhận thưởng</option>
                 <option value="spend">Tiêu dùng</option>
                 <option value="admin_adjust">Admin sửa</option>
-                <option value="season_reward">Quà mùa giải</option>
-                <option value="elo_adjust">Sửa ELO</option>
               </>
           </select>}
         </Field>
@@ -87,11 +85,10 @@ export default function LogsPanel({ language = 'vi', permissions = [], onNavigat
               <option value="">{en ? 'All' : 'Tất cả'}</option>
               <option value="coin">GoldCoin</option>
               <option value="gem">PinkCoin</option>
-              <option value="elo">ELO</option>
             </select>
           </Field>
         )}
-        {logType === 'audit' && <><Field label={en ? 'Target type' : 'Loại đối tượng'}><input className={inputClass} value={targetType} onChange={(event) => { setTargetType(event.target.value); setPage(1); }} placeholder="user, room, season…" /></Field><Field label="Target ID"><input className={inputClass} value={targetId} onChange={(event) => { setTargetId(event.target.value); setPage(1); }} /></Field><Field label={en ? 'From' : 'Từ'}><input className={inputClass} type="datetime-local" value={from} onChange={(event) => { setFrom(event.target.value); setPage(1); }} /></Field><Field label={en ? 'To' : 'Đến'}><input className={inputClass} type="datetime-local" value={to} onChange={(event) => { setTo(event.target.value); setPage(1); }} /></Field></>}
+        {logType === 'audit' && <><Field label={en ? 'Target type' : 'Loại đối tượng'}><input className={inputClass} value={targetType} onChange={(event) => { setTargetType(event.target.value); setPage(1); }} placeholder="user, room, tournament…" /></Field><Field label="Target ID"><input className={inputClass} value={targetId} onChange={(event) => { setTargetId(event.target.value); setPage(1); }} /></Field><Field label={en ? 'From' : 'Từ'}><input className={inputClass} type="datetime-local" value={from} onChange={(event) => { setFrom(event.target.value); setPage(1); }} /></Field><Field label={en ? 'To' : 'Đến'}><input className={inputClass} type="datetime-local" value={to} onChange={(event) => { setTo(event.target.value); setPage(1); }} /></Field></>}
       </Toolbar>
 
       {loading ? <SkeletonBlock rows={5} /> : logs.length === 0 ? (

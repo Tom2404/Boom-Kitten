@@ -11,8 +11,8 @@ const Register = lazy(() => import('./pages/Register.jsx'));
 const Lobby = lazy(() => import('./pages/Lobby.jsx'));
 const Game = lazy(() => import('./pages/Game.jsx'));
 const Profile = lazy(() => import('./pages/Profile.jsx'));
-const Leaderboard = lazy(() => import('./pages/Leaderboard.jsx'));
 const Shop = lazy(() => import('./pages/Shop.jsx'));
+const Tournaments = lazy(() => import('./pages/Tournaments.jsx'));
 const Admin = lazy(() => import('./pages/Admin.jsx'));
 const VFXOverlay = lazy(() => import('./components/VFXOverlay.jsx').then((module) => ({ default: module.VFXOverlay })));
 
@@ -41,7 +41,7 @@ class ErrorBoundary extends Component {
 
 const Mission = lazy(() => import('./pages/Mission.jsx'));
 
-const PAGES = { Home, Login, Register, Lobby, Game, Profile, Leaderboard, Shop, Admin, Mission };
+const PAGES = { Home, Login, Register, Lobby, Game, Profile, Shop, Tournaments, Admin, Mission };
 
 export default function App() {
   const { language, setLanguage, t } = useLanguage();
@@ -142,7 +142,7 @@ export default function App() {
 
   // Global access guard for admin role to restrict user-facing routes
   useEffect(() => {
-    if (isAdminRole(userRole) && ['Game', 'Leaderboard', 'Mission', 'Shop', 'Profile'].includes(page)) {
+    if (isAdminRole(userRole) && ['Game', 'Mission', 'Shop', 'Profile', 'Tournaments'].includes(page)) {
       setPage('Admin');
     }
   }, [page, userRole]);
@@ -200,6 +200,7 @@ export default function App() {
 
   const Page = useMemo(() => PAGES[page] ?? Home, [page]);
   const isInMatch = page === 'Game' && activeRoom !== null;
+  const shouldRenderVfx = page === 'Game' && activeRoom?.status === 'playing';
   const isAdminPage = page === 'Admin';
 
   if (page === 'Home') {
@@ -308,7 +309,7 @@ export default function App() {
         onConfirm={dialogState.onConfirm}
         onCancel={() => setDialogState({ isOpen: false })}
       />
-      {page === 'Game' && (
+      {shouldRenderVfx && (
         <Suspense fallback={null}>
           <VFXOverlay />
         </Suspense>

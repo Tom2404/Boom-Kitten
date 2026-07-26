@@ -5,7 +5,7 @@ import { formatNumber } from './utils.js';
 import { getAdminPanelAccess } from './adminPanelAccess.js';
 import { buildDeleteAdminPayload, buildRoutineAdminPayload, createAdminOperationRequestId } from './adminMutation.js';
 
-const blankQuest = { title: '', description: '', actionType: 'play_game', targetCount: 1, coinReward: 0, gemReward: 0, isActive: true };
+const blankQuest = { title: '', description: '', actionType: 'play_game', targetCount: 1, coinReward: 0, isActive: true };
 
 export default function QuestsPanel({ permissions = [] }) {
   const { request } = useAdminApi();
@@ -46,7 +46,6 @@ export default function QuestsPanel({ permissions = [] }) {
       actionType: quest.actionType || 'play_game',
       targetCount: quest.targetCount || 1,
       coinReward: quest.reward?.coins || 0,
-      gemReward: quest.reward?.gems || 0,
       isActive: quest.isActive !== false,
     });
     setFormRequestId(createAdminOperationRequestId());
@@ -73,7 +72,7 @@ export default function QuestsPanel({ permissions = [] }) {
       description: form.description,
       actionType: form.actionType,
       targetCount: Number(form.targetCount),
-      reward: { coins: Number(form.coinReward), gems: Number(form.gemReward) },
+      reward: { coins: Number(form.coinReward) },
       isActive: form.isActive,
     };
     setSaving(true);
@@ -129,10 +128,7 @@ export default function QuestsPanel({ permissions = [] }) {
               <Field label="Loại hành động"><select className={inputClass} value={form.actionType} onChange={(event) => setForm({ ...form, actionType: event.target.value })}><option value="play_game">Chơi trận</option><option value="win_game">Thắng trận</option><option value="draw_card">Rút bài</option><option value="buy_item">Mua hàng</option></select></Field>
               <Field label="Mục tiêu"><input className={inputClass} type="number" min="1" value={form.targetCount} onChange={(event) => setForm({ ...form, targetCount: event.target.value })} /></Field>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Gold thưởng"><input className={inputClass} type="number" min="0" value={form.coinReward} onChange={(event) => setForm({ ...form, coinReward: event.target.value })} /></Field>
-              <Field label="Pink thưởng"><input className={inputClass} type="number" min="0" value={form.gemReward} onChange={(event) => setForm({ ...form, gemReward: event.target.value })} /></Field>
-            </div>
+            <Field label="Coin thưởng"><input className={inputClass} type="number" min="0" value={form.coinReward} onChange={(event) => setForm({ ...form, coinReward: event.target.value })} /></Field>
             <Field label="Trạng thái"><select className={inputClass} value={form.isActive ? 'true' : 'false'} onChange={(event) => setForm({ ...form, isActive: event.target.value === 'true' })}><option value="true">Active</option><option value="false">Inactive</option></select></Field>
           </div>
           <div className="mt-4 flex gap-2">
@@ -156,7 +152,7 @@ export default function QuestsPanel({ permissions = [] }) {
                       </div>
                       <h3 className="mt-2 font-sans font-semibold text-slate-950">{quest.title}</h3>
                       <p className="mt-1 text-sm font-semibold text-slate-500">{quest.description}</p>
-                      <p className="mt-2 text-sm font-bold text-slate-700">Mục tiêu: {formatNumber(quest.targetCount)} · Thưởng: {formatNumber(quest.reward?.coins)} Gold / {formatNumber(quest.reward?.gems)} Pink</p>
+                      <p className="mt-2 text-sm font-bold text-slate-700">Mục tiêu: {formatNumber(quest.targetCount)} · Thưởng: {formatNumber(quest.reward?.coins)} Coin</p>
                     </div>
                     {canWriteQuests && <div className="flex gap-2">
                       <Button variant="secondary" onClick={() => editQuest(quest)}>Sửa</Button>

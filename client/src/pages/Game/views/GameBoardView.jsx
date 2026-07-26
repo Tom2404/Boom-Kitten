@@ -27,7 +27,6 @@ export default function GameBoardView() {
     FeedTheDeadModal,
     GarbageSelectModal,
     GearIcon,
-    GemIcon,
     GraveRobberModal,
     HelpIcon,
     ImageButton,

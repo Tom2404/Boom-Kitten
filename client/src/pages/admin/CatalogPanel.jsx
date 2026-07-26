@@ -5,7 +5,7 @@ import { formatNumber } from './utils.js';
 import { getAdminPanelAccess } from './adminPanelAccess.js';
 import { buildDeleteAdminPayload, buildRoutineAdminPayload, createAdminOperationRequestId } from './adminMutation.js';
 
-const blankItem = { name: '', description: '', type: 'skin', rarity: 'common', priceCoins: 0, priceGems: 0, imageUrl: '', isActive: true, sortOrder: 0 };
+const blankItem = { name: '', description: '', type: 'skin', rarity: 'common', priceCoins: 0, imageUrl: '', isActive: true, sortOrder: 0 };
 
 export default function CatalogPanel({ permissions = [] }) {
   const { request } = useAdminApi();
@@ -40,7 +40,7 @@ export default function CatalogPanel({ permissions = [] }) {
     description: item.description,
     type: item.type,
     rarity: item.rarity,
-    price: { coins: Number(item.priceCoins), gems: Number(item.priceGems) },
+    price: { coins: Number(item.priceCoins) },
     imageUrl: item.imageUrl,
     isActive: item.isActive,
     sortOrder: Number(item.sortOrder),
@@ -108,7 +108,6 @@ export default function CatalogPanel({ permissions = [] }) {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <Field label="GoldCoin"><input className={inputClass} type="number" min="0" value={activeForm.priceCoins} onChange={(event) => setActiveForm({ ...activeForm, priceCoins: event.target.value })} /></Field>
-              <Field label="PinkCoin"><input className={inputClass} type="number" min="0" value={activeForm.priceGems} onChange={(event) => setActiveForm({ ...activeForm, priceGems: event.target.value })} /></Field>
             </div>
             <Field label="URL hình ảnh"><input className={inputClass} value={activeForm.imageUrl} onChange={(event) => setActiveForm({ ...activeForm, imageUrl: event.target.value })} placeholder="https://..." /></Field>
             <div className="grid grid-cols-2 gap-3">
@@ -142,9 +141,9 @@ export default function CatalogPanel({ permissions = [] }) {
                     </div>
                   </div>
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--admin-border)] pt-3">
-                    <p className="text-sm font-semibold text-slate-700">{formatNumber(item.price?.coins)} Gold / {formatNumber(item.price?.gems)} Pink</p>
+                    <p className="text-sm font-semibold text-slate-700">{formatNumber(item.price?.coins)} Coin</p>
                     {canWriteCatalog && <div className="flex flex-wrap gap-2">
-                      <Button variant="subtle" disabled={!!pendingItemId} onClick={() => { setEditing({ _id: item._id, name: item.name, description: item.description || '', type: item.type, rarity: item.rarity, priceCoins: item.price?.coins || 0, priceGems: item.price?.gems || 0, imageUrl: item.imageUrl || '', isActive: item.isActive !== false, sortOrder: item.sortOrder || 0 }); setFormRequestId(createAdminOperationRequestId()); }}>Sửa</Button>
+                      <Button variant="subtle" disabled={!!pendingItemId} onClick={() => { setEditing({ _id: item._id, name: item.name, description: item.description || '', type: item.type, rarity: item.rarity, priceCoins: item.price?.coins || 0, imageUrl: item.imageUrl || '', isActive: item.isActive !== false, sortOrder: item.sortOrder || 0 }); setFormRequestId(createAdminOperationRequestId()); }}>Sửa</Button>
                       <Button variant="secondary" disabled={!!pendingItemId} onClick={() => toggleItem(item)}>{pendingItemId === item._id ? 'Đang xử lý...' : item.isActive === false ? 'Bật' : 'Tắt'}</Button>
                       <Button variant="danger" disabled={!!pendingItemId} onClick={() => { setDeleteTarget(item); setDeleteReason(''); setDeleteRequestId(createAdminOperationRequestId()); }}>Xóa</Button>
                     </div>}

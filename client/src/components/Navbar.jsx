@@ -172,15 +172,12 @@ export default function Navbar({ page, setPage, isLoggedIn, userRole, handleLogo
           
           {!isAdmin && (
             <>
-              <button 
-                onClick={() => setPage('Leaderboard')}
-                className={`flex items-center gap-1.5 uppercase tracking-wider transition-all duration-200 border-b-2 py-1 px-1 cursor-pointer
-                  ${page === 'Leaderboard' 
-                    ? 'text-white border-[var(--pop-red)] font-black translate-y-[-1px]' 
-                    : 'text-[#888] border-transparent hover:text-white hover:border-white/40'}`}
+              <button
+                onClick={() => setPage('Tournaments')}
+                className={`flex items-center gap-1.5 uppercase tracking-wider transition-all duration-200 border-b-2 py-1 px-1 cursor-pointer ${page === 'Tournaments' ? 'text-white border-[var(--pop-red)] font-black' : 'text-[#888] border-transparent hover:text-white'}`}
               >
-                <PixelTrophyIcon size={12} className={page === 'Leaderboard' ? 'text-[var(--pop-red)]' : 'text-neutral-500'} />
-                {t('leaderboard')}
+                <PixelTrophyIcon size={12} className={page === 'Tournaments' ? 'text-[var(--pop-red)]' : 'text-neutral-500'} />
+                Tournament
               </button>
 
               <button 

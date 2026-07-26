@@ -13,7 +13,7 @@ test('normalizes a player match without exposing other players private data', ()
   };
   const normalized = normalizePlayerGame(game, 'user-1');
   assert.equal(normalized.result, 'win');
-  assert.equal(normalized.eloChange, 20);
+  assert.equal(normalized.eloChange, undefined);
   assert.equal(normalized.playerCount, 2);
   assert.equal(normalized.players, undefined);
 });

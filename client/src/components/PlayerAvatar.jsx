@@ -1,17 +1,8 @@
 import React from 'react';
 import { formatCardName } from '../utils/cardHelpers.js';
 import { getCardImageUrl } from '../utils/cardSkins.js';
-import { RankBadge } from './Icons.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { getPlayerStatus } from '../utils/gameRoomUi.js';
-
-const RANK_BADGES = {
-  Bronze: '🟫 BRONZE',
-  Silver: '⬜ SILVER',
-  Gold: '🟨 GOLD',
-  Diamond: '🔷 DIAMOND',
-  Legend: '👑 LEGEND',
-};
 
 const PRESET_AVATARS = {
   angry_kitten: '😿',
@@ -35,7 +26,7 @@ export default function PlayerAvatar({
   compact = false,
 }) {
   const { t } = useLanguage();
-  const { userId, username, alive, handCount, avatar, activeAvatarFrame, eloPoints, rank, markedCards, pendingTakeFrom } = player;
+  const { userId, username, alive, handCount, avatar, activeAvatarFrame, markedCards, pendingTakeFrom } = player;
   const visibleMarkedCards = markedCards?.slice(0, 3) ?? [];
   const hiddenMarkedCount = Math.max((markedCards?.length ?? 0) - visibleMarkedCards.length, 0);
 
@@ -44,9 +35,6 @@ export default function PlayerAvatar({
       onSelectTarget(userId);
     }
   };
-
-  const currentRank = rank || publicProfile?.rank || 'Bronze II';
-  const currentElo = eloPoints || publicProfile?.eloPoints || 1000;
 
   if (compact) {
     const Seat = isTargetable ? 'button' : 'article';
@@ -187,7 +175,7 @@ export default function PlayerAvatar({
           )}
         </div>
     
-        {/* Name and Rank Details */}
+        {/* Player identity */}
         <div className="w-full text-center">
           <h4 className={`text-xs font-headline font-black truncate max-w-full px-1 
             ${isCurrentTurn && alive 
@@ -195,11 +183,8 @@ export default function PlayerAvatar({
               : (edition === 'zombie' && !alive ? 'text-[#a7f3d0]' : 'text-on-surface')}`}>
             {username || userId}
           </h4>
-          <div className="flex justify-center my-0.5">
-            <RankBadge rank={currentRank} className="w-4 h-4" showText={true} />
-          </div>
           <span className={`text-[9px] font-mono font-bold block mt-0.5 ${isCurrentTurn && alive ? 'text-slate-700' : 'text-on-surface-variant'}`}>
-            {currentElo} ELO
+            {alive ? `${handCount ?? 0} lá bài` : 'Đã nổ'}
           </span>
         </div>
   

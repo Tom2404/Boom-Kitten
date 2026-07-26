@@ -6,7 +6,7 @@ const { ApiError } = require('../../utils/apiResponse');
 const { getAdminPolicy } = require('../../utils/adminPermissions');
 const { createAdminAudit } = require('./auditService');
 const { csvCell } = require('./auditQueryService');
-const { buildEloSetFields, previewCurrencyAdjustment, previewEloAdjustment } = require('./economyAdjustmentService');
+const { previewCurrencyAdjustment } = require('./economyAdjustmentService');
 const { executeIdempotentAdminOperation } = require('./idempotencyService');
 
 const PLAYER_ROLES = new Set(['user', 'admin', 'super_admin', 'operator', 'moderator', 'analyst']);
@@ -53,10 +53,6 @@ function buildPlayerBulkQuery(filters = {}) {
     if (typeof filters.status !== 'string' || !PLAYER_STATUSES.has(filters.status)) throw validation('Trạng thái không hợp lệ.', { status: 'Chỉ hỗ trợ active hoặc banned' });
     query.isBanned = filters.status === 'banned';
   }
-  if (filters.rank !== undefined && filters.rank !== '') {
-    if (typeof filters.rank !== 'string' || filters.rank.length > 40) throw validation('Rank không hợp lệ.', { rank: 'Rank phải là chuỗi hợp lệ' });
-    query.rank = filters.rank;
-  }
   const isOnline = parseBoolean(filters.isOnline, 'isOnline');
   if (isOnline !== undefined) query.isOnline = isOnline;
   const createdFrom = parseDate(filters.createdFrom, 'createdFrom');
@@ -69,14 +65,12 @@ function buildPlayerBulkQuery(filters = {}) {
 function previewPlayerOperation(player, operation, policy) {
   if (!operation || typeof operation !== 'object') throw validation('Bulk operation là bắt buộc.', { operation: 'Payload operation không hợp lệ' });
   if (operation.type === 'currency') return previewCurrencyAdjustment({ ...operation, balances: player, policy });
-  if (operation.type === 'elo') return previewEloAdjustment({ elo: operation.elo, currentElo: player.eloPoints, policy });
-  throw validation('Loại bulk operation không hợp lệ.', { type: 'Chỉ hỗ trợ currency hoặc elo' });
+  throw validation('Loại bulk operation không hợp lệ.', { type: 'Chỉ hỗ trợ currency' });
 }
 
 function getBulkOperationPermission(operation) {
   if (operation?.type === 'currency') return 'economy.adjust';
-  if (operation?.type === 'elo') return 'players.elo.write';
-  throw validation('Loại bulk operation không hợp lệ.', { type: 'Chỉ hỗ trợ currency hoặc elo' });
+  throw validation('Loại bulk operation không hợp lệ.', { type: 'Chỉ hỗ trợ currency' });
 }
 
 async function createPlayerBulkPreview({
@@ -97,7 +91,7 @@ async function createPlayerBulkPreview({
     throw new ApiError(422, 'POLICY_LIMIT_EXCEEDED', `Query ảnh hưởng ${targetCount} người chơi, vượt giới hạn ${maxTargets}.`, { targetCount, maxTargets });
   }
   const players = targetCount
-    ? await UserModel.find(query).select('_id username coins gems eloPoints').sort({ _id: 1 }).lean()
+    ? await UserModel.find(query).select('_id username coins').sort({ _id: 1 }).lean()
     : [];
   let totalAbsoluteDelta = 0;
   let validTargets = 0;
@@ -192,12 +186,11 @@ async function enqueuePlayersExport({ UserModel = User, AdminJobModel = AdminJob
 
 async function handlePlayersExport(job, { UserModel = User } = {}) {
   const query = buildPlayerBulkQuery(job.query?.filters || {});
-  const players = await UserModel.find(query).select('_id username email role isBanned rank eloPoints coins gems createdAt').sort({ _id: 1 }).lean();
-  const columns = ['id', 'username', 'email', 'role', 'status', 'rank', 'elo', 'gold', 'pink', 'createdAt'];
+  const players = await UserModel.find(query).select('_id username email role isBanned coins createdAt').sort({ _id: 1 }).lean();
+  const columns = ['id', 'username', 'email', 'role', 'status', 'coins', 'createdAt'];
   const rows = players.map((player) => ({
     id: String(player._id), username: player.username, email: player.email, role: player.role,
-    status: player.isBanned ? 'banned' : 'active', rank: player.rank, elo: player.eloPoints,
-    gold: player.coins, pink: player.gems, createdAt: player.createdAt,
+    status: player.isBanned ? 'banned' : 'active', coins: player.coins, createdAt: player.createdAt,
   }));
   const content = `\uFEFF${[columns.join(','), ...rows.map((row) => columns.map((column) => csvCell(row[column])).join(','))].join('\r\n')}`;
   if (Buffer.byteLength(content, 'utf8') > MAX_INLINE_EXPORT_BYTES) throw new ApiError(422, 'EXPORT_TOO_LARGE', 'File export vượt giới hạn lưu trữ. Hãy thu hẹp bộ lọc.');
@@ -244,18 +237,18 @@ async function handlePlayerBulkAdjust(job, {
           const beforeUser = await UserModel.findById(targetId);
           if (!beforeUser) throw new ApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy người chơi.');
           const preview = previewPlayerOperation(beforeUser, job.operation, policy);
-          const field = job.operation.type === 'currency' ? preview.field : 'eloPoints';
-          const setFields = job.operation.type === 'elo' ? buildEloSetFields(beforeUser, preview.after) : { [field]: preview.after };
+          const field = preview.field;
+          const setFields = { [field]: preview.after };
           const updated = await UserModel.findOneAndUpdate(
             { _id: targetId, __v: beforeUser.__v },
             { $set: setFields, $inc: { __v: 1 } },
             { new: true, runValidators: true },
           );
           if (!updated) throw new ApiError(409, 'STATE_CONFLICT', 'Dữ liệu người chơi đã thay đổi trong lúc xử lý.');
-          const currency = job.operation.type === 'currency' ? job.operation.currency : 'elo';
+          const currency = job.operation.currency;
           await TransactionModel.create({
             userId: updated._id,
-            type: job.operation.type === 'currency' ? 'admin_adjust' : 'elo_adjust',
+            type: 'admin_adjust',
             amount: Math.abs(preview.after - preview.before),
             currency,
             balanceBefore: preview.before,
@@ -266,7 +259,7 @@ async function handlePlayerBulkAdjust(job, {
           });
           await audit({
             actor,
-            action: job.operation.type === 'currency' ? 'PLAYER_CURRENCY_ADJUSTED' : 'PLAYER_ELO_ADJUSTED',
+            action: 'PLAYER_CURRENCY_ADJUSTED',
             target: { type: 'user', id: String(updated._id) },
             before: { [field]: preview.before, jobId: String(job._id) },
             after: { [field]: preview.after, jobId: String(job._id) },

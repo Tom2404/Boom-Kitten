@@ -23,9 +23,10 @@ function selectQuestFields(input, { defaults = false } = {}) {
   }
   if (defaults) {
     if (payload.targetCount === undefined) payload.targetCount = 1;
-    if (payload.reward === undefined) payload.reward = { coins: 0, gems: 0 };
+    if (payload.reward === undefined) payload.reward = { coins: 0 };
     if (payload.isActive === undefined) payload.isActive = true;
   }
+  if (payload.reward !== undefined) payload.reward = { coins: Number(payload.reward?.coins) || 0 };
   return payload;
 }
 
@@ -36,9 +37,7 @@ function validateQuestInput(input) {
   if (!QUEST_ACTION_TYPES.includes(input.actionType)) fields.actionType = 'Không hợp lệ';
   if (input.targetCount !== undefined && (!Number.isFinite(Number(input.targetCount)) || Number(input.targetCount) < 1)) fields.targetCount = 'Phải từ 1 trở lên';
   const coins = input.reward?.coins;
-  const gems = input.reward?.gems;
   if (coins !== undefined && (!Number.isFinite(Number(coins)) || Number(coins) < 0)) fields['reward.coins'] = 'Không được âm';
-  if (gems !== undefined && (!Number.isFinite(Number(gems)) || Number(gems) < 0)) fields['reward.gems'] = 'Không được âm';
   if (Object.keys(fields).length) throw new ApiError(422, 'VALIDATION_ERROR', 'Thông tin nhiệm vụ không hợp lệ.', { fields });
 }
 

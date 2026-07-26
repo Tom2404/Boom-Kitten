@@ -15,6 +15,8 @@ function secretRoom() {
     status: 'playing',
     edition: 'zombie',
     gameMode: 'ranked',
+    betAmount: 50,
+    wagerReference: 'ABC123:round-1',
     maxPlayers: 5,
     createdAt: new Date('2026-07-22T00:00:00.000Z'),
     updatedAt: new Date('2026-07-22T00:09:00.000Z'),
@@ -64,6 +66,7 @@ test('force close removes the room, broadcasts closure, and audits only the safe
   const room = secretRoom();
   const events = [];
   let auditPayload;
+  let refundPayload;
   const result = await forceCloseRoomForAdmin({
     roomCode: room.code,
     actor: { id: 'admin-1', username: 'root', role: 'super_admin' },
@@ -72,10 +75,13 @@ test('force close removes the room, broadcasts closure, and audits only the safe
     roomManager: { getRoomState: () => room, forceCloseRoom: () => room },
     io: { to: (target) => ({ emit: (event, payload) => events.push({ target, event, payload }) }) },
     audit: async (payload) => { auditPayload = payload; },
+    refund: async (payload) => { refundPayload = payload; },
   });
 
   assert.equal(result.code, room.code);
   assert.equal(events[0].event, 'admin:roomClosed');
+  assert.equal(refundPayload.reference, room.wagerReference);
+  assert.equal(refundPayload.requestId, 'admin-refund:force-1');
   assert.equal(auditPayload.action, 'ROOM_FORCE_CLOSED');
   assert.equal(JSON.stringify(auditPayload).includes('top-secret'), false);
 });
@@ -88,6 +94,8 @@ test('disconnect player requires room membership, removes them, broadcasts, and 
     to: (target) => ({ emit: (event, payload) => events.push({ target, event, payload }) }),
     in: () => ({ disconnectSockets: () => { disconnected = true; } }),
   };
+  let refundPayload;
+  let forceClosed = false;
   const result = await disconnectRoomPlayerForAdmin({
     roomCode: room.code,
     userId: 'user-2',
@@ -96,12 +104,16 @@ test('disconnect player requires room membership, removes them, broadcasts, and 
     roomManager: {
       getRoomState: () => room,
       disconnectPlayer: () => ({ ...room, players: room.players.slice(0, 1) }),
+      forceCloseRoom: () => { forceClosed = true; return room; },
     },
     io,
     audit: async () => {},
+    refund: async (payload) => { refundPayload = payload; },
   });
 
   assert.equal(result.disconnectedUserId, 'user-2');
   assert.equal(disconnected, true);
+  assert.equal(forceClosed, true);
+  assert.equal(refundPayload.reference, room.wagerReference);
   assert.equal(events.some(({ event }) => event === 'admin:playerDisconnected'), true);
 });

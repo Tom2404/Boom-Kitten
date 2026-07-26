@@ -13,7 +13,7 @@ router.use(adminMiddleware);
 
 router.post('/', requireAdminPermission('players.export'), requireAdminMutationContext({ reasonRequired: false }), async (req, res, next) => {
   try {
-    const filters = Object.fromEntries(['search', 'role', 'status', 'rank', 'isOnline', 'createdFrom', 'createdTo'].filter((key) => req.body?.[key] !== undefined && req.body[key] !== '').map((key) => [key, req.body[key]]));
+    const filters = Object.fromEntries(['search', 'role', 'status', 'isOnline', 'createdFrom', 'createdTo'].filter((key) => req.body?.[key] !== undefined && req.body[key] !== '').map((key) => [key, req.body[key]]));
     const outcome = await executeIdempotentAdminOperation({
       actorId: req.admin.id,
       operation: 'players.export',

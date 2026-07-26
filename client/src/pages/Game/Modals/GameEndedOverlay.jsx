@@ -4,13 +4,11 @@ import { useGameContext } from '../GameContext.jsx';
 export default function GameEndedOverlay(props) {
   const {
     CoinIcon,
-    GemIcon,
     PRESET_AVATARS,
     gameEnded,
     gameState,
     getPlayerDisplayName,
     leaveRoom,
-    myPlayerState,
     myUser,
     playAgain,
     setGameEnded,
@@ -25,13 +23,7 @@ export default function GameEndedOverlay(props) {
   const kittensDefused = gameState?.discardPile?.filter(c => c.type === 'defuse' || c.type === 'zombie_kitten').length || 0;
   const playersExploded = gameState?.players?.filter(p => !p.alive).length || 0;
 
-  const eloChange = gameEnded.eloChanges?.[myUser?.id] || 0;
-  const pinkCoinEarned = gameEnded.pinkCoinChanges?.[myUser?.id] || 0;
-  const currentElo = myPlayerState?.eloPoints || 1000;
-  const prevElo = currentElo - eloChange;
-
-  const streakBonus = isWin && myPlayerState?.stats?.currentStreak >= 3 ? 30 : 0;
-  const coinsEarned = isWin ? (50 + streakBonus) : 10;
+  const wagerPayout = gameEnded.wager?.payouts?.find((row) => row.userId === myUser?.id)?.payoutCoins || 0;
 
   const winnerPlayer = gameState?.players?.find(p => p.userId === gameEnded.winnerId);
   const winnerName = winnerPlayer?.username || getPlayerDisplayName(gameEnded.winnerId) || 'Chiến Mèo';
@@ -123,46 +115,13 @@ export default function GameEndedOverlay(props) {
               <h3 className="font-headline font-black text-base md:text-lg text-slate-950 uppercase mb-4 flex items-center gap-1.5 pb-2 border-b-3 border-on-surface">
                 LOOT EARNED
               </h3>
-              <div className={`grid gap-4 w-full ${pinkCoinEarned > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
-                {/* Coins Card */}
+              <div className="grid gap-4 w-full">
                 <div className="bg-[#fee2e2] border-3 border-slate-950 shadow-[3px_3px_0px_0px_#1a1c1c] p-3 rounded-2xl flex flex-col items-center justify-center text-center">
                   <CoinIcon className="w-7 h-7 mb-1" />
-                  <span className="font-headline font-black text-[11px] text-red-700 uppercase">+{coinsEarned}</span>
-                  <span className="text-[9px] font-bold text-on-surface-variant uppercase mt-0.5">Gold Coin</span>
+                  <span className="font-headline font-black text-[11px] text-red-700 uppercase">{gameEnded.wager ? `+${wagerPayout}` : 'KHÔNG CƯỢC'}</span>
+                  <span className="text-[9px] font-bold text-on-surface-variant uppercase mt-0.5">{gameEnded.wager ? `Payout từ ${gameEnded.wager.stake} Coin đã khóa` : 'Trận thường không mint Coin'}</span>
                 </div>
-
-                {/* ELO Card */}
-                <div className="bg-cyan-50 border-3 border-slate-950 shadow-[3px_3px_0px_0px_#1a1c1c] p-3 rounded-2xl flex flex-col items-center justify-center text-center">
-                  <span className={`font-headline font-black text-[11px] uppercase mt-2 ${eloChange >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                    {eloChange >= 0 ? `+${eloChange}` : eloChange}
-                  </span>
-                  <span className="text-[9px] font-bold text-on-surface-variant uppercase mt-0.5">Elo Change</span>
-                </div>
-
-                {/* Pink Coin Card */}
-                {pinkCoinEarned > 0 && (
-                  <div className="bg-pink-50 border-3 border-slate-950 shadow-[3px_3px_0px_0px_#1a1c1c] p-3 rounded-2xl flex flex-col items-center justify-center text-center animate-bounce">
-                    <GemIcon className="w-7 h-7 mb-1" />
-                    <span className="font-headline font-black text-[11px] text-pink-600 uppercase">+{pinkCoinEarned}</span>
-                    <span className="text-[9px] font-bold text-on-surface-variant uppercase mt-0.5">Pink Coin</span>
-                  </div>
-                )}
               </div>
-            </div>
-
-            {/* Level up / Elo rating banner */}
-            <div className="flex flex-col gap-2">
-              <div className="bg-slate-950 text-white font-headline font-black text-[10px] md:text-xs text-center py-2.5 px-4 rounded-xl shadow-[2px_2px_0px_0px_rgba(26,28,28,0.2)] tracking-wider uppercase select-none flex items-center justify-center gap-1">
-                <span>ELO PROGRESSION:</span>
-                <span className="text-yellow-400 font-bold">{prevElo}</span>
-                <span>➔</span>
-                <span className="text-emerald-400 font-bold">{currentElo}</span>
-              </div>
-              {pinkCoinEarned > 0 && (
-                <div className="bg-pink-500 text-white font-headline font-black text-[9px] md:text-[10px] text-center py-1.5 px-3 rounded-lg border-2 border-slate-950 shadow-[1.5px_1.5px_0px_0px_#1a1c1c] uppercase tracking-wider animate-pulse flex items-center justify-center gap-1">
-                  RANK UP REWARD: +{pinkCoinEarned} PINK COINS!
-                </div>
-              )}
             </div>
           </div>
 

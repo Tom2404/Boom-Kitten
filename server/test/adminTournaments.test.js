@@ -2,7 +2,6 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
-  buildInitialBracket,
   buildTournamentPayoutPreview,
   createTournamentPayoutPreview,
   executeTournamentPayout,
@@ -18,8 +17,8 @@ function queryResult(rows) {
 
 test('tournament input validates times, fees, capacity, and prize values at the boundary', () => {
   const input = validateTournamentInput({
-    name: 'July Cup', entryFee: 100, minEloRequired: 1200, maxParticipants: 8,
-    prizePool: { coins: 1000, gems: 25 }, startTime: '2026-07-25T12:00:00Z', registrationClosesAt: '2026-07-25T11:00:00Z',
+    name: 'July Cup', entryFee: 100, maxParticipants: 8,
+    prizePool: { coins: 1000 }, cosmeticRewards: [{ rank: 1, type: 'skin', itemId: 'champion' }], startTime: '2026-07-25T12:00:00Z', registrationClosesAt: '2026-07-25T11:00:00Z',
   }, new Date('2026-07-22T00:00:00Z'));
   assert.equal(input.maxParticipants, 8);
   assert.equal(input.startTime.toISOString(), '2026-07-25T12:00:00.000Z');
@@ -28,36 +27,24 @@ test('tournament input validates times, fees, capacity, and prize values at the 
 
 test('tournament state machine allows only approved forward transitions', () => {
   assert.equal(getNextTournamentStatus('registration', 'active'), 'active');
-  assert.equal(getNextTournamentStatus('active', 'completed'), 'completed');
+  assert.throws(() => getNextTournamentStatus('active', 'completed'), (error) => error.code === 'STATE_CONFLICT');
   assert.equal(getNextTournamentStatus('registration', 'cancelled'), 'cancelled');
   assert.throws(() => getNextTournamentStatus('completed', 'active'), (error) => error.code === 'STATE_CONFLICT');
 });
 
-test('initial bracket is deterministic, includes byes, and never duplicates a participant', () => {
-  const bracket = buildInitialBracket([
-    { _id: 'a', userId: { _id: 'u1', username: 'one' }, score: 30 },
-    { _id: 'b', userId: { _id: 'u2', username: 'two' }, score: 20 },
-    { _id: 'c', userId: { _id: 'u3', username: 'three' }, score: 10 },
-  ]);
-  assert.equal(bracket.rounds[0].matches.length, 2);
-  assert.equal(bracket.rounds[0].matches.filter((match) => match.bye).length, 1);
-  const ids = bracket.rounds[0].matches.flatMap((match) => match.participantIds).filter(Boolean);
-  assert.equal(new Set(ids).size, 3);
-});
-
 test('payout preview allocates the complete pool by final rank with no rounding loss', () => {
   const preview = buildTournamentPayoutPreview(
-    { _id: 't1', prizePool: { coins: 101, gems: 11 } },
+    { _id: 't1', prizePool: { coins: 101 }, cosmeticRewards: [{ rank: 1, type: 'skin', itemId: 'champion' }] },
     [{ _id: 'p1', userId: { _id: 'u1', username: 'one' }, finalRank: 1 }, { _id: 'p2', userId: { _id: 'u2', username: 'two' }, finalRank: 2 }, { _id: 'p3', userId: { _id: 'u3', username: 'three' }, finalRank: 3 }],
   );
   assert.equal(preview.rows.reduce((sum, row) => sum + row.coins, 0), 101);
-  assert.equal(preview.rows.reduce((sum, row) => sum + row.gems, 0), 11);
+  assert.deepEqual(preview.rows[0].cosmetics, [{ type: 'skin', itemId: 'champion' }]);
   assert.deepEqual(preview.rows.map((row) => row.rank), [1, 2, 3]);
 });
 
 test('registration claims capacity, charges the configured fee, and records payment', async () => {
-  const tournament = { _id: 't1', status: 'registration', entryFee: 75, minEloRequired: 1000, maxParticipants: 8, registeredCount: 0, registrationClosesAt: new Date('2026-07-30T00:00:00Z') };
-  const user = { _id: 'u1', username: 'cat', coins: 200, eloPoints: 1200, __v: 0 };
+  const tournament = { _id: 't1', status: 'registration', entryFee: 75, maxParticipants: 8, registeredCount: 0, registrationClosesAt: new Date('2026-07-30T00:00:00Z') };
+  const user = { _id: 'u1', username: 'cat', coins: 200, __v: 0 };
   let userUpdate;
   let transaction;
   let participantUpdate;
@@ -80,7 +67,11 @@ test('registration claims capacity, charges the configured fee, and records paym
 test('starting a tournament creates a bracket and uses optimistic state versioning', async () => {
   const tournament = { _id: 't1', status: 'registration', stateVersion: 2, toObject() { return { _id: this._id, status: this.status, stateVersion: this.stateVersion }; } };
   let updateFilter;
-  const participants = [{ _id: 'p1', userId: { _id: 'u1', username: 'one' }, score: 2 }, { _id: 'p2', userId: { _id: 'u2', username: 'two' }, score: 1 }];
+  const participants = Array.from({ length: 8 }, (_, index) => ({
+    _id: `p${index + 1}`,
+    userId: { _id: `u${index + 1}`, username: `player-${index + 1}` },
+    registrationDate: new Date(`2026-07-22T00:00:0${index}Z`),
+  }));
   const updated = await transitionTournament({
     TournamentModel: { findById: async () => tournament, findOneAndUpdate: async (filter, update) => { updateFilter = filter; return { ...tournament, ...update.$set, stateVersion: 3 }; } },
     ParticipantModel: { find: () => queryResult(participants) }, audit: async () => ({}),
@@ -89,11 +80,11 @@ test('starting a tournament creates a bracket and uses optimistic state versioni
   });
   assert.equal(updateFilter.stateVersion, 2);
   assert.equal(updated.status, 'active');
-  assert.equal(updated.bracket.rounds[0].matches.length, 1);
+  assert.deepEqual(updated.bracket.rounds.map((round) => round.matches.length), [3, 3, 5]);
 });
 
 test('payout preview freezes recipients behind an expiring token and optimistic version', async () => {
-  const tournament = { _id: 't1', name: 'Cup', status: 'completed', stateVersion: 4, payoutState: 'pending', prizePool: { coins: 100, gems: 10 } };
+  const tournament = { _id: 't1', name: 'Cup', status: 'completed', stateVersion: 4, payoutState: 'pending', prizePool: { coins: 100 } };
   const participants = [{ _id: 'p1', userId: { _id: 'u1', username: 'one' }, finalRank: 1 }];
   let updateFilter;
   const preview = await createTournamentPayoutPreview({
@@ -114,11 +105,11 @@ test('payout preview freezes recipients behind an expiring token and optimistic 
 
 test('payout execution credits every recipient once and finalizes the tournament', async () => {
   const rows = [
-    { participantId: 'p1', userId: 'u1', username: 'one', rank: 1, coins: 60, gems: 6 },
-    { participantId: 'p2', userId: 'u2', username: 'two', rank: 2, coins: 40, gems: 4 },
+    { participantId: 'p1', userId: 'u1', username: 'one', rank: 1, coins: 60, cosmetics: [{ type: 'skin', itemId: 'champion' }] },
+    { participantId: 'p2', userId: 'u2', username: 'two', rank: 2, coins: 40, cosmetics: [] },
   ];
-  const claimed = { _id: 't1', name: 'Cup', status: 'completed', stateVersion: 6, payoutState: 'processing', payoutRequestId: 'pay-1', payoutPreview: { rows, totals: { coins: 100, gems: 10 } } };
-  const users = { u1: { _id: 'u1', coins: 10, gems: 1, __v: 0 }, u2: { _id: 'u2', coins: 20, gems: 2, __v: 0 } };
+  const claimed = { _id: 't1', name: 'Cup', status: 'completed', stateVersion: 6, payoutState: 'processing', payoutRequestId: 'pay-1', payoutPreview: { rows, totals: { coins: 100 } } };
+  const users = { u1: { _id: 'u1', coins: 10, __v: 0 }, u2: { _id: 'u2', coins: 20, __v: 0 } };
   const participantClaims = new Set();
   const balanceUpdates = [];
   const transactions = [];
@@ -145,7 +136,7 @@ test('payout execution credits every recipient once and finalizes the tournament
       findOneAndUpdate: async (filter, update) => {
         balanceUpdates.push({ filter, update });
         const user = users[filter._id];
-        return { ...user, coins: user.coins + update.$inc.coins, gems: user.gems + update.$inc.gems, __v: 1 };
+        return { ...user, coins: user.coins + update.$inc.coins, __v: 1 };
       },
     },
     TransactionModel: { insertMany: async (values) => { transactions.push(...values); } },
@@ -155,13 +146,14 @@ test('payout execution credits every recipient once and finalizes the tournament
   assert.equal(result.completed, true);
   assert.equal(result.succeeded, 2);
   assert.equal(balanceUpdates.length, 2);
-  assert.equal(transactions.reduce((sum, item) => sum + item.amount, 0), 110);
+  assert.equal(transactions.reduce((sum, item) => sum + item.amount, 0), 100);
+  assert.deepEqual(balanceUpdates[0].update.$addToSet.ownedSkins, { $each: ['champion'] });
   assert.equal(finalized.payoutState, 'completed');
 });
 
 test('replaying a completed payout request does not credit balances again', async () => {
   let balanceUpdates = 0;
-  const completed = { _id: 't1', payoutState: 'completed', payoutRequestId: 'pay-1', payoutPreview: { totals: { coins: 50, gems: 5 }, rows: [] } };
+  const completed = { _id: 't1', payoutState: 'completed', payoutRequestId: 'pay-1', payoutPreview: { totals: { coins: 50 }, rows: [] } };
   const result = await executeTournamentPayout({
     TournamentModel: { findOneAndUpdate: async () => null, findById: async () => completed },
     ParticipantModel: {}, UserModel: { findOneAndUpdate: async () => { balanceUpdates += 1; } }, TransactionModel: {}, audit: async () => ({}),

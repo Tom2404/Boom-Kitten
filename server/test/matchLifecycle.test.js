@@ -10,12 +10,13 @@ test('creates one started lifecycle record with registered and guest participant
   const result = await startMatchHistory({
     GameHistoryModel,
     isValidObjectId: (value) => value.startsWith('db-'),
-    room: { code: 'ABC123', gameMode: 'ranked', edition: 'original', players: [{ userId: 'db-1' }, { userId: 'guest-2' }] },
+    room: { code: 'ABC123', gameMode: 'matchmaking', edition: 'original', players: [{ userId: 'db-1' }, { userId: 'guest-2' }] },
     now: new Date('2027-02-01T10:00:00Z'),
   });
 
   assert.equal(result, 'history-1');
   assert.equal(payload.status, 'started');
+  assert.equal(payload.gameMode, 'matchmaking');
   assert.deepEqual(payload.participantIds, ['db-1', 'guest-2']);
   assert.deepEqual(payload.players, [{ userId: 'db-1' }]);
 });
@@ -30,7 +31,6 @@ test('atomically completes the started record and records real duration', async 
     room: { code: 'ABC123', analyticsHistoryId: 'history-1', startedAt: new Date('2027-02-01T10:00:00Z'), gameState: { discardPile: [{}, {}] } },
     validPlayers: [{ userId: 'db-1', result: 'win', eloChange: 10 }],
     winnerId: 'db-1',
-    seasonId: 'season-1',
     now: new Date('2027-02-01T10:05:30Z'),
   });
 
@@ -39,6 +39,7 @@ test('atomically completes the started record and records real duration', async 
   assert.equal(update.$set.duration, 330);
   assert.equal(update.$set.cardsPlayed, 2);
   assert.equal(update.$set.status, 'completed');
+  assert.equal(Object.hasOwn(update.$set, 'seasonId'), false);
 });
 
 test('does not create a duplicate if an existing lifecycle record was already completed', async () => {
@@ -56,4 +57,25 @@ test('does not create a duplicate if an existing lifecycle record was already co
   });
   assert.equal(result.status, 'completed');
   assert.equal(creates, 0);
+});
+
+test('records Tournament placements through the shared match completion lifecycle', async () => {
+  let resultPayload;
+  await completeMatchHistory({
+    GameHistoryModel: { create: async () => ({ _id: 'history-tournament', status: 'completed' }) },
+    room: {
+      code: 'TOUR01',
+      gameMode: 'tournament',
+      tournamentMatchReference: 'cup-1:group-a-m1',
+      startedAt: new Date('2027-02-01T10:00:00Z'),
+      gameState: { discardPile: [], players: [{ userId: 'user-1' }, { userId: 'user-2' }] },
+    },
+    validPlayers: [{ userId: 'user-1', rank: 1 }, { userId: 'user-2', rank: 2 }],
+    winnerId: 'user-1',
+    recordTournamentResult: async (payload) => { resultPayload = payload; },
+  });
+  assert.deepEqual(resultPayload, {
+    matchReference: 'cup-1:group-a-m1',
+    placements: [{ userId: 'user-1', placement: 1 }, { userId: 'user-2', placement: 2 }],
+  });
 });

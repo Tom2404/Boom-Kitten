@@ -11,15 +11,6 @@ export function buildRoleChangePayload({ role, reason, confirmationUsername, req
   };
 }
 
-export function buildSeasonResetPayload({ reason, confirmationUsername, requestId }) {
-  return {
-    confirmText: 'RESET',
-    reason: reason.trim(),
-    requestId,
-    confirmation: { username: confirmationUsername.trim() },
-  };
-}
-
 export function buildRoutineAdminPayload(payload, requestId) {
   return { ...payload, requestId };
 }

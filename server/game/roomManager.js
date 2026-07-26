@@ -3,6 +3,7 @@ const { createDeck, dealCards } = require('./deck');
 
 const rooms = new Map();
 const VALID_EDITIONS = new Set(['original', '2_player', 'zombie', 'barking', 'good_vs_evil', 'imploding', 'streaking']);
+const { validateStake } = require('../services/wagerService');
 
 function makeCode() {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -22,9 +23,8 @@ function createRoom(hostId, options = {}, username = 'Guest') {
   const requestedMax = parseInt(options.maxPlayers, 10);
   const maxPlayers = (!isNaN(requestedMax) && requestedMax >= 2 && requestedMax <= maxLimit) ? requestedMax : maxLimit;
 
-  let betAmount = parseInt(options.betAmount, 10);
-  betAmount = !isNaN(betAmount) && betAmount >= 0 ? betAmount : 50;
-  betAmount = Math.min(betAmount, 10000000); // 10 million limit
+  const requestedStake = Number(options.betAmount ?? 0);
+  const betAmount = validateStake(requestedStake);
 
   let customDefuses = parseInt(options.customDefuses, 10);
   let customExplodingKittens = parseInt(options.customExplodingKittens, 10);
@@ -54,7 +54,7 @@ function createRoom(hostId, options = {}, username = 'Guest') {
     password: options.password || '',
     betAmount,
     edition,
-    gameMode: options.gameMode === 'ranked' ? 'ranked' : 'custom',
+    gameMode: ['matchmaking', 'tournament'].includes(options.gameMode) ? options.gameMode : 'custom',
     createdAt: new Date(),
     updatedAt: new Date(),
     gameState: null,
@@ -130,9 +130,8 @@ function updateRoomSettings(roomCode, hostId, newSettings) {
     room.maxPlayers = Math.min(room.maxPlayers, maxLimit);
   }
 
-  const betAmount = parseInt(newSettings.betAmount, 10);
-  if (!isNaN(betAmount) && betAmount >= 0) {
-    room.betAmount = Math.min(betAmount, 10000000);
+  if (newSettings.betAmount !== undefined) {
+    room.betAmount = validateStake(Number(newSettings.betAmount));
   }
 
   if (newSettings.customDefuses !== undefined || newSettings.customExplodingKittens !== undefined) {

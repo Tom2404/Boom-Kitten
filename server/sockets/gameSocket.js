@@ -54,10 +54,25 @@ const findUserByIdSafe = async (id) => {
 const Transaction = require('../models/Transaction');
 const Quest = require('../models/Quest');
 const UserQuestProgress = require('../models/UserQuestProgress');
-const { calculateMultiplayerElo } = require('../utils/eloCalculator');
-const { applyTierProtection } = require('../utils/rankSystem');
-const Season = require('../models/Season');
+const { calculateMatchmakingChanges } = require('../utils/matchmakingCalculator');
+const { applyMatchmakingRating, shouldUpdateMatchmakingRating } = require('../utils/matchmakingRating');
 const { completeMatchHistory, startMatchHistory } = require('../services/matchLifecycleService');
+const { lockWager, markWagerReview, refundWager, settleWager } = require('../services/wagerLedgerService');
+
+async function refundCancelledRoomWager(room, reason) {
+  if (!room || room.betAmount <= 0 || !room.wagerReference) return;
+  try {
+    await refundWager({
+      roomCode: room.code,
+      reference: room.wagerReference,
+      requestId: `refund:${room.wagerReference}`,
+      reason,
+    });
+  } catch (error) {
+    await markWagerReview({ reference: room.wagerReference, reason: `Refund failed: ${error.message}` });
+    console.error(`Wager refund failed for ${room.code}:`, error);
+  }
+}
 
 async function updateQuestProgress(userId, actionType, count = 1) {
   try {
@@ -202,8 +217,8 @@ async function finalizeGame(io, room) {
     return { userId: player.userId, placement, result: isWinner ? 'win' : 'lose' };
   }).sort((a, b) => a.placement - b.placement);
 
-  const eloChanges = {};
-  const pinkCoinChanges = {};
+  const matchmakingRatingChanges = {};
+  let wager = null;
 
   try {
     // Load all user objects from database first
@@ -223,41 +238,53 @@ async function finalizeGame(io, room) {
       })
     );
 
-    // Fetch active season
-    const now = new Date();
-    const activeSeason = await Season.findOne({
-      startDate: { $lte: now },
-      endDate: { $gte: now },
-      status: 'active'
-    });
-
     const playersInGame = room.gameState.players.filter(p => dbUsers[p.userId]);
 
-    const isRanked = room.gameMode === 'ranked';
-    const hasEnoughRealPlayers = playersInGame.length >= 2;
+    if (room.betAmount > 0) {
+      try {
+        const settledWager = await settleWager({
+          roomCode: room.code,
+          reference: room.wagerReference,
+          placements: rankings.map(({ userId, placement }) => ({ userId, placement })),
+          requestId: `settle:${room.wagerReference}`,
+        });
+        wager = {
+          stake: settledWager.stake,
+          payouts: settledWager.participants.map((participant) => ({
+            userId: String(participant.userId),
+            payoutCoins: participant.payoutCoins,
+          })),
+        };
+      } catch (settlementError) {
+        await markWagerReview({ reference: room.wagerReference, reason: settlementError.message });
+        throw settlementError;
+      }
+    }
 
-    if (isRanked && hasEnoughRealPlayers) {
+    const updatesMatchmakingRating = shouldUpdateMatchmakingRating({ room, players: room.gameState.players })
+      && playersInGame.length === room.gameState.players.length;
+
+    if (updatesMatchmakingRating) {
       const calculatorInput = playersInGame.map(p => {
         const dbUser = dbUsers[p.userId];
         const rankEntry = rankings.find(r => r.userId === p.userId);
         return {
           userId: p.userId,
-          eloBefore: dbUser.eloPoints || 1000,
+          ratingBefore: dbUser.matchmakingRating || 1000,
           gamesPlayed: dbUser.stats?.totalGames || 0,
           winStreak: rankEntry?.placement === 1 ? (dbUser.stats?.currentStreak || 0) + 1 : 0,
           placement: rankEntry ? rankEntry.placement : playersInGame.length
         };
       });
 
-      const calculatedEloList = calculateMultiplayerElo(calculatorInput);
+      const calculatedRatingList = calculateMatchmakingChanges(calculatorInput);
 
-      calculatedEloList.forEach(resElo => {
-        eloChanges[resElo.userId] = resElo.eloDelta;
+      calculatedRatingList.forEach((result) => {
+        matchmakingRatingChanges[result.userId] = result.ratingDelta;
       });
     } else {
-      // No ELO changes in casual mode or with < 2 players
       playersInGame.forEach(p => {
-        eloChanges[p.userId] = 0;
+        matchmakingRatingChanges[p.userId] = 0;
       });
     }
 
@@ -266,26 +293,7 @@ async function finalizeGame(io, room) {
         const user = dbUsers[entry.userId];
         if (!user) return;
 
-        const gemsBefore = user.gems || 0;
-
         const isWin = entry.result === 'win';
-        const streakBonus = isWin && user.stats.currentStreak + 1 >= 3 ? 30 : 0;
-
-        const betAmount = room.betAmount || 50;
-        let reward = 0;
-        let isLossDeduction = false;
-
-        if (isWin) {
-          // Winner gets the pot minus 10% tax
-          reward = Math.floor(betAmount * (room.gameState.players.length - 1) * 0.9);
-          user.coins += reward + streakBonus;
-        } else {
-          // Loser gets deducted bet amount
-          isLossDeduction = true;
-          reward = -betAmount;
-          user.coins = Math.max(0, user.coins + reward);
-        }
-
         user.stats.totalGames += 1;
         if (isWin) {
           user.stats.wins += 1;
@@ -296,46 +304,12 @@ async function finalizeGame(io, room) {
           user.stats.currentStreak = 0;
         }
 
-        // Apply Elo Points change
-        const eloBefore = user.eloPoints || 1000;
-        const requestedEloChange = eloChanges[entry.userId] || 0;
-        const protectedResult = isRanked
-          ? applyTierProtection({
-              eloBefore,
-              eloAfter: Math.max(1000, eloBefore + requestedEloChange),
-              protectionGames: user.rankProtectionGames || 0,
-              protectedFloor: user.rankProtectedFloor || 0,
-            })
-          : { eloAfter: eloBefore, protectionGames: user.rankProtectionGames || 0, protectedFloor: user.rankProtectedFloor || 0 };
-        user.eloPoints = protectedResult.eloAfter;
-        user.rankProtectionGames = protectedResult.protectionGames;
-        user.rankProtectedFloor = protectedResult.protectedFloor;
-        eloChanges[entry.userId] = user.eloPoints - eloBefore;
+        const ratingBefore = user.matchmakingRating || 1000;
+        const requestedRatingChange = matchmakingRatingChanges[entry.userId] || 0;
+        applyMatchmakingRating(user, Math.max(1000, ratingBefore + requestedRatingChange));
+        matchmakingRatingChanges[entry.userId] = user.matchmakingRating - ratingBefore;
 
         await user.save();
-
-        const gemsAfter = user.gems || 0;
-        pinkCoinChanges[entry.userId] = gemsAfter - gemsBefore;
-
-        if (reward !== 0) {
-          await Transaction.create({
-            userId: user._id,
-            type: isLossDeduction ? 'spend' : 'earn',
-            amount: Math.abs(reward),
-            currency: 'coin',
-            description: isLossDeduction ? 'Loss bet deduction' : 'Win bet reward (taxed)',
-          });
-        }
-
-        if (streakBonus > 0) {
-          await Transaction.create({
-            userId: user._id,
-            type: 'earn',
-            amount: streakBonus,
-            currency: 'coin',
-            description: 'Win streak bonus',
-          });
-        }
 
         // Update quests progress
         await updateQuestProgress(entry.userId, 'play_game', 1);
@@ -352,16 +326,16 @@ async function finalizeGame(io, room) {
       .filter((entry) => mongoose.Types.ObjectId.isValid(entry.userId))
       .map((entry) => {
         const dbUser = dbUsers[entry.userId];
-        const eloAfter = dbUser ? dbUser.eloPoints : 1000;
-        const change = eloChanges[entry.userId] || 0;
-        const eloBefore = eloAfter - change;
+        const matchmakingRatingAfter = dbUser ? dbUser.matchmakingRating : 1000;
+        const matchmakingRatingChange = matchmakingRatingChanges[entry.userId] || 0;
+        const matchmakingRatingBefore = matchmakingRatingAfter - matchmakingRatingChange;
         return {
           userId: entry.userId,
           rank: entry.placement,
           result: entry.result,
-          eloBefore,
-          eloAfter,
-          eloChange: change,
+          matchmakingRatingBefore,
+          matchmakingRatingAfter,
+          matchmakingRatingChange,
         };
       });
 
@@ -370,7 +344,6 @@ async function finalizeGame(io, room) {
         room,
         validPlayers,
         winnerId,
-        seasonId: activeSeason ? activeSeason._id : undefined,
       });
     }
   } catch (err) {
@@ -378,25 +351,7 @@ async function finalizeGame(io, room) {
   }
 
   // Ensure game:ended is ALWAYS sent to the room, even if db writes failed or players are guests
-  io.to(room.code).emit('game:ended', { winnerId, rankings, eloChanges, pinkCoinChanges });
-}
-
-function penalizeEarlyLeave(userId, betAmount) {
-  if (userId && !userId.startsWith('guest-') && mongoose.Types.ObjectId.isValid(userId)) {
-    User.findById(userId).then(dbUser => {
-      if (dbUser) {
-        dbUser.coins = Math.max(0, dbUser.coins - betAmount);
-        dbUser.save().catch(err => console.error(err));
-        Transaction.create({
-          userId: dbUser._id,
-          type: 'spend',
-          amount: betAmount,
-          currency: 'coin',
-          description: 'Phạt rời trận đấu giữa chừng'
-        }).catch(err => console.error(err));
-      }
-    }).catch(err => console.error('Error penalizing early leave:', err));
-  }
+  io.to(room.code).emit('game:ended', { winnerId, rankings, wager });
 }
 
 module.exports = function registerGameSocket(io) {
@@ -994,7 +949,6 @@ module.exports = function registerGameSocket(io) {
         const player = roomBefore?.players.find((p) => p.userId === userId);
         const pName = player ? player.username : userId;
         const wasPlaying = roomBefore?.status === 'playing';
-        const betAmount = roomBefore?.betAmount || 50;
 
         const room = leaveRoom(rCode, userId);
         socket.leave(rCode);
@@ -1008,14 +962,16 @@ module.exports = function registerGameSocket(io) {
           });
 
           if (wasPlaying && room.status === 'playing') {
-            penalizeEarlyLeave(userId, betAmount);
             await handlePlayerDisconnectFallback(room, userId);
           }
+        }
+        if (wasPlaying && (!room || room.status !== 'playing')) {
+          await refundCancelledRoomWager(roomBefore, 'Match cancelled after player left');
         }
       }
     };
 
-    socket.on('room:create', async ({ password, edition, maxPlayers, betAmount, customDefuses, customExplodingKittens }) => {
+    socket.on('room:create', async ({ password, edition, maxPlayers, betAmount, gameMode, customDefuses, customExplodingKittens }) => {
       if (!socket.user) {
         socket.emit('error', { code: 'AUTH_REQUIRED', message: 'Bạn cần đăng nhập để tạo phòng.' });
         return;
@@ -1043,7 +999,7 @@ module.exports = function registerGameSocket(io) {
             throw new Error('Tài khoản Khách chỉ có thể tạo phòng chơi miễn phí (Cược = 0)');
           }
         }
-        const room = createRoom(userId, { password, edition, maxPlayers, betAmount, customDefuses, customExplodingKittens }, username);
+        const room = createRoom(userId, { password, edition, maxPlayers, betAmount, gameMode, customDefuses, customExplodingKittens }, username);
         socket.join(room.code);
         emitRoomUpdated(io.to(room.code), room);
       } catch (error) {
@@ -1161,7 +1117,6 @@ module.exports = function registerGameSocket(io) {
         const player = roomBefore?.players.find((p) => p.userId === userId);
         const pName = player ? player.username : userId;
         const wasPlaying = roomBefore?.status === 'playing';
-        const betAmount = roomBefore?.betAmount || 50;
 
         const room = leaveRoom(roomCode, userId);
         socket.leave(roomCode);
@@ -1176,9 +1131,11 @@ module.exports = function registerGameSocket(io) {
           });
 
           if (wasPlaying && room.status === 'playing') {
-            penalizeEarlyLeave(userId, betAmount);
             await handlePlayerDisconnectFallback(room, userId);
           }
+        }
+        if (wasPlaying && (!room || room.status !== 'playing')) {
+          await refundCancelledRoomWager(roomBefore, 'Match cancelled after player left');
         }
       }
     });
@@ -1211,7 +1168,6 @@ module.exports = function registerGameSocket(io) {
             const player = activeRoom.players.find((p) => p.userId === userId);
             const pName = player ? player.username : userId;
             const wasPlaying = activeRoom.status === 'playing';
-            const betAmount = activeRoom.betAmount || 50;
             const room = leaveRoom(activeRoom.code, userId);
             if (room) {
               emitRoomUpdated(io.to(activeRoom.code), room);
@@ -1231,10 +1187,12 @@ module.exports = function registerGameSocket(io) {
                 });
 
                 if (wasPlaying && room.status === 'playing') {
-                  penalizeEarlyLeave(userId, betAmount);
                   await handlePlayerDisconnectFallback(room, userId);
                 }
               }
+            }
+            if (wasPlaying && (!room || room.status !== 'playing')) {
+              await refundCancelledRoomWager(activeRoom, 'Match cancelled after disconnect');
             }
           }
         }
@@ -1274,6 +1232,16 @@ module.exports = function registerGameSocket(io) {
           }
         }
 
+        if (roomBefore.betAmount > 0) {
+          roomBefore.wagerReference = `${roomBefore.code}:${Date.now()}`;
+          await lockWager({
+            roomCode: roomBefore.code,
+            reference: roomBefore.wagerReference,
+            players: roomBefore.players,
+            stake: roomBefore.betAmount,
+            requestId: `lock:${roomBefore.wagerReference}`,
+          });
+        }
         const room = startGame(targetRoomCode);
         try {
           room.analyticsHistoryId = await startMatchHistory({ room });

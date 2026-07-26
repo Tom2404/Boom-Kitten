@@ -6,11 +6,14 @@ const tournamentSchema = new mongoose.Schema(
     name: { type: String, required: true },
     description: { type: String },
     entryFee: { type: Number, default: 50 },
-    minEloRequired: { type: Number, default: 1000 },
     prizePool: {
       coins: { type: Number, default: 500 },
-      gems: { type: Number, default: 10 },
     },
+    cosmeticRewards: [{
+      rank: { type: Number, required: true, min: 1, max: 3 },
+      type: { type: String, required: true, enum: ['skin', 'emote', 'avatar_frame'] },
+      itemId: { type: String, required: true },
+    }],
     maxParticipants: { type: Number, default: 16, min: 2, max: 128 },
     registeredCount: { type: Number, default: 0, min: 0 },
     registrationClosesAt: { type: Date },

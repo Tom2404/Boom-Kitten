@@ -61,7 +61,7 @@ router.get('/:id', requireAdminPermission('tournaments.read'), async (req, res, 
     assertId(req.params.id, 'tournamentId');
     const [tournament, participants] = await Promise.all([
       Tournament.findById(req.params.id).lean(),
-      TournamentParticipant.find({ tournamentId: req.params.id }).populate('userId', 'username email eloPoints coins gems').sort({ finalRank: 1, score: -1, registrationDate: 1, _id: 1 }).lean(),
+      TournamentParticipant.find({ tournamentId: req.params.id }).populate('userId', 'username email coins').sort({ finalRank: 1, score: -1, registrationDate: 1, _id: 1 }).lean(),
     ]);
     if (!tournament) throw new ApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy giải đấu.');
     return res.json({ success: true, data: { tournament, participants } });

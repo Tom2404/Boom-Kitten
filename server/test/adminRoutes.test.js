@@ -54,7 +54,8 @@ test('GET /api/admin/me returns current role, permissions, and policy', async ()
     assert.equal(body.data.admin.role, 'operator');
     assert.equal(body.data.permissions.includes('economy.adjust'), true);
     assert.equal(body.data.permissions.includes('players.role.write'), false);
-    assert.equal(body.data.policy.maxEloDelta, 500);
+    assert.deepEqual(body.data.policy.maxCurrencyAdjustment, { coin: 10000 });
+    assert.equal(body.data.permissions.includes('players.elo.write'), false);
   });
 });
 
@@ -74,4 +75,12 @@ test('route-level permission blocks analyst economy mutations before business lo
     assert.equal(body.error.code, 'ADMIN_PERMISSION_DENIED');
     assert.equal(body.error.details.permission, 'economy.adjust');
   });
+});
+
+test('does not register legacy season mutation or reset routes', () => {
+  const paths = adminRoutes.stack
+    .filter((layer) => layer.route)
+    .map((layer) => layer.route.path);
+
+  assert.equal(paths.some((path) => String(path).includes('season')), false);
 });

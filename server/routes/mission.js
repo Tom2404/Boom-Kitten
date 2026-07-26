@@ -154,11 +154,9 @@ router.post('/:questId/claim', authMiddleware, async (req, res, next) => {
       return res.status(404).json({ message: 'Người chơi không tìm thấy' });
     }
 
-    const rewardCoins = Math.floor((quest.reward?.coins ?? 0) * liveOps.config.rewardMultiplier);
-    const rewardGems = Math.floor((quest.reward?.gems ?? 0) * liveOps.config.rewardMultiplier);
+    const rewardCoins = Math.floor(((quest.reward?.coins ?? 0) + (quest.reward?.gems ?? 0) * 50) * liveOps.config.rewardMultiplier);
 
     user.coins += rewardCoins;
-    user.gems += rewardGems;
     await user.save();
 
     if (rewardCoins > 0) {
@@ -172,21 +170,9 @@ router.post('/:questId/claim', authMiddleware, async (req, res, next) => {
       });
     }
 
-    if (rewardGems > 0) {
-      await Transaction.create({
-        userId: user._id,
-        type: 'earn',
-        amount: rewardGems,
-        currency: 'gem',
-        source: `quest:${quest._id}`,
-        description: `Nhận thưởng nhiệm vụ: ${quest.title}`,
-      });
-    }
-
     return res.json({
       success: true,
       coins: user.coins,
-      gems: user.gems,
       status: 'claimed',
       liveOpsVersion: liveOps.version,
       rewardMultiplier: liveOps.config.rewardMultiplier,

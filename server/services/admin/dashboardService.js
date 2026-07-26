@@ -60,7 +60,7 @@ function buildDailyTrend(records, window, dateField) {
 }
 
 function summarizeEconomy(transactions) {
-  const result = { coin: { generated: 0, consumed: 0 }, gem: { generated: 0, consumed: 0 } };
+  const result = { coin: { generated: 0, consumed: 0 } };
   for (const transaction of transactions) {
     if (!result[transaction.currency]) continue;
     const amount = Math.abs(Number(transaction.amount) || 0);
@@ -119,7 +119,7 @@ async function getOperationalDashboard({
     UserModel.countDocuments({ isOnline: true }),
     UserModel.find({ lastLoginDate: { $gte: window.previousStart, $lt: window.end } }).select('lastLoginDate').lean(),
     GameHistoryModel.find({ playedAt: { $gte: window.previousStart, $lt: window.end } }).select('playedAt duration status startedAt').lean(),
-    TransactionModel.find({ createdAt: { $gte: window.previousStart, $lt: window.end }, currency: { $in: ['coin', 'gem'] } }).select('createdAt type currency amount balanceBefore balanceAfter').lean(),
+    TransactionModel.find({ createdAt: { $gte: window.previousStart, $lt: window.end }, currency: 'coin' }).select('createdAt type currency amount balanceBefore balanceAfter').lean(),
   ]);
 
   const rooms = roomsProvider();
@@ -163,10 +163,6 @@ async function getOperationalDashboard({
         coin: {
           generated: metric(currentEconomy.coin.generated, previousEconomy.coin.generated),
           consumed: metric(currentEconomy.coin.consumed, previousEconomy.coin.consumed),
-        },
-        gem: {
-          generated: metric(currentEconomy.gem.generated, previousEconomy.gem.generated),
-          consumed: metric(currentEconomy.gem.consumed, previousEconomy.gem.consumed),
         },
       },
     },
