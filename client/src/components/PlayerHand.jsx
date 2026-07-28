@@ -202,7 +202,7 @@ export default function PlayerHand({
 
   const handleGodcatTransformConfirm = (asCardType) => {
     if (!godcatPending) return;
-    onPlayCard('godcat', targetPlayerId, { asCardType });
+    onPlayCard('godcat', targetPlayerId, { asCardType, cardId: godcatPending.id });
     setGodcatPending(null);
   };
 
@@ -440,6 +440,9 @@ export default function PlayerHand({
                 return (
                   <motion.div
                     key={card.id}
+                    id={`hand-card-${card.id}`}
+                    data-card-id={card.id}
+                    data-card-type={card.type}
                     layout
                     initial={reduceMotion ? false : { opacity: 0, x: 200, y: 150, scale: 0.3, rotate: 45 }}
                     animate={{

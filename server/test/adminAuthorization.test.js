@@ -28,21 +28,22 @@ function createUserModel(user) {
 
 test('loads the current database role instead of trusting a stale JWT role', async () => {
   const middleware = adminMiddlewareModule.createAdminMiddleware({
-    UserModel: createUserModel({ _id: 'admin-1', username: 'Minh', email: 'm@example.com', role: 'analyst', isBanned: false }),
+    UserModel: createUserModel({ _id: 'admin-1', username: 'Minh', email: 'm@example.com', role: 'admin', isBanned: false }),
   });
-  const req = { user: { id: 'admin-1', role: 'admin' } };
+  const req = { user: { id: 'admin-1', role: 'super_admin' } };
   const res = createResponse();
   let nextCalled = false;
 
   await middleware(req, res, () => { nextCalled = true; });
 
   assert.equal(nextCalled, true);
-  assert.equal(req.admin.role, 'analyst');
-  assert.equal(req.user.role, 'analyst');
-  assert.equal(req.admin.permissions.includes('economy.adjust'), false);
+  assert.equal(req.admin.role, 'admin');
+  assert.equal(req.user.role, 'admin');
+  assert.equal(req.admin.permissions.includes('economy.adjust'), true);
+  assert.equal(req.admin.permissions.includes('players.role.write'), false);
 });
 
-test('accepts a legacy admin record as super_admin during migration', async () => {
+test('keeps admin distinct from super admin after migration', async () => {
   const middleware = adminMiddlewareModule.createAdminMiddleware({
     UserModel: createUserModel({ _id: 'admin-1', username: 'Lan', email: 'l@example.com', role: 'admin', isBanned: false }),
   });
@@ -51,8 +52,8 @@ test('accepts a legacy admin record as super_admin during migration', async () =
 
   await middleware(req, res, () => {});
 
-  assert.equal(req.admin.role, 'super_admin');
-  assert.equal(req.admin.permissions.includes('live_ops.publish'), true);
+  assert.equal(req.admin.role, 'admin');
+  assert.equal(req.admin.permissions.includes('players.role.write'), false);
 });
 
 test('rejects a non-admin database record with the v2 error envelope', async () => {
@@ -87,10 +88,10 @@ test('rejects a banned administrator even when the role is valid', async () => {
   assert.equal(res.body.error.code, 'ADMIN_ACCOUNT_DISABLED');
 });
 
-test('permission middleware allows reads and blocks mutations for analysts', () => {
+test('permission middleware allows routine writes and blocks super-admin actions for admins', () => {
   const readMiddleware = adminMiddlewareModule.requireAdminPermission('players.read');
-  const writeMiddleware = adminMiddlewareModule.requireAdminPermission('economy.adjust');
-  const req = { admin: { role: 'analyst', permissions: ['players.read'] }, requestId: 'req-perm' };
+  const writeMiddleware = adminMiddlewareModule.requireAdminPermission('players.role.write');
+  const req = { admin: { role: 'admin', permissions: ['players.read', 'economy.adjust'] }, requestId: 'req-perm' };
   const readRes = createResponse();
   const writeRes = createResponse();
   let readAllowed = false;
@@ -101,5 +102,5 @@ test('permission middleware allows reads and blocks mutations for analysts', () 
   assert.equal(readAllowed, true);
   assert.equal(writeRes.statusCode, 403);
   assert.equal(writeRes.body.error.code, 'ADMIN_PERMISSION_DENIED');
-  assert.equal(writeRes.body.error.details.permission, 'economy.adjust');
+  assert.equal(writeRes.body.error.details.permission, 'players.role.write');
 });

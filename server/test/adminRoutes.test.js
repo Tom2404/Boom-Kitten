@@ -43,7 +43,7 @@ async function withAdminServer(role, run) {
 }
 
 test('GET /api/admin/me returns current role, permissions, and policy', async () => {
-  await withAdminServer('operator', async ({ baseUrl, token }) => {
+  await withAdminServer('admin', async ({ baseUrl, token }) => {
     const response = await fetch(`${baseUrl}/api/admin/me`, {
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -51,7 +51,7 @@ test('GET /api/admin/me returns current role, permissions, and policy', async ()
 
     assert.equal(response.status, 200);
     assert.equal(body.success, true);
-    assert.equal(body.data.admin.role, 'operator');
+    assert.equal(body.data.admin.role, 'admin');
     assert.equal(body.data.permissions.includes('economy.adjust'), true);
     assert.equal(body.data.permissions.includes('players.role.write'), false);
     assert.deepEqual(body.data.policy.maxCurrencyAdjustment, { coin: 10000 });
@@ -59,7 +59,7 @@ test('GET /api/admin/me returns current role, permissions, and policy', async ()
   });
 });
 
-test('route-level permission blocks analyst economy mutations before business logic', async () => {
+test('removed legacy roles cannot access admin mutations', async () => {
   await withAdminServer('analyst', async ({ baseUrl, token }) => {
     const response = await fetch(`${baseUrl}/api/admin/users/player-1/currency`, {
       method: 'PATCH',
@@ -73,7 +73,7 @@ test('route-level permission blocks analyst economy mutations before business lo
 
     assert.equal(response.status, 403);
     assert.equal(body.error.code, 'ADMIN_PERMISSION_DENIED');
-    assert.equal(body.error.details.permission, 'economy.adjust');
+    assert.equal(body.error.details, undefined);
   });
 });
 
@@ -83,4 +83,28 @@ test('does not register legacy season mutation or reset routes', () => {
     .map((layer) => layer.route.path);
 
   assert.equal(paths.some((path) => String(path).includes('season')), false);
+});
+
+test('registers create, update, and soft-delete user routes', () => {
+  const routes = adminRoutes.stack
+    .filter((layer) => layer.route)
+    .flatMap((layer) => Object.keys(layer.route.methods).map((method) => `${method.toUpperCase()} ${layer.route.path}`));
+
+  assert.equal(routes.includes('POST /users'), true);
+  assert.equal(routes.includes('PATCH /users/:userId'), true);
+  assert.equal(routes.includes('DELETE /users/:userId'), true);
+});
+
+test('rejects unknown user status values at the API boundary', async () => {
+  await withAdminServer('admin', async ({ baseUrl, token }) => {
+    const response = await fetch(`${baseUrl}/api/admin/users/player-1/status`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'anything', reason: 'Boundary test', requestId: 'status-boundary-1' }),
+    });
+    const body = await response.json();
+
+    assert.equal(response.status, 422);
+    assert.equal(body.error.code, 'VALIDATION_ERROR');
+  });
 });

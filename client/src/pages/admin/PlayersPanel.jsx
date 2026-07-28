@@ -6,9 +6,9 @@ import goldCoinIcon from '../../assets/currencies/goldcoin.png';
 import { PRESET_AVATARS } from '../../components/PlayerAvatar.jsx';
 import { buildRoleChangePayload, createAdminOperationRequestId } from './adminMutation.js';
 import PlayerDetailDrawer from './PlayerDetailDrawer.jsx';
-import BulkAdjustmentDialog from './BulkAdjustmentDialog.jsx';
-import { calculatePlayerAdjustmentPreview } from './adminBulkJob.js';
+import { calculatePlayerAdjustmentPreview } from './playerAdjustment.js';
 import SavedViewsBar from './SavedViewsBar.jsx';
+import UserCrudDialog from './UserCrudDialog.jsx';
 
 const defaultModal = { type: null, player: null, currency: 'coin', operation: 'add', amount: 0, status: 'banned', role: 'user', reason: '', confirmationUsername: '', requestId: '' };
 
@@ -32,7 +32,7 @@ export default function PlayersPanel({ onNavigate, language = 'vi', permissions 
   const [submitting, setSubmitting] = useState(false);
   const [detailPlayerId, setDetailPlayerId] = useState(() => typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('playerId'));
   const [detailRefresh, setDetailRefresh] = useState(0);
-  const [bulkOpen, setBulkOpen] = useState(false);
+  const [userCrud, setUserCrud] = useState({ mode: null, user: null });
 
   const loadPlayers = async () => {
     setLoading(true);
@@ -69,21 +69,13 @@ export default function PlayersPanel({ onNavigate, language = 'vi', permissions 
     setSelected((current) => current.includes(playerId) ? current.filter((id) => id !== playerId) : [...current, playerId]);
   };
 
-  const exportPlayers = async () => {
-    const response = await request('/api/admin/player-exports', { method: 'POST', body: JSON.stringify({ search, role, status, requestId: createAdminOperationRequestId() }) });
-    if (response.ok) {
-      setMessage({ tone: 'success', text: en ? `Export job queued for ${response.data?.data?.targetCount || 0} players.` : `Đã xếp hàng export ${response.data?.data?.targetCount || 0} người chơi.` });
-      onNavigate?.('jobs');
-    } else setMessage({ tone: 'danger', text: response.data?.error?.message || (en ? 'Could not queue player export.' : 'Không thể tạo player export job.') });
-  };
-
   const openModal = (type, player, extra = {}) => {
     setMessage({ tone: '', text: '' });
     setModal({
       ...defaultModal,
       type,
       player,
-      role: player.role === 'user' ? 'operator' : player.role,
+      role: player.role === 'user' ? 'admin' : player.role,
       status: player.isBanned ? 'active' : 'banned',
       requestId: createAdminOperationRequestId(),
       ...extra,
@@ -150,12 +142,12 @@ export default function PlayersPanel({ onNavigate, language = 'vi', permissions 
       {message.text && <Alert tone={message.tone}>{message.text}</Alert>}
       <SavedViewsBar scope="players" language={language} filters={{ search, role, status, sortBy, sortOrder }} onApply={(saved) => { setSearch(saved.search || ''); setRole(saved.role || ''); setStatus(saved.status || ''); setSortBy(saved.sortBy || 'createdAt'); setSortOrder(saved.sortOrder || 'desc'); setPage(1); }} />
 
-      <div className="flex flex-wrap gap-2" aria-label="Tác vụ nhanh">
-        {hasPermission('announcements.write') && <Button variant="secondary" onClick={() => onNavigate?.('announcements')}>📢 {en ? 'Broadcast' : 'Thông báo'}</Button>}
-        {hasPermission('players.export') && <Button variant="secondary" onClick={exportPlayers}>⇩ {en ? 'Export query' : 'Export toàn bộ query'}</Button>}
-        {hasPermission('economy.adjust') && <Button variant="secondary" className="bg-[var(--admin-warning-bg)]" disabled={selected.length !== 1} onClick={() => openModal('currency', players.find((player) => player._id === selected[0]), { currency: 'coin' })}>🪙 {en ? 'Grant Currency' : 'Cấp tiền'}</Button>}
-        {hasPermission('jobs.create') && hasPermission('economy.adjust') && <Button variant="secondary" onClick={() => setBulkOpen(true)}>⚙ {en ? 'Bulk by query' : 'Bulk theo query'}</Button>}
-      </div>
+      {(hasPermission('players.create') || hasPermission('economy.adjust')) && (
+        <div className="flex flex-wrap gap-2" aria-label={en ? 'Quick actions' : 'Tác vụ nhanh'}>
+          {hasPermission('players.create') && <Button variant="primary" onClick={() => setUserCrud({ mode: 'create', user: null })}>＋ {en ? 'Create user' : 'Tạo người dùng'}</Button>}
+          <Button variant="secondary" className="bg-[var(--admin-warning-bg)]" disabled={selected.length !== 1} onClick={() => openModal('currency', players.find((player) => player._id === selected[0]), { currency: 'coin' })}>🪙 {en ? 'Adjust Coin' : 'Điều chỉnh Coin'}</Button>
+        </div>
+      )}
 
       <Toolbar>
         <Field label={en ? 'Search' : 'Tìm kiếm'} >
@@ -167,9 +159,6 @@ export default function PlayersPanel({ onNavigate, language = 'vi', permissions 
             <option value="user">User</option>
             <option value="admin">Admin</option>
             <option value="super_admin">Super admin</option>
-            <option value="operator">Operator</option>
-            <option value="moderator">Moderator</option>
-            <option value="analyst">Analyst</option>
           </select>
         </Field>
         <Field label={en ? 'Status' : 'Trạng thái'}>
@@ -177,6 +166,7 @@ export default function PlayersPanel({ onNavigate, language = 'vi', permissions 
             <option value="">{en ? 'All' : 'Tất cả'}</option>
             <option value="active">Active</option>
             <option value="banned">Banned</option>
+            <option value="deleted">{en ? 'Deleted' : 'Đã xóa'}</option>
           </select>
         </Field>
         <Field label={en ? 'Sort by' : 'Sắp xếp'}>
@@ -212,7 +202,7 @@ export default function PlayersPanel({ onNavigate, language = 'vi', permissions 
                   <td className="px-2 py-2"><StatusBadge tone={player.role === 'admin' ? 'warning' : 'neutral'}>{player.role}</StatusBadge></td>
                   <td className="px-2 py-2"><StatusBadge tone={player.isBanned ? 'danger' : 'success'}>{player.isBanned ? 'Banned' : 'Active'}</StatusBadge></td>
                   <td className="px-2 py-2"><span className="flex items-center gap-1 font-semibold text-[var(--admin-warning-text)]"><img src={goldCoinIcon} alt="Coin" className="h-6 w-6 shrink-0 object-contain mix-blend-multiply" />{formatNumber(player.coins)}</span></td>
-                  <td className="px-2 py-2">{canManagePlayer ? <><label className="sr-only" htmlFor={`manage-${player._id}`}>Manage {player.username}</label><select id={`manage-${player._id}`} className={`${inputClass} min-h-10 px-2`} defaultValue="" onChange={(event) => { const type = event.target.value; event.target.value = ''; if (type) openModal(type, player); }}><option value="">Manage…</option>{hasPermission('economy.adjust') && <option value="currency">Coin</option>}{hasPermission('players.role.write') && <option value="role">Role</option>}</select></> : <span aria-label="Read only">—</span>}</td>
+                  <td className="px-2 py-2">{canManagePlayer ? <><label className="sr-only" htmlFor={`manage-${player._id}`}>Manage {player.username}</label><select id={`manage-${player._id}`} className={`${inputClass} min-h-10 px-2`} defaultValue="" onChange={(event) => { const type = event.target.value; event.target.value = ''; if (!type) return; if (type === 'edit' || type === 'delete') setUserCrud({ mode: type, user: player }); else openModal(type, player); }}><option value="">Manage…</option>{hasPermission('players.update') && <option value="edit">Edit profile</option>}{hasPermission('economy.adjust') && <option value="currency">Coin</option>}{hasPermission('players.role.write') && <option value="role">Role</option>}{hasPermission('players.delete') && <option value="delete">Soft delete</option>}</select></> : <span aria-label="Read only">—</span>}</td>
                   <td className="px-2 py-2">{hasPermission('players.status.write') ? <Button className="w-full px-1" variant={player.isBanned ? 'success' : 'danger'} onClick={() => openModal('status', player)}>{player.isBanned ? 'Unban' : 'Ban'}</Button> : <span aria-label="Read only">—</span>}</td>
                 </tr>
               ))}
@@ -238,7 +228,7 @@ export default function PlayersPanel({ onNavigate, language = 'vi', permissions 
                   <div><dt className="text-xs uppercase text-slate-400">Số trận</dt><dd>{formatNumber(player.stats?.totalGames)}</dd></div>
                 </dl>
                 <div className="mt-3 flex gap-2">
-                  {canManagePlayer && <select aria-label={`Manage ${player.username}`} className={inputClass} defaultValue="" onChange={(event) => { const type = event.target.value; event.target.value = ''; if (type) openModal(type, player); }}><option value="">Manage…</option>{hasPermission('economy.adjust') && <option value="currency">Coin</option>}{hasPermission('players.role.write') && <option value="role">Role</option>}</select>}
+                  {canManagePlayer && <select aria-label={`Manage ${player.username}`} className={inputClass} defaultValue="" onChange={(event) => { const type = event.target.value; event.target.value = ''; if (!type) return; if (type === 'edit' || type === 'delete') setUserCrud({ mode: type, user: player }); else openModal(type, player); }}><option value="">Manage…</option>{hasPermission('players.update') && <option value="edit">Edit profile</option>}{hasPermission('economy.adjust') && <option value="currency">Coin</option>}{hasPermission('players.role.write') && <option value="role">Role</option>}{hasPermission('players.delete') && <option value="delete">Soft delete</option>}</select>}
                   {hasPermission('players.status.write') && <Button variant={player.isBanned ? 'success' : 'danger'} onClick={() => openModal('status', player)}>{player.isBanned ? 'Unban' : 'Ban'}</Button>}
                 </div>
               </article>
@@ -249,7 +239,20 @@ export default function PlayersPanel({ onNavigate, language = 'vi', permissions 
 
       <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
       <PlayerModal modal={modal} setModal={setModal} onClose={closeModal} onSubmit={submitModal} language={language} adminUsername={adminUsername} submitting={submitting} policy={policy} />
-      {bulkOpen && <BulkAdjustmentDialog filters={{ search, role, status }} language={language} request={request} onClose={() => setBulkOpen(false)} onQueued={() => { setBulkOpen(false); setMessage({ tone: 'success', text: en ? 'Bulk job queued.' : 'Đã đưa bulk job vào hàng đợi.' }); onNavigate?.('jobs'); }} />}
+      <UserCrudDialog
+        mode={userCrud.mode}
+        user={userCrud.user}
+        adminUsername={adminUsername}
+        canAssignRoles={hasPermission('players.role.write')}
+        language={language}
+        request={request}
+        onClose={() => setUserCrud({ mode: null, user: null })}
+        onComplete={() => {
+          setUserCrud({ mode: null, user: null });
+          setMessage({ tone: 'success', text: en ? 'User saved.' : 'Đã lưu người dùng.' });
+          loadPlayers();
+        }}
+      />
       {detailPlayerId && <PlayerDetailDrawer key={`${detailPlayerId}-${detailRefresh}`} playerId={detailPlayerId} request={request} permissions={permissions} language={language} onClose={closePlayerDetail} onAction={(type, player) => { closePlayerDetail(); openModal(type, player); }} />}
     </div>
   );
@@ -348,7 +351,6 @@ function PlayerModal({ modal, setModal, onClose, onSubmit, language = 'vi', admi
               <select className={inputClass} value={modal.status} onChange={(event) => setModal({ ...modal, status: event.target.value })}>
                 <option value="active">Active</option>
                 <option value="banned">Banned</option>
-                <option value="suspended">Suspended</option>
               </select>
             </Field>
           )}
@@ -358,10 +360,8 @@ function PlayerModal({ modal, setModal, onClose, onSubmit, language = 'vi', admi
               <Field label="Vai trò mới">
                 <select className={inputClass} value={modal.role} onChange={(event) => setModal({ ...modal, role: event.target.value })}>
                   <option value="user">User</option>
+                  <option value="admin">Admin</option>
                   <option value="super_admin">Super admin</option>
-                  <option value="operator">Operator</option>
-                  <option value="moderator">Moderator</option>
-                  <option value="analyst">Analyst</option>
                 </select>
               </Field>
               <Field label="Lý do ghi audit"><input className={inputClass} value={modal.reason} onChange={(event) => setModal({ ...modal, reason: event.target.value })} placeholder="Ví dụ: Ticket BK-1234 đã được duyệt" /></Field>

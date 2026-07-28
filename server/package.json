@@ -5,6 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "node --test",
+    "migration:admin-roles:dry-run": "node scripts/migrate-admin-roles.js",
+    "migration:admin-roles:apply": "node scripts/migrate-admin-roles.js --apply",
     "migration:gems:dry-run": "node scripts/migrate-gems-to-coins.js",
     "migration:gems:apply": "node scripts/migrate-gems-to-coins.js --apply",
     "start": "node index.js",

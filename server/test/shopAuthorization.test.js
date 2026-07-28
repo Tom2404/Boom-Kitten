@@ -8,7 +8,7 @@ const User = require('../models/User');
 const shopRoutes = require('../routes/shop');
 const errorHandler = require('../middleware/errorHandler');
 
-test('analyst cannot mutate the shop catalog through the API', async () => {
+test('removed legacy roles cannot mutate the shop catalog through the API', async () => {
   const originalFindById = User.findById;
   User.findById = () => ({
     select: async () => ({
@@ -40,7 +40,7 @@ test('analyst cannot mutate the shop catalog through the API', async () => {
 
     assert.equal(response.status, 403);
     assert.equal(body.error.code, 'ADMIN_PERMISSION_DENIED');
-    assert.equal(body.error.details.permission, 'catalog.write');
+    assert.equal(body.error.details, undefined);
   } finally {
     User.findById = originalFindById;
     await new Promise((resolve) => server.close(resolve));

@@ -11,6 +11,11 @@ const {
   sanitizeActiveInteractionForPublic,
 } = require('../game/interactions/interactionPolicy');
 const {
+  createPresentationId,
+  ensurePresentationId,
+  isNopeableAction,
+} = require('../game/interactions/cardPresentationContract');
+const {
   buildInteractionRequestPayload,
   buildNormalizedInteractionRequest,
   buildReconnectInteractionRequest,
@@ -355,28 +360,6 @@ async function finalizeGame(io, room) {
 }
 
 module.exports = function registerGameSocket(io) {
-  const NOPEABLE_ACTIONS = [
-    'attack_2x', 'personal_attack_2x', 'target_attack_2x', 'attack_of_the_dead',
-    'skip', 'super_skip',
-    'see_the_future_1', 'see_the_future_3', 'see_the_future_5', 'see_the_future_3_now', 'reveal_the_future',
-    'alter_the_future_3', 'alter_the_future_5', 'alter_the_future_3_now',
-    'favor', 'garbage', 'pot_luck',
-    'shuffle', 'shuffle_now',
-    'swap_top_and_bottom_now',
-    'feed_the_dead',
-    'grave_robber',
-    'dig_deeper',
-    'armageddon',
-    'nope'
-  ];
-
-  function isNopeableAction(cardType) {
-    if (!cardType) return false;
-    if (NOPEABLE_ACTIONS.includes(cardType)) return true;
-    if (cardType.startsWith('combo_')) return true;
-    return false;
-  }
-
   function mapCardTypeToVfxType(cardType) {
     if (!cardType) return 'GENERIC';
     if (cardType.startsWith('combo_')) return cardType.toUpperCase();
@@ -387,9 +370,11 @@ module.exports = function registerGameSocket(io) {
   function broadcastActionResolved(room, action, result) {
     const isCancelled = result === 'CANCELLED';
     const vfxType = isCancelled ? 'NOPE' : mapCardTypeToVfxType(action.cardType);
+    const presentationId = ensurePresentationId(action);
 
     io.to(room.code).emit('game:actionResolved', {
       actionId: action.eventId,
+      presentationId,
       actionKind: action.cardType?.startsWith('combo_') ? 'combo' : 'card',
       cardType: action.cardType,
       comboType: action.cardType?.startsWith('combo_') ? action.cardType : undefined,
@@ -414,6 +399,7 @@ module.exports = function registerGameSocket(io) {
 
   function startNopeWindow(room, action) {
     const timeoutMs = getNowWindowTimeout();
+    const presentationId = ensurePresentationId(action);
     action.timeoutMs = timeoutMs;
     action.passedPlayers = [];
     action.responseOwnerId = getNopeResponseOwnerId(action);
@@ -421,6 +407,7 @@ module.exports = function registerGameSocket(io) {
 
     io.to(room.code).emit('game:nopeWindow', {
       eventId: action.eventId,
+      presentationId,
       timeoutMs,
       cardType: action.cardType,
       actingPlayerId: action.playerId,
@@ -432,6 +419,19 @@ module.exports = function registerGameSocket(io) {
     sendHands(io, room);
 
     setupNopeTimeout(room, action.eventId);
+  }
+
+  function startActionWindow(room, action) {
+    ensurePresentationId(action);
+    if (isNopeableAction(action.cardType)) {
+      startNopeWindow(room, action);
+      return;
+    }
+
+    room.gameState.pendingAction = action;
+    void resolvePendingActionEarly(room, action.eventId).catch((error) => {
+      console.error('Failed to resolve non-Nopeable action:', error);
+    });
   }
 
   async function resolvePendingActionEarly(room, eventId) {
@@ -473,6 +473,7 @@ module.exports = function registerGameSocket(io) {
     }
 
     if (action.type === 'defuse_completed') {
+      broadcastActionResolved(room, action, 'RESOLVED');
       io.to(room.code).emit('game:turnChanged', {
         currentPlayerId: gameState.players[gameState.currentPlayerIndex]?.userId,
         drawsRequired: gameState.drawsRequired,
@@ -597,7 +598,7 @@ module.exports = function registerGameSocket(io) {
     const pending = gameState.pendingTargetSelect;
     if (!pending) return;
 
-    const { playerId, cardType, options, comboSize } = pending;
+    const { playerId, cardType, options, comboSize, presentationId } = pending;
     gameState.pendingTargetSelect = null;
 
     // Update lastAction with target
@@ -615,6 +616,7 @@ module.exports = function registerGameSocket(io) {
     const eventId = `${Date.now()}-${Math.random()}`;
     const action = {
       eventId,
+      presentationId,
       playerId,
       cardType: actualCardType,
       targetPlayerId,
@@ -622,7 +624,7 @@ module.exports = function registerGameSocket(io) {
       nopeCount: 0,
     };
 
-    startNopeWindow(room, action);
+    startActionWindow(room, action);
   }
 
   async function handlePlayerDisconnectFallback(room, userId) {
@@ -1279,6 +1281,7 @@ module.exports = function registerGameSocket(io) {
         const actualCardType = payload.actualCardType;
 
         if (!actualCardType) return; // Invalid play
+        const presentationId = createPresentationId();
 
         if (!finalTargetPlayerId) {
           finalTargetPlayerId = getAutoTargetForTwoPlayerGame(state, userId, actualCardType);
@@ -1298,14 +1301,18 @@ module.exports = function registerGameSocket(io) {
           if (targetPending) {
             targetPending.clairvoyancePlayerId = userId;
             io.to(roomCode).emit('game:cardPlayedPending', {
-              actionId: `clairvoyance-${Date.now()}`,
+              actionId: presentationId,
+              presentationId,
               playerId: userId,
               cardType: actualCardType,
+              sourceCardType: cardType,
+              sourceCardId: options?.cardId,
               targetPlayerId,
               canBeNoped: false,
             });
             io.to(roomCode).emit('game:actionResolved', {
-              actionId: `clairvoyance-resolved-${Date.now()}`,
+              actionId: presentationId,
+              presentationId,
               actionKind: 'card',
               cardType: actualCardType,
               playedBy: userId,
@@ -1322,9 +1329,12 @@ module.exports = function registerGameSocket(io) {
         }
 
         io.to(roomCode).emit('game:cardPlayedPending', {
-          actionId: `pending-${Date.now()}-${Math.random()}`,
+          actionId: presentationId,
+          presentationId,
           playerId: userId,
           cardType: actualCardType,
+          sourceCardType: cardType,
+          sourceCardId: options?.cardId,
           targetPlayerId: finalTargetPlayerId,
           canBeNoped: isNopeableAction(actualCardType),
           responseWindowMs: getNowWindowTimeout(),
@@ -1344,6 +1354,7 @@ module.exports = function registerGameSocket(io) {
             playerId: userId,
             cardType: actualCardType,
             options,
+            presentationId,
             startedAt: Date.now(),
           };
 
@@ -1380,6 +1391,7 @@ module.exports = function registerGameSocket(io) {
           const eventId = `${Date.now()}-${Math.random()}`;
           const action = {
             eventId,
+            presentationId,
             playerId: userId,
             cardType: actualCardType,
             targetPlayerId: finalTargetPlayerId,
@@ -1388,7 +1400,7 @@ module.exports = function registerGameSocket(io) {
             parentAction: oldPending || undefined,
           };
 
-          startNopeWindow(room, action);
+          startActionWindow(room, action);
         }
       } catch (error) {
         socket.emit('error', { message: error.message });
@@ -1473,9 +1485,11 @@ module.exports = function registerGameSocket(io) {
       io.to(roomCode).emit('game:cardPlayed', {
         playerId: userId,
         cardType: 'nope',
+        sourceCardId: nopeCard.id,
         targetPlayerId: pending.playerId,
         nopedCardType: pending.cardType,
         actionId: pending.eventId,
+        presentationId: ensurePresentationId(pending),
         animationOnly: true,
       });
 
@@ -1652,7 +1666,7 @@ module.exports = function registerGameSocket(io) {
           nopeCount: 0,
         };
 
-        startNopeWindow(room, action);
+        startActionWindow(room, action);
       } catch (error) {
         socket.emit('error', { message: error.message });
       }
@@ -1793,14 +1807,23 @@ module.exports = function registerGameSocket(io) {
       sendHands(io, room);
       // Open a reaction window after zombie revive completed
       const eventId = `${Date.now()}-${Math.random()}`;
+      const presentationId = createPresentationId();
+      io.to(roomCode).emit('game:cardPlayedPending', {
+        actionId: presentationId,
+        playerId: userId,
+        cardType: 'zombie_kitten',
+        presentationId,
+        canBeNoped: false,
+      });
       const action = {
         eventId,
+        presentationId,
         playerId: userId,
         cardType: 'zombie_resolved',
         type: 'defuse_completed',
         nopeCount: 0,
       };
-      startNopeWindow(room, action);
+      startActionWindow(room, action);
     });
 
     socket.on('game:defuse:respond', async ({ insertPosition }) => {
@@ -1819,14 +1842,23 @@ module.exports = function registerGameSocket(io) {
       sendHands(io, room);
       // Open a reaction window after defuse completed
       const eventId = `${Date.now()}-${Math.random()}`;
+      const presentationId = createPresentationId();
+      io.to(roomCode).emit('game:cardPlayedPending', {
+        actionId: presentationId,
+        playerId: userId,
+        cardType: 'defuse',
+        presentationId,
+        canBeNoped: false,
+      });
       const action = {
         eventId,
+        presentationId,
         playerId: userId,
         cardType: 'defuse_resolved',
         type: 'defuse_completed',
         nopeCount: 0,
       };
-      startNopeWindow(room, action);
+      startActionWindow(room, action);
     });
 
     socket.on('game:feedTheDead:respond', async ({ cardId, interactionId }) => {

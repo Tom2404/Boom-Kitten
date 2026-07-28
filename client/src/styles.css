@@ -2276,8 +2276,7 @@ body.lang-vi .font-pixel-body {
 .game-pile__combo-prompt { position: absolute; inset: 0; z-index: 6; display: grid; place-items: center; padding: .5rem; border: 3px solid var(--game-turn); border-radius: 2px; background: rgba(165, 47, 41, .82); color: white; text-align: center; }
 .game-pile__combo-prompt span { padding: .28rem .45rem; border: 2px solid #0e1211; background: var(--game-turn); color: #0e1211; font-family: 'Pixelify Sans', monospace; font-size: .62rem; font-weight: 700; text-transform: uppercase; box-shadow: 2px 2px 0 #0e1211; }
 .game-direction-mark { position: absolute; inset: 50% auto auto 50%; z-index: 0; width: 18rem; height: 18rem; opacity: .06; transform: translate(-50%, -50%); }
-.game-direction-mark img { width: 100%; height: 100%; image-rendering: pixelated; }
-.game-direction-mark img.is-counter-clockwise { transform: rotate(180deg); }
+.game-direction-mark span { display: grid; width: 100%; height: 100%; place-items: center; font: 900 16rem/1 var(--font-headline), sans-serif; }
 .game-direction-mark--pulse { animation: game-direction-pop 450ms steps(4, end); }
 @keyframes game-direction-pop { 50% { opacity: .24; transform: translate(-50%, -50%) scale(1.18); } }
 

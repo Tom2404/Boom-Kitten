@@ -60,14 +60,15 @@ test('players pilot uses the shared admin visual language at every breakpoint', 
 });
 
 test('admin overlays expose accessible names, descriptions, and a consistent layer', async () => {
-  const [players, bulk, drawer] = await Promise.all([
+  const [players, userCrud, drawer, ui] = await Promise.all([
     read('../src/pages/admin/PlayersPanel.jsx'),
-    read('../src/pages/admin/BulkAdjustmentDialog.jsx'),
+    read('../src/pages/admin/UserCrudDialog.jsx'),
     read('../src/pages/admin/PlayerDetailDrawer.jsx'),
+    read('../src/pages/admin/ui.jsx'),
   ]);
-  const overlays = `${players}\n${bulk}\n${drawer}`;
+  const overlays = `${players}\n${userCrud}\n${drawer}\n${ui}`;
 
   assert.doesNotMatch(overlays, /z-\[999\d\]/);
   assert.equal((overlays.match(/aria-describedby=/g) || []).length, 3);
-  assert.match(bulk, /busyRef\.current/);
+  assert.match(userCrud, /confirmDisabled=/);
 });

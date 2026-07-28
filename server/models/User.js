@@ -9,12 +9,13 @@ const userSchema = new mongoose.Schema(
     avatar: { type: String, default: '' },
     role: {
       type: String,
-      enum: ['user', 'admin', 'super_admin', 'operator', 'moderator', 'analyst'],
+      enum: ['user', 'admin', 'super_admin'],
       default: 'user',
     },
     isBanned: { type: Boolean, default: false },
     suspendedUntil: { type: Date },
     warningCount: { type: Number, default: 0, min: 0 },
+    deletedAt: { type: Date, default: null },
     
     // Currency
     coins: { type: Number, default: 100, min: 0 },

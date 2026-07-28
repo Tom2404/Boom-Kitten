@@ -24,13 +24,13 @@ async function changePlayerRole({
   }
 
   const playerBefore = await UserModel.findById(targetId);
-  if (!playerBefore) throw new ApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy người chơi.');
+  if (!playerBefore || playerBefore.deletedAt) throw new ApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy người chơi.');
 
   const previousRole = normalizeAdminRole(playerBefore.role);
   if (previousRole === 'super_admin' && nextRole !== 'super_admin') {
     const remainingSuperAdmins = await UserModel.countDocuments({
       _id: { $ne: targetId },
-      role: { $in: ['admin', 'super_admin'] },
+      role: 'super_admin',
       isBanned: { $ne: true },
     });
     if (remainingSuperAdmins === 0) {

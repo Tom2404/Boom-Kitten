@@ -42,11 +42,14 @@ export const VFXOverlay = () => {
     const vfxApi = createVFXApi();
     window.vfxManager = vfxApi;
 
-    if (canvasRef.current) {
-      vfxManager.init(canvasRef.current);
-    }
+    const initFrame = window.requestAnimationFrame(() => {
+      if (canvasRef.current) {
+        void vfxManager.init(canvasRef.current);
+      }
+    });
 
     return () => {
+      window.cancelAnimationFrame(initFrame);
       animationManager.clear();
       vfxManager.destroy();
     };

@@ -1,103 +1,42 @@
-const ADMIN_ROLES = ['super_admin', 'operator', 'moderator', 'analyst'];
+const ADMIN_ROLES = ['admin', 'super_admin'];
 
-const READ_PERMISSIONS = [
+const ADMIN_PERMISSIONS = [
   'dashboard.read',
-  'analytics.read',
   'players.read',
-  'rooms.read',
+  'players.create',
+  'players.update',
+  'players.delete',
+  'players.status.write',
+  'economy.adjust',
   'catalog.read',
+  'catalog.write',
   'quests.read',
-  'announcements.read',
-  'live_ops.read',
+  'quests.write',
   'tournaments.read',
-  'wagers.read',
+  'tournaments.write',
 ];
 
 const ROLE_PERMISSIONS = {
-  analyst: [
-    ...READ_PERMISSIONS,
-    'players.export',
-    'economy.read',
-    'moderation.read',
-    'audit.read',
-    'audit.export',
-    'jobs.read',
-    'incidents.read',
-  ],
-  moderator: [
-    ...READ_PERMISSIONS,
-    'players.status.write',
-    'moderation.read',
-    'moderation.assign',
-    'moderation.resolve',
-    'moderation.sanction.warning',
-    'moderation.sanction.suspend',
-    'moderation.sanction.ban',
-    'announcements.write',
-    'audit.read',
-    'jobs.read',
-    'incidents.read',
-    'incidents.write',
-  ],
-  operator: [
-    ...READ_PERMISSIONS,
-    'players.export',
-    'players.status.write',
-    'economy.read',
-    'economy.adjust',
-    'moderation.read',
-    'moderation.assign',
-    'moderation.resolve',
-    'moderation.sanction.warning',
-    'moderation.sanction.suspend',
-    'rooms.intervene',
-    'catalog.write',
-    'quests.write',
-    'announcements.write',
-    'announcements.schedule',
-    'audit.read',
-    'audit.export',
-    'jobs.read',
-    'jobs.create',
-    'jobs.cancel',
-    'tournaments.write',
-    'wagers.resolve',
-    'live_ops.draft',
-    'incidents.read',
-    'incidents.write',
-  ],
-};
-
-const SUPER_ADMIN_PERMISSIONS = [
-  ...new Set([
-    ...ROLE_PERMISSIONS.analyst,
-    ...ROLE_PERMISSIONS.moderator,
-    ...ROLE_PERMISSIONS.operator,
+  admin: ADMIN_PERMISSIONS,
+  super_admin: [
+    ...ADMIN_PERMISSIONS,
     'players.role.write',
     'tournaments.payout',
-    'live_ops.publish',
-    'live_ops.rollback',
-    'rooms.force_close',
-    'rooms.disconnect',
-  ]),
-];
-
-ROLE_PERMISSIONS.super_admin = SUPER_ADMIN_PERMISSIONS;
+  ],
+};
 
 const LIMITED_POLICY = Object.freeze({
   maxCurrencyAdjustment: Object.freeze({ coin: 10000 }),
   maxSuspensionDays: 30,
-  maxBulkTargets: 1000,
 });
 
 const SUPER_ADMIN_POLICY = Object.freeze({
   maxCurrencyAdjustment: null,
   maxSuspensionDays: 365,
-  maxBulkTargets: 10000,
 });
 
 function normalizeAdminRole(role) {
-  return role === 'admin' ? 'super_admin' : role;
+  return role;
 }
 
 function getAdminCapabilities(role) {

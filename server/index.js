@@ -12,26 +12,14 @@ const userRoutes = require('./routes/user');
 const shopRoutes = require('./routes/shop');
 const adminRoutes = require('./routes/admin');
 const missionRoutes = require('./routes/mission');
-const reportRoutes = require('./routes/report');
-const adminModerationRoutes = require('./routes/adminModeration');
-const adminRoomRoutes = require('./routes/adminRooms');
-const adminAuditLogRoutes = require('./routes/adminAuditLogs');
-const adminJobRoutes = require('./routes/adminJobs');
 const adminSavedViewRoutes = require('./routes/adminSavedViews');
-const adminPlayerExportRoutes = require('./routes/adminPlayerExports');
 const adminTournamentRoutes = require('./routes/adminTournaments');
 const tournamentRoutes = require('./routes/tournaments');
-const adminWagerRoutes = require('./routes/adminWagers');
-const adminLiveOpsRoutes = require('./routes/adminLiveOps');
 const liveOpsRoutes = require('./routes/liveOps');
-const adminAnalyticsRoutes = require('./routes/adminAnalytics');
-const adminIncidentRoutes = require('./routes/adminIncidents');
 const errorHandler = require('./middleware/errorHandler');
 const requestContext = require('./middleware/requestContext');
 const registerGameSocket = require('./sockets/gameSocket');
 const { startAnnouncementScheduler } = require('./services/admin/announcementService');
-const { startAdminJobWorker } = require('./services/admin/jobService');
-const { startIncidentScanner } = require('./services/admin/incidentService');
 
 dotenv.config();
 
@@ -75,21 +63,11 @@ app.use('/api/users', userRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/shop', shopRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/admin/moderation', adminModerationRoutes);
-app.use('/api/admin/rooms', adminRoomRoutes);
-app.use('/api/admin/audit-logs', adminAuditLogRoutes);
-app.use('/api/admin/jobs', adminJobRoutes);
 app.use('/api/admin/saved-views', adminSavedViewRoutes);
-app.use('/api/admin/player-exports', adminPlayerExportRoutes);
 app.use('/api/admin/tournaments', adminTournamentRoutes);
 app.use('/api/tournaments', tournamentRoutes);
-app.use('/api/admin/wagers', adminWagerRoutes);
-app.use('/api/admin/live-ops', adminLiveOpsRoutes);
-app.use('/api/admin/analytics', adminAnalyticsRoutes);
-app.use('/api/admin/incidents', adminIncidentRoutes);
 app.use('/api/live-ops', liveOpsRoutes);
 app.use('/api/missions', missionRoutes);
-app.use('/api/reports', reportRoutes);
 app.use(errorHandler);
 
 registerGameSocket(io);
@@ -101,8 +79,6 @@ async function start() {
   if (!MONGO_URI) throw new Error('Missing MONGO_URI in environment');
   await mongoose.connect(MONGO_URI);
   startAnnouncementScheduler({ io });
-  startAdminJobWorker();
-  startIncidentScanner();
   server.listen(PORT, () => {
     // Startup log for local development visibility.
     process.stdout.write(`Server listening on http://localhost:${PORT}\n`);

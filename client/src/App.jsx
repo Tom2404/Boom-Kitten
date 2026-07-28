@@ -5,6 +5,7 @@ import { useSocket } from './hooks/useSocket.js';
 import { useLanguage } from './context/LanguageContext.jsx';
 import CustomDialog from './components/CustomDialog.jsx';
 import { isAdminRole } from './utils/adminRoles.js';
+import { REQUIRED_VFX_ASSET_URLS } from './vfx/config/vfxAssets.js';
 
 const Login = lazy(() => import('./pages/Login.jsx'));
 const Register = lazy(() => import('./pages/Register.jsx'));
@@ -14,7 +15,8 @@ const Profile = lazy(() => import('./pages/Profile.jsx'));
 const Shop = lazy(() => import('./pages/Shop.jsx'));
 const Tournaments = lazy(() => import('./pages/Tournaments.jsx'));
 const Admin = lazy(() => import('./pages/Admin.jsx'));
-const VFXOverlay = lazy(() => import('./components/VFXOverlay.jsx').then((module) => ({ default: module.VFXOverlay })));
+const loadVfxOverlay = () => import('./components/VFXOverlay.jsx').then((module) => ({ default: module.VFXOverlay }));
+const VFXOverlay = lazy(loadVfxOverlay);
 
 class ErrorBoundary extends Component {
   constructor(props) {
@@ -139,6 +141,15 @@ export default function App() {
       document.body.classList.remove('lang-vi');
     }
   }, [language]);
+
+  useEffect(() => {
+    if (activeRoom?.status !== 'waiting') return;
+
+    void Promise.allSettled([
+      loadVfxOverlay(),
+      ...REQUIRED_VFX_ASSET_URLS.map((url) => fetch(url, { cache: 'force-cache' })),
+    ]);
+  }, [activeRoom?.status]);
 
   // Global access guard for admin role to restrict user-facing routes
   useEffect(() => {

@@ -289,9 +289,9 @@ export function NopeCountdown({
 
   return (
     <OverlayPortal>
-      <div className="game-modal-layer fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-slate-950/45 backdrop-blur-[2px]">
+      <div className="game-modal-layer fixed top-24 right-4 z-[10000] flex items-start justify-end pointer-events-none max-md:top-3 max-md:right-3">
       <div
-        className="flex flex-col gap-0 min-w-[320px] max-w-[560px] w-[95%] max-h-[calc(100dvh-2rem)] overflow-y-auto animate-fade-in"
+        className="pointer-events-auto flex w-[calc(100vw-2rem)] max-w-[360px] max-h-[calc(100dvh-7rem)] flex-col gap-0 overflow-y-auto animate-fade-in"
       >
       <div className="bg-[#fafaf5] border-3 border-slate-900 shadow-[6px_6px_0px_0px_#0f0f0f] rounded-none overflow-hidden flex flex-col">
         <div

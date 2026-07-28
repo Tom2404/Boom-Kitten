@@ -1,5 +1,6 @@
 
 import createRoomIcon from '../assets/ui/icons/createRoom.png';
+import { cardPlayPresentation } from '../vfx/CardPlayPresentationController.js';
 import quickplayIcon from '../assets/ui/icons/quickplay.png';
 import copyIcon from '../assets/ui/icons/copy.png';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
@@ -66,7 +67,6 @@ import GameBoardView from './Game/views/GameBoardView.jsx';
 import { GameProvider } from './Game/GameContext.jsx';
 import { animationManager } from '../vfx/AnimationManager.js';
 import { VFX_PRIORITY } from '../vfx/VFXEventAdapter.js';
-import { mapResolvedActionToAnimKey } from '../vfx/config/vfxEventMap.js';
 
 /**
  * Renders custom pixel art artwork for each game edition/expansion
@@ -152,10 +152,10 @@ function PlayModeCard({
   imageStyle
 }) {
   return (
-    <div 
+    <div
       className={`card-brutalist bg-[var(--surface-dim)] flex flex-col items-center justify-between p-6 rounded-2xl flex-1 max-w-[320px] group w-full relative transition-all duration-300
-        ${isPrimary 
-          ? 'md:scale-105 border-4 card-primary-glow border-[#1a1c1c] z-10' 
+        ${isPrimary
+          ? 'md:scale-105 border-4 card-primary-glow border-[#1a1c1c] z-10'
           : 'border-3 border-[#1a1c1c]'
         }`}
     >
@@ -176,7 +176,7 @@ function PlayModeCard({
       <div className="h-40 w-full rounded-xl border-3 border-[var(--pop-black)] overflow-hidden relative flex items-center justify-center mb-4">
         {/* Background Pattern Layer */}
         <div className={`absolute inset-0 opacity-90 transition-transform duration-1000 ${bgClass}`} />
-        
+
         {/* Sparkles */}
         <div className="pixel-sparkle sparkle-1">★</div>
         <div className="pixel-sparkle sparkle-2">★</div>
@@ -191,7 +191,7 @@ function PlayModeCard({
             ${isDisabled && buttonText !== 'Vào bằng mã' && buttonText !== 'VÀO PHÒNG' ? 'opacity-30' : ''}`}
           alt={title}
         />
-        
+
         {/* Custom Extra Overlay (e.g. Radar Scanning for Quick Play or Code Input for Join Room) */}
         {extraContent}
       </div>
@@ -372,7 +372,7 @@ function FlyingCard({ id, type, cardType, startPos, endPos, centerPos, onComplet
     >
       {/* Glow Effect behind the card */}
       {isAtCenter && (
-        <div 
+        <div
           className="absolute inset-[-60px] rounded-full filter blur-xl opacity-80 animate-pulse pointer-events-none z-[-1]"
           style={{
             background: `radial-gradient(circle, ${glowColor} 0%, transparent 70%)`
@@ -731,7 +731,7 @@ function ExclusiveCard({ cardType, name, skinIndex = 0, fanAngle = 0, fanY = 0 }
     : '';
 
   return (
-    <div 
+    <div
       className="relative w-full aspect-[3/4] bg-[#1A1C1C] border-4 border-[#1A1C1C] rounded-none shadow-[4px_4px_0px_#1A1C1C] cursor-pointer exclusive-card-hover group z-10"
       style={{ '--fan-base': `rotate(${fanAngle}deg) translateY(${fanY}px)`, transform: `rotate(${fanAngle}deg) translateY(${fanY}px)` }}
     >
@@ -949,14 +949,14 @@ export default function Game({ setPage }) {
   const [lobbyEdition, setLobbyEdition] = useState('original');
   const [isEditionDropdownOpen, setIsEditionDropdownOpen] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
-  
+
   const isDailyRewardClaimed = useMemo(() => {
     if (!userProfile?.lastDailyRewardDate) return false;
     const lastDate = new Date(userProfile.lastDailyRewardDate);
     const today = new Date();
     return lastDate.getDate() === today.getDate() &&
-           lastDate.getMonth() === today.getMonth() &&
-           lastDate.getFullYear() === today.getFullYear();
+      lastDate.getMonth() === today.getMonth() &&
+      lastDate.getFullYear() === today.getFullYear();
   }, [userProfile]);
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -997,9 +997,9 @@ export default function Game({ setPage }) {
       if (type === 'ting') {
         const audio = new window.Audio('/sounds/ting.mp3');
         audio.volume = 0.5;
-        audio.play().catch(() => {});
+        audio.play().catch(() => { });
       }
-    } catch(err) {}
+    } catch (err) { }
   };
 
   const prevReadyCountRef = useRef(0);
@@ -1134,7 +1134,7 @@ export default function Game({ setPage }) {
         alert(data.message || 'Có lỗi xảy ra');
         return;
       }
-      const msg = language === 'vi' 
+      const msg = language === 'vi'
         ? `Nhận thành công ${data.rewardAmount} GoldCoin! (Chuỗi: ${data.consecutiveLoginDays + 1} ngày)`
         : `Successfully claimed ${data.rewardAmount} GoldCoins! (Streak: ${data.consecutiveLoginDays + 1} days)`;
       alert(msg);
@@ -1258,11 +1258,11 @@ export default function Game({ setPage }) {
         return `Pot Luck: Chờ mọi người chọn lá bài`;
       }
     }
-    
+
     if (statusMessage && statusMessage !== 'Đang chờ can thiệp...') {
       return statusMessage;
     }
-    
+
     if (gameState) {
       const activePlayer = gameState.players[gameState.currentPlayerIndex];
       if (activePlayer) {
@@ -1379,7 +1379,7 @@ export default function Game({ setPage }) {
 
   useEffect(() => {
     if (gameEnded) {
-      gsap.fromTo('.ended-overlay-anim', 
+      gsap.fromTo('.ended-overlay-anim',
         { scale: 0.4, rotation: -8, opacity: 0 },
         { scale: 1, rotation: 0, opacity: 1, duration: 0.65, ease: 'back.out(1.5)' }
       );
@@ -1393,39 +1393,10 @@ export default function Game({ setPage }) {
   const [nopeStamp, setNopeStamp] = useState(null);
   const mainContainerRef = useRef(null);
 
-  const getNextAlivePlayerId = () => {
-    if (!gameState || !gameState.players) return null;
-    const len = gameState.players.length;
-    let idx = gameState.currentPlayerIndex;
-    const dir = gameState.playDirection || 1;
-    for (let i = 0; i < len; i++) {
-      idx = (idx + dir + len) % len;
-      if (gameState.players[idx].alive) {
-        return gameState.players[idx].userId;
-      }
-    }
-    return null;
-  };
-
-  const playZombieReviveAnimation = (targetUserId, activatorPlayerId) => {
-    animationManager.enqueue({ animKey: 'CARD_ZOMBIE_KITTEN', metadata: { targetUserId, activatorPlayerId } });
-  };
-
-  const playHordeAttackAnimation = (sourceUserIds, targetUserId) => {
-    animationManager.enqueue({ animKey: 'CARD_ATTACK_OF_THE_DEAD', metadata: { sourceUserIds, targetUserId } });
-  };
-
-  const playFeedTheDeadAnimation = (sourceUserIds, targetUserId) => {
-    animationManager.enqueue({ animKey: 'CARD_FEED_THE_DEAD', metadata: { sourceUserIds, targetUserId } });
-  };
-
-  const playGraveRobberAnimation = (sourceUserIds) => {
-    animationManager.enqueue({ animKey: 'CARD_GRAVE_ROBBER', metadata: { sourceUserIds } });
-  };
-
-  const playDigDeeperAnimation = () => {
-    animationManager.enqueue({ animKey: 'CARD_DIG_DEEPER', metadata: {} });
-  };
+  // ── Card-centric presentation tracking ────────────────────────────────────
+  // actionId currently occupying the discard-pile "landing zone"; while set,
+  // GameBoardView hides the real top-of-discard card so the clone can land.
+  const [flyingCardActionId, setFlyingCardActionId] = useState(null);
 
   // Flying Card Clone animation
   const playFlyingCard = (sourceId, targetId, cardType) => {
@@ -1477,19 +1448,68 @@ export default function Game({ setPage }) {
 
     // ─── game:cardPlayedPending ──────────────────────────────────────────────
     // Emitted immediately when a card is played while the Nope window is opened.
-    // Must NOT trigger any main / card-specific VFX here.
-    // Only allowed: small card-fly animation, log, toast.
-    const handleCardPlayedPending = () => {
-      // No main VFX here. All main VFX are deferred to game:actionResolved.
+    // NEW: Triggers card-centric presentation flow (card leaves hand → center)
+    const getPresentationSourceId = (playerId, cardType, sourceCardId) => {
+      if (playerId !== myUser?.id) return `player-avatar-${playerId}`;
+      if (sourceCardId && document.getElementById(`hand-card-${sourceCardId}`)) {
+        return `hand-card-${sourceCardId}`;
+      }
+      return document.querySelector(`#player-hand-container [data-card-type="${cardType}"]`)?.id
+        || 'player-hand-container';
+    };
+
+    const getPresentationCopy = (cardType) => {
+      const cleanType = String(cardType).replace(/^discard_/, '').replace(/_resolved$/, '');
+      const nameKey = `card_${cleanType}_name`;
+      const summaryKey = `card_${cleanType}_summary`;
+      const descKey = `card_${cleanType}_desc`;
+      const localizedName = t(nameKey);
+      const localizedSummary = t(summaryKey);
+      const localizedDescription = t(descKey);
+      return {
+        title: localizedName === nameKey ? cleanType.replace(/_/g, ' ') : localizedName,
+        description: localizedSummary !== summaryKey
+          ? localizedSummary
+          : (localizedDescription === descKey ? '' : localizedDescription),
+      };
+    };
+
+    const handleCardPlayedPending = ({
+      actionId,
+      presentationId,
+      playerId,
+      cardType,
+      sourceCardType,
+      sourceCardId,
+      targetPlayerId,
+      canBeNoped,
+    }) => {
+      const stableId = presentationId || actionId;
+      cardPlayPresentation.showPending({
+        actionId: stableId,
+        cardType,
+        skinIndex: 0,
+        sourceElementId: getPresentationSourceId(playerId, sourceCardType || cardType, sourceCardId),
+        playerId,
+        targetPlayerId,
+        canBeNoped,
+        ...getPresentationCopy(cardType),
+      });
     };
 
     // ─── game:cardPlayed ─────────────────────────────────────────────────────
     // Kept only for:
-    //   1. Nope card (animationOnly: true) — small card fly
+    //   1. Nope card (animationOnly: true) — add to Nope stack
     //   2. Discard actions emitted by game:discard handler (no Nope window)
-    // Must NOT trigger main VFX for regular action cards.
-    const handleCardPlayed = () => {
-      // No main VFX here.
+    const handleCardPlayed = ({ playerId, cardType, sourceCardId, animationOnly, presentationId }) => {
+      if (animationOnly && cardType === 'nope' && presentationId) {
+        cardPlayPresentation.addNope(presentationId, {
+          playerId,
+          cardType: 'nope',
+          skinIndex: 0,
+          sourceElementId: getPresentationSourceId(playerId, 'nope', sourceCardId),
+        });
+      }
     };
 
     // ─── game:actionResolved ─────────────────────────────────────────────────
@@ -1498,19 +1518,14 @@ export default function Game({ setPage }) {
     // the action outcome has been determined.
     const handleActionResolved = ({
       actionId,
-      actionKind,
+      presentationId,
       cardType,
-      comboType,
-      displayCardType,
-      playedBy,
-      targetPlayerId: resolvedTargetId,
       result,
-      vfxType,
       nopeCount,
     }) => {
-      // Deduplicate: same actionId must never fire VFX twice on the same client
-      if (actionId && playedResolvedVfxIds.current.has(actionId)) return;
-      if (actionId) playedResolvedVfxIds.current.add(actionId);
+      const stableId = presentationId || actionId;
+      if (stableId && playedResolvedVfxIds.current.has(stableId)) return;
+      if (stableId) playedResolvedVfxIds.current.add(stableId);
 
       // Clean up old IDs to avoid unbounded Set growth
       if (playedResolvedVfxIds.current.size > 80) {
@@ -1519,91 +1534,20 @@ export default function Game({ setPage }) {
       }
 
       const isCancelled = result === 'CANCELLED' || (nopeCount && nopeCount % 2 === 1);
-
-      if (isCancelled) {
-        // Action was Noped / cancelled — show Nope/Cancel VFX only
-        animationManager.enqueue({
-          animKey: 'CARD_NOPE',
-          priority: VFX_PRIORITY.INTERRUPT,
-          metadata: {
-            actionId,
-            cardType,
-            comboType,
-            playedBy,
-            targetPlayerId: resolvedTargetId,
-            result: 'CANCELLED',
-            scale: 'large',
-            screenCoverage: 0.5,
-          },
-        });
-        return;
+      if (stableId && cardPlayPresentation.has(stableId)) {
+        cardPlayPresentation.resolve(
+          stableId,
+          isCancelled ? 'CANCELLED' : 'RESOLVED',
+        );
       }
 
-      // Action was RESOLVED — show main card VFX
-      const animKey = mapResolvedActionToAnimKey({
-        result,
-        nopeCount,
-        vfxType,
-        comboType,
-        cardType: displayCardType || cardType,
-      });
+      if (isCancelled) return;
 
       if (cardType === 'reverse') {
         setReversePulse(true);
         setTimeout(() => setReversePulse(false), 500);
       }
 
-      animationManager.enqueue({
-        animKey,
-        priority: VFX_PRIORITY.INTERRUPT,
-        metadata: {
-          actionId,
-          actionKind,
-          cardType,
-          comboType,
-          playedBy,
-          targetPlayerId: resolvedTargetId,
-          result: 'RESOLVED',
-          scale: 'large',
-          screenCoverage: 0.5,
-        },
-      });
-
-      // Special secondary animations that are part of the resolved effect
-      if (cardType === 'attack_of_the_dead') {
-        const nextTargetId = getNextAlivePlayerId();
-        if (nextTargetId) {
-          setTimeout(() => {
-            playHordeAttackAnimation([], nextTargetId);
-          }, 400);
-        }
-      } else if (cardType === 'grave_robber') {
-        setTimeout(() => {
-          playGraveRobberAnimation([]);
-        }, 400);
-      } else if (cardType === 'dig_deeper') {
-        setTimeout(() => {
-          playDigDeeperAnimation();
-        }, 400);
-      } else if (cardType === 'feed_the_dead' && resolvedTargetId) {
-        setTimeout(() => {
-          playFeedTheDeadAnimation([], resolvedTargetId);
-        }, 400);
-      }
-    };
-
-    const handleZombieRevived = ({ revivedPlayerId, activatorPlayerId }) => {
-      setTimeout(() => {
-        playZombieReviveAnimation(revivedPlayerId, activatorPlayerId);
-      }, 50);
-    };
-
-    const handleNopeWindowForAnim = ({ cardType, targetPlayerId }) => {
-      if (cardType === 'feed_the_dead' && targetPlayerId) {
-        setTimeout(() => {
-          playFeedTheDeadAnimation([], targetPlayerId);
-        }, 50);
-      }
     };
 
     const handleDrewKitten = ({ playerId, username, cardType }) => {
@@ -1660,8 +1604,6 @@ export default function Game({ setPage }) {
     socket.on('game:cardPlayed', handleCardPlayed);
     socket.on('game:actionResolved', handleActionResolved);
     socket.on('game:exploded', handleExploded);
-    socket.on('game:zombieRevived', handleZombieRevived);
-    socket.on('game:nopeWindow', handleNopeWindowForAnim);
     socket.on('game:barkingKitten:resolved', handleBarkingKittenResolved);
 
     return () => {
@@ -1671,8 +1613,6 @@ export default function Game({ setPage }) {
       socket.off('game:cardPlayed', handleCardPlayed);
       socket.off('game:actionResolved', handleActionResolved);
       socket.off('game:exploded', handleExploded);
-      socket.off('game:zombieRevived', handleZombieRevived);
-      socket.off('game:nopeWindow', handleNopeWindowForAnim);
       socket.off('game:barkingKitten:resolved', handleBarkingKittenResolved);
     };
   }, [socket, myUser]);
@@ -1923,6 +1863,8 @@ export default function Game({ setPage }) {
     nopeWindow,
     nowCardToast,
     numPlayAnims,
+    flyingCardActionId,
+    setFlyingCardActionId,
     passNope,
     playAgain,
     playCard,

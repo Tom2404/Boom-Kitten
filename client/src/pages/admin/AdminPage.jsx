@@ -4,16 +4,7 @@ import OverviewPanel from './OverviewPanel.jsx';
 import PlayersPanel from './PlayersPanel.jsx';
 import CatalogPanel from './CatalogPanel.jsx';
 import QuestsPanel from './QuestsPanel.jsx';
-import AnnouncementsPanel from './AnnouncementsPanel.jsx';
-import LogsPanel from './LogsPanel.jsx';
-import ModerationPanel from './ModerationPanel.jsx';
-import RoomsPanel from './RoomsPanel.jsx';
-import JobsPanel from './JobsPanel.jsx';
 import TournamentsPanel from './TournamentsPanel.jsx';
-import WagersPanel from './WagersPanel.jsx';
-import LiveOpsPanel from './LiveOpsPanel.jsx';
-import ProductAnalyticsPanel from './ProductAnalyticsPanel.jsx';
-import IncidentsPanel from './IncidentsPanel.jsx';
 import { useLanguage } from '../../context/LanguageContext.jsx';
 import { getVisibleAdminNavigation, resolveAdminTab } from './adminNavigation.js';
 import { useAdminApi } from './useAdminApi.js';
@@ -102,26 +93,8 @@ export default function AdminPage({ setPage }) {
         return <CatalogPanel permissions={permissions} />;
       case 'quests':
         return <QuestsPanel permissions={permissions} />;
-      case 'announcements':
-        return <AnnouncementsPanel permissions={permissions} />;
-      case 'logs':
-        return <LogsPanel language={language} permissions={permissions} onNavigate={navigateToTab} />;
-      case 'moderation':
-        return <ModerationPanel permissions={permissions} adminId={session.data.admin.id} language={language} />;
-      case 'rooms':
-        return <RoomsPanel permissions={permissions} adminUsername={session.data.admin.username} language={language} />;
-      case 'jobs':
-        return <JobsPanel permissions={permissions} language={language} />;
       case 'tournaments':
         return <TournamentsPanel permissions={permissions} adminUsername={session.data.admin.username} />;
-      case 'wagers':
-        return <WagersPanel permissions={permissions} />;
-      case 'live_ops':
-        return <LiveOpsPanel permissions={permissions} adminUsername={session.data.admin.username} />;
-      case 'analytics':
-        return <ProductAnalyticsPanel />;
-      case 'incidents':
-        return <IncidentsPanel permissions={permissions} adminId={session.data.admin.id} onNavigate={navigateToTab} />;
       default:
         return <OverviewPanel onNavigate={navigateToTab} language={language} />;
     }
@@ -140,7 +113,7 @@ export default function AdminPage({ setPage }) {
               <h1 className="mt-2 text-balance text-xl font-semibold tracking-[-0.03em] text-[var(--admin-text)]">Admin Console</h1>
               <p className="mt-2 truncate font-mono text-sm font-medium text-[var(--admin-text-muted)]">{session.data.admin.username}</p>
               <div className="mt-2 flex items-center justify-between gap-2 text-xs font-medium text-[var(--admin-text-muted)]">
-                <span>{session.data.admin.role.replaceAll('_', ' ')}</span>
+                <span>{session.data.admin.role === 'super_admin' ? (isEnglish ? 'Super admin' : 'Quản trị cấp cao') : (isEnglish ? 'Admin' : 'Quản trị viên')}</span>
                 <span>{permissions.length} {isEnglish ? 'capabilities' : 'quyền'}</span>
               </div>
             </div>
@@ -188,7 +161,7 @@ export default function AdminPage({ setPage }) {
             <span className="font-medium">{isEnglish ? 'Session verified against current permissions' : 'Phiên đã xác minh theo quyền hiện hành'}</span>
             <span className="inline-flex items-center gap-2 font-mono text-xs text-[var(--admin-success-text)]">
               <span className="h-1.5 w-1.5 rounded-full bg-[var(--admin-success-text)]" aria-hidden="true" />
-              {session.data.admin.role.replaceAll('_', ' ')}
+              {session.data.admin.role === 'super_admin' ? (isEnglish ? 'Super admin' : 'Quản trị cấp cao') : (isEnglish ? 'Admin' : 'Quản trị viên')}
             </span>
           </div>
           {renderPanel()}

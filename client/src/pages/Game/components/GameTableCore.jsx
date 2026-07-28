@@ -22,11 +22,7 @@ export default function GameTableCore({
     <section className="game-table-core" aria-label="Bàn đấu">
       <div id="board-center-target" className="game-table-core__vfx-target" aria-hidden="true" />
       <div className={`game-direction-mark ${reversePulse ? 'game-direction-mark--pulse' : ''}`} aria-hidden="true">
-        <img
-          src="/vfx/reverse-arrow.png"
-          alt=""
-          className={playDirection === -1 ? 'is-counter-clockwise' : 'is-clockwise'}
-        />
+        <span>{playDirection === -1 ? '↺' : '↻'}</span>
       </div>
 
       <div className="game-table-core__status" role="status" aria-live="polite">
@@ -66,4 +62,3 @@ export default function GameTableCore({
     </section>
   );
 }
-

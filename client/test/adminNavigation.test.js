@@ -6,18 +6,23 @@ import {
   resolveAdminTab,
 } from '../src/pages/admin/adminNavigation.js';
 
-test('groups visible admin destinations by operational purpose', () => {
+test('exposes only overview, users, resources, and tournaments', () => {
   const groups = getVisibleAdminNavigation([
     'dashboard.read',
     'players.read',
     'catalog.read',
-    'audit.read',
-    'wagers.read',
+    'quests.read',
+    'tournaments.read',
+    'jobs.read',
+    'moderation.read',
+    'incidents.read',
   ]);
 
-  assert.deepEqual(groups.map((group) => group.id), ['observe', 'operate']);
-  assert.deepEqual(groups[0].items.map((item) => item.id), ['overview', 'logs', 'wagers']);
-  assert.deepEqual(groups[1].items.map((item) => item.id), ['players', 'catalog']);
+  assert.deepEqual(groups.map((group) => group.id), ['manage', 'resources', 'competition']);
+  assert.deepEqual(
+    groups.flatMap((group) => group.items.map((item) => item.id)),
+    ['overview', 'players', 'catalog', 'quests', 'tournaments'],
+  );
 });
 
 test('does not expose destinations without the server capability', () => {
