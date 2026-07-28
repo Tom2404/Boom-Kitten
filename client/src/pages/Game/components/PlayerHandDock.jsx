@@ -14,14 +14,16 @@ export default function PlayerHandDock({
   targetPlayerId,
 }) {
   return (
-    <section className="game-player-dock" aria-label="Khu vực bài của bạn">
+    <section className="game-player-dock" data-vfx-anchor="my-hand" aria-label="Khu vực bài của bạn">
       <div className="game-player-dock__identity">
         <span className="game-player-dock__sprite" aria-hidden="true">BK</span>
-        <span>
+        <span className="game-player-dock__user-info">
           <small>Bạn đang chơi</small>
           <strong>{myUser.username || 'Bạn'}</strong>
         </span>
-        <b>{isMyTurn ? `Bốc ${drawsRequired} lá` : 'Chờ lượt'}</b>
+        <b className={`game-player-dock__turn-badge ${isMyTurn ? 'game-player-dock__turn-badge--active' : ''}`}>
+          {isMyTurn ? `Bốc ${drawsRequired} lá` : 'Chờ lượt'}
+        </b>
       </div>
       <PlayerHand
         hand={privateHand}

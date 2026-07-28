@@ -156,13 +156,29 @@ export class CardPlayPresentationController {
      */
     _createCardClone(sourceElementId, cardType, skinIndex = 0) {
         const sourceElement = document.getElementById(sourceElementId);
-        if (!sourceElement) {
-            console.warn(`[CardPlayPresentation] Source element not found: ${sourceElementId}`);
-            return null;
+        let rect = null;
+        let cardImageUrl = null;
+
+        const isCardElement = sourceElementId && String(sourceElementId).startsWith('hand-card-');
+
+        if (sourceElement) {
+            rect = sourceElement.getBoundingClientRect();
+            if (isCardElement) {
+                const imgEl = sourceElement.querySelector('img');
+                if (imgEl && imgEl.src) {
+                    cardImageUrl = imgEl.src;
+                }
+            }
         }
 
-        const rect = sourceElement.getBoundingClientRect();
-        const cardImageUrl = getCardImageUrl(cardType, skinIndex);
+        if (!rect) {
+            const fallbackEl = document.getElementById('player-hand-container') || document.body;
+            rect = fallbackEl.getBoundingClientRect();
+        }
+
+        if (!cardImageUrl) {
+            cardImageUrl = getCardImageUrl(cardType, skinIndex);
+        }
 
         // Create clone container
         const clone = document.createElement('div');
@@ -200,6 +216,7 @@ export class CardPlayPresentationController {
         const {
             actionId,
             cardType,
+            displayCardType,
             skinIndex = 0,
             sourceElementId,
             title = cardType.replace(/_/g, ' ').toUpperCase(),
@@ -213,7 +230,8 @@ export class CardPlayPresentationController {
         }
 
         // Create visual clone
-        const cloneData = this._createCardClone(sourceElementId || 'player-hand-container', cardType, skinIndex);
+        const displayType = displayCardType || (cardType?.startsWith('combo_') ? 'cat_taco' : cardType);
+        const cloneData = this._createCardClone(sourceElementId || 'player-hand-container', displayType, skinIndex);
         if (!cloneData) return;
 
         const { clone, startPos } = cloneData;
@@ -364,6 +382,15 @@ export class CardPlayPresentationController {
         }, 0.2);
     }
 
+    _triggerScreenRedBorderFlash() {
+        const flashEl = document.getElementById('nope-screen-warning-flash');
+        if (flashEl) {
+            flashEl.classList.remove('is-active');
+            void flashEl.offsetWidth; // Force reflow
+            flashEl.classList.add('is-active');
+        }
+    }
+
     /**
      * Add Nope card to the stack (overlay on top of pending card)
      */
@@ -381,9 +408,20 @@ export class CardPlayPresentationController {
             return;
         }
 
+        // Deduplication using nopeActionId
+        const nopeActionId = nopeAction.nopeActionId || `nope-act-${Date.now()}-${Math.random()}`;
+        if (!action.nopeActionIds) action.nopeActionIds = new Set();
+        if (action.nopeActionIds.has(nopeActionId)) {
+            return; // Already rendered this Nope
+        }
+        action.nopeActionIds.add(nopeActionId);
+
         // Add to Nope stack
         action.nopeStack.push(nopeAction);
         this._syncDiscardMask(actionId);
+
+        // Trigger Retro Pixel Screen Red Warning Flash
+        this._triggerScreenRedBorderFlash();
 
         // Create Nope card overlay
         const { clone: mainClone } = action.elements;
@@ -400,6 +438,22 @@ export class CardPlayPresentationController {
         const { clone: nopeCard } = nopeClone;
         this.overlayContainer.appendChild(nopeCard);
 
+        // Calculate bounded stack offset using NOPE_STACK_PATTERN
+        const NOPE_STACK_PATTERN = [
+            { x: 18, y: 14, rotation: 10 },
+            { x: -14, y: 22, rotation: -8 },
+            { x: 24, y: -8, rotation: 6 },
+            { x: -20, y: -14, rotation: -6 }
+        ];
+
+        const nopeIndex = action.nopeStack.length; // 1, 2, 3...
+        const pattern = NOPE_STACK_PATTERN[(nopeIndex - 1) % NOPE_STACK_PATTERN.length];
+        const layer = Math.floor((nopeIndex - 1) / NOPE_STACK_PATTERN.length);
+
+        const targetX = mainRect.left + pattern.x + (layer * 4);
+        const targetY = mainRect.top + pattern.y + (layer * 3);
+        const rotationAngle = pattern.rotation;
+
         // Animate Nope card flying on top
         const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -407,14 +461,14 @@ export class CardPlayPresentationController {
             // Fade in
             gsap.fromTo(nopeCard, {
                 opacity: 0,
-                left: mainRect.left,
-                top: mainRect.top - 20,
+                left: targetX,
+                top: targetY - 15,
                 width: mainRect.width,
                 height: mainRect.height,
             }, {
                 opacity: 1,
-                left: mainRect.left,
-                top: mainRect.top,
+                left: targetX,
+                top: targetY,
                 duration: 0.3,
             });
         } else {
@@ -424,17 +478,17 @@ export class CardPlayPresentationController {
                 top: nopeClone.startPos.y - mainRect.height / 2,
                 width: mainRect.width * 0.8,
                 height: mainRect.height * 0.8,
-                rotation: -15,
+                rotation: -25,
                 opacity: 0,
             }, {
-                left: mainRect.left,
-                top: mainRect.top,
+                left: targetX,
+                top: targetY,
                 width: mainRect.width,
                 height: mainRect.height,
-                rotation: 5,
+                rotation: rotationAngle,
                 opacity: 1,
                 duration: 0.4,
-                ease: 'back.out(1.2)',
+                ease: 'back.out(1.4)',
             });
         }
 
@@ -460,41 +514,46 @@ export class CardPlayPresentationController {
             return;
         }
 
-        const isResolved = result === 'RESOLVED';
+        const nopeCount = action.nopeStack?.length || 0;
+        const isCancelled = result === 'CANCELLED' || (! (result === 'RESOLVED') && nopeCount % 2 === 1);
+        const isResolved = result === 'RESOLVED' || (!isCancelled && nopeCount % 2 === 0);
         const nextState = isResolved ? CARD_PLAY_STATES.RESOLVING : CARD_PLAY_STATES.CANCELLED;
 
         this._transitionTo(actionId, nextState);
 
-        const holdDuration = isResolved ? 0.25 : 0.55;
+        const holdDuration = nopeCount > 0 ? 0.65 : 0.25;
         const { clone } = action.elements;
 
-        // If cancelled, show Nope stamp
-        if (!isResolved) {
-            const nopeStamp = document.createElement('div');
-            nopeStamp.className = 'card-play-nope-stamp';
-            nopeStamp.style.cssText = `
+        // Show Retro Badge for Action Result (Odd vs Even Chain Nope)
+        if (nopeCount > 0) {
+            this._triggerScreenRedBorderFlash();
+            const badge = document.createElement('div');
+            badge.className = 'card-play-nope-stamp';
+            const isNoped = !isResolved;
+            badge.style.cssText = `
         position: absolute;
         top: 50%;
         left: 50%;
-        transform: translate(-50%, -50%) rotate(-12deg);
-        background: #dc2626;
-        color: white;
-        padding: 10px 20px;
-        border: 3px solid white;
-        border-radius: 8px;
-        font-family: var(--font-headline), sans-serif;
+        transform: translate(-50%, -50%) rotate(-6deg);
+        background: ${isNoped ? '#dc2626' : '#059669'};
+        color: #ffffff;
+        padding: 8px 16px;
+        border: 3px solid #0e1211;
+        box-shadow: 4px 4px 0px 0px #0e1211;
+        font-family: var(--font-headline), 'Space Mono', monospace;
         font-weight: 900;
-        font-size: clamp(16px, 3vw, 24px);
+        font-size: clamp(14px, 2.5vw, 20px);
         text-transform: uppercase;
-        letter-spacing: 0.1em;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+        letter-spacing: 0.08em;
+        white-space: nowrap;
         opacity: 0;
+        z-index: 10001;
       `;
-            nopeStamp.textContent = 'ĐÃ BỊ VÔ HIỆU HÓA';
-            clone.appendChild(nopeStamp);
-            action.elements.nopeStamp = nopeStamp;
+            badge.textContent = isNoped ? 'ĐÃ BỊ VÔ HIỆU HÓA!' : 'HÀNH ĐỘNG TIẾP TỤC!';
+            clone.appendChild(badge);
+            action.elements.nopeStamp = badge;
 
-            gsap.to(nopeStamp, {
+            gsap.to(badge, {
                 opacity: 1,
                 scale: 1.05,
                 duration: 0.25,

@@ -598,7 +598,7 @@ module.exports = function registerGameSocket(io) {
     const pending = gameState.pendingTargetSelect;
     if (!pending) return;
 
-    const { playerId, cardType, options, comboSize, presentationId } = pending;
+    const { playerId, cardType, options, comboSize, presentationId, displayCardType } = pending;
     gameState.pendingTargetSelect = null;
 
     // Update lastAction with target
@@ -619,6 +619,7 @@ module.exports = function registerGameSocket(io) {
       presentationId,
       playerId,
       cardType: actualCardType,
+      displayCardType,
       targetPlayerId,
       options: options || {},
       nopeCount: 0,
@@ -1283,16 +1284,22 @@ module.exports = function registerGameSocket(io) {
         if (!actualCardType) return; // Invalid play
         const presentationId = createPresentationId();
 
+        if (state.pendingNowOnlyWindow && actualCardType.endsWith('_now')) {
+          clearNowOnlyWindow(room, state.pendingNowOnlyWindow.eventId);
+        }
+
+        const actingPlayerObj = state.players.find((p) => p.userId === userId);
+        const playedCardObj = options?.cardId
+          ? actingPlayerObj?.hand?.find((c) => c.id === options.cardId)
+          : actingPlayerObj?.hand?.find((c) => c.type === cardType);
+        const cardSkinIndex = playedCardObj?.skinIndex ?? 0;
+
         if (!finalTargetPlayerId) {
           finalTargetPlayerId = getAutoTargetForTwoPlayerGame(state, userId, actualCardType);
           payload.finalTargetPlayerId = finalTargetPlayerId;
           if (finalTargetPlayerId && state.lastAction) {
             state.lastAction.targetPlayerId = finalTargetPlayerId;
           }
-        }
-
-        if (state.pendingNowOnlyWindow && actualCardType.endsWith('_now')) {
-          clearNowOnlyWindow(room, state.pendingNowOnlyWindow.eventId);
         }
 
         // Clairvoyance special short-circuit (still emitting here because it bypasses the Nope window in old logic)
@@ -1307,6 +1314,7 @@ module.exports = function registerGameSocket(io) {
               cardType: actualCardType,
               sourceCardType: cardType,
               sourceCardId: options?.cardId,
+              skinIndex: cardSkinIndex,
               targetPlayerId,
               canBeNoped: false,
             });
@@ -1335,6 +1343,7 @@ module.exports = function registerGameSocket(io) {
           cardType: actualCardType,
           sourceCardType: cardType,
           sourceCardId: options?.cardId,
+          skinIndex: cardSkinIndex,
           targetPlayerId: finalTargetPlayerId,
           canBeNoped: isNopeableAction(actualCardType),
           responseWindowMs: getNowWindowTimeout(),
@@ -1406,6 +1415,7 @@ module.exports = function registerGameSocket(io) {
         socket.emit('error', { message: error.message });
       }
     });
+
 
     socket.on('game:drawCard', async () => {
       try {
@@ -1482,15 +1492,18 @@ module.exports = function registerGameSocket(io) {
 
       const [nopeCard] = player.hand.splice(nopeIdx, 1);
       room.gameState.discardPile.push(nopeCard);
+      const nopeCardActionId = `nope-${userId}-${Date.now()}-${Math.random()}`;
       io.to(roomCode).emit('game:cardPlayed', {
         playerId: userId,
         cardType: 'nope',
+        cardActionId: nopeCardActionId,
         sourceCardId: nopeCard.id,
+        skinIndex: nopeCard.skinIndex ?? 0,
         targetPlayerId: pending.playerId,
         nopedCardType: pending.cardType,
         actionId: pending.eventId,
         presentationId: ensurePresentationId(pending),
-        animationOnly: true,
+        nopeIndex: (pending.nopeCount || 0) + 1,
       });
 
       pending.nopeCount += 1;
@@ -1601,8 +1614,11 @@ module.exports = function registerGameSocket(io) {
           finalTargetPlayerId = getAutoTargetForTwoPlayerGame(state, userId, comboCardType);
         }
 
+        const presentationId = createPresentationId();
+
         io.to(roomCode).emit('game:cardPlayedPending', {
-          actionId: `combo-pending-${Date.now()}-${Math.random()}`,
+          actionId: presentationId,
+          presentationId,
           playerId: userId,
           cardType: comboCardType,
           displayCardType: comboResult.cardTypes[0] || 'cat_taco',
@@ -1626,6 +1642,8 @@ module.exports = function registerGameSocket(io) {
           room.gameState.pendingTargetSelect = {
             playerId: userId,
             cardType: comboCardType,
+            displayCardType: comboResult.cardTypes[0] || 'cat_taco',
+            presentationId,
             comboSize,
             options: { cardIds: cards ?? [], cardTypes: comboResult.cardTypes, ...(clientOptions || {}) },
             startedAt: Date.now(),
@@ -1659,8 +1677,10 @@ module.exports = function registerGameSocket(io) {
         const eventId = `${Date.now()}-${Math.random()}`;
         const action = {
           eventId,
+          presentationId,
           playerId: userId,
           cardType: comboCardType,
+          displayCardType: comboResult.cardTypes[0] || 'cat_taco',
           targetPlayerId: finalTargetPlayerId,
           options: { cardIds: cards ?? [], cardTypes: comboResult.cardTypes, ...(clientOptions || {}) },
           nopeCount: 0,

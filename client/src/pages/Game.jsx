@@ -1441,7 +1441,7 @@ export default function Game({ setPage }) {
 
       if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
         window.requestAnimationFrame(queueDrawEffect);
-      } else {
+} else {
         setTimeout(queueDrawEffect, 50);
       }
     };
@@ -1479,17 +1479,21 @@ export default function Game({ setPage }) {
       presentationId,
       playerId,
       cardType,
+      displayCardType,
+      skinIndex,
       sourceCardType,
       sourceCardId,
       targetPlayerId,
       canBeNoped,
     }) => {
       const stableId = presentationId || actionId;
+      const effectiveType = displayCardType || sourceCardType || cardType;
       cardPlayPresentation.showPending({
         actionId: stableId,
         cardType,
-        skinIndex: 0,
-        sourceElementId: getPresentationSourceId(playerId, sourceCardType || cardType, sourceCardId),
+        displayCardType: effectiveType,
+        skinIndex: skinIndex ?? 0,
+        sourceElementId: getPresentationSourceId(playerId, effectiveType, sourceCardId),
         playerId,
         targetPlayerId,
         canBeNoped,
@@ -1501,12 +1505,14 @@ export default function Game({ setPage }) {
     // Kept only for:
     //   1. Nope card (animationOnly: true) — add to Nope stack
     //   2. Discard actions emitted by game:discard handler (no Nope window)
-    const handleCardPlayed = ({ playerId, cardType, sourceCardId, animationOnly, presentationId }) => {
-      if (animationOnly && cardType === 'nope' && presentationId) {
+    const handleCardPlayed = ({ playerId, cardType, cardActionId, sourceCardId, presentationId, skinIndex }) => {
+      if (cardType === 'nope' && presentationId) {
+        const nopeActionId = cardActionId || `nope-${playerId}-${Date.now()}-${Math.random()}`;
         cardPlayPresentation.addNope(presentationId, {
+          nopeActionId,
           playerId,
           cardType: 'nope',
-          skinIndex: 0,
+          skinIndex: skinIndex ?? 0,
           sourceElementId: getPresentationSourceId(playerId, 'nope', sourceCardId),
         });
       }
@@ -1907,6 +1913,7 @@ export default function Game({ setPage }) {
 
   return (
     <GameProvider value={gameBoardViewProps}>
+      <div id="nope-screen-warning-flash" className="nope-screen-flash pointer-events-none" aria-hidden="true" />
       <GameBoardView />
     </GameProvider>
   );

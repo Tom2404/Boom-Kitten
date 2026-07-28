@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useGameContext } from '../GameContext.jsx';
 import GameTableCore from './GameTableCore.jsx';
-import OpponentRail from './OpponentRail.jsx';
 import PlayerHandDock from './PlayerHandDock.jsx';
-import TurnBanner from './TurnBanner.jsx';
+import { calculateRelativeOpponents } from '../../../utils/seatAllocation.js';
+import { getInteractionState } from '../../../utils/interactionState.js';
 
 export default function GameTable(props) {
   const context = useGameContext();
@@ -15,27 +15,63 @@ export default function GameTable(props) {
     activePlayerId,
     discardCard,
     displayedDiscardPile,
-    displayState,
     drawCard,
     gameState,
-    getOrderedOpponents,
     getStatusDisplay,
     isMyTurn,
     isOpponentTargetable,
     myUser,
     nopeWindow,
-    opponents,
     playCard,
     playCombo,
     privateHand,
     respondCombo5,
     reversePulse,
   } = { ...context, ...props };
-  const [targetPlayerId, setTargetPlayerId] = React.useState(null);
+
+  const [targetPlayerId, setTargetPlayerId] = useState(null);
+  const [layoutMode, setLayoutMode] = useState('horseshoe-large');
+  const containerRef = useRef(null);
+
+  const relativeOpponents = calculateRelativeOpponents(gameState.players, myUser.id);
+  const totalOpponents = relativeOpponents.length;
+
+  // Responsive Layout detection using ResizeObserver
+  useEffect(() => {
+    const el = containerRef.current || document.getElementById('game-board-container');
+    if (!el) return;
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (width < 640 || height < 500) {
+          setLayoutMode('rail');
+        } else if (width < 960 || totalOpponents > 4) {
+          setLayoutMode('horseshoe-compact');
+        } else {
+          setLayoutMode('horseshoe-large');
+        }
+      }
+    });
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [totalOpponents]);
 
   const targetName = targetPlayerId
-    ? opponents.find((opponent) => opponent.userId === targetPlayerId)?.username || targetPlayerId
+    ? gameState.players?.find((opponent) => opponent.userId === targetPlayerId)?.username || targetPlayerId
     : null;
+
+  const interactionState = {
+    ...getInteractionState({
+      gameState,
+      myUserId: myUser.id,
+      privateHand,
+      nopeWindow,
+    }),
+    activePlayerId,
+  };
+
   const isDrawDisabled = Boolean(
     gameState.pendingFavor
     || gameState.pendingAlter
@@ -48,38 +84,39 @@ export default function GameTable(props) {
   };
 
   return (
-    <div id="game-board-container" className="game-board">
-      <div className="game-board__hud">
-        <TurnBanner state={displayState} />
-        <OpponentRail
-          PlayerAvatar={PlayerAvatar}
-          activePlayerId={activePlayerId}
-          edition={gameState.edition}
-          getOrderedOpponents={getOrderedOpponents}
-          isOpponentTargetable={isOpponentTargetable}
-          selectedTargetId={targetPlayerId}
-          waitingHolderId={gameState.barkingKittenState?.waitingHolder}
-          onSelectTarget={handleSelectTarget}
-        />
-      </div>
+    <div
+      id="game-board-container"
+      ref={containerRef}
+      className={`game-board game-stage`}
+      data-layout={layoutMode}
+    >
       <GameTableCore
         DeckPile={DeckPile}
         DiscardPile={DiscardPile}
+        PlayerAvatar={PlayerAvatar}
         deckCount={gameState.deckCount ?? 0}
         displayedDiscardPile={displayedDiscardPile}
         drawCard={drawCard}
+        edition={gameState.edition}
         isDrawDisabled={isDrawDisabled}
         isMyTurn={isMyTurn}
+        isOpponentTargetable={isOpponentTargetable}
+        layoutMode={layoutMode}
         myUserId={myUser.id}
+        onClearTarget={() => setTargetPlayerId(null)}
         onSelectDiscard={respondCombo5}
+        onSelectTarget={handleSelectTarget}
+        opponents={relativeOpponents}
         pendingCombo5={gameState.pendingCombo5}
         playDirection={gameState.playDirection}
         reversePulse={reversePulse}
-        statusMessage={getStatusDisplay()}
-        topCard={gameState.topCard}
+        selectedTargetId={targetPlayerId}
+        interactionState={interactionState}
         targetName={targetName}
-        onClearTarget={() => setTargetPlayerId(null)}
+        topCard={gameState.topCard}
+        waitingHolderId={gameState.barkingKittenState?.waitingHolder}
       />
+
       <PlayerHandDock
         PlayerHand={PlayerHand}
         discardCard={discardCard}

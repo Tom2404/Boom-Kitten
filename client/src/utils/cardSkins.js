@@ -255,6 +255,9 @@ const CARD_TYPE_ALIASES = {
   see_the_future: 'see_the_future_3',
   draw_from_the_bottom: 'draw_from_bottom',
   shuffle_now: 'shuffle',
+  combo_2: 'cat_taco',
+  combo_3: 'cat_taco',
+  combo_5: 'cat_taco',
 };
 
 function normalizeCardType(cardType) {
