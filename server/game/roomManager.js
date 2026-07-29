@@ -3,6 +3,7 @@ const { createDeck, dealCards } = require('./deck');
 
 const rooms = new Map();
 const VALID_EDITIONS = new Set(['original', '2_player', 'zombie', 'barking', 'good_vs_evil', 'imploding', 'streaking']);
+const { validateStake } = require('../services/wagerService');
 
 function makeCode() {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -22,9 +23,8 @@ function createRoom(hostId, options = {}, username = 'Guest') {
   const requestedMax = parseInt(options.maxPlayers, 10);
   const maxPlayers = (!isNaN(requestedMax) && requestedMax >= 2 && requestedMax <= maxLimit) ? requestedMax : maxLimit;
 
-  let betAmount = parseInt(options.betAmount, 10);
-  betAmount = !isNaN(betAmount) && betAmount >= 0 ? betAmount : 50;
-  betAmount = Math.min(betAmount, 10000000); // 10 million limit
+  const requestedStake = Number(options.betAmount ?? 0);
+  const betAmount = validateStake(requestedStake);
 
   let customDefuses = parseInt(options.customDefuses, 10);
   let customExplodingKittens = parseInt(options.customExplodingKittens, 10);
@@ -54,6 +54,9 @@ function createRoom(hostId, options = {}, username = 'Guest') {
     password: options.password || '',
     betAmount,
     edition,
+    gameMode: ['matchmaking', 'tournament'].includes(options.gameMode) ? options.gameMode : 'custom',
+    createdAt: new Date(),
+    updatedAt: new Date(),
     gameState: null,
     customDefuses,
     customExplodingKittens,
@@ -70,6 +73,7 @@ function joinRoom(roomCode, userId, username = 'Guest', password = '') {
   if (room.status !== 'waiting') throw new Error('Trận đấu đã bắt đầu');
   if (room.password && room.password !== password) throw new Error('Mật khẩu phòng chơi không chính xác');
   room.players.push({ userId, username, hand: [], alive: true, isReady: false });
+  touchRoom(room);
   return room;
 }
 
@@ -85,6 +89,7 @@ function leaveRoom(roomCode, userId) {
     }
   }
   if (room.players.length === 0) rooms.delete(roomCode);
+  else touchRoom(room);
   return rooms.get(roomCode) ?? null;
 }
 
@@ -94,6 +99,7 @@ function kickPlayer(roomCode, hostId, targetUserId) {
   if (room.host !== hostId) throw new Error('Chỉ chủ phòng mới có thể kick người chơi');
   if (room.host === targetUserId) throw new Error('Không thể kick chủ phòng');
   room.players = room.players.filter((p) => p.userId !== targetUserId);
+  touchRoom(room);
   return room;
 }
 
@@ -104,6 +110,7 @@ function toggleReady(roomCode, userId, isReady) {
   if (!player) throw new Error('Không tìm thấy người chơi trong phòng');
   if (room.host === userId) throw new Error('Chủ phòng luôn ở trạng thái sẵn sàng');
   player.isReady = !!isReady;
+  touchRoom(room);
   return room;
 }
 
@@ -123,9 +130,8 @@ function updateRoomSettings(roomCode, hostId, newSettings) {
     room.maxPlayers = Math.min(room.maxPlayers, maxLimit);
   }
 
-  const betAmount = parseInt(newSettings.betAmount, 10);
-  if (!isNaN(betAmount) && betAmount >= 0) {
-    room.betAmount = Math.min(betAmount, 10000000);
+  if (newSettings.betAmount !== undefined) {
+    room.betAmount = validateStake(Number(newSettings.betAmount));
   }
 
   if (newSettings.customDefuses !== undefined || newSettings.customExplodingKittens !== undefined) {
@@ -155,6 +161,7 @@ function updateRoomSettings(roomCode, hostId, newSettings) {
       p.isReady = false;
     }
   });
+  touchRoom(room);
 
   return room;
 }
@@ -176,6 +183,8 @@ function startGame(roomCode) {
   const dealt = dealCards(deck, room.players, handSize, room.edition, customOptions);
 
   room.status = 'playing';
+  room.startedAt = new Date();
+  room.updatedAt = room.startedAt;
   room.gameState = {
     roomCode,
     players: dealt.players,
@@ -209,6 +218,40 @@ function getPublicRooms() {
 function getRoomState(roomCode) {
   return rooms.get(roomCode) ?? null;
 }
+function getOperationalRooms() {
+  return [...rooms.values()].map((room) => ({ code: room.code, status: room.status }));
+}
+
+function getOperationalRoomStates() {
+  return [...rooms.values()];
+}
+
+function touchRoom(roomOrCode) {
+  const room = typeof roomOrCode === 'string' ? rooms.get(roomOrCode) : roomOrCode;
+  if (room) room.updatedAt = new Date();
+  return room ?? null;
+}
+
+function clearTimers(value, seen = new WeakSet()) {
+  if (!value || typeof value !== 'object' || seen.has(value)) return;
+  seen.add(value);
+  for (const [key, item] of Object.entries(value)) {
+    if (key === 'timerId' && item) clearTimeout(item);
+    else clearTimers(item, seen);
+  }
+}
+
+function forceCloseRoom(roomCode) {
+  const room = rooms.get(roomCode);
+  if (!room) return null;
+  clearTimers(room.gameState);
+  rooms.delete(roomCode);
+  return room;
+}
+
+function disconnectPlayer(roomCode, userId) {
+  return leaveRoom(roomCode, userId);
+}
 
 function findRoomByUser(userId) {
   return [...rooms.values()].find((room) => room.players.some((p) => p.userId === userId));
@@ -221,6 +264,11 @@ module.exports = {
   startGame,
   getPublicRooms,
   getRoomState,
+  getOperationalRooms,
+  getOperationalRoomStates,
+  touchRoom,
+  forceCloseRoom,
+  disconnectPlayer,
   findRoomByUser,
   kickPlayer,
   toggleReady,

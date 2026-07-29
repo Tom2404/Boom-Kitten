@@ -1,6 +1,7 @@
 import React from 'react';
 import PopButton from './PopButton.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
+import { isAdminRole } from '../utils/adminRoles.js';
 
 /**
  * CTAFinal - Section 07 of the homepage.
@@ -72,7 +73,7 @@ export default function CTAFinal({ setPage, isLoggedIn, userRole }) {
             shadowColor="var(--pop-orange)"
             onClick={() => {
               if (isLoggedIn) {
-                setPage(userRole === 'admin' ? 'Admin' : 'Game');
+                setPage(isAdminRole(userRole) ? 'Admin' : 'Game');
               } else {
                 setPage('Login');
               }

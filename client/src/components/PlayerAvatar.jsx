@@ -1,17 +1,8 @@
 import React from 'react';
 import { formatCardName } from '../utils/cardHelpers.js';
 import { getCardImageUrl } from '../utils/cardSkins.js';
-import { RankBadge } from './Icons.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { getPlayerStatus } from '../utils/gameRoomUi.js';
-
-const RANK_BADGES = {
-  Bronze: '🟫 BRONZE',
-  Silver: '⬜ SILVER',
-  Gold: '🟨 GOLD',
-  Diamond: '🔷 DIAMOND',
-  Legend: '👑 LEGEND',
-};
 
 const PRESET_AVATARS = {
   angry_kitten: '😿',
@@ -35,7 +26,7 @@ export default function PlayerAvatar({
   compact = false,
 }) {
   const { t } = useLanguage();
-  const { userId, username, alive, handCount, avatar, activeAvatarFrame, eloPoints, rank, markedCards, pendingTakeFrom } = player;
+  const { userId, username, alive, handCount, avatar, activeAvatarFrame, markedCards, pendingTakeFrom } = player;
   const visibleMarkedCards = markedCards?.slice(0, 3) ?? [];
   const hiddenMarkedCount = Math.max((markedCards?.length ?? 0) - visibleMarkedCards.length, 0);
 
@@ -44,9 +35,6 @@ export default function PlayerAvatar({
       onSelectTarget(userId);
     }
   };
-
-  const currentRank = rank || publicProfile?.rank || 'Bronze II';
-  const currentElo = eloPoints || publicProfile?.eloPoints || 1000;
 
   if (compact) {
     const Seat = isTargetable ? 'button' : 'article';
@@ -65,6 +53,7 @@ export default function PlayerAvatar({
       <Seat
         {...(isTargetable ? { type: 'button' } : {})}
         id={`player-avatar-${userId}`}
+        data-vfx-anchor={`player-${userId}`}
         onClick={handleSelect}
         className={`game-opponent-seat ${isCurrentTurn ? 'game-opponent-seat--active' : ''} ${isTargetable ? 'game-opponent-seat--targetable' : ''} ${isSelectedTarget ? 'game-opponent-seat--selected' : ''} ${!alive ? 'game-opponent-seat--out' : ''}`}
         data-player-status={playerStatus}
@@ -77,10 +66,11 @@ export default function PlayerAvatar({
           ) : (
             <span>{alive ? avatarContent : 'RIP'}</span>
           )}
+          {alive && <span className="game-opponent-seat__badge">{handCount ?? 0}</span>}
         </span>
         <span className="game-opponent-seat__identity">
           <strong>{username || userId}</strong>
-          <small>{alive ? `${handCount ?? 0} lá${isCurrentTurn ? ', đang lượt' : ''}` : edition === 'zombie' ? 'Zombie' : 'Đã nổ'}</small>
+          <small>{alive ? (isCurrentTurn ? 'Đang lượt' : 'Chờ') : edition === 'zombie' ? 'Zombie' : 'Đã nổ'}</small>
         </span>
         {isWaitingBK && alive && <span className="game-opponent-seat__alert">Sủa</span>}
         {pendingTakeFrom && alive && <span className="game-opponent-seat__alert">Bị cướp</span>}
@@ -102,6 +92,7 @@ export default function PlayerAvatar({
       {/* Main Player Avatar Box */}
       <div
         id={`player-avatar-${userId}`}
+        data-vfx-anchor={`player-${userId}`}
         onClick={handleSelect}
         className={`player-avatar relative p-3 rounded-2xl flex flex-col items-center justify-between transition-all duration-200 select-none w-36
           ${alive 
@@ -177,7 +168,7 @@ export default function PlayerAvatar({
               </div>
             </>
           ) : (
-            /* Custom Tombstone SVG for dead players (Zombies) - Zero Emojis */
+            /* Custom Tombstone SVG for dead players (Zombies) */
             <svg viewBox="0 0 64 64" className="w-16 h-16 drop-shadow-[2px_2px_0px_#0f0f0f]" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M12 56V22C12 13 20 6 32 6C44 6 52 13 52 22V56H12Z" fill="#9ca3af" stroke="#1a1a1a" strokeWidth="3" strokeLinejoin="round" />
               <path d="M24 14L28 20L26 26" stroke="#1a1a1a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -187,7 +178,7 @@ export default function PlayerAvatar({
           )}
         </div>
     
-        {/* Name and Rank Details */}
+        {/* Player identity */}
         <div className="w-full text-center">
           <h4 className={`text-xs font-headline font-black truncate max-w-full px-1 
             ${isCurrentTurn && alive 
@@ -195,11 +186,8 @@ export default function PlayerAvatar({
               : (edition === 'zombie' && !alive ? 'text-[#a7f3d0]' : 'text-on-surface')}`}>
             {username || userId}
           </h4>
-          <div className="flex justify-center my-0.5">
-            <RankBadge rank={currentRank} className="w-4 h-4" showText={true} />
-          </div>
           <span className={`text-[9px] font-mono font-bold block mt-0.5 ${isCurrentTurn && alive ? 'text-slate-700' : 'text-on-surface-variant'}`}>
-            {currentElo} ELO
+            {alive ? `${handCount ?? 0} lá bài` : 'Đã nổ'}
           </span>
         </div>
   

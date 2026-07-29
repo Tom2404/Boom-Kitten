@@ -7,7 +7,7 @@ const questSchema = new mongoose.Schema(
     description: { type: String, required: true },
     actionType: {
       type: String,
-      enum: ['play_game', 'win_game', 'nope_card', 'defuse_kitten', 'steal_card'],
+      enum: ['play_game', 'win_game', 'draw_card', 'buy_item', 'nope_card', 'defuse_kitten', 'steal_card'],
       required: true,
     },
     targetCount: { type: Number, required: true, default: 1 },

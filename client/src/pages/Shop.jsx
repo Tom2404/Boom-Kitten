@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { gsap } from 'gsap';
-import { CoinIcon, GemIcon } from '../components/CoinDisplay.jsx';
+import { CoinIcon } from '../components/CoinDisplay.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import CustomDialog from '../components/CustomDialog.jsx';
 
@@ -15,7 +15,7 @@ export default function Shop({ setPage }) {
   const { t } = useLanguage();
   const [items, setItems] = useState([]);
   const [ownedItems, setOwnedItems] = useState({ ownedSkins: [], ownedEmotes: [], ownedAvatarFrames: [] });
-  const [userBalance, setUserBalance] = useState({ coins: 0, gems: 0 });
+  const [userBalance, setUserBalance] = useState({ coins: 0 });
   const [selectedTab, setSelectedTab] = useState('skin');
 
   const [loading, setLoading] = useState(true);
@@ -50,13 +50,13 @@ export default function Shop({ setPage }) {
         const dataOwned = await resOwned.json();
         if (resOwned.ok) setOwnedItems(dataOwned);
 
-        // 3. Fetch user balance (profile coins/gems)
+        // 3. Fetch user Coin balance
         const resProfile = await fetch(`${API_URL}/api/users/me`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const dataProfile = await resProfile.json();
         if (resProfile.ok) {
-          setUserBalance({ coins: dataProfile.coins, gems: dataProfile.gems });
+          setUserBalance({ coins: dataProfile.coins });
         }
       }
     } catch (e) {
@@ -148,7 +148,7 @@ export default function Shop({ setPage }) {
       return 'Cool custom card sleeve. Might not explode.';
     }
     if (item.type === 'emote') return 'Show your emotions to your opponents.';
-    if (item.type === 'avatar_frame') return 'Premium frame to show off your ELO rank.';
+    if (item.type === 'avatar_frame') return 'Khung avatar độc quyền để thể hiện phong cách.';
     return 'Special item for Kitten Arena.';
   };
 
@@ -176,13 +176,6 @@ export default function Shop({ setPage }) {
             <CoinIcon className="w-5 h-5" />
             <span className="font-pop-accent font-black text-[var(--pop-black)] text-sm">
               {userBalance.coins.toLocaleString()}
-            </span>
-          </div>
-          <div className="h-6 w-0.5 bg-[var(--pop-black)]/20"></div>
-          <div className="flex items-center gap-2">
-            <GemIcon className="w-5 h-5 text-indigo-600" />
-            <span className="font-pop-accent font-black text-[var(--pop-black)] text-sm">
-              {userBalance.gems.toLocaleString()}
             </span>
           </div>
           <button 
@@ -296,11 +289,7 @@ export default function Shop({ setPage }) {
                 <div className="flex justify-between items-center pt-3 border-t border-[var(--pop-black)]/10">
                   {/* Pricing Display */}
                   <div className="flex gap-2">
-                    {item.price?.gems > 0 ? (
-                      <span className="font-pop-accent font-black text-[var(--pop-black)] text-xs flex items-center gap-1">
-                        <GemIcon className="w-4 h-4 text-indigo-600" /> {item.price.gems.toLocaleString()}
-                      </span>
-                    ) : item.price?.coins > 0 ? (
+                    {item.price?.coins > 0 ? (
                       <span className="font-pop-accent font-black text-[var(--pop-black)] text-xs flex items-center gap-1">
                         <CoinIcon className="w-4 h-4 text-yellow-500" /> {item.price.coins.toLocaleString()}
                       </span>

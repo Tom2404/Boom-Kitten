@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CoinIcon, GemIcon } from '../components/CoinDisplay.jsx';
+import { CoinIcon } from '../components/CoinDisplay.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import CustomDialog from '../components/CustomDialog.jsx';
 import { gsap } from 'gsap';
@@ -110,8 +110,8 @@ export default function Mission({ setPage }) {
           </h1>
           <p className="text-xs font-bold text-[var(--pop-black)]/60 mt-2 max-w-lg">
             {language === 'vi' 
-              ? 'Hoàn thành các nhiệm vụ hàng ngày để nhận nhiều Gold Coins và Pink Coins!' 
-              : 'Complete daily missions to earn Gold Coins and Pink Coins!'}
+              ? 'Hoàn thành nhiệm vụ hàng ngày để nhận Coin!'
+              : 'Complete daily missions to earn Coin!'}
           </p>
         </div>
       </div>
@@ -157,7 +157,7 @@ export default function Mission({ setPage }) {
                         {quest.title}
                       </span>
                       <span className="text-[10px] font-pop-accent font-black text-indigo-600 bg-indigo-50 border-2 border-indigo-200 px-2 py-0.5 rounded-none flex items-center gap-1">
-                        +{quest.reward?.coins || 0} {t('shop_gold') || 'Gold'} {quest.reward?.gems > 0 && `• +${quest.reward.gems} ${t('shop_pink') || 'Pink'}`}
+                        +{quest.reward?.coins || 0} Coin
                       </span>
                     </div>
                     

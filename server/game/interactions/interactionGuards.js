@@ -115,6 +115,14 @@ function validateCombo5Response(state, responseData) {
   return { valid: true };
 }
 
+function validateCombo3Response(responseData) {
+  const cardType = typeof responseData === 'string' ? responseData : responseData?.cardType;
+  if (typeof cardType !== 'string' || !/^[a-z0-9_]{1,64}$/.test(cardType)) {
+    return { valid: false, reason: 'Tên lá bài không hợp lệ!' };
+  }
+  return { valid: true };
+}
+
 function validateInteractionResponse(state, userId, responseData) {
   const interaction = state.activeInteraction;
   if (!interaction) {
@@ -135,6 +143,8 @@ function validateInteractionResponse(state, userId, responseData) {
       return validateOwnedCardResponse(state, userId, responseData, { allowEmptyHandSkip: true });
     case 'dig_deeper':
       return validateDigDeeperResponse(responseData);
+    case 'combo_3':
+      return validateCombo3Response(responseData);
     case 'combo_5':
       return validateCombo5Response(state, responseData);
     default:

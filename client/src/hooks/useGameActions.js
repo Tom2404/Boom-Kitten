@@ -140,9 +140,12 @@ export function useGameActions({
     socket.emit('game:armageddon:decision', { decision, interactionId: getActiveInteractionId('armageddon') });
   };
 
-  const playCombo = (cards, targetPlayerId = null, stealCardType = null) => {
-    const options = stealCardType ? { stealCardType } : undefined;
-    socket.emit('game:combo', { cards, targetPlayerId, options });
+  const playCombo = (cards, targetPlayerId = null) => {
+    socket.emit('game:combo', { cards, targetPlayerId });
+  };
+
+  const respondCombo3 = (cardType) => {
+    socket.emit('game:combo3:respond', { cardType, interactionId: getActiveInteractionId('combo_3') });
   };
 
   const respondCombo5 = (cardId) => {
@@ -188,6 +191,7 @@ export function useGameActions({
     respondArmageddonDistribute,
     respondArmageddonDecision,
     playCombo,
+    respondCombo3,
     respondCombo5,
     sendChatMessage,
     sendEmote,

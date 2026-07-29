@@ -20,21 +20,3 @@ export function HelpIcon(props) { return <PixelIcon name="help" {...props} />; }
 export function SoundIcon(props) { return <PixelIcon name="sound" {...props} />; }
 export function SmileIcon(props) { return <PixelIcon name="smile" {...props} />; }
 export function CardDrawerIcon(props) { return <PixelIcon name="card_drawer" {...props} />; }
-
-// Badges
-export function BronzeBadge(props) { return <PixelIcon name="badge_bronze" {...props} />; }
-export function SilverBadge(props) { return <PixelIcon name="badge_silver" {...props} />; }
-export function GoldBadge(props) { return <PixelIcon name="badge_gold" {...props} />; }
-export function PlatinumBadge(props) { return <PixelIcon name="badge_platinum" {...props} />; }
-export function DiamondBadge(props) { return <PixelIcon name="badge_diamond" {...props} />; }
-export function LegendBadge(props) { return <PixelIcon name="badge_legend" {...props} />; }
-
-export function RankBadge({ rank = "Bronze II", className = "w-5 h-5", showText = false }) {
-  if (rank.startsWith('Bronze')) return <BronzeBadge className={className} />;
-  if (rank.startsWith('Silver')) return <SilverBadge className={className} />;
-  if (rank.startsWith('Gold')) return <GoldBadge className={className} />;
-  if (rank.startsWith('Platinum')) return <PlatinumBadge className={className} />;
-  if (rank.startsWith('Diamond')) return <DiamondBadge className={className} />;
-  if (rank.startsWith('Legend')) return <LegendBadge className={className} />;
-  return <PixelIcon name="badge_default" className={className} />;
-}

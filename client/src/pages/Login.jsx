@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../hooks/useAuth.js';
 import { useLanguage } from '../context/LanguageContext.jsx';
+import { isAdminRole } from '../utils/adminRoles.js';
 
 export default function Login({ setPage }) {
   const { t } = useLanguage();
@@ -48,7 +49,7 @@ export default function Login({ setPage }) {
         const base64Url = data.accessToken.split('.')[1];
         const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
         const payload = JSON.parse(window.atob(base64));
-        if (payload.role === 'admin') {
+        if (isAdminRole(payload.role)) {
           redirectPage = 'Admin';
         }
       } catch (e) {

@@ -5,6 +5,10 @@
   "main": "index.js",
   "scripts": {
     "test": "node --test",
+    "migration:admin-roles:dry-run": "node scripts/migrate-admin-roles.js",
+    "migration:admin-roles:apply": "node scripts/migrate-admin-roles.js --apply",
+    "migration:gems:dry-run": "node scripts/migrate-gems-to-coins.js",
+    "migration:gems:apply": "node scripts/migrate-gems-to-coins.js --apply",
     "start": "node index.js",
     "dev": "node --watch index.js"
   },
@@ -14,7 +18,7 @@
   "type": "commonjs",
   "private": true,
   "dependencies": {
-    "bcrypt": "^5.1.1",
+    "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",

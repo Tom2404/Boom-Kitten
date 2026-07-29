@@ -5,6 +5,7 @@ import GameSidePanel from '../components/GameSidePanel.jsx';
 import GameModals from '../Modals/GameModals.jsx';
 import { useGameContext } from '../GameContext.jsx';
 import { getGameDisplayState } from '../../../utils/gameDisplayState.js';
+import CardFocusOverlay from '../../../components/CardFocusOverlay.jsx';
 
 export default function GameBoardView() {
   const props = useGameContext();
@@ -27,7 +28,6 @@ export default function GameBoardView() {
     FeedTheDeadModal,
     GarbageSelectModal,
     GearIcon,
-    GemIcon,
     GraveRobberModal,
     HelpIcon,
     ImageButton,
@@ -77,6 +77,8 @@ export default function GameBoardView() {
     nopeWindow,
     nowCardToast,
     numPlayAnims,
+    flyingCardActionId,
+    setFlyingCardActionId,
     passNope,
     playAgain,
     playCard,
@@ -142,9 +144,15 @@ export default function GameBoardView() {
     activePlayerName: activePlayer?.username,
   });
 
-  const displayedDiscardPile = (gameState.discardPile && numPlayAnims > 0)
-    ? gameState.discardPile.slice(0, Math.max(0, gameState.discardPile.length - numPlayAnims))
-    : (gameState.discardPile || []);
+  // Hide the top card(s) of discard pile while a clone card is flying to it
+  // to avoid a "double card" visual glitch. flyingCardActionId is set by
+  // CardFocusOverlay's onDiscardPileSync callback while the clone is in flight.
+  const discardMaskCount = flyingCardActionId?.count || 0;
+  const displayedDiscardPile = discardMaskCount > 0
+    ? gameState.discardPile.slice(0, Math.max(0, gameState.discardPile.length - discardMaskCount))
+    : (gameState.discardPile && numPlayAnims > 0)
+      ? gameState.discardPile.slice(0, Math.max(0, gameState.discardPile.length - numPlayAnims))
+      : (gameState.discardPile || []);
   const getPlayerDisplayName = (playerId) => {
     if (playerId === myUser.id) return myUser.username || 'Bạn';
     const player =
@@ -165,9 +173,14 @@ export default function GameBoardView() {
 
   const hasNopeCard = privateHand.some((c) => c.type === 'nope');
 
+  const handleDiscardPileSync = React.useCallback((actionId, hiddenCount) => {
+    setFlyingCardActionId(hiddenCount > 0 ? { actionId, count: hiddenCount } : null);
+  }, [setFlyingCardActionId]);
+
   return (
     <div ref={mainContainerRef} className="game-room select-none">
       {errorToast}
+      <CardFocusOverlay onDiscardPileSync={handleDiscardPileSync} />
       <GameHeader />
 
       <div className="game-room__stage">

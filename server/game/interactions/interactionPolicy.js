@@ -15,6 +15,7 @@ function getInteractionParticipants(state, { type, owner, targetPlayerId }) {
     grave_robber: players
       .filter((player) => !player.alive && player.hand.length > 0)
       .map((player) => player.userId),
+    combo_3: [owner],
     combo_5: [owner],
   };
 

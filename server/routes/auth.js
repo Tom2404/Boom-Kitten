@@ -3,6 +3,7 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { getAccountRestriction } = require('../utils/accountStatus');
 
 const router = express.Router();
 const refreshTokens = new Set();
@@ -48,9 +49,8 @@ router.post('/login', async (req, res, next) => {
     const user = await User.findOne({ email });
     if (!user) return res.status(401).json({ message: 'Invalid credentials' });
 
-    if (user.isBanned) {
-      return res.status(403).json({ message: 'Tài khoản của bạn đã bị khóa bởi quản trị viên.' });
-    }
+    const restriction = getAccountRestriction(user);
+    if (restriction) return res.status(403).json({ message: restriction.message, code: restriction.type === 'suspended' ? 'ACCOUNT_SUSPENDED' : 'ACCOUNT_BANNED' });
 
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) return res.status(401).json({ message: 'Invalid credentials' });
@@ -73,6 +73,8 @@ router.post('/refresh', async (req, res) => {
     const payload = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
     const user = await User.findById(payload.sub);
     if (!user) return res.status(401).json({ message: 'Invalid refresh token' });
+    const restriction = getAccountRestriction(user);
+    if (restriction) return res.status(403).json({ message: restriction.message, code: restriction.type === 'suspended' ? 'ACCOUNT_SUSPENDED' : 'ACCOUNT_BANNED' });
     return res.json({ accessToken: makeAccessToken(user) });
   } catch (_error) {
     return res.status(401).json({ message: 'Invalid refresh token' });

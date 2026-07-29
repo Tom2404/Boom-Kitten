@@ -11,6 +11,11 @@ const {
   sanitizeActiveInteractionForPublic,
 } = require('../game/interactions/interactionPolicy');
 const {
+  createPresentationId,
+  ensurePresentationId,
+  isNopeableAction,
+} = require('../game/interactions/cardPresentationContract');
+const {
   buildInteractionRequestPayload,
   buildNormalizedInteractionRequest,
   buildReconnectInteractionRequest,
@@ -27,7 +32,9 @@ const {
   kickPlayer,
   toggleReady,
   updateRoomSettings,
+  touchRoom,
 } = require('../game/roomManager');
+const { getRuntimeLiveOpsConfig } = require('../services/admin/liveOpsService');
 const {
   playCard,
   resolveBarkingKittenAction,
@@ -49,13 +56,28 @@ const findUserByIdSafe = async (id) => {
   if (mongoose.connection.readyState !== 1) return null;
   return await User.findById(id);
 };
-const GameHistory = require('../models/GameHistory');
 const Transaction = require('../models/Transaction');
 const Quest = require('../models/Quest');
 const UserQuestProgress = require('../models/UserQuestProgress');
-const { calculateMultiplayerElo } = require('../utils/eloCalculator');
-const { applyTierProtection } = require('../utils/rankSystem');
-const Season = require('../models/Season');
+const { calculateMatchmakingChanges } = require('../utils/matchmakingCalculator');
+const { applyMatchmakingRating, shouldUpdateMatchmakingRating } = require('../utils/matchmakingRating');
+const { completeMatchHistory, startMatchHistory } = require('../services/matchLifecycleService');
+const { lockWager, markWagerReview, refundWager, settleWager } = require('../services/wagerLedgerService');
+
+async function refundCancelledRoomWager(room, reason) {
+  if (!room || room.betAmount <= 0 || !room.wagerReference) return;
+  try {
+    await refundWager({
+      roomCode: room.code,
+      reference: room.wagerReference,
+      requestId: `refund:${room.wagerReference}`,
+      reason,
+    });
+  } catch (error) {
+    await markWagerReview({ reference: room.wagerReference, reason: `Refund failed: ${error.message}` });
+    console.error(`Wager refund failed for ${room.code}:`, error);
+  }
+}
 
 async function updateQuestProgress(userId, actionType, count = 1) {
   try {
@@ -200,8 +222,8 @@ async function finalizeGame(io, room) {
     return { userId: player.userId, placement, result: isWinner ? 'win' : 'lose' };
   }).sort((a, b) => a.placement - b.placement);
 
-  const eloChanges = {};
-  const pinkCoinChanges = {};
+  const matchmakingRatingChanges = {};
+  let wager = null;
 
   try {
     // Load all user objects from database first
@@ -221,41 +243,53 @@ async function finalizeGame(io, room) {
       })
     );
 
-    // Fetch active season
-    const now = new Date();
-    const activeSeason = await Season.findOne({
-      startDate: { $lte: now },
-      endDate: { $gte: now },
-      status: 'active'
-    });
-
     const playersInGame = room.gameState.players.filter(p => dbUsers[p.userId]);
 
-    const isRanked = room.gameMode === 'ranked';
-    const hasEnoughRealPlayers = playersInGame.length >= 2;
+    if (room.betAmount > 0) {
+      try {
+        const settledWager = await settleWager({
+          roomCode: room.code,
+          reference: room.wagerReference,
+          placements: rankings.map(({ userId, placement }) => ({ userId, placement })),
+          requestId: `settle:${room.wagerReference}`,
+        });
+        wager = {
+          stake: settledWager.stake,
+          payouts: settledWager.participants.map((participant) => ({
+            userId: String(participant.userId),
+            payoutCoins: participant.payoutCoins,
+          })),
+        };
+      } catch (settlementError) {
+        await markWagerReview({ reference: room.wagerReference, reason: settlementError.message });
+        throw settlementError;
+      }
+    }
 
-    if (isRanked && hasEnoughRealPlayers) {
+    const updatesMatchmakingRating = shouldUpdateMatchmakingRating({ room, players: room.gameState.players })
+      && playersInGame.length === room.gameState.players.length;
+
+    if (updatesMatchmakingRating) {
       const calculatorInput = playersInGame.map(p => {
         const dbUser = dbUsers[p.userId];
         const rankEntry = rankings.find(r => r.userId === p.userId);
         return {
           userId: p.userId,
-          eloBefore: dbUser.eloPoints || 1000,
+          ratingBefore: dbUser.matchmakingRating || 1000,
           gamesPlayed: dbUser.stats?.totalGames || 0,
           winStreak: rankEntry?.placement === 1 ? (dbUser.stats?.currentStreak || 0) + 1 : 0,
           placement: rankEntry ? rankEntry.placement : playersInGame.length
         };
       });
 
-      const calculatedEloList = calculateMultiplayerElo(calculatorInput);
+      const calculatedRatingList = calculateMatchmakingChanges(calculatorInput);
 
-      calculatedEloList.forEach(resElo => {
-        eloChanges[resElo.userId] = resElo.eloDelta;
+      calculatedRatingList.forEach((result) => {
+        matchmakingRatingChanges[result.userId] = result.ratingDelta;
       });
     } else {
-      // No ELO changes in casual mode or with < 2 players
       playersInGame.forEach(p => {
-        eloChanges[p.userId] = 0;
+        matchmakingRatingChanges[p.userId] = 0;
       });
     }
 
@@ -264,26 +298,7 @@ async function finalizeGame(io, room) {
         const user = dbUsers[entry.userId];
         if (!user) return;
 
-        const gemsBefore = user.gems || 0;
-
         const isWin = entry.result === 'win';
-        const streakBonus = isWin && user.stats.currentStreak + 1 >= 3 ? 30 : 0;
-
-        const betAmount = room.betAmount || 50;
-        let reward = 0;
-        let isLossDeduction = false;
-
-        if (isWin) {
-          // Winner gets the pot minus 10% tax
-          reward = Math.floor(betAmount * (room.gameState.players.length - 1) * 0.9);
-          user.coins += reward + streakBonus;
-        } else {
-          // Loser gets deducted bet amount
-          isLossDeduction = true;
-          reward = -betAmount;
-          user.coins = Math.max(0, user.coins + reward);
-        }
-
         user.stats.totalGames += 1;
         if (isWin) {
           user.stats.wins += 1;
@@ -294,46 +309,12 @@ async function finalizeGame(io, room) {
           user.stats.currentStreak = 0;
         }
 
-        // Apply Elo Points change
-        const eloBefore = user.eloPoints || 1000;
-        const requestedEloChange = eloChanges[entry.userId] || 0;
-        const protectedResult = isRanked
-          ? applyTierProtection({
-              eloBefore,
-              eloAfter: Math.max(1000, eloBefore + requestedEloChange),
-              protectionGames: user.rankProtectionGames || 0,
-              protectedFloor: user.rankProtectedFloor || 0,
-            })
-          : { eloAfter: eloBefore, protectionGames: user.rankProtectionGames || 0, protectedFloor: user.rankProtectedFloor || 0 };
-        user.eloPoints = protectedResult.eloAfter;
-        user.rankProtectionGames = protectedResult.protectionGames;
-        user.rankProtectedFloor = protectedResult.protectedFloor;
-        eloChanges[entry.userId] = user.eloPoints - eloBefore;
+        const ratingBefore = user.matchmakingRating || 1000;
+        const requestedRatingChange = matchmakingRatingChanges[entry.userId] || 0;
+        applyMatchmakingRating(user, Math.max(1000, ratingBefore + requestedRatingChange));
+        matchmakingRatingChanges[entry.userId] = user.matchmakingRating - ratingBefore;
 
         await user.save();
-
-        const gemsAfter = user.gems || 0;
-        pinkCoinChanges[entry.userId] = gemsAfter - gemsBefore;
-
-        if (reward !== 0) {
-          await Transaction.create({
-            userId: user._id,
-            type: isLossDeduction ? 'spend' : 'earn',
-            amount: Math.abs(reward),
-            currency: 'coin',
-            description: isLossDeduction ? 'Loss bet deduction' : 'Win bet reward (taxed)',
-          });
-        }
-
-        if (streakBonus > 0) {
-          await Transaction.create({
-            userId: user._id,
-            type: 'earn',
-            amount: streakBonus,
-            currency: 'coin',
-            description: 'Win streak bonus',
-          });
-        }
 
         // Update quests progress
         await updateQuestProgress(entry.userId, 'play_game', 1);
@@ -343,34 +324,31 @@ async function finalizeGame(io, room) {
       }),
     );
 
-    // Save GameHistory only if winner and players have valid MongoDB ObjectIds (guests won't be saved to GameHistory, which is correct)
+    // Complete the durable lifecycle record. Guest ids remain in participantIds,
+    // while player result rows retain only valid User references.
     const validWinner = mongoose.Types.ObjectId.isValid(winnerId);
     const validPlayers = rankings
       .filter((entry) => mongoose.Types.ObjectId.isValid(entry.userId))
       .map((entry) => {
         const dbUser = dbUsers[entry.userId];
-        const eloAfter = dbUser ? dbUser.eloPoints : 1000;
-        const change = eloChanges[entry.userId] || 0;
-        const eloBefore = eloAfter - change;
+        const matchmakingRatingAfter = dbUser ? dbUser.matchmakingRating : 1000;
+        const matchmakingRatingChange = matchmakingRatingChanges[entry.userId] || 0;
+        const matchmakingRatingBefore = matchmakingRatingAfter - matchmakingRatingChange;
         return {
           userId: entry.userId,
           rank: entry.placement,
           result: entry.result,
-          eloBefore,
-          eloAfter,
-          eloChange: change,
+          matchmakingRatingBefore,
+          matchmakingRatingAfter,
+          matchmakingRatingChange,
         };
       });
 
     if (validWinner && validPlayers.length > 0) {
-      await GameHistory.create({
-        roomId: room.code,
-        seasonId: activeSeason ? activeSeason._id : undefined,
-        players: validPlayers,
-        winner: winnerId,
-        duration: 0,
-        cardsPlayed: room.gameState.discardPile.length,
-        playedAt: new Date(),
+      await completeMatchHistory({
+        room,
+        validPlayers,
+        winnerId,
       });
     }
   } catch (err) {
@@ -378,50 +356,10 @@ async function finalizeGame(io, room) {
   }
 
   // Ensure game:ended is ALWAYS sent to the room, even if db writes failed or players are guests
-  io.to(room.code).emit('game:ended', { winnerId, rankings, eloChanges, pinkCoinChanges });
-}
-
-function penalizeEarlyLeave(userId, betAmount) {
-  if (userId && !userId.startsWith('guest-') && mongoose.Types.ObjectId.isValid(userId)) {
-    User.findById(userId).then(dbUser => {
-      if (dbUser) {
-        dbUser.coins = Math.max(0, dbUser.coins - betAmount);
-        dbUser.save().catch(err => console.error(err));
-        Transaction.create({
-          userId: dbUser._id,
-          type: 'spend',
-          amount: betAmount,
-          currency: 'coin',
-          description: 'Phạt rời trận đấu giữa chừng'
-        }).catch(err => console.error(err));
-      }
-    }).catch(err => console.error('Error penalizing early leave:', err));
-  }
+  io.to(room.code).emit('game:ended', { winnerId, rankings, wager });
 }
 
 module.exports = function registerGameSocket(io) {
-  const NOPEABLE_ACTIONS = [
-    'attack_2x', 'personal_attack_2x', 'target_attack_2x', 'attack_of_the_dead',
-    'skip', 'super_skip',
-    'see_the_future_1', 'see_the_future_3', 'see_the_future_5', 'see_the_future_3_now', 'reveal_the_future',
-    'alter_the_future_3', 'alter_the_future_5', 'alter_the_future_3_now',
-    'favor', 'garbage', 'pot_luck',
-    'shuffle', 'shuffle_now',
-    'swap_top_and_bottom_now',
-    'feed_the_dead',
-    'grave_robber',
-    'dig_deeper',
-    'armageddon',
-    'nope'
-  ];
-
-  function isNopeableAction(cardType) {
-    if (!cardType) return false;
-    if (NOPEABLE_ACTIONS.includes(cardType)) return true;
-    if (cardType.startsWith('combo_')) return true;
-    return false;
-  }
-
   function mapCardTypeToVfxType(cardType) {
     if (!cardType) return 'GENERIC';
     if (cardType.startsWith('combo_')) return cardType.toUpperCase();
@@ -432,9 +370,11 @@ module.exports = function registerGameSocket(io) {
   function broadcastActionResolved(room, action, result) {
     const isCancelled = result === 'CANCELLED';
     const vfxType = isCancelled ? 'NOPE' : mapCardTypeToVfxType(action.cardType);
+    const presentationId = ensurePresentationId(action);
 
     io.to(room.code).emit('game:actionResolved', {
       actionId: action.eventId,
+      presentationId,
       actionKind: action.cardType?.startsWith('combo_') ? 'combo' : 'card',
       cardType: action.cardType,
       comboType: action.cardType?.startsWith('combo_') ? action.cardType : undefined,
@@ -459,6 +399,7 @@ module.exports = function registerGameSocket(io) {
 
   function startNopeWindow(room, action) {
     const timeoutMs = getNowWindowTimeout();
+    const presentationId = ensurePresentationId(action);
     action.timeoutMs = timeoutMs;
     action.passedPlayers = [];
     action.responseOwnerId = getNopeResponseOwnerId(action);
@@ -466,6 +407,7 @@ module.exports = function registerGameSocket(io) {
 
     io.to(room.code).emit('game:nopeWindow', {
       eventId: action.eventId,
+      presentationId,
       timeoutMs,
       cardType: action.cardType,
       actingPlayerId: action.playerId,
@@ -477,6 +419,19 @@ module.exports = function registerGameSocket(io) {
     sendHands(io, room);
 
     setupNopeTimeout(room, action.eventId);
+  }
+
+  function startActionWindow(room, action) {
+    ensurePresentationId(action);
+    if (isNopeableAction(action.cardType)) {
+      startNopeWindow(room, action);
+      return;
+    }
+
+    room.gameState.pendingAction = action;
+    void resolvePendingActionEarly(room, action.eventId).catch((error) => {
+      console.error('Failed to resolve non-Nopeable action:', error);
+    });
   }
 
   async function resolvePendingActionEarly(room, eventId) {
@@ -518,6 +473,7 @@ module.exports = function registerGameSocket(io) {
     }
 
     if (action.type === 'defuse_completed') {
+      broadcastActionResolved(room, action, 'RESOLVED');
       io.to(room.code).emit('game:turnChanged', {
         currentPlayerId: gameState.players[gameState.currentPlayerIndex]?.userId,
         drawsRequired: gameState.drawsRequired,
@@ -642,7 +598,7 @@ module.exports = function registerGameSocket(io) {
     const pending = gameState.pendingTargetSelect;
     if (!pending) return;
 
-    const { playerId, cardType, options, comboSize } = pending;
+    const { playerId, cardType, options, comboSize, presentationId, displayCardType, comboCards } = pending;
     gameState.pendingTargetSelect = null;
 
     // Update lastAction with target
@@ -660,14 +616,17 @@ module.exports = function registerGameSocket(io) {
     const eventId = `${Date.now()}-${Math.random()}`;
     const action = {
       eventId,
+      presentationId,
       playerId,
       cardType: actualCardType,
+      displayCardType,
+      comboCards,
       targetPlayerId,
       options: options || {},
       nopeCount: 0,
     };
 
-    startNopeWindow(room, action);
+    startActionWindow(room, action);
   }
 
   async function handlePlayerDisconnectFallback(room, userId) {
@@ -797,6 +756,7 @@ module.exports = function registerGameSocket(io) {
   async function afterGameStateChanged(room, playersBefore, turnBefore) {
     const gameState = room.gameState;
     if (!gameState) return;
+    touchRoom(room);
 
     // Check if anyone died
     playersBefore.forEach((pBefore) => {
@@ -993,7 +953,6 @@ module.exports = function registerGameSocket(io) {
         const player = roomBefore?.players.find((p) => p.userId === userId);
         const pName = player ? player.username : userId;
         const wasPlaying = roomBefore?.status === 'playing';
-        const betAmount = roomBefore?.betAmount || 50;
 
         const room = leaveRoom(rCode, userId);
         socket.leave(rCode);
@@ -1007,19 +966,24 @@ module.exports = function registerGameSocket(io) {
           });
 
           if (wasPlaying && room.status === 'playing') {
-            penalizeEarlyLeave(userId, betAmount);
             await handlePlayerDisconnectFallback(room, userId);
           }
+        }
+        if (wasPlaying && (!room || room.status !== 'playing')) {
+          await refundCancelledRoomWager(roomBefore, 'Match cancelled after player left');
         }
       }
     };
 
-    socket.on('room:create', async ({ password, edition, maxPlayers, betAmount, customDefuses, customExplodingKittens }) => {
+    socket.on('room:create', async ({ password, edition, maxPlayers, betAmount, gameMode, customDefuses, customExplodingKittens }) => {
       if (!socket.user) {
         socket.emit('error', { code: 'AUTH_REQUIRED', message: 'Bạn cần đăng nhập để tạo phòng.' });
         return;
       }
       try {
+        const liveOps = await getRuntimeLiveOpsConfig();
+        if (liveOps.config.maintenanceMode) throw new Error('Hệ thống đang bảo trì. Tạm thời không thể tạo phòng mới.');
+        if (getPublicRooms().length >= liveOps.config.maxActiveRooms) throw new Error('Hệ thống đã đạt giới hạn phòng đang hoạt động. Vui lòng thử lại sau.');
         await ensureLeaveOtherRooms(null);
         let username = socket.user?.username ?? `Guest-${guestId.slice(6, 11)}`;
         if (socket.user?.id) {
@@ -1039,7 +1003,7 @@ module.exports = function registerGameSocket(io) {
             throw new Error('Tài khoản Khách chỉ có thể tạo phòng chơi miễn phí (Cược = 0)');
           }
         }
-        const room = createRoom(userId, { password, edition, maxPlayers, betAmount, customDefuses, customExplodingKittens }, username);
+        const room = createRoom(userId, { password, edition, maxPlayers, betAmount, gameMode, customDefuses, customExplodingKittens }, username);
         socket.join(room.code);
         emitRoomUpdated(io.to(room.code), room);
       } catch (error) {
@@ -1157,7 +1121,6 @@ module.exports = function registerGameSocket(io) {
         const player = roomBefore?.players.find((p) => p.userId === userId);
         const pName = player ? player.username : userId;
         const wasPlaying = roomBefore?.status === 'playing';
-        const betAmount = roomBefore?.betAmount || 50;
 
         const room = leaveRoom(roomCode, userId);
         socket.leave(roomCode);
@@ -1172,9 +1135,11 @@ module.exports = function registerGameSocket(io) {
           });
 
           if (wasPlaying && room.status === 'playing') {
-            penalizeEarlyLeave(userId, betAmount);
             await handlePlayerDisconnectFallback(room, userId);
           }
+        }
+        if (wasPlaying && (!room || room.status !== 'playing')) {
+          await refundCancelledRoomWager(roomBefore, 'Match cancelled after player left');
         }
       }
     });
@@ -1207,7 +1172,6 @@ module.exports = function registerGameSocket(io) {
             const player = activeRoom.players.find((p) => p.userId === userId);
             const pName = player ? player.username : userId;
             const wasPlaying = activeRoom.status === 'playing';
-            const betAmount = activeRoom.betAmount || 50;
             const room = leaveRoom(activeRoom.code, userId);
             if (room) {
               emitRoomUpdated(io.to(activeRoom.code), room);
@@ -1227,10 +1191,12 @@ module.exports = function registerGameSocket(io) {
                 });
 
                 if (wasPlaying && room.status === 'playing') {
-                  penalizeEarlyLeave(userId, betAmount);
                   await handlePlayerDisconnectFallback(room, userId);
                 }
               }
+            }
+            if (wasPlaying && (!room || room.status !== 'playing')) {
+              await refundCancelledRoomWager(activeRoom, 'Match cancelled after disconnect');
             }
           }
         }
@@ -1270,7 +1236,22 @@ module.exports = function registerGameSocket(io) {
           }
         }
 
+        if (roomBefore.betAmount > 0) {
+          roomBefore.wagerReference = `${roomBefore.code}:${Date.now()}`;
+          await lockWager({
+            roomCode: roomBefore.code,
+            reference: roomBefore.wagerReference,
+            players: roomBefore.players,
+            stake: roomBefore.betAmount,
+            requestId: `lock:${roomBefore.wagerReference}`,
+          });
+        }
         const room = startGame(targetRoomCode);
+        try {
+          room.analyticsHistoryId = await startMatchHistory({ room });
+        } catch (historyError) {
+          console.error('Unable to start match lifecycle history:', historyError);
+        }
         emitRoomUpdated(io.to(targetRoomCode), room);
         io.to(targetRoomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
         sendHands(io, room);
@@ -1302,6 +1283,13 @@ module.exports = function registerGameSocket(io) {
         const actualCardType = payload.actualCardType;
 
         if (!actualCardType) return; // Invalid play
+        const presentationId = createPresentationId();
+
+        if (state.pendingNowOnlyWindow && actualCardType.endsWith('_now')) {
+          clearNowOnlyWindow(room, state.pendingNowOnlyWindow.eventId);
+        }
+
+        const cardSkinIndex = payload.playedCardSkinIndex ?? 0;
 
         if (!finalTargetPlayerId) {
           finalTargetPlayerId = getAutoTargetForTwoPlayerGame(state, userId, actualCardType);
@@ -1311,24 +1299,25 @@ module.exports = function registerGameSocket(io) {
           }
         }
 
-        if (state.pendingNowOnlyWindow && actualCardType.endsWith('_now')) {
-          clearNowOnlyWindow(room, state.pendingNowOnlyWindow.eventId);
-        }
-
         // Clairvoyance special short-circuit (still emitting here because it bypasses the Nope window in old logic)
         if (cardType === 'clairvoyance' || cardType === 'clairvoyance_now') {
           const targetPending = state.pendingZombie || state.pendingDefuse;
           if (targetPending) {
             targetPending.clairvoyancePlayerId = userId;
             io.to(roomCode).emit('game:cardPlayedPending', {
-              actionId: `clairvoyance-${Date.now()}`,
+              actionId: presentationId,
+              presentationId,
               playerId: userId,
               cardType: actualCardType,
+              sourceCardType: cardType,
+              sourceCardId: options?.cardId,
+              skinIndex: cardSkinIndex,
               targetPlayerId,
               canBeNoped: false,
             });
             io.to(roomCode).emit('game:actionResolved', {
-              actionId: `clairvoyance-resolved-${Date.now()}`,
+              actionId: presentationId,
+              presentationId,
               actionKind: 'card',
               cardType: actualCardType,
               playedBy: userId,
@@ -1345,9 +1334,13 @@ module.exports = function registerGameSocket(io) {
         }
 
         io.to(roomCode).emit('game:cardPlayedPending', {
-          actionId: `pending-${Date.now()}-${Math.random()}`,
+          actionId: presentationId,
+          presentationId,
           playerId: userId,
           cardType: actualCardType,
+          sourceCardType: cardType,
+          sourceCardId: options?.cardId,
+          skinIndex: cardSkinIndex,
           targetPlayerId: finalTargetPlayerId,
           canBeNoped: isNopeableAction(actualCardType),
           responseWindowMs: getNowWindowTimeout(),
@@ -1367,6 +1360,7 @@ module.exports = function registerGameSocket(io) {
             playerId: userId,
             cardType: actualCardType,
             options,
+            presentationId,
             startedAt: Date.now(),
           };
 
@@ -1403,6 +1397,7 @@ module.exports = function registerGameSocket(io) {
           const eventId = `${Date.now()}-${Math.random()}`;
           const action = {
             eventId,
+            presentationId,
             playerId: userId,
             cardType: actualCardType,
             targetPlayerId: finalTargetPlayerId,
@@ -1411,12 +1406,13 @@ module.exports = function registerGameSocket(io) {
             parentAction: oldPending || undefined,
           };
 
-          startNopeWindow(room, action);
+          startActionWindow(room, action);
         }
       } catch (error) {
         socket.emit('error', { message: error.message });
       }
     });
+
 
     socket.on('game:drawCard', async () => {
       try {
@@ -1493,13 +1489,18 @@ module.exports = function registerGameSocket(io) {
 
       const [nopeCard] = player.hand.splice(nopeIdx, 1);
       room.gameState.discardPile.push(nopeCard);
+      const nopeCardActionId = `nope-${userId}-${Date.now()}-${Math.random()}`;
       io.to(roomCode).emit('game:cardPlayed', {
         playerId: userId,
         cardType: 'nope',
+        cardActionId: nopeCardActionId,
+        sourceCardId: nopeCard.id,
+        skinIndex: nopeCard.skinIndex ?? 0,
         targetPlayerId: pending.playerId,
         nopedCardType: pending.cardType,
         actionId: pending.eventId,
-        animationOnly: true,
+        presentationId: ensurePresentationId(pending),
+        nopeIndex: (pending.nopeCount || 0) + 1,
       });
 
       pending.nopeCount += 1;
@@ -1572,7 +1573,7 @@ module.exports = function registerGameSocket(io) {
       });
     });
 
-    socket.on('game:combo', ({ cards, targetPlayerId, options: clientOptions }) => {
+    socket.on('game:combo', ({ cards, targetPlayerId }) => {
       try {
         const roomCode = [...socket.rooms].find((room) => room.length === 6);
         const room = roomCode ? getRoomState(roomCode) : null;
@@ -1604,17 +1605,25 @@ module.exports = function registerGameSocket(io) {
         if (!comboResult) return; // Invalid combo
         const comboSize = cards.length;
         const comboCardType = `combo_${comboSize}`;
+        const comboCards = comboResult.cardsToPlay.map((card) => ({
+          id: card.id,
+          type: card.type,
+          skinIndex: card.skinIndex ?? 0,
+        }));
         let finalTargetPlayerId = targetPlayerId;
 
         if (!finalTargetPlayerId && (comboSize === 2 || comboSize === 3)) {
           finalTargetPlayerId = getAutoTargetForTwoPlayerGame(state, userId, comboCardType);
         }
 
+        const presentationId = createPresentationId();
+
         io.to(roomCode).emit('game:cardPlayedPending', {
-          actionId: `combo-pending-${Date.now()}-${Math.random()}`,
+          actionId: presentationId,
+          presentationId,
           playerId: userId,
           cardType: comboCardType,
-          displayCardType: comboResult.cardTypes[0] || 'cat_taco',
+          comboCards,
           targetPlayerId: finalTargetPlayerId,
           canBeNoped: true,
           responseWindowMs: getNowWindowTimeout(),
@@ -1635,8 +1644,10 @@ module.exports = function registerGameSocket(io) {
           room.gameState.pendingTargetSelect = {
             playerId: userId,
             cardType: comboCardType,
+            comboCards,
+            presentationId,
             comboSize,
-            options: { cardIds: cards ?? [], cardTypes: comboResult.cardTypes, ...(clientOptions || {}) },
+            options: { cardIds: cards ?? [], cardTypes: comboResult.cardTypes },
             startedAt: Date.now(),
           };
 
@@ -1664,18 +1675,20 @@ module.exports = function registerGameSocket(io) {
           return;
         }
 
-        // Queue action — include stealCardType from client if present (for combo_3)
+        // Queue the combo for Nope resolution before running its effect.
         const eventId = `${Date.now()}-${Math.random()}`;
         const action = {
           eventId,
+          presentationId,
           playerId: userId,
           cardType: comboCardType,
+          comboCards,
           targetPlayerId: finalTargetPlayerId,
-          options: { cardIds: cards ?? [], cardTypes: comboResult.cardTypes, ...(clientOptions || {}) },
+          options: { cardIds: cards ?? [], cardTypes: comboResult.cardTypes },
           nopeCount: 0,
         };
 
-        startNopeWindow(room, action);
+        startActionWindow(room, action);
       } catch (error) {
         socket.emit('error', { message: error.message });
       }
@@ -1734,6 +1747,29 @@ module.exports = function registerGameSocket(io) {
 
       if (!result.success) {
         socket.emit('error', { message: result.error || result.reason || 'Không thể lấy lá bài đã chọn!' });
+        return;
+      }
+
+      await afterGameStateChanged(room, playersBefore, turnBefore);
+    });
+
+    socket.on('game:combo3:respond', async ({ cardType, interactionId }) => {
+      const roomCode = [...socket.rooms].find((room) => room.length === 6);
+      if (!roomCode) return;
+      const room = getRoomState(roomCode);
+      if (!room?.gameState?.activeInteraction || room.gameState.activeInteraction.type !== 'combo_3') return;
+
+      const playersBefore = room.gameState.players.map((player) => ({ userId: player.userId, alive: player.alive }));
+      const turnBefore = room.gameState.currentPlayerIndex;
+      const context = new GameContext(room.gameState, new EffectQueue());
+      const result = dispatcher.dispatch('SUBMIT_INTERACTION', context, {
+        userId,
+        interactionId: interactionId ?? room.gameState.activeInteraction.id,
+        responseData: { cardType },
+      });
+
+      if (!result.success) {
+        socket.emit('error', { message: result.error || result.reason || 'Không thể chọn tên lá bài!' });
         return;
       }
 
@@ -1816,14 +1852,23 @@ module.exports = function registerGameSocket(io) {
       sendHands(io, room);
       // Open a reaction window after zombie revive completed
       const eventId = `${Date.now()}-${Math.random()}`;
+      const presentationId = createPresentationId();
+      io.to(roomCode).emit('game:cardPlayedPending', {
+        actionId: presentationId,
+        playerId: userId,
+        cardType: 'zombie_kitten',
+        presentationId,
+        canBeNoped: false,
+      });
       const action = {
         eventId,
+        presentationId,
         playerId: userId,
         cardType: 'zombie_resolved',
         type: 'defuse_completed',
         nopeCount: 0,
       };
-      startNopeWindow(room, action);
+      startActionWindow(room, action);
     });
 
     socket.on('game:defuse:respond', async ({ insertPosition }) => {
@@ -1842,14 +1887,23 @@ module.exports = function registerGameSocket(io) {
       sendHands(io, room);
       // Open a reaction window after defuse completed
       const eventId = `${Date.now()}-${Math.random()}`;
+      const presentationId = createPresentationId();
+      io.to(roomCode).emit('game:cardPlayedPending', {
+        actionId: presentationId,
+        playerId: userId,
+        cardType: 'defuse',
+        presentationId,
+        canBeNoped: false,
+      });
       const action = {
         eventId,
+        presentationId,
         playerId: userId,
         cardType: 'defuse_resolved',
         type: 'defuse_completed',
         nopeCount: 0,
       };
-      startNopeWindow(room, action);
+      startActionWindow(room, action);
     });
 
     socket.on('game:feedTheDead:respond', async ({ cardId, interactionId }) => {

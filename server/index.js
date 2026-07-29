@@ -10,12 +10,16 @@ const authRoutes = require('./routes/auth');
 const roomRoutes = require('./routes/room');
 const userRoutes = require('./routes/user');
 const shopRoutes = require('./routes/shop');
-const leaderboardRoutes = require('./routes/leaderboard');
 const adminRoutes = require('./routes/admin');
 const missionRoutes = require('./routes/mission');
-const seasonRoutes = require('./routes/season');
+const adminSavedViewRoutes = require('./routes/adminSavedViews');
+const adminTournamentRoutes = require('./routes/adminTournaments');
+const tournamentRoutes = require('./routes/tournaments');
+const liveOpsRoutes = require('./routes/liveOps');
 const errorHandler = require('./middleware/errorHandler');
+const requestContext = require('./middleware/requestContext');
 const registerGameSocket = require('./sockets/gameSocket');
+const { startAnnouncementScheduler } = require('./services/admin/announcementService');
 
 dotenv.config();
 
@@ -51,16 +55,19 @@ app.set('io', io);
 
 app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
 app.use(express.json());
+app.use(requestContext);
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/shop', shopRoutes);
-app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/admin/saved-views', adminSavedViewRoutes);
+app.use('/api/admin/tournaments', adminTournamentRoutes);
+app.use('/api/tournaments', tournamentRoutes);
+app.use('/api/live-ops', liveOpsRoutes);
 app.use('/api/missions', missionRoutes);
-app.use('/api/seasons', seasonRoutes);
 app.use(errorHandler);
 
 registerGameSocket(io);
@@ -71,6 +78,7 @@ const MONGO_URI = process.env.MONGO_URI;
 async function start() {
   if (!MONGO_URI) throw new Error('Missing MONGO_URI in environment');
   await mongoose.connect(MONGO_URI);
+  startAnnouncementScheduler({ io });
   server.listen(PORT, () => {
     // Startup log for local development visibility.
     process.stdout.write(`Server listening on http://localhost:${PORT}\n`);

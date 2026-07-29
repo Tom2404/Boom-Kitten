@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 import Card from './Card.jsx';
 import { CheckIcon } from './Icons.jsx';
 import { ImageButton } from './ui/ImageButton.jsx';
@@ -6,6 +7,7 @@ import { IconButton } from './ui/IconButton.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { CARD_THEMES } from './Card.jsx';
 import { OverlayPortal } from './ui/OverlayPortal.jsx';
+import { getDefusePositionProgress, getGameMotionTransition } from '../pages/Game/gameMotion.js';
 
 // ==========================================
 // NEO-BRUTALIST MODAL WRAPPER (WITH TIMING CURVES)
@@ -42,124 +44,6 @@ export function BrutalModal({ children, isOpen, onClose, maxWidth = 'max-w-xl', 
         </div>
       </div>
     </OverlayPortal>
-  );
-}
-
-// ==========================================
-// 1. SEE THE FUTURE MODAL
-// ==========================================
-export function SeeFutureModal({ cards, onClose }) {
-  if (!cards) return null;
-
-  return (
-    <BrutalModal isOpen={true} onClose={onClose} maxWidth="max-w-xl">
-      {(closeModal) => (
-        <>
-          <div>
-            <h3 className="text-2xl font-headline font-black text-primary flex items-center justify-center gap-2 uppercase">
-              Tiên Tri (See the Future)
-            </h3>
-            <p className="text-xs font-bold text-slate-500 mt-1">
-              Đây là {cards.length} lá bài trên cùng bộ bài bốc (từ trái qua phải - từ trên xuống dưới).
-            </p>
-          </div>
-
-          <div className="flex gap-6 justify-center items-center py-4 flex-wrap">
-            {cards.map((card, index) => (
-              <div key={card.id || index} className="relative group">
-                <Card type={card.type} skinIndex={card.skinIndex ?? 0} disabled={true} />
-                <span className="absolute -top-3.5 left-1/2 transform -translate-x-1/2 bg-yellow-400 text-slate-950 font-headline font-black text-[9px] px-2.5 py-0.5 rounded-none border-2 border-slate-900 shadow-[1.5px_1.5px_0px_0px_#1a1c1c] uppercase">
-                  Thứ {index + 1}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          <ImageButton variant="danger"
-            onClick={() => closeModal()}
-            className=" px-8 py-3 rounded-none font-headline font-black uppercase text-sm "
-          >
-            Xong, tôi đã nhớ
-          </ImageButton>
-        </>
-      )}
-    </BrutalModal>
-  );
-}
-
-// ==========================================
-// 2. ALTER THE FUTURE MODAL
-// ==========================================
-export function AlterFutureModal({ cards, onConfirm }) {
-  if (!cards || cards.length === 0) return null;
-
-  const [order, setOrder] = useState([...cards]);
-
-  const moveLeft = (index) => {
-    if (index === 0) return;
-    const copy = [...order];
-    [copy[index], copy[index - 1]] = [copy[index - 1], copy[index]];
-    setOrder(copy);
-  };
-
-  const moveRight = (index) => {
-    if (index === order.length - 1) return;
-    const copy = [...order];
-    [copy[index], copy[index + 1]] = [copy[index + 1], copy[index]];
-    setOrder(copy);
-  };
-
-  return (
-    <BrutalModal isOpen={true} onClose={() => onConfirm(order.map(c => c.id))} maxWidth="max-w-2xl">
-      {(closeModal) => (
-        <>
-          <div>
-            <h3 className="text-2xl font-headline font-black text-primary flex items-center justify-center gap-2 uppercase">
-              Định Đoạt (Alter the Future)
-            </h3>
-            <p className="text-xs font-bold text-slate-500 mt-1">
-              Thay đổi thứ tự 3 lá bài trên cùng bộ bài bốc. Sắp xếp từ trái qua phải (lá đầu tiên nằm bên trái).
-            </p>
-          </div>
-
-          <div className="flex gap-4 sm:gap-6 justify-center items-stretch py-4 flex-wrap">
-            {order.map((card, index) => (
-              <div key={card.id || index} className="flex flex-col items-center gap-3 bg-white border-2 border-slate-900 p-4 rounded-none shadow-[3px_3px_0px_0px_#0f0f0f]">
-                <span className="text-[10px] font-headline font-black text-primary uppercase">
-                  {index === 0 ? 'Trên Cùng (Top)' : `Vị trí ${index + 1}`}
-                </span>
-                
-                <Card type={card.type} skinIndex={card.skinIndex ?? 0} disabled={true} />
-                
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => moveLeft(index)}
-                    disabled={index === 0}
-                    className="px-3 py-1 bg-white border-2 border-slate-900 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-white text-xs rounded-none font-bold text-slate-900 transition-all shadow-[1px_1px_0px_0px_#1a1c1c] active:translate-y-0.5 active:shadow-none"
-                  >
-                    ◀
-                  </button>
-                  <button
-                    onClick={() => moveRight(index)}
-                    disabled={index === order.length - 1}
-                    className="px-3 py-1 bg-white border-2 border-slate-900 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-white text-xs rounded-none font-bold text-slate-900 transition-all shadow-[1px_1px_0px_0px_#1a1c1c] active:translate-y-0.5 active:shadow-none"
-                  >
-                    ▶
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <ImageButton variant="danger"
-            onClick={() => closeModal()}
-            className=" px-8 py-3 rounded-none font-headline font-black uppercase text-sm "
-          >
-            Lưu & Sắp Xếp Lại
-          </ImageButton>
-        </>
-      )}
-    </BrutalModal>
   );
 }
 
@@ -289,166 +173,233 @@ export function NopeCountdown({
 
   return (
     <OverlayPortal>
-      <div className="game-modal-layer fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-slate-950/45 backdrop-blur-[2px]">
-      <div
-        className="flex flex-col gap-0 min-w-[320px] max-w-[560px] w-[95%] max-h-[calc(100dvh-2rem)] overflow-y-auto animate-fade-in"
-      >
-      <div className="bg-[#fafaf5] border-3 border-slate-900 shadow-[6px_6px_0px_0px_#0f0f0f] rounded-none overflow-hidden flex flex-col">
-        <div
-          className={`px-4 py-2 flex items-center justify-between ${
-            isCanceled
-              ? 'bg-rose-600'
-              : (isNowOnly ? 'bg-amber-500' : 'bg-slate-950')
-          }`}
-        >
-          <span className="font-headline font-black text-[10px] text-white uppercase tracking-widest">
-            {isCanceled
-              ? t('nope_panel_canceled')
-              : (isNowOnly ? 'NOW OR NEVER!' : t('nope_panel_active'))}
-          </span>
-          
-          <div className="flex items-center gap-1.5">
-            <div className="relative h-7 w-7 flex items-center justify-center flex-shrink-0">
-              <svg className="absolute inset-0 h-full w-full transform -rotate-90">
-                <circle cx="14" cy="14" r="11" className="stroke-white/20 fill-transparent" strokeWidth="2.5" />
-                <circle
-                  cx="14" cy="14" r="11"
-                  className="stroke-white fill-transparent transition-all duration-75"
-                  strokeWidth="2.5"
-                  strokeDasharray={69}
-                  strokeDashoffset={69 - (69 * percentage) / 100}
-                />
-              </svg>
-              <span className="text-[8px] font-headline font-black text-white">
-                {(timeLeft / 1000).toFixed(1)}
+    <div className="fixed top-24 right-4 z-[10000] pointer-events-none max-w-[360px] max-md:top-2 max-md:right-2">
+        <div className="pointer-events-auto w-[300px] max-w-[calc(100vw-1.5rem)] bg-[#141918] border-2 border-[#0e1211] shadow-[4px_4px_0px_0px_#0e1211] text-[#f7e8c5] animate-fade-in p-2.5 flex flex-col gap-2 font-mono">
+          {/* Header Bar */}
+          <div className="flex items-center justify-between border-b border-dashed border-[#283430] pb-1.5">
+            <span className="text-[10px] font-black uppercase text-amber-400 tracking-wider flex items-center gap-1">
+              <span className="w-2 h-2 bg-amber-400 inline-block shadow-[1px_1px_0px_#0e1211]" />
+              {isCanceled
+                ? t('nope_panel_canceled')
+                : (isNowOnly ? 'NOW OR NEVER!' : 'CỬA SỔ NOPE')}
+            </span>
+
+            {/* Circular Timer & Sec Text */}
+            <div className="flex items-center gap-1 bg-[#0b0e0d] px-2 py-0.5 border border-[#283430]">
+              <span className="text-xs font-bold text-amber-400">
+                {(timeLeft / 1000).toFixed(1)}s
               </span>
             </div>
           </div>
-        </div>
 
-        <div className="px-4 py-3 flex flex-col gap-3">
-          <div className="flex items-center justify-between gap-3 w-full">
-            <div className="flex flex-col flex-1 min-w-0">
-              {actingPlayerName && cardName ? (
-                <>
-                  <span className="text-[9px] font-headline font-black text-slate-400 uppercase tracking-wider">
-                    {isNowOnly ? 'LÁ BÀI VỪA KÍCH HOẠT XONG' : t('nope_panel_playing', { name: '' })}
+          {/* Action Info */}
+          <div className="text-[11px] leading-tight">
+            {actingPlayerName && cardName ? (
+              <div>
+                <strong className="text-white font-bold">{actingPlayerName}</strong>
+                {' đánh '}
+                <span className="text-amber-400 font-bold uppercase">{cardName}</span>
+                {targetPlayerName && (
+                  <span className="text-gray-400 text-[10px] block mt-0.5">
+                    ➔ Mục tiêu: <strong>{targetPlayerName}</strong>
                   </span>
-                  <div className="flex items-baseline gap-1.5 flex-wrap">
-                    <span
-                      className="font-headline font-black text-xs text-slate-900 truncate max-w-[120px]"
-                    >
-                      {actingPlayerName}
-                    </span>
-                    <span className="font-headline font-black text-xs uppercase" style={{ color: isCanceled ? '#dc2626' : (isNowOnly ? '#d97706' : '#7c3aed') }}>
-                      {cardName}
-                    </span>
-                  </div>
-                  {targetPlayerName && (
-                    <span className="text-[9px] font-bold text-slate-500 mt-0.5">
-                      {t('nope_panel_targeting', { target: targetPlayerName })}
-                    </span>
-                  )}
-                </>
-              ) : (
-                <span className="text-xs font-headline font-black text-slate-900 uppercase">
-                  {t('status_waiting_nope')}
-                </span>
-              )}
-              {isCounterNope && !isNowOnly && (
-                <span
-                  className="text-[9px] font-headline font-black uppercase mt-1"
-                  style={{ color: isCanceled ? '#dc2626' : '#059669' }}
-                >
-                  {'Nope x' + nopeCount + ' — Có thể nốp lại!'}
-                </span>
-              )}
-            </div>
+                )}
+              </div>
+            ) : (
+              <span className="text-xs font-bold text-white uppercase">
+                {t('status_waiting_nope')}
+              </span>
+            )}
+            {isCounterNope && !isNowOnly && (
+              <div className="text-[10px] text-emerald-400 font-bold mt-0.5">
+                Nope x{nopeCount} — Có thể nốp lại!
+              </div>
+            )}
+          </div>
 
-            <div className="flex gap-2 flex-shrink-0 items-center">
-              {canRespond && (
-                <ImageButton variant="secondary"
-                  onClick={onPass}
-                  className="font-headline font-black border-2 border-slate-900 shadow-[2px_2px_0px_0px_#1a1c1c] px-3.5 py-2 rounded-none text-[10px] hover:bg-slate-350 hover:scale-105 active:scale-95 transition-all uppercase text-slate-800"
-                >
-                  Pass
-                </ImageButton>
-              )}
+          {/* Quick Buttons Row */}
+          <div className="flex items-center justify-between gap-2 pt-1 border-t border-dashed border-[#283430]">
+            {canRespond && (
+              <button
+                type="button"
+                onClick={onPass}
+                className="flex-1 py-1.5 px-2 text-[10px] font-bold uppercase border border-[#283430] bg-[#1a2220] hover:bg-[#25302d] text-gray-200 active:translate-y-0.5 shadow-[2px_2px_0px_#0e1211] cursor-pointer"
+              >
+                Bỏ qua (Pass)
+              </button>
+            )}
 
-              {canNope && (
+            {canNope && (
+              <button
+                type="button"
+                onClick={onPlayNope}
+                className="flex-1 py-1.5 px-2 text-[10px] font-bold uppercase border border-[#0e1211] bg-rose-600 hover:bg-rose-700 text-white active:translate-y-0.5 shadow-[2px_2px_0px_#0e1211] cursor-pointer"
+              >
+                {isCounterNope ? 'NỐP LẠI!' : 'ĐÁNH NOPE!'}
+              </button>
+            )}
+          </div>
+
+          {/* Response Cards row (if any NOW cards) */}
+          {nowsInHand.length > 0 && (
+            <div className="flex gap-1.5 overflow-x-auto pt-1 border-t border-dashed border-[#283430]">
+              {nowsInHand.map((card) => (
                 <button
-                  onClick={onPlayNope}
-                  className="font-headline font-black border-2 border-slate-900 shadow-[2px_2px_0px_0px_#1a1c1c] px-3.5 py-2 rounded-none text-[10px] hover:scale-105 active:scale-95 transition-all uppercase"
-                  style={{
-                    background: isCounterNope ? '#7c3aed' : '#dc2626',
-                    color: '#ffffff',
-                  }}
+                  key={card.id}
+                  type="button"
+                  onClick={() => onPlayNow && onPlayNow(card)}
+                  className="px-1.5 py-0.5 text-[9px] font-bold uppercase bg-amber-500 text-black border border-black shadow-[1px_1px_0px_#000] cursor-pointer"
                 >
-                  {isCounterNope ? t('nope_panel_counter_btn') : t('nope_panel_nope_btn')}
+                  {card.type.replace('_now', '').toUpperCase()}
                 </button>
-              )}
+              ))}
             </div>
-          </div>
+          )}
 
-          <div className="border-t-2 border-dashed border-slate-200 pt-3">
-            <span className="text-[9px] font-headline font-black text-slate-400 uppercase tracking-wider block mb-2">
-              {isNowOnly ? 'Bài NOW khả dụng:' : 'Bài phản ứng của bạn (Click để đánh ngay):'}
-            </span>
-            
-            <div className="flex gap-2 overflow-x-auto pb-1.5 custom-scrollbar min-h-[46px] items-center">
-              {canNope && nopesInHand.map((card) => {
-                const theme = CARD_THEMES.nope || {};
-                return (
-                  <button
-                    key={card.id}
-                    onClick={onPlayNope}
-                    className="flex items-center gap-1.5 border-2 border-slate-900 rounded-none px-2.5 py-1 text-[9px] font-headline font-black uppercase transition-all duration-75 hover:scale-105 active:scale-95 shadow-[1.5px_1.5px_0px_0px_#1a1c1c] hover:-translate-y-0.5"
-                    style={{ backgroundColor: '#fca5a5', color: '#1a1c1c' }}
-                  >
-                    <span>{theme.name || 'Nope!'}</span>
-                  </button>
-                );
-              })}
-
-              {nowsInHand.map((card) => {
-                const theme = CARD_THEMES[card.type] || {};
-                return (
-                  <button
-                    key={card.id}
-                    onClick={() => onPlayNow && onPlayNow(card)}
-                    className="flex items-center gap-1.5 border-2 border-slate-900 rounded-none px-2.5 py-1 text-[9px] font-headline font-black uppercase transition-all duration-75 hover:scale-105 active:scale-95 shadow-[1.5px_1.5px_0px_0px_#1a1c1c] hover:-translate-y-0.5"
-                    style={{
-                      backgroundColor: card.type === 'clairvoyance_now' ? '#06b6d4' : (card.type === 'alter_the_future_3_now' ? '#ec4899' : '#f59e0b'),
-                      color: card.type === 'alter_the_future_3_now' ? '#ffffff' : '#1a1c1c'
-                    }}
-                  >
-                    <span>{theme.name || card.type}</span>
-                  </button>
-                );
-              })}
-
-              {((isNowOnly && nowsInHand.length === 0) || (!isNowOnly && nopesInHand.length === 0 && nowsInHand.length === 0)) && (
-                <span className="text-[10px] font-medium text-slate-400 italic">
-                  Không có bài phản ứng khả dụng
-                </span>
-              )}
-            </div>
+          {/* Bottom Countdown Progress Bar */}
+          <div className="h-1 bg-[#0b0e0d] w-full overflow-hidden mt-0.5">
+            <div
+              className="h-full transition-all duration-75"
+              style={{
+                width: `${percentage}%`,
+                background: isCanceled ? '#ef4444' : (isNowOnly ? '#f59e0b' : '#facc15'),
+              }}
+            />
           </div>
         </div>
-
-        <div className="h-1 bg-slate-100 w-full mt-auto">
-          <div
-            className="h-full transition-all duration-75"
-            style={{
-              width: `${percentage}%`,
-              background: isCanceled ? '#dc2626' : (isNowOnly ? '#f59e0b' : '#7c3aed'),
-            }}
-          />
-        </div>
-      </div>
-      </div>
       </div>
     </OverlayPortal>
+  );
+}
+
+// ==========================================
+// 1. SEE THE FUTURE MODAL
+// ==========================================
+export function SeeFutureModal({ cards, onClose }) {
+  if (!cards) return null;
+
+  return (
+    <OverlayPortal>
+      <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 backdrop-blur-open-anim bg-black/70 animate-fade-in">
+        <div className="w-full max-w-xl bg-[#141918] border-4 border-[#0e1211] shadow-[8px_8px_0px_0px_#0e1211] text-[#f7e8c5] p-6 md:p-8 flex flex-col items-center gap-5 text-center font-mono">
+          {/* Header */}
+          <div className="border-b-2 border-dashed border-[#283430] pb-3 w-full">
+            <h3 className="text-xl md:text-2xl font-black text-amber-400 uppercase tracking-wider flex items-center justify-center gap-2">
+              <span className="w-3 h-3 bg-amber-400 inline-block shadow-[2px_2px_0px_#0e1211]" />
+              TIÊN TRI (SEE THE FUTURE)
+              <span className="w-3 h-3 bg-amber-400 inline-block shadow-[2px_2px_0px_#0e1211]" />
+            </h3>
+            <p className="text-xs font-bold text-gray-300 mt-2 leading-relaxed">
+              Đây là <strong>{cards.length}</strong> lá bài trên cùng bộ bài bốc (từ trái qua phải - từ trên xuống dưới).
+            </p>
+          </div>
+
+          {/* Cards Container */}
+          <div className="flex gap-4 sm:gap-6 justify-center items-center py-4 flex-wrap w-full">
+            {cards.map((card, index) => (
+              <div key={card.id || index} className="relative flex flex-col items-center group pt-3">
+                <span className="absolute -top-1 left-1/2 transform -translate-x-1/2 z-20 bg-amber-400 text-[#0e1211] font-black text-[10px] px-3 py-0.5 border border-[#0e1211] shadow-[2px_2px_0px_0px_#0e1211] uppercase tracking-wider">
+                  THỨ {index + 1}
+                </span>
+                <div className="transform hover:scale-105 transition-transform duration-100 shadow-[4px_4px_0px_0px_#0e1211] border-2 border-[#0e1211] rounded-xl overflow-hidden">
+                  <Card type={card.type} skinIndex={card.skinIndex ?? 0} disabled={true} />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Retro Action Button */}
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-8 py-3 bg-rose-600 hover:bg-rose-700 active:translate-y-1 text-white font-black text-xs md:text-sm uppercase tracking-widest border-2 border-[#0e1211] shadow-[4px_4px_0px_0px_#0e1211] cursor-pointer transition-all"
+          >
+            XONG, TÔI ĐÃ NHỚ
+          </button>
+        </div>
+      </div>
+    </OverlayPortal>
+  );
+}
+
+// ==========================================
+// 2. ALTER THE FUTURE MODAL
+// ==========================================
+export function AlterFutureModal({ cards, onConfirm }) {
+  if (!cards || cards.length === 0) return null;
+
+  const [order, setOrder] = useState([...cards]);
+
+  const moveLeft = (index) => {
+    if (index === 0) return;
+    const copy = [...order];
+    [copy[index], copy[index - 1]] = [copy[index - 1], copy[index]];
+    setOrder(copy);
+  };
+
+  const moveRight = (index) => {
+    if (index === order.length - 1) return;
+    const copy = [...order];
+    [copy[index], copy[index + 1]] = [copy[index + 1], copy[index]];
+    setOrder(copy);
+  };
+
+  return (
+    <BrutalModal isOpen={true} onClose={() => onConfirm(order.map(c => c.id))} maxWidth="max-w-2xl" theme="dark">
+      {(closeModal) => (
+        <div className="bg-[#141918] border-4 border-[#0e1211] shadow-[6px_6px_0px_0px_#0e1211] text-[#f7e8c5] p-6 md:p-8 flex flex-col items-center gap-5 text-center font-mono w-full">
+          <div className="border-b-2 border-dashed border-[#283430] pb-3 w-full">
+            <h3 className="text-xl md:text-2xl font-black text-amber-400 uppercase tracking-wider flex items-center justify-center gap-2">
+              <span className="w-3 h-3 bg-amber-400 inline-block shadow-[2px_2px_0px_#0e1211]" />
+              ĐỊNH ĐOẠT (ALTER THE FUTURE)
+              <span className="w-3 h-3 bg-amber-400 inline-block shadow-[2px_2px_0px_#0e1211]" />
+            </h3>
+            <p className="text-xs font-bold text-gray-300 mt-1.5">
+              Thay đổi thứ tự 3 lá bài trên cùng bộ bài bốc. Sắp xếp từ trái qua phải (lá đầu tiên nằm bên trái).
+            </p>
+          </div>
+
+          <div className="flex gap-4 sm:gap-6 justify-center items-stretch py-4 flex-wrap w-full">
+            {order.map((card, index) => (
+              <div key={card.id || index} className="flex flex-col items-center gap-3 bg-[#1a2220] border-2 border-[#0e1211] p-3 shadow-[3px_3px_0px_0px_#0e1211]">
+                <span className="text-[10px] font-black text-amber-400 uppercase tracking-wider">
+                  {index === 0 ? 'TRÊN CÙNG (TOP)' : `VỊ TRÍ ${index + 1}`}
+                </span>
+                
+                <Card type={card.type} skinIndex={card.skinIndex ?? 0} disabled={true} />
+                
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => moveLeft(index)}
+                    disabled={index === 0}
+                    className="px-3 py-1 bg-[#25302d] border border-[#0e1211] hover:bg-[#32403c] disabled:opacity-30 text-xs font-bold text-gray-200 transition-all shadow-[1px_1px_0px_0px_#0e1211] active:translate-y-0.5 cursor-pointer"
+                  >
+                    ◀
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveRight(index)}
+                    disabled={index === order.length - 1}
+                    className="px-3 py-1 bg-[#25302d] border border-[#0e1211] hover:bg-[#32403c] disabled:opacity-30 text-xs font-bold text-gray-200 transition-all shadow-[1px_1px_0px_0px_#0e1211] active:translate-y-0.5 cursor-pointer"
+                  >
+                    ▶
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => closeModal()}
+            className="px-8 py-3 bg-emerald-600 hover:bg-emerald-700 active:translate-y-1 text-white font-black text-xs md:text-sm uppercase tracking-widest border-2 border-[#0e1211] shadow-[4px_4px_0px_0px_#0e1211] cursor-pointer transition-all"
+          >
+            XÁC NHẬN SẮP XẾP
+          </button>
+        </div>
+      )}
+    </BrutalModal>
   );
 }
 
@@ -753,24 +704,39 @@ export function ZombieReviveModal({ players, deckCount = 0, onRespond }) {
 // ==========================================
 export function DefusePositionModal({ deckCount, onRespond, cardType }) {
   const [position, setPosition] = useState(0);
+  const reduceMotion = useReducedMotion();
 
   const isImploding = cardType === 'imploding_kitten';
   const name = isImploding ? 'Mèo Sập Nguồn' : 'Mèo Nổ';
+  const markerProgress = getDefusePositionProgress(position, deckCount);
 
   return (
     <BrutalModal isOpen={true} onClose={() => {}} maxWidth="max-w-xl">
       {(closeModal) => (
         <>
-          <div>
-            <h3 className="text-2xl font-headline font-black text-primary uppercase">
+          <motion.div
+            initial={reduceMotion ? false : { opacity: 0, y: -18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={getGameMotionTransition(reduceMotion)}
+          >
+            <motion.div
+              className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full border-4 border-slate-900 bg-emerald-400 text-3xl font-black text-slate-950 shadow-[4px_4px_0px_#0f0f0f]"
+              initial={reduceMotion ? false : { scale: 0, rotate: -45 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={getGameMotionTransition(reduceMotion)}
+              aria-hidden="true"
+            >
+              ✓
+            </motion.div>
+            <h3 className="text-2xl font-headline font-black text-primary uppercase text-center">
               {isImploding ? 'Tránh Bom Thành Công!' : 'Gỡ Mìn Thành Công!'}
             </h3>
-            <p className="text-xs font-bold text-slate-500 mt-1">
+            <p className="text-xs font-bold text-slate-500 mt-1 text-center">
               {isImploding 
                 ? 'Bạn vừa bốc phải Mèo Sập Nguồn (mặt úp). Hãy chọn vị trí đặt lại lá bài này (lật ngửa) vào bộ bài bốc.' 
                 : `Bạn đã dùng lá bài Gỡ Mìn. Hãy chọn vị trí đặt quân **${name}** ngược lại vào bộ bài bốc.`}
             </p>
-          </div>
+          </motion.div>
 
           <div className="flex flex-col gap-3 px-6 py-4 bg-white border-2 border-slate-900 rounded-none text-left w-full shadow-[3px_3px_0px_0px_#0f0f0f]">
             <span className="text-xs font-headline font-black text-slate-900 uppercase">
@@ -784,6 +750,16 @@ export function DefusePositionModal({ deckCount, onRespond, cardType }) {
               onChange={(e) => setPosition(parseInt(e.target.value, 10))}
               className="w-full accent-primary cursor-pointer h-2 bg-slate-200 rounded-lg appearance-none border border-slate-900"
             />
+            <div className="relative h-8 border-x-2 border-slate-900" aria-hidden="true">
+              <div className="absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 bg-slate-900" />
+              <motion.div
+                className="absolute top-1/2 h-7 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-slate-950 bg-rose-600 text-center text-sm leading-[24px] shadow-[2px_2px_0_#0f0f0f]"
+                animate={{ left: `${markerProgress * 100}%` }}
+                transition={getGameMotionTransition(reduceMotion)}
+              >
+                💣
+              </motion.div>
+            </div>
             <div className="flex justify-between text-[9px] font-bold text-slate-400 uppercase">
               <span>Dưới đáy (0)</span>
               <span>Giữa bộ bài</span>
@@ -792,12 +768,14 @@ export function DefusePositionModal({ deckCount, onRespond, cardType }) {
           </div>
 
           <div className="flex justify-center mt-2">
-            <ImageButton variant="danger"
-              onClick={() => closeModal(() => onRespond(position))}
-              className=" px-8 py-3 rounded-none font-headline font-black uppercase text-sm "
-            >
-              {isImploding ? 'Đặt Lại Mèo Sập Nguồn' : 'Đặt Lại Quân Bài'}
-            </ImageButton>
+            <motion.div whileTap={reduceMotion ? undefined : { scale: 0.94, y: 3 }}>
+              <ImageButton variant="danger"
+                onClick={() => closeModal(() => onRespond(position))}
+                className=" px-8 py-3 rounded-none font-headline font-black uppercase text-sm "
+              >
+                {isImploding ? 'Đặt Lại Mèo Sập Nguồn' : 'Đặt Lại Quân Bài'}
+              </ImageButton>
+            </motion.div>
           </div>
         </>
       )}

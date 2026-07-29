@@ -89,8 +89,8 @@ export function useRoomSync({
       setPrivateHand(cards);
     };
 
-    const onGameEnded = ({ winnerId, rankings, eloChanges, pinkCoinChanges }) => {
-      setGameEnded({ winnerId, rankings, eloChanges, pinkCoinChanges });
+    const onGameEnded = ({ winnerId, rankings, wager }) => {
+      setGameEnded({ winnerId, rankings, wager });
       setStatusMessage(t('log_game_ended', { winner: getUsername(winnerId) }));
 
       setRoomState((prev) => {

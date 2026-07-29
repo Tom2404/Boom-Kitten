@@ -4,23 +4,23 @@ export default function OpponentRail({
   PlayerAvatar,
   activePlayerId,
   edition,
-  getOrderedOpponents,
+  opponents,
   isOpponentTargetable,
   selectedTargetId,
   waitingHolderId,
   onSelectTarget,
 }) {
-  const opponents = getOrderedOpponents();
-  const hasTarget = opponents.some((opponent) => isOpponentTargetable(opponent.userId));
+  const list = opponents || [];
+  const hasTarget = list.some((opponent) => isOpponentTargetable(opponent.userId));
 
   return (
     <section className="game-opponent-rail" aria-label="Đối thủ trong phòng">
       <div className="game-opponent-rail__label" aria-hidden="true">
         <span>Đối thủ</span>
-        <small>{opponents.length}</small>
+        <small>{list.length}</small>
       </div>
       <div className="game-opponent-rail__scroller">
-        {opponents.map((opponent) => (
+        {list.map((opponent) => (
           <PlayerAvatar
             key={opponent.userId}
             player={opponent}

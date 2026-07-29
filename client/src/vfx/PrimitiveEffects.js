@@ -180,15 +180,21 @@ export const PrimitiveEffects = {
     const centerY = window.innerHeight / 2;
 
     tl.to(stage, {
-      scaleX: scale,
-      scaleY: scale,
-      pivotX: centerX,
-      pivotY: centerY,
       x: centerX,
       y: centerY,
       duration,
       ease: 'steps(4)',
-    });
+    }, 0).to(stage.scale, {
+      x: scale,
+      y: scale,
+      duration,
+      ease: 'steps(4)',
+    }, 0).to(stage.pivot, {
+      x: centerX,
+      y: centerY,
+      duration,
+      ease: 'steps(4)',
+    }, 0);
 
     return tl;
   },
@@ -198,16 +204,23 @@ export const PrimitiveEffects = {
     const tl = gsap.timeline();
     if (!stage) return tl;
 
+    const actualDuration = isReducedMotion() ? 0.05 : duration;
     tl.to(stage, {
-      scaleX: 1,
-      scaleY: 1,
-      pivotX: 0,
-      pivotY: 0,
       x: 0,
       y: 0,
-      duration: isReducedMotion() ? 0.05 : duration,
+      duration: actualDuration,
       ease: 'steps(3)',
-    });
+    }, 0).to(stage.scale, {
+      x: 1,
+      y: 1,
+      duration: actualDuration,
+      ease: 'steps(3)',
+    }, 0).to(stage.pivot, {
+      x: 0,
+      y: 0,
+      duration: actualDuration,
+      ease: 'steps(3)',
+    }, 0);
     return tl;
   },
 
@@ -218,14 +231,18 @@ export const PrimitiveEffects = {
     displayObject.scale.set(0.45);
 
     if (isReducedMotion()) {
-      return tl.to(displayObject, {
+      tl.to(displayObject, {
         x: endPos.x,
         y: endPos.y,
-        scaleX: 1,
-        scaleY: 1,
         duration: Math.min(duration, 0.12),
         ease: 'steps(2)',
-      });
+      }, 0).to(displayObject.scale, {
+        x: 1,
+        y: 1,
+        duration: Math.min(duration, 0.12),
+        ease: 'steps(2)',
+      }, 0);
+      return tl;
     }
 
     tl.to(displayObject, {
@@ -236,9 +253,9 @@ export const PrimitiveEffects = {
       y: endPos.y,
       duration,
       ease: 'back.in(1.1)',
-    }, 0).to(displayObject, {
-      scaleX: 1,
-      scaleY: 1,
+    }, 0).to(displayObject.scale, {
+      x: 1,
+      y: 1,
       duration: duration * 0.5,
       yoyo: true,
       repeat: 1,
@@ -303,21 +320,27 @@ export const PrimitiveEffects = {
     const actualDuration = reduced ? Math.min(duration, 0.65) : duration;
     tl.to(group, {
       alpha: reduced ? opacity * 0.45 : 1,
-      scaleX: 1,
-      scaleY: 1,
       duration: actualDuration * 0.24,
       ease: 'back.out(1.5)',
-    }).to(group, {
+    }).to(group.scale, {
+      x: 1,
+      y: 1,
+      duration: actualDuration * 0.24,
+      ease: 'back.out(1.5)',
+    }, 0).to(group, {
       rotation: rotation + (reduced ? 0.02 : 0.16),
       duration: actualDuration * 0.46,
       ease: 'power1.out',
     }, 0).to(group, {
       alpha: 0,
-      scaleX: 1.08,
-      scaleY: 1.08,
       duration: actualDuration * 0.5,
       ease: 'power2.out',
       onComplete: () => safeDestroy(group),
+    }, actualDuration * 0.48).to(group.scale, {
+      x: 1.08,
+      y: 1.08,
+      duration: actualDuration * 0.5,
+      ease: 'power2.out',
     }, actualDuration * 0.48);
 
     return tl;
@@ -397,23 +420,29 @@ export const PrimitiveEffects = {
     const actualDuration = isReducedMotion() ? Math.min(duration, 0.72) : duration;
     tl.to(icon, {
       alpha: 1,
-      scaleX: 1.15,
-      scaleY: 1.15,
       duration: actualDuration * 0.28,
       ease: 'back.out(1.8)',
-    }).to(icon, {
-      scaleX: 1,
-      scaleY: 1,
+    }, 0).to(icon.scale, {
+      x: 1.15,
+      y: 1.15,
+      duration: actualDuration * 0.28,
+      ease: 'back.out(1.8)',
+    }, 0).to(icon.scale, {
+      x: 1,
+      y: 1,
       duration: actualDuration * 0.18,
       ease: 'power2.out',
-    }).to(icon, { duration: hold }).to(icon, {
+    }, actualDuration * 0.28).to(icon, {
       alpha: 0,
-      scaleX: 0.92,
-      scaleY: 0.92,
       duration: actualDuration * 0.28,
       ease: 'power2.in',
       onComplete: () => safeDestroy(icon),
-    });
+    }, actualDuration * 0.46 + hold).to(icon.scale, {
+      x: 0.92,
+      y: 0.92,
+      duration: actualDuration * 0.28,
+      ease: 'power2.in',
+    }, actualDuration * 0.46 + hold);
 
     return tl;
   },
@@ -452,14 +481,20 @@ export const PrimitiveEffects = {
         x: Math.cos(angle) * radius,
         y: Math.sin(angle) * radius,
         alpha: 1,
-        scaleX: 1,
-        scaleY: 1,
+        duration: duration * 0.35,
+        ease: 'power2.out',
+      }, i * 0.012).to(sparkle.scale, {
+        x: 1,
+        y: 1,
         duration: duration * 0.35,
         ease: 'power2.out',
       }, i * 0.012).to(sparkle, {
         alpha: 0,
-        scaleX: 0.3,
-        scaleY: 0.3,
+        duration: duration * 0.52,
+        ease: 'power2.in',
+      }, duration * 0.38 + i * 0.012).to(sparkle.scale, {
+        x: 0.3,
+        y: 0.3,
         duration: duration * 0.52,
         ease: 'power2.in',
       }, duration * 0.38 + i * 0.012);
@@ -499,22 +534,25 @@ export const PrimitiveEffects = {
     const actualHold = isReducedMotion() ? Math.min(hold, 0.18) : hold;
     tl.to(stamp, {
       alpha: 1,
-      scaleX: 1.25,
-      scaleY: 1.25,
       duration: actualDuration * 0.18,
       ease: 'back.out(1.9)',
-    }).to(stamp, {
-      scaleX: 1,
-      scaleY: 1,
+    }, 0).to(stamp.scale, {
+      x: 1.25,
+      y: 1.25,
+      duration: actualDuration * 0.18,
+      ease: 'back.out(1.9)',
+    }, 0).to(stamp.scale, {
+      x: 1,
+      y: 1,
       duration: actualDuration * 0.12,
       ease: 'power2.out',
-    }).to(stamp, { duration: actualHold }).to(stamp, {
+    }, actualDuration * 0.18).to(stamp, {
       alpha: 0,
       y: position.y - 24,
       duration: Math.max(0.12, actualDuration * 0.28),
       ease: 'power2.in',
       onComplete: () => safeDestroy(stamp),
-    });
+    }, actualDuration * 0.3 + actualHold);
 
     return tl;
   },
@@ -593,8 +631,11 @@ export const PrimitiveEffects = {
         ease: 'steps(4)',
       }, 0).to(pixel, {
         alpha: 0,
-        scaleX: 0.2,
-        scaleY: 0.2,
+        duration: duration * 0.55,
+        ease: 'steps(3)',
+      }, duration * 0.32).to(pixel.scale, {
+        x: 0.2,
+        y: 0.2,
         duration: duration * 0.55,
         ease: 'steps(3)',
       }, duration * 0.32);
@@ -625,15 +666,20 @@ export const PrimitiveEffects = {
     ring.alpha = 0;
     layer.addChild(ring);
 
-    tl.to(ring, { alpha: 1, scaleX: 1, scaleY: 1, duration: duration * 0.35, ease: 'steps(3)' })
+    tl.to(ring, { alpha: 1, duration: duration * 0.35, ease: 'steps(3)' }, 0)
+      .to(ring.scale, { x: 1, y: 1, duration: duration * 0.35, ease: 'steps(3)' }, 0)
       .to(ring, {
         alpha: 0,
-        scaleX: 1.55,
-        scaleY: 1.55,
         duration: duration * 0.65,
         ease: 'steps(4)',
         onComplete: () => safeDestroy(ring),
-      });
+      }, duration * 0.35)
+      .to(ring.scale, {
+        x: 1.55,
+        y: 1.55,
+        duration: duration * 0.65,
+        ease: 'steps(4)',
+      }, duration * 0.35);
 
     return tl;
   },
@@ -717,15 +763,16 @@ export const PrimitiveEffects = {
     stamp.alpha = 0;
     layer.addChild(stamp);
 
-    tl.to(stamp, { alpha: 1, scaleX: 1, scaleY: 1, duration: 0.1, ease: 'steps(2)' })
-      .to(stamp, { scaleX: 1.08, scaleY: 0.96, duration: 0.08, yoyo: true, repeat: 1, ease: 'steps(2)' })
+    tl.to(stamp, { alpha: 1, duration: 0.1, ease: 'steps(2)' }, 0)
+      .to(stamp.scale, { x: 1, y: 1, duration: 0.1, ease: 'steps(2)' }, 0)
+      .to(stamp.scale, { x: 1.08, y: 0.96, duration: 0.08, yoyo: true, repeat: 1, ease: 'steps(2)' }, 0.1)
       .to(stamp, {
         alpha: 0,
         y: position.y - 24,
         duration: duration - 0.26,
         ease: 'steps(5)',
         onComplete: () => safeDestroy(stamp),
-      });
+      }, 0.26);
 
     return tl;
   },
@@ -764,8 +811,11 @@ export const PrimitiveEffects = {
       tl.to(arrow, {
         x: 24 + i * 32,
         alpha: 1,
-        scaleX: 1.12,
-        scaleY: 1.12,
+        duration: duration * 0.45,
+        ease: 'steps(5)',
+      }, i * 0.05).to(arrow.scale, {
+        x: 1.12,
+        y: 1.12,
         duration: duration * 0.45,
         ease: 'steps(5)',
       }, i * 0.05).to(arrow, {

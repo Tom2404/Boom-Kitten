@@ -18,7 +18,7 @@ function isSameDay(a, b) {
 
 router.get('/me', async (req, res, next) => {
   try {
-    const user = await User.findById(req.user.id).select('-passwordHash');
+    const user = await User.findById(req.user.id).select('-passwordHash -gems -rank -eloPoints -matchmakingRating -highestEloReached -seasonHighestElo -allTimeHighestElo -rankProtectionGames -rankProtectedFloor');
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     const now = new Date();
@@ -122,7 +122,7 @@ router.get('/me/friends', async (req, res, next) => {
         { recipient: req.user.id },
       ],
       status: 'accepted',
-    }).populate('requester recipient', 'username avatar rank');
+    }).populate('requester recipient', 'username avatar');
 
     const friendsList = friendships.map((f) => {
       const friend = f.requester._id.toString() === req.user.id ? f.recipient : f.requester;
@@ -130,7 +130,6 @@ router.get('/me/friends', async (req, res, next) => {
         _id: friend._id,
         username: friend.username,
         avatar: friend.avatar,
-        rank: friend.rank,
       };
     });
 
@@ -241,7 +240,7 @@ router.get('/me/quests', async (req, res, next) => {
           description: quest.description,
           actionType: quest.actionType,
           targetCount: quest.targetCount,
-          reward: quest.reward,
+          reward: { coins: (quest.reward?.coins ?? 0) + (quest.reward?.gems ?? 0) * 50 },
           currentCount: progress.currentCount,
           status: progress.status,
         };
@@ -298,11 +297,9 @@ router.post('/me/quests/:questId/claim', async (req, res, next) => {
       return res.status(404).json({ message: 'Người chơi không tìm thấy' });
     }
 
-    const rewardCoins = quest.reward?.coins ?? 0;
-    const rewardGems = quest.reward?.gems ?? 0;
+    const rewardCoins = (quest.reward?.coins ?? 0) + (quest.reward?.gems ?? 0) * 50;
 
     user.coins += rewardCoins;
-    user.gems += rewardGems;
     await user.save();
 
     if (rewardCoins > 0) {
@@ -315,20 +312,9 @@ router.post('/me/quests/:questId/claim', async (req, res, next) => {
       });
     }
 
-    if (rewardGems > 0) {
-      await Transaction.create({
-        userId: user._id,
-        type: 'earn',
-        amount: rewardGems,
-        currency: 'gem',
-        description: `Nhận thưởng nhiệm vụ: ${quest.title}`,
-      });
-    }
-
     return res.json({
       success: true,
       coins: user.coins,
-      gems: user.gems,
       status: 'claimed',
     });
   } catch (error) {
@@ -400,7 +386,7 @@ router.delete('/friends/:id', async (req, res, next) => {
 
 router.get('/:id', async (req, res, next) => {
   try {
-    const user = await User.findById(req.params.id).select('username avatar rank stats eloPoints');
+    const user = await User.findById(req.params.id).select('username avatar stats');
     if (!user) return res.status(404).json({ message: 'User not found' });
     return res.json(user);
   } catch (error) {

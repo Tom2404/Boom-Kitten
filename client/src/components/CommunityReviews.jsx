@@ -10,42 +10,42 @@ export default function CommunityReviews() {
     {
       id: 1,
       name: "hoang_dung99",
-      rank: "KIM CƯƠNG IV (Hà Nội)",
+      location: "Hà Nội",
       content: "chơi game này mất bạn thực sự. thằng bạn chí cốt nó cướp lá defuse duy nhất của mình xong gài mèo nổ lên đầu xấp bài. tối đó hai đứa không thèm nhìn mặt nhau luôn. 10/10 game cực vui sẽ chơi tiếp.",
       borderColor: '#222222',
     },
     {
       id: 2,
       name: "meo_la_nha",
-      rank: "CHIẾN THẦN (Sài Gòn)",
+      location: "Sài Gòn",
       content: "vừa lật kèo thắng ván bài nhờ lá bài xem trước tương lai. cả lũ bạn gào thét bất lực nhìn mình nhảy qua lượt rút bài nổ. cảm giác làm kẻ ác nó sướng gì đâu á.",
       borderColor: 'var(--pop-red)', // Card thứ 2 viền đỏ
     },
     {
       id: 3,
       name: "huyen.tran20",
-      rank: "VÀNG II (Đà Nẵng)",
+      location: "Đà Nẵng",
       content: "không cần tải ứng dụng gì hết cứ gửi link qua messenger là cả nhóm vào solo được luôn. giao diện chơi mượt, cơ chế gỡ bom rồi đặt lại bom vào vị trí bất kỳ đúng là đỉnh cao của sự lừa lọc.",
       borderColor: '#222222',
     },
     {
       id: 4,
       name: "bomb_master",
-      rank: "THÁCH ĐẤU I (Quốc Tế)",
+      location: "Quốc Tế",
       content: "tôi đã thức tới 3 giờ sáng chỉ để phục thù trận thua bị gài bom. game cuốn khủng khiếp, lối chơi cực kỳ hack não và mang tính chiến thuật cao hơn tôi tưởng.",
       borderColor: 'var(--pop-red)', // Card thứ 4 viền đỏ
     },
     {
       id: 5,
       name: "kitty_killer",
-      rank: "BẠC I (Hải Phòng)",
+      location: "Hải Phòng",
       content: "bạn không thể tin bất kỳ ai trong game này kể cả người yêu. vừa hứa không gài bom mình xong lượt sau nó dùng bài liên hoàn cướp sạch bài phòng thủ của mình.",
       borderColor: '#222222',
     },
     {
       id: 6,
       name: "party_animal",
-      rank: "CAO THỦ II (Cần Thơ)",
+      location: "Cần Thơ",
       content: "mỗi lần tụ tập nhóm bạn là lại lôi web ra chơi. ván đấu nhanh tầm 15 phút nên ai cũng được chơi nhiều lượt, tiếng cười và tiếng chửi nhau vang vọng cả phòng.",
       borderColor: '#222222',
     }
@@ -93,7 +93,7 @@ export default function CommunityReviews() {
                   {review.name}
                 </span>
                 <span className="font-pop-body text-[11px] text-[#666] font-bold uppercase tracking-wider">
-                  {review.rank}
+                  {review.location}
                 </span>
               </div>
             </div>

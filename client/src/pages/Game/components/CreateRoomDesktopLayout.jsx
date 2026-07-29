@@ -9,7 +9,6 @@ export default function CreateRoomDesktopLayout() {
     EDITIONS_MAP,
     ExclusiveCard,
     ExtensionIcon,
-    GemIcon,
     ImageButton,
     LockIcon,
     PixelBombIcon,

@@ -1,46 +1,81 @@
 import React from 'react';
+import TurnStatusBanner from './TurnStatusBanner.jsx';
+import OpponentTableSeats from './OpponentTableSeats.jsx';
+import OpponentRail from './OpponentRail.jsx';
 
 export default function GameTableCore({
   DeckPile,
   DiscardPile,
+  PlayerAvatar,
   deckCount,
   displayedDiscardPile,
   drawCard,
+  edition,
   isDrawDisabled,
   isMyTurn,
+  isOpponentTargetable,
+  layoutMode,
   myUserId,
+  onClearTarget,
   onSelectDiscard,
+  onSelectTarget,
+  opponents,
   pendingCombo5,
   playDirection,
   reversePulse,
-  statusMessage,
-  topCard,
+  selectedTargetId,
+  interactionState,
   targetName,
-  onClearTarget,
+  topCard,
+  waitingHolderId,
 }) {
+  const isClockwise = playDirection !== -1;
+
   return (
     <section className="game-table-core" aria-label="Bàn đấu">
       <div id="board-center-target" className="game-table-core__vfx-target" aria-hidden="true" />
-      <div className={`game-direction-mark ${reversePulse ? 'game-direction-mark--pulse' : ''}`} aria-hidden="true">
-        <img
-          src="/vfx/reverse-arrow.png"
-          alt=""
-          className={playDirection === -1 ? 'is-counter-clockwise' : 'is-clockwise'}
+      
+      {/* Opponents seated around the table */}
+      {layoutMode === 'rail' ? (
+        <OpponentRail
+          PlayerAvatar={PlayerAvatar}
+          activePlayerId={interactionState?.activePlayerId}
+          edition={edition}
+          opponents={opponents}
+          isOpponentTargetable={isOpponentTargetable}
+          selectedTargetId={selectedTargetId}
+          waitingHolderId={waitingHolderId}
+          onSelectTarget={onSelectTarget}
         />
-      </div>
+      ) : (
+        <OpponentTableSeats
+          opponents={opponents}
+          activePlayerId={interactionState?.activePlayerId}
+          edition={edition}
+          isOpponentTargetable={isOpponentTargetable}
+          selectedTargetId={selectedTargetId}
+          waitingHolderId={waitingHolderId}
+          onSelectTarget={onSelectTarget}
+        />
+      )}
 
-      <div className="game-table-core__status" role="status" aria-live="polite">
-        <span className="game-pixel-spark" aria-hidden="true" />
-        <p>{statusMessage}</p>
-        {targetName && (
-          <button type="button" onClick={onClearTarget} aria-label={`Bỏ chọn ${targetName}`}>
-            Mục tiêu: <strong>{targetName}</strong> <span aria-hidden="true">×</span>
-          </button>
-        )}
+      {/* Turn & Interaction Status Banner */}
+      <TurnStatusBanner
+        interactionState={interactionState}
+        targetName={targetName}
+        onClearTarget={onClearTarget}
+      />
+
+      {/* Outer Direction Path along table border */}
+      <div className={`direction-path ${isClockwise ? 'direction-path--cw' : 'direction-path--ccw'} ${reversePulse ? 'direction-path--pulse' : ''}`} aria-hidden="true">
+        <span className="direction-path__arrow direction-path__arrow--top" />
+        <span className="direction-path__arrow direction-path__arrow--right" />
+        <span className="direction-path__arrow direction-path__arrow--left" />
       </div>
 
       <div className="game-table-core__piles">
-        <div className="game-table-pile game-table-pile--draw">
+        {/* Draw Pile Container with VFX Anchor */}
+        <div className="game-table-pile game-table-pile--draw" data-vfx-anchor="draw-pile">
           <DeckPile
             count={deckCount}
             topCard={topCard}
@@ -50,10 +85,18 @@ export default function GameTableCore({
             compact
           />
         </div>
-        <span className="game-table-core__flow" aria-label={playDirection === -1 ? 'Chiều chơi ngược kim đồng hồ' : 'Chiều chơi theo kim đồng hồ'}>
-          {playDirection === -1 ? '‹' : '›'}
-        </span>
-        <div className="game-table-pile game-table-pile--discard">
+
+        {/* Play Direction Indicator */}
+        <div
+          className={`game-table-core__flow ${reversePulse ? 'game-table-core__flow--pulse' : ''}`}
+          aria-label={isClockwise ? 'Chiều chơi thuận kim đồng hồ' : 'Chiều chơi ngược kim đồng hồ'}
+        >
+          <span className="game-table-core__flow-icon">{isClockwise ? '↷' : '↶'}</span>
+          <small className="game-table-core__flow-tag">{isClockwise ? 'CW' : 'CCW'}</small>
+        </div>
+
+        {/* Discard Pile Container with VFX Anchor */}
+        <div className="game-table-pile game-table-pile--discard" data-vfx-anchor="discard-pile">
           <DiscardPile
             discardPile={displayedDiscardPile}
             pendingCombo5={pendingCombo5}
@@ -66,4 +109,3 @@ export default function GameTableCore({
     </section>
   );
 }
-
