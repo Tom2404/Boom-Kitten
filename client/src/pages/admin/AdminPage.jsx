@@ -96,12 +96,13 @@ export default function AdminPage({ setPage }) {
       case 'tournaments':
         return <TournamentsPanel permissions={permissions} adminUsername={session.data.admin.username} />;
       default:
-        return <OverviewPanel onNavigate={navigateToTab} language={language} />;
+        return <OverviewPanel onNavigate={navigateToTab} language={language} permissions={permissions} />;
     }
   };
 
   return (
     <main className="admin-console min-h-[calc(100vh-96px)] bg-[var(--admin-canvas)] px-3 py-4 md:px-6 md:py-6 lg:px-8">
+      <a href="#admin-content" className="fixed left-4 top-4 z-50 -translate-y-24 rounded-md bg-[var(--admin-accent)] px-3 py-2 font-semibold text-white focus:translate-y-0">{isEnglish ? 'Skip to admin content' : 'Bỏ qua đến nội dung quản trị'}</a>
       <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6 lg:flex-row">
         <aside className="lg:sticky lg:top-4 lg:w-72 lg:shrink-0 lg:self-start">
           <div className="rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface)] p-3 shadow-[0_1px_2px_rgba(32,35,31,0.03)]">
@@ -156,7 +157,7 @@ export default function AdminPage({ setPage }) {
           </div>
         </aside>
 
-        <section className="min-w-0 flex-1">
+        <section id="admin-content" tabIndex="-1" className="min-w-0 flex-1">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-4 py-2.5 text-sm text-[var(--admin-text-muted)]">
             <span className="font-medium">{isEnglish ? 'Session verified against current permissions' : 'Phiên đã xác minh theo quyền hiện hành'}</span>
             <span className="inline-flex items-center gap-2 font-mono text-xs text-[var(--admin-success-text)]">

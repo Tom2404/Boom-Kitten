@@ -162,14 +162,18 @@ class ParticleManager {
       const emitter = new particles.Emitter(container, this.getGlitterConfig(blueprint, textures));
       emitter.emit = false;
       emitter.fillPool(blueprint.maxParticles);
-      this.emitters.push(emitter);
       return emitter;
     });
+    let started = false;
     let stopped = false;
 
     return {
       start: (position) => {
         if (stopped) return;
+        if (!started) {
+          this.emitters.push(...trailEmitters);
+          started = true;
+        }
         trailEmitters.forEach((emitter) => {
           emitter.updateOwnerPos(position.x, position.y);
           emitter.resetPositionTracking();
@@ -184,7 +188,8 @@ class ParticleManager {
         if (stopped) return;
         stopped = true;
         trailEmitters.forEach((emitter) => {
-          emitter.emit = false;
+          if (started) emitter.emit = false;
+          else emitter.destroy();
         });
       },
     };

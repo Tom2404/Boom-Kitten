@@ -29,6 +29,12 @@ class PlayCardInitAction extends PlayCardAction {
   }
 
   execute(context, payload) {
+    const player = context.getPlayer(payload.userId);
+    const playedCard = payload.options?.cardId
+      ? player?.hand.find((card) => card.id === payload.options.cardId)
+      : player?.hand.find((card) => card.type === payload.cardType);
+    payload.playedCardSkinIndex = playedCard?.skinIndex ?? 0;
+
     const actualCardType = playCard(
       context.state,
       payload.userId,

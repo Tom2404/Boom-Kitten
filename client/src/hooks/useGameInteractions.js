@@ -90,6 +90,9 @@ export function useGameInteractions({ socket, t, setStatusMessage }) {
     if (publicGameState && !publicGameState.pendingArmageddon) {
       setArmageddonRequest(null);
     }
+    if (publicGameState && !publicGameState.activeInteraction) {
+      setActiveInteractionRequest(null);
+    }
   };
 
   useEffect(() => {
@@ -226,6 +229,7 @@ export function useGameInteractions({ socket, t, setStatusMessage }) {
           ...request,
           stage: payload.stage || 'distribute',
         }),
+        combo_3: () => setActiveInteractionRequest(request),
       };
 
       handlersByType[payload.type]?.();
@@ -321,6 +325,7 @@ export function useGameInteractions({ socket, t, setStatusMessage }) {
     setDigDeeperRequest,
     armageddonRequest: requestForType('armageddon'),
     setArmageddonRequest,
+    combo3Request: requestForType('combo_3'),
     clairvoyanceReveal,
     clearResolvedInteractions,
   };

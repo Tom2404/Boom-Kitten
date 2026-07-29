@@ -2,6 +2,7 @@ import React from 'react';
 
 export default function PlayerHandDock({
   PlayerHand,
+  combo3Request,
   discardCard,
   drawsRequired,
   gameState,
@@ -11,6 +12,7 @@ export default function PlayerHandDock({
   playCard,
   playCombo,
   privateHand,
+  respondCombo3,
   targetPlayerId,
 }) {
   return (
@@ -27,8 +29,10 @@ export default function PlayerHandDock({
       </div>
       <PlayerHand
         hand={privateHand}
+        combo3Request={combo3Request}
         onPlayCard={playCard}
         onPlayCombo={playCombo}
+        onRespondCombo3={respondCombo3}
         isMyTurn={isMyTurn}
         targetPlayerId={targetPlayerId}
         nopeWindowActive={Boolean(nopeWindow?.active)}

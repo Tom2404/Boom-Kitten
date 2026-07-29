@@ -66,7 +66,7 @@ export default function PlayersPanel({ onNavigate, language = 'vi', permissions 
   };
 
   const toggleSelected = (playerId) => {
-    setSelected((current) => current.includes(playerId) ? current.filter((id) => id !== playerId) : [...current, playerId]);
+    setSelected((current) => current.includes(playerId) ? [] : [playerId]);
   };
 
   const openModal = (type, player, extra = {}) => {
@@ -144,8 +144,8 @@ export default function PlayersPanel({ onNavigate, language = 'vi', permissions 
 
       {(hasPermission('players.create') || hasPermission('economy.adjust')) && (
         <div className="flex flex-wrap gap-2" aria-label={en ? 'Quick actions' : 'Tác vụ nhanh'}>
-          {hasPermission('players.create') && <Button variant="primary" onClick={() => setUserCrud({ mode: 'create', user: null })}>＋ {en ? 'Create user' : 'Tạo người dùng'}</Button>}
-          <Button variant="secondary" className="bg-[var(--admin-warning-bg)]" disabled={selected.length !== 1} onClick={() => openModal('currency', players.find((player) => player._id === selected[0]), { currency: 'coin' })}>🪙 {en ? 'Adjust Coin' : 'Điều chỉnh Coin'}</Button>
+          {hasPermission('players.create') && <Button variant="primary" onClick={() => setUserCrud({ mode: 'create', user: null })}><span className="material-symbols-outlined mr-1 text-lg" aria-hidden="true">person_add</span>{en ? 'Create user' : 'Tạo người dùng'}</Button>}
+          <Button variant="secondary" className="bg-[var(--admin-warning-bg)]" disabled={selected.length !== 1} onClick={() => openModal('currency', players.find((player) => player._id === selected[0]), { currency: 'coin' })}><span className="material-symbols-outlined mr-1 text-lg" aria-hidden="true">paid</span>{en ? 'Adjust Coin' : 'Điều chỉnh Coin'}</Button>
         </div>
       )}
 
@@ -194,7 +194,7 @@ export default function PlayersPanel({ onNavigate, language = 'vi', permissions 
             <DataTable fit columnWidths={['5%', '30%', '12%', '12%', '15%', '16%', '10%']} columns={en ? ['Select', 'Player', 'Role', 'Status', 'Coin wallet', 'Manage', 'Ban'] : ['Chọn', 'Player', 'Vai trò', 'Trạng thái', 'Ví Coin', 'Quản lý', 'Khóa']}>
               {players.map((player) => (
                 <tr key={player._id}>
-                  <td className="px-3 py-3"><input className="h-5 w-5 accent-[var(--admin-accent)]" type="checkbox" aria-label={`Chọn ${player.username}`} checked={selected.includes(player._id)} onChange={() => toggleSelected(player._id)} /></td>
+                  <td className="px-3 py-3"><input className="h-5 w-5 accent-[var(--admin-accent)]" type="radio" name="selected-player" aria-label={`Chọn ${player.username}`} checked={selected.includes(player._id)} onChange={() => toggleSelected(player._id)} /></td>
                   <td className="px-2 py-2"><div className="flex min-w-0 items-center gap-2">
                     <AdminAvatar avatar={player.avatar} username={player.username} />
                     <span className="min-w-0"><button type="button" className="block max-w-full truncate font-semibold text-[var(--admin-accent)] underline decoration-1 underline-offset-2 hover:text-[var(--admin-accent-hover)]" onClick={() => openPlayerDetail(player._id)}>{player.username}</button><small className="block truncate text-xs text-[var(--admin-text-muted)]">{player.email}</small></span>
@@ -214,7 +214,7 @@ export default function PlayersPanel({ onNavigate, language = 'vi', permissions 
               <article key={player._id} className="rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4 shadow-[0_1px_2px_rgba(32,35,31,0.03)]">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-3">
-                    <input className="h-5 w-5 shrink-0 accent-[var(--admin-accent)]" type="checkbox" aria-label={`Chọn ${player.username}`} checked={selected.includes(player._id)} onChange={() => toggleSelected(player._id)} />
+                    <input className="h-5 w-5 shrink-0 accent-[var(--admin-accent)]" type="radio" name="selected-player-mobile" aria-label={`Chọn ${player.username}`} checked={selected.includes(player._id)} onChange={() => toggleSelected(player._id)} />
                     <AdminAvatar avatar={player.avatar} username={player.username} className="h-10 w-10" />
                     <div className="min-w-0">
                       <button type="button" className="block max-w-full truncate text-left font-semibold text-[var(--admin-accent)] underline decoration-1 underline-offset-2" onClick={() => openPlayerDetail(player._id)}>{player.username}</button>

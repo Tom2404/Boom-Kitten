@@ -598,7 +598,7 @@ module.exports = function registerGameSocket(io) {
     const pending = gameState.pendingTargetSelect;
     if (!pending) return;
 
-    const { playerId, cardType, options, comboSize, presentationId, displayCardType } = pending;
+    const { playerId, cardType, options, comboSize, presentationId, displayCardType, comboCards } = pending;
     gameState.pendingTargetSelect = null;
 
     // Update lastAction with target
@@ -620,6 +620,7 @@ module.exports = function registerGameSocket(io) {
       playerId,
       cardType: actualCardType,
       displayCardType,
+      comboCards,
       targetPlayerId,
       options: options || {},
       nopeCount: 0,
@@ -1288,11 +1289,7 @@ module.exports = function registerGameSocket(io) {
           clearNowOnlyWindow(room, state.pendingNowOnlyWindow.eventId);
         }
 
-        const actingPlayerObj = state.players.find((p) => p.userId === userId);
-        const playedCardObj = options?.cardId
-          ? actingPlayerObj?.hand?.find((c) => c.id === options.cardId)
-          : actingPlayerObj?.hand?.find((c) => c.type === cardType);
-        const cardSkinIndex = playedCardObj?.skinIndex ?? 0;
+        const cardSkinIndex = payload.playedCardSkinIndex ?? 0;
 
         if (!finalTargetPlayerId) {
           finalTargetPlayerId = getAutoTargetForTwoPlayerGame(state, userId, actualCardType);
@@ -1576,7 +1573,7 @@ module.exports = function registerGameSocket(io) {
       });
     });
 
-    socket.on('game:combo', ({ cards, targetPlayerId, options: clientOptions }) => {
+    socket.on('game:combo', ({ cards, targetPlayerId }) => {
       try {
         const roomCode = [...socket.rooms].find((room) => room.length === 6);
         const room = roomCode ? getRoomState(roomCode) : null;
@@ -1608,6 +1605,11 @@ module.exports = function registerGameSocket(io) {
         if (!comboResult) return; // Invalid combo
         const comboSize = cards.length;
         const comboCardType = `combo_${comboSize}`;
+        const comboCards = comboResult.cardsToPlay.map((card) => ({
+          id: card.id,
+          type: card.type,
+          skinIndex: card.skinIndex ?? 0,
+        }));
         let finalTargetPlayerId = targetPlayerId;
 
         if (!finalTargetPlayerId && (comboSize === 2 || comboSize === 3)) {
@@ -1621,7 +1623,7 @@ module.exports = function registerGameSocket(io) {
           presentationId,
           playerId: userId,
           cardType: comboCardType,
-          displayCardType: comboResult.cardTypes[0] || 'cat_taco',
+          comboCards,
           targetPlayerId: finalTargetPlayerId,
           canBeNoped: true,
           responseWindowMs: getNowWindowTimeout(),
@@ -1642,10 +1644,10 @@ module.exports = function registerGameSocket(io) {
           room.gameState.pendingTargetSelect = {
             playerId: userId,
             cardType: comboCardType,
-            displayCardType: comboResult.cardTypes[0] || 'cat_taco',
+            comboCards,
             presentationId,
             comboSize,
-            options: { cardIds: cards ?? [], cardTypes: comboResult.cardTypes, ...(clientOptions || {}) },
+            options: { cardIds: cards ?? [], cardTypes: comboResult.cardTypes },
             startedAt: Date.now(),
           };
 
@@ -1673,16 +1675,16 @@ module.exports = function registerGameSocket(io) {
           return;
         }
 
-        // Queue action — include stealCardType from client if present (for combo_3)
+        // Queue the combo for Nope resolution before running its effect.
         const eventId = `${Date.now()}-${Math.random()}`;
         const action = {
           eventId,
           presentationId,
           playerId: userId,
           cardType: comboCardType,
-          displayCardType: comboResult.cardTypes[0] || 'cat_taco',
+          comboCards,
           targetPlayerId: finalTargetPlayerId,
-          options: { cardIds: cards ?? [], cardTypes: comboResult.cardTypes, ...(clientOptions || {}) },
+          options: { cardIds: cards ?? [], cardTypes: comboResult.cardTypes },
           nopeCount: 0,
         };
 
@@ -1745,6 +1747,29 @@ module.exports = function registerGameSocket(io) {
 
       if (!result.success) {
         socket.emit('error', { message: result.error || result.reason || 'Không thể lấy lá bài đã chọn!' });
+        return;
+      }
+
+      await afterGameStateChanged(room, playersBefore, turnBefore);
+    });
+
+    socket.on('game:combo3:respond', async ({ cardType, interactionId }) => {
+      const roomCode = [...socket.rooms].find((room) => room.length === 6);
+      if (!roomCode) return;
+      const room = getRoomState(roomCode);
+      if (!room?.gameState?.activeInteraction || room.gameState.activeInteraction.type !== 'combo_3') return;
+
+      const playersBefore = room.gameState.players.map((player) => ({ userId: player.userId, alive: player.alive }));
+      const turnBefore = room.gameState.currentPlayerIndex;
+      const context = new GameContext(room.gameState, new EffectQueue());
+      const result = dispatcher.dispatch('SUBMIT_INTERACTION', context, {
+        userId,
+        interactionId: interactionId ?? room.gameState.activeInteraction.id,
+        responseData: { cardType },
+      });
+
+      if (!result.success) {
+        socket.emit('error', { message: result.error || result.reason || 'Không thể chọn tên lá bài!' });
         return;
       }
 

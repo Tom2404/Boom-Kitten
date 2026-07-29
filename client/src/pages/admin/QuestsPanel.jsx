@@ -1,11 +1,21 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useAdminApi } from './useAdminApi.js';
-import { Alert, Button, ConfirmDialog, EmptyState, Field, inputClass, SectionHeader, SkeletonBlock, StatusBadge } from './ui.jsx';
+import { Alert, Button, ConfirmDialog, EmptyState, Field, inputClass, SectionHeader, SkeletonBlock, StatusBadge, Toolbar } from './ui.jsx';
 import { formatNumber } from './utils.js';
 import { getAdminPanelAccess } from './adminPanelAccess.js';
 import { buildDeleteAdminPayload, buildRoutineAdminPayload, createAdminOperationRequestId } from './adminMutation.js';
+import { filterQuests, getQuestSummary } from './adminListFilters.js';
 
 const blankQuest = { title: '', description: '', actionType: 'play_game', targetCount: 1, coinReward: 0, isActive: true };
+const actionOptions = [
+  ['play_game', 'Chơi trận'],
+  ['win_game', 'Thắng trận'],
+  ['draw_card', 'Rút bài'],
+  ['buy_item', 'Mua hàng'],
+  ['nope_card', 'Dùng Nope'],
+  ['defuse_kitten', 'Gỡ Exploding Kitten'],
+  ['steal_card', 'Cướp bài'],
+];
 
 export default function QuestsPanel({ permissions = [] }) {
   const { request } = useAdminApi();
@@ -20,7 +30,11 @@ export default function QuestsPanel({ permissions = [] }) {
   const [deleteRequestId, setDeleteRequestId] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [message, setMessage] = useState({ tone: '', text: '' });
+  const [filters, setFilters] = useState({ search: '', actionType: '', status: '' });
   const { canWriteQuests } = getAdminPanelAccess(permissions);
+  const summary = useMemo(() => getQuestSummary(quests), [quests]);
+  const visibleQuests = useMemo(() => filterQuests(quests, filters), [quests, filters]);
+  const filtersActive = Object.values(filters).some(Boolean);
 
   const loadQuests = async () => {
     setLoading(true);
@@ -118,6 +132,15 @@ export default function QuestsPanel({ permissions = [] }) {
       <SectionHeader title="Nhiệm vụ" description="Tạo và chỉnh sửa nhiệm vụ người chơi, mục tiêu hoàn thành và phần thưởng." />
       {message.text && <Alert tone={message.tone}>{message.text}</Alert>}
       {!canWriteQuests && <Alert tone="info">Chế độ chỉ đọc: bạn có thể xem nhiệm vụ nhưng không thể tạo, sửa hoặc xóa.</Alert>}
+      <dl className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {[['Tổng nhiệm vụ', summary.total], ['Hoạt động', summary.active], ['Đang tắt', summary.inactive], ['Ngân sách Coin', summary.rewardCoins]].map(([label, value]) => <div key={label} className="rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] p-3"><dt className="text-xs font-semibold text-[var(--admin-text-muted)]">{label}</dt><dd className="mt-1 font-mono text-xl font-semibold">{formatNumber(value)}</dd></div>)}
+      </dl>
+      <Toolbar>
+        <Field label="Tìm nhiệm vụ"><input className={`${inputClass} md:min-w-56`} type="search" value={filters.search} onChange={(event) => setFilters({ ...filters, search: event.target.value })} placeholder="Tiêu đề nhiệm vụ" /></Field>
+        <Field label="Hành động"><select className={inputClass} value={filters.actionType} onChange={(event) => setFilters({ ...filters, actionType: event.target.value })}><option value="">Tất cả</option>{actionOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
+        <Field label="Trạng thái"><select className={inputClass} value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value })}><option value="">Tất cả</option><option value="active">Active</option><option value="inactive">Inactive</option></select></Field>
+        <Button type="button" variant="secondary" disabled={!filtersActive} onClick={() => setFilters({ search: '', actionType: '', status: '' })}>Đặt lại</Button>
+      </Toolbar>
       <div className={`grid grid-cols-1 gap-5 ${canWriteQuests ? 'xl:grid-cols-[360px_1fr]' : ''}`}>
         {canWriteQuests && <form onSubmit={submitQuest} className="rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4 shadow-[0_1px_2px_rgba(32,35,31,0.03)]">
           <h3 className="font-sans text-base font-semibold text-slate-950">{editingId ? 'Sửa nhiệm vụ' : 'Tạo nhiệm vụ'}</h3>
@@ -125,7 +148,7 @@ export default function QuestsPanel({ permissions = [] }) {
             <Field label="Tiêu đề"><input className={inputClass} value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} /></Field>
             <Field label="Mô tả"><textarea className={inputClass} rows="3" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} /></Field>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Loại hành động"><select className={inputClass} value={form.actionType} onChange={(event) => setForm({ ...form, actionType: event.target.value })}><option value="play_game">Chơi trận</option><option value="win_game">Thắng trận</option><option value="draw_card">Rút bài</option><option value="buy_item">Mua hàng</option></select></Field>
+              <Field label="Loại hành động"><select className={inputClass} value={form.actionType} onChange={(event) => setForm({ ...form, actionType: event.target.value })}>{actionOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
               <Field label="Mục tiêu"><input className={inputClass} type="number" min="1" value={form.targetCount} onChange={(event) => setForm({ ...form, targetCount: event.target.value })} /></Field>
             </div>
             <Field label="Coin thưởng"><input className={inputClass} type="number" min="0" value={form.coinReward} onChange={(event) => setForm({ ...form, coinReward: event.target.value })} /></Field>
@@ -140,9 +163,11 @@ export default function QuestsPanel({ permissions = [] }) {
         <section>
           {loading ? <SkeletonBlock rows={5} /> : quests.length === 0 ? (
             <EmptyState title="Chưa có nhiệm vụ" description="Tạo nhiệm vụ đầu tiên bằng form bên trái." />
+          ) : visibleQuests.length === 0 ? (
+            <EmptyState title="Không có nhiệm vụ phù hợp" description="Thử đổi hoặc đặt lại bộ lọc." action={<Button variant="secondary" onClick={() => setFilters({ search: '', actionType: '', status: '' })}>Đặt lại bộ lọc</Button>} />
           ) : (
             <div className="grid gap-3">
-              {quests.map((quest) => (
+              {visibleQuests.map((quest) => (
                 <article key={quest._id} className="rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4 shadow-[0_1px_2px_rgba(32,35,31,0.03)]">
                   <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                     <div>

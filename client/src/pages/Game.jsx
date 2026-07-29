@@ -67,6 +67,7 @@ import GameBoardView from './Game/views/GameBoardView.jsx';
 import { GameProvider } from './Game/GameContext.jsx';
 import { animationManager } from '../vfx/AnimationManager.js';
 import { VFX_PRIORITY } from '../vfx/VFXEventAdapter.js';
+import { createTimeoutGroup } from './Game/gameMotion.js';
 
 /**
  * Renders custom pixel art artwork for each game edition/expansion
@@ -794,6 +795,7 @@ export default function Game({ setPage }) {
     graveRobberRequest,
     digDeeperRequest,
     armageddonRequest,
+    combo3Request,
     clairvoyanceReveal,
     gameEnded,
     setGameEnded,
@@ -826,6 +828,7 @@ export default function Game({ setPage }) {
     respondArmageddonDistribute,
     respondArmageddonDecision,
     playCombo,
+    respondCombo3,
     respondCombo5,
     sendChatMessage,
     sendEmote,
@@ -836,6 +839,8 @@ export default function Game({ setPage }) {
   const [reversePulse, setReversePulse] = React.useState(false);
   const previousTurnPlayerIdRef = React.useRef(null);
   const hasInitializedTurnRef = React.useRef(false);
+  const vfxTimersRef = React.useRef(null);
+  if (!vfxTimersRef.current) vfxTimersRef.current = createTimeoutGroup();
 
   const { t, language } = useLanguage();
 
@@ -1480,6 +1485,7 @@ export default function Game({ setPage }) {
       playerId,
       cardType,
       displayCardType,
+      comboCards,
       skinIndex,
       sourceCardType,
       sourceCardId,
@@ -1492,8 +1498,12 @@ export default function Game({ setPage }) {
         actionId: stableId,
         cardType,
         displayCardType: effectiveType,
+        displayCards: comboCards?.map((card) => ({
+          ...card,
+          sourceElementId: getPresentationSourceId(playerId, card.type, card.id),
+        })),
         skinIndex: skinIndex ?? 0,
-        sourceElementId: getPresentationSourceId(playerId, effectiveType, sourceCardId),
+        sourceElementId: getPresentationSourceId(playerId, sourceCardType || cardType, sourceCardId),
         playerId,
         targetPlayerId,
         canBeNoped,
@@ -1551,7 +1561,7 @@ export default function Game({ setPage }) {
 
       if (cardType === 'reverse') {
         setReversePulse(true);
-        setTimeout(() => setReversePulse(false), 500);
+        vfxTimersRef.current.schedule(() => setReversePulse(false), 500);
       }
 
     };
@@ -1561,7 +1571,7 @@ export default function Game({ setPage }) {
 
       if (cardType === 'imploding_kitten') {
         setIsImplodingActive(true);
-        setTimeout(() => {
+        vfxTimersRef.current.schedule(() => {
           setIsImplodingActive(false);
         }, 2500);
       } else {
@@ -1571,13 +1581,13 @@ export default function Game({ setPage }) {
           priority: VFX_PRIORITY.INTERRUPT,
           metadata: { playerId, cardType },
         });
-        setTimeout(() => {
+        vfxTimersRef.current.schedule(() => {
           setIsRedFlashActive(false);
         }, 1500);
       }
 
       setDrewKittenAlert({ active: true, playerName: username, cardType });
-      setTimeout(() => {
+      vfxTimersRef.current.schedule(() => {
         setDrewKittenAlert(null);
       }, 1500);
     };
@@ -1585,20 +1595,26 @@ export default function Game({ setPage }) {
     const handleExploded = ({ playerId }) => {
       triggerScreenShake('heavy');
 
-      setTimeout(() => {
-        const targetId = playerId === myUser?.id ? 'player-hand-container' : `player-avatar-${playerId}`;
-        const targetEl = document.getElementById(targetId);
-        if (targetEl) {
-          const rect = targetEl.getBoundingClientRect();
-          const x = rect.left + rect.width / 2;
-          const y = rect.top + rect.height / 2;
-        }
-      }, 50);
+      const targetId = playerId === myUser?.id ? 'player-hand-container' : `player-avatar-${playerId}`;
+      const targetEl = document.getElementById(targetId);
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (targetEl && !reducedMotion) {
+        targetEl.animate(
+          [
+            { transform: 'translateX(0)', filter: 'brightness(1)' },
+            { transform: 'translateX(-12px)', filter: 'brightness(1.8)' },
+            { transform: 'translateX(10px)', filter: 'brightness(0.8)' },
+            { transform: 'translateX(-6px)', filter: 'brightness(1.4)' },
+            { transform: 'translateX(0)', filter: 'brightness(1)' },
+          ],
+          { duration: 420, easing: 'ease-out' },
+        );
+      }
     };
 
     const handleBarkingKittenResolved = ({ attackerId, targetId, flow }) => {
       if ((flow === 2 || flow === 3 || flow === 4) && targetId) {
-        setTimeout(() => {
+        vfxTimersRef.current.schedule(() => {
           playFlyingCard(`player-avatar-${attackerId}`, `player-avatar-${targetId}`, 'barking_kitten');
         }, 50);
       }
@@ -1620,6 +1636,7 @@ export default function Game({ setPage }) {
       socket.off('game:actionResolved', handleActionResolved);
       socket.off('game:exploded', handleExploded);
       socket.off('game:barkingKitten:resolved', handleBarkingKittenResolved);
+      vfxTimersRef.current.clearAll();
     };
   }, [socket, myUser]);
 
@@ -1838,6 +1855,7 @@ export default function Game({ setPage }) {
     armageddonRequest,
     buryRequest,
     chatMessages,
+    combo3Request,
     connectionState,
     defuseRequest,
     dialogState,
@@ -1882,6 +1900,7 @@ export default function Game({ setPage }) {
     respondArmageddonDecision,
     respondArmageddonDistribute,
     respondBury,
+    respondCombo3,
     respondCombo5,
     respondDefuse,
     respondDigDeeper,

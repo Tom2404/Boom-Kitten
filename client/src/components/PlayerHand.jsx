@@ -50,11 +50,11 @@ const CAT_TYPES = [
   { type: 'cat_beard', label: 'Beard Cat' },
   { type: 'cat_rainbow', label: 'Rainbow Ralphing Cat' },
   { type: 'feral_cat', label: 'Feral Cat' },
-  { type: 'attack', label: 'Attack' },
+  { type: 'attack_2x', label: 'Attack' },
   { type: 'skip', label: 'Skip' },
   { type: 'favor', label: 'Favor' },
   { type: 'shuffle', label: 'Shuffle' },
-  { type: 'see_the_future', label: 'See the Future' },
+  { type: 'see_the_future_3', label: 'See the Future' },
   { type: 'nope', label: 'Nope' },
   { type: 'defuse', label: 'Defuse' },
 ];
@@ -82,8 +82,10 @@ const isCatCardType = (type) => type.startsWith('cat_') || type === 'feral_cat' 
 
 export default function PlayerHand({ 
   hand, 
+  combo3Request,
   onPlayCard, 
   onPlayCombo, 
+  onRespondCombo3,
   isMyTurn, 
   targetPlayerId, 
   nopeWindowActive, 
@@ -95,8 +97,7 @@ export default function PlayerHand({
   const reduceMotion = useReducedMotion();
   const dockState = getHandDockState({ handCount: hand.length, maxHandSize, isMyTurn });
   const [selectedIds, setSelectedIds] = useState([]);
-  const [combo3Pending, setCombo3Pending] = useState(null); // { ids, targetPlayerId }
-  const [combo3Step, setCombo3Step] = useState('target'); // 'target' | 'card'
+  const [combo3Pending, setCombo3Pending] = useState(null); // { ids }
   const [godcatPending, setGodcatPending] = useState(null); // { id }
 
   const containerRef = useRef(null);
@@ -209,9 +210,7 @@ export default function PlayerHand({
   const handlePlayCombo = () => {
     if (selectedIds.length < 2) return;
     if (selectedIds.length === 3) {
-      // 3-card combo: need to pick the target and card type to steal
-      setCombo3Pending({ ids: selectedIds, targetPlayerId: null });
-      setCombo3Step('target');
+      setCombo3Pending({ ids: selectedIds });
       clearSelection();
       return;
     }
@@ -220,15 +219,14 @@ export default function PlayerHand({
   };
 
   const handleSelectTarget = (opponentId) => {
-    setCombo3Pending(prev => ({ ...prev, targetPlayerId: opponentId }));
-    setCombo3Step('card');
+    if (!combo3Pending) return;
+    onPlayCombo(combo3Pending.ids, opponentId);
+    setCombo3Pending(null);
   };
 
   const handleCombo3StealConfirm = (stealType) => {
-    if (!combo3Pending || !combo3Pending.targetPlayerId) return;
-    // Send combo with targetPlayerId and stealCardType directly
-    onPlayCombo(combo3Pending.ids, combo3Pending.targetPlayerId, stealType);
-    setCombo3Pending(null);
+    if (!combo3Request || !onRespondCombo3) return;
+    onRespondCombo3(stealType);
   };
 
   const selectedCards = getSelectedCards();
@@ -496,85 +494,80 @@ export default function PlayerHand({
       );
     })()}
 
-      {/* 3-Cat Combo: Target & Card Picker Wizard Modal */}
+      {/* Combo 3 phase 1: choose the target before opening the Nope window. */}
       {combo3Pending && (() => {
         const aliveOpponents = players.filter((p) => p.alive && p.userId !== myUserId);
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="combo-3-target-title">
             <div className="bg-white border-4 border-on-surface rounded-3xl shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] p-6 max-w-xl w-full mx-4 flex flex-col gap-4 text-slate-900">
-              {combo3Step === 'target' ? (
-                <>
-                  <div className="flex flex-col gap-1">
-                      <span className="game-modal-step game-modal-step--active text-lg font-headline font-black text-primary uppercase tracking-wide">3 Mèo Combo: Bước 1 / 2</span>
-                    <p className="text-xs font-bold text-slate-500">Chọn mục tiêu để lấy bài:</p>
-                  </div>
-                  <div className="flex flex-col gap-2 max-h-60 overflow-y-auto pr-1">
-                    {aliveOpponents.length === 0 ? (
-                      <div className="text-center py-4 text-xs font-bold text-slate-400">Không có đối thủ nào khả dụng.</div>
-                    ) : (
-                      aliveOpponents.map((opp) => (
-                        <button
-                          key={opp.userId}
-                          onClick={() => handleSelectTarget(opp.userId)}
-                          className="flex items-center justify-between p-3 border-2 border-on-surface rounded-xl bg-surface hover:bg-yellow-50/50 transition-all shadow-[1.5px_1.5px_0px_0px_#1a1c1c] active:translate-y-0.5 active:shadow-none text-left"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="h-8 w-8 rounded-full bg-indigo-100 border border-on-surface flex items-center justify-center text-xs font-headline font-black uppercase text-indigo-700 animate-pulse">
-                              {opp.username ? opp.username.slice(0, 2).toUpperCase() : opp.userId.slice(0, 2).toUpperCase()}
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="text-xs font-headline font-black text-on-surface uppercase">{opp.username || opp.userId}</span>
-                              <span className="text-[9px] font-bold text-slate-400">{opp.handCount} lá bài</span>
-                            </div>
-                          </div>
-                          <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-lg uppercase">Chọn</span>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="flex flex-col gap-1">
-                      <span className="game-modal-step game-modal-step--active text-lg font-headline font-black text-primary uppercase tracking-wide">3 Mèo Combo: Bước 2 / 2</span>
-                    <p className="text-xs font-bold text-slate-500">
-                      Chọn loại bài muốn lấy từ <span className="text-indigo-600 font-bold uppercase">{players.find(p => p.userId === combo3Pending.targetPlayerId)?.username || 'đối thủ'}</span>:
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[360px] overflow-y-auto p-2 bg-slate-50 rounded-2xl border border-slate-200">
-                    {CAT_TYPES.map((ct) => (
-                      <div
-                        key={ct.type}
-                        onClick={() => handleCombo3StealConfirm(ct.type)}
-                        className="group flex flex-col items-center justify-center p-2 rounded-2xl border-2 border-on-surface bg-white shadow-[2px_2px_0px_0px_#1a1c1c] hover:scale-[1.03] hover:bg-yellow-50/50 transition-all cursor-pointer select-none"
-                      >
-                        <div className="scale-90 pointer-events-none origin-center mb-1">
-                          <Card type={ct.type} compact={true} disabled={true} />
+              <div className="flex flex-col gap-1">
+                <h2 id="combo-3-target-title" className="game-modal-step game-modal-step--active text-lg font-headline font-black text-primary uppercase tracking-wide">Combo 3 mèo · Chọn mục tiêu</h2>
+                <p className="text-xs font-bold text-slate-500">Sau khi chọn, combo sẽ mở cửa sổ Nope trước khi bạn gọi tên lá bài.</p>
+              </div>
+              <div className="flex flex-col gap-2 max-h-60 overflow-y-auto pr-1">
+                {aliveOpponents.length === 0 ? (
+                  <div className="text-center py-4 text-xs font-bold text-slate-400">Không có đối thủ nào khả dụng.</div>
+                ) : (
+                  aliveOpponents.map((opp) => (
+                    <button
+                      key={opp.userId}
+                      onClick={() => handleSelectTarget(opp.userId)}
+                      className="flex min-h-11 items-center justify-between p-3 border-2 border-on-surface rounded-xl bg-surface hover:bg-yellow-50/50 transition-all shadow-[1.5px_1.5px_0px_0px_#1a1c1c] active:translate-y-0.5 active:shadow-none text-left"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-full bg-indigo-100 border border-on-surface flex items-center justify-center text-xs font-headline font-black uppercase text-indigo-700">
+                          {opp.username ? opp.username.slice(0, 2).toUpperCase() : opp.userId.slice(0, 2).toUpperCase()}
                         </div>
-                        <span className="text-[10px] font-headline font-black text-on-surface uppercase group-hover:text-primary transition-colors text-center px-1">
-                          {ct.label}
-                        </span>
+                        <div className="flex flex-col">
+                          <span className="text-xs font-headline font-black text-on-surface uppercase">{opp.username || opp.userId}</span>
+                          <span className="text-[9px] font-bold text-slate-400">{opp.handCount} lá bài</span>
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                </>
-              )}
-
-              <div className="flex justify-between items-center mt-2 gap-3">
-                {combo3Step === 'card' && (
-                  <button
-                    onClick={() => setCombo3Step('target')}
-                    className="px-4 py-2 text-xs font-headline font-black border-2 border-on-surface rounded-xl bg-slate-100 hover:bg-slate-200 transition-all shadow-[1.5px_1.5px_0px_0px_#1a1c1c] uppercase"
-                  >
-                    Quay lại
-                  </button>
+                      <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-lg uppercase">Chọn</span>
+                    </button>
+                  ))
                 )}
+              </div>
+              <div className="flex justify-end mt-2">
                 <button
                   onClick={() => setCombo3Pending(null)}
                   className="px-4 py-2 text-xs font-headline font-black border-2 border-on-surface rounded-xl bg-white hover:bg-red-50 text-red-600 border-red-600 transition-all shadow-[1.5px_1.5px_0px_0px_rgba(220,38,38,1)] uppercase ml-auto"
                 >
                   Hủy
                 </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Combo 3 phase 2: ask for the card name only after server-side Nope resolution. */}
+      {combo3Request && (() => {
+        const requestedTargetId = combo3Request.targetPlayerId || combo3Request.metadata?.targetPlayerId;
+        const targetName = players.find((player) => player.userId === requestedTargetId)?.username || 'đối thủ';
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="combo-3-card-title">
+            <div className="bg-white border-4 border-on-surface rounded-3xl shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] p-6 max-w-xl w-full mx-4 flex flex-col gap-4 text-slate-900">
+              <div className="flex flex-col gap-1">
+                <h2 id="combo-3-card-title" className="game-modal-step game-modal-step--active text-lg font-headline font-black text-primary uppercase tracking-wide">Combo đã resolve · Chọn tên lá</h2>
+                <p className="text-xs font-bold text-slate-500">
+                  Gọi tên một lá bài muốn lấy từ <span className="text-indigo-600 font-bold uppercase">{targetName}</span>.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[360px] overflow-y-auto p-2 bg-slate-50 rounded-2xl border border-slate-200">
+                {CAT_TYPES.map((ct) => (
+                  <button
+                    key={ct.type}
+                    type="button"
+                    onClick={() => handleCombo3StealConfirm(ct.type)}
+                    className="group flex min-h-11 flex-col items-center justify-center p-2 rounded-2xl border-2 border-on-surface bg-white shadow-[2px_2px_0px_0px_#1a1c1c] hover:scale-[1.03] hover:bg-yellow-50/50 transition-all select-none"
+                  >
+                    <div className="scale-90 pointer-events-none origin-center mb-1">
+                      <Card type={ct.type} compact={true} disabled={true} />
+                    </div>
+                    <span className="text-[10px] font-headline font-black text-on-surface uppercase group-hover:text-primary transition-colors text-center px-1">{ct.label}</span>
+                  </button>
+                ))}
               </div>
             </div>
           </div>

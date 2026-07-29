@@ -13,6 +13,7 @@ export default function GameTable(props) {
     PlayerAvatar,
     PlayerHand,
     activePlayerId,
+    combo3Request,
     discardCard,
     displayedDiscardPile,
     drawCard,
@@ -25,6 +26,7 @@ export default function GameTable(props) {
     playCard,
     playCombo,
     privateHand,
+    respondCombo3,
     respondCombo5,
     reversePulse,
   } = { ...context, ...props };
@@ -119,6 +121,7 @@ export default function GameTable(props) {
 
       <PlayerHandDock
         PlayerHand={PlayerHand}
+        combo3Request={combo3Request}
         discardCard={discardCard}
         drawsRequired={gameState.drawsRequired}
         gameState={gameState}
@@ -128,6 +131,7 @@ export default function GameTable(props) {
         playCard={playCard}
         playCombo={playCombo}
         privateHand={privateHand}
+        respondCombo3={respondCombo3}
         targetPlayerId={targetPlayerId}
       />
     </div>

@@ -7,6 +7,7 @@ const {
   ensurePresentationId,
   isNopeableAction,
 } = require('../game/interactions/cardPresentationContract');
+const PlayCardInitAction = require('../game/actions/PlayCardInitAction');
 
 test('keeps one presentation id while Nope rotates the response-window event id', () => {
   const action = { eventId: 'window-1', cardType: 'skip' };
@@ -51,4 +52,45 @@ test('auto-played Defuse starts a card presentation before it resolves', async (
     source.indexOf('} else {', source.indexOf("if (action.type === 'defuse_completed')")),
   );
   assert.match(defuseResolvedBranch, /broadcastActionResolved\(room, action, 'RESOLVED'\)/);
+});
+
+test('card presentation keeps the skin of the exact card removed from the acting player hand', async () => {
+  const action = new PlayCardInitAction();
+  const context = {
+    state: {
+      players: [{
+        userId: 'player-a',
+        alive: true,
+        hand: [{ id: 'favor-skin-3', type: 'favor', skinIndex: 3 }],
+      }],
+      discardPile: [],
+      lastAction: null,
+    },
+  };
+  context.getPlayer = (userId) => context.state.players.find((player) => player.userId === userId);
+  const payload = {
+    userId: 'player-a',
+    cardType: 'favor',
+    options: { cardId: 'favor-skin-3' },
+  };
+
+  action.execute(context, payload);
+
+  assert.equal(payload.playedCardSkinIndex, 3);
+
+  const socketSource = await readFile(path.join(__dirname, '..', 'sockets', 'gameSocket.js'), 'utf8');
+  assert.match(socketSource, /const cardSkinIndex = payload\.playedCardSkinIndex \?\? 0/);
+});
+
+test('combo presentation publishes every selected card type and skin', async () => {
+  const source = await readFile(path.join(__dirname, '..', 'sockets', 'gameSocket.js'), 'utf8');
+  const comboHandler = source.slice(
+    source.indexOf("socket.on('game:combo'"),
+    source.indexOf("socket.on('game:selectTarget:respond'"),
+  );
+
+  assert.match(comboHandler, /comboCards/);
+  assert.match(comboHandler, /id: card\.id/);
+  assert.match(comboHandler, /type: card\.type/);
+  assert.match(comboHandler, /skinIndex: card\.skinIndex \?\? 0/);
 });

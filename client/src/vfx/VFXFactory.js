@@ -47,21 +47,30 @@ const createExplosionSprite = (vfxManager, position) => {
   layer.addChild(sprite);
 
   const targetScale = sprite.scale.x / 0.22;
+  const enterDuration = isReducedMotion() ? 0.12 : 0.2;
   timeline
     .to(sprite, {
       alpha: 1,
-      scaleX: targetScale,
-      scaleY: targetScale,
-      duration: isReducedMotion() ? 0.12 : 0.2,
+      duration: enterDuration,
       ease: 'back.out(1.8)',
-    })
+    }, 0)
+    .to(sprite.scale, {
+      x: targetScale,
+      y: targetScale,
+      duration: enterDuration,
+      ease: 'back.out(1.8)',
+    }, 0)
     .to(sprite, {
       alpha: 0,
-      scaleX: targetScale * 1.2,
-      scaleY: targetScale * 1.2,
       duration: 0.34,
       ease: 'power2.in',
-    }, '+=0.28')
+    }, enterDuration + 0.28)
+    .to(sprite.scale, {
+      x: targetScale * 1.2,
+      y: targetScale * 1.2,
+      duration: 0.34,
+      ease: 'power2.in',
+    }, enterDuration + 0.28)
     .call(() => PrimitiveEffects.safeDestroy(sprite));
 
   return timeline;

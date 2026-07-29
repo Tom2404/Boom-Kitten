@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useAdminApi } from './useAdminApi.js';
-import { Alert, Button, ConfirmDialog, EmptyState, Field, inputClass, SectionHeader, SkeletonBlock, StatusBadge } from './ui.jsx';
+import { Alert, Button, ConfirmDialog, EmptyState, Field, inputClass, SectionHeader, SkeletonBlock, StatusBadge, Toolbar } from './ui.jsx';
 import { formatNumber } from './utils.js';
 import { getAdminPanelAccess } from './adminPanelAccess.js';
 import { buildDeleteAdminPayload, buildRoutineAdminPayload, createAdminOperationRequestId } from './adminMutation.js';
+import { filterCatalog, getCatalogSummary } from './adminListFilters.js';
 
 const blankItem = { name: '', description: '', type: 'skin', rarity: 'common', priceCoins: 0, imageUrl: '', isActive: true, sortOrder: 0 };
 
@@ -20,7 +21,11 @@ export default function CatalogPanel({ permissions = [] }) {
   const [deleteRequestId, setDeleteRequestId] = useState(createAdminOperationRequestId);
   const [saving, setSaving] = useState(false);
   const [pendingItemId, setPendingItemId] = useState(null);
+  const [filters, setFilters] = useState({ search: '', type: '', rarity: '', status: '' });
   const { canWriteCatalog } = getAdminPanelAccess(permissions);
+  const summary = useMemo(() => getCatalogSummary(catalog), [catalog]);
+  const visibleCatalog = useMemo(() => filterCatalog(catalog, filters), [catalog, filters]);
+  const filtersActive = Object.values(filters).some(Boolean);
 
   const loadCatalog = async () => {
     setLoading(true);
@@ -96,6 +101,16 @@ export default function CatalogPanel({ permissions = [] }) {
       <SectionHeader title="Shop game" description="Quản lý vật phẩm, giá, độ hiếm, ảnh và trạng thái bán trong shop." actions={<Button onClick={loadCatalog}>Làm mới</Button>} />
       {message.text && <Alert tone={message.tone}>{message.text}</Alert>}
       {!canWriteCatalog && <Alert tone="info">Chế độ chỉ đọc: bạn có thể xem catalog nhưng không thể thay đổi vật phẩm.</Alert>}
+      <dl className="grid grid-cols-3 gap-3">
+        {[['Tổng vật phẩm', summary.total], ['Đang bán', summary.active], ['Đang tắt', summary.inactive]].map(([label, value]) => <div key={label} className="rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] p-3"><dt className="text-xs font-semibold text-[var(--admin-text-muted)]">{label}</dt><dd className="mt-1 font-mono text-xl font-semibold">{formatNumber(value)}</dd></div>)}
+      </dl>
+      <Toolbar>
+        <Field label="Tìm vật phẩm"><input className={`${inputClass} md:min-w-56`} type="search" value={filters.search} onChange={(event) => setFilters({ ...filters, search: event.target.value })} placeholder="Tên vật phẩm" /></Field>
+        <Field label="Loại"><select className={inputClass} value={filters.type} onChange={(event) => setFilters({ ...filters, type: event.target.value })}><option value="">Tất cả</option><option value="skin">Skin</option><option value="emote">Emote</option><option value="avatar_frame">Khung avatar</option></select></Field>
+        <Field label="Độ hiếm"><select className={inputClass} value={filters.rarity} onChange={(event) => setFilters({ ...filters, rarity: event.target.value })}><option value="">Tất cả</option><option value="common">Common</option><option value="rare">Rare</option><option value="epic">Epic</option><option value="legendary">Legendary</option></select></Field>
+        <Field label="Trạng thái"><select className={inputClass} value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value })}><option value="">Tất cả</option><option value="active">Active</option><option value="inactive">Inactive</option></select></Field>
+        <Button type="button" variant="secondary" disabled={!filtersActive} onClick={() => setFilters({ search: '', type: '', rarity: '', status: '' })}>Đặt lại</Button>
+      </Toolbar>
       <div className={`grid grid-cols-1 gap-5 ${canWriteCatalog ? 'xl:grid-cols-[360px_1fr]' : ''}`}>
         {canWriteCatalog && <form onSubmit={submitItem} className="rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4 shadow-[0_1px_2px_rgba(32,35,31,0.03)]">
           <h3 className="font-sans text-base font-semibold text-slate-950">{editing ? 'Sửa vật phẩm' : 'Thêm vật phẩm'}</h3>
@@ -124,13 +139,15 @@ export default function CatalogPanel({ permissions = [] }) {
         <section>
           {loading ? <SkeletonBlock rows={5} /> : catalog.length === 0 ? (
             <EmptyState title="Shop chưa có vật phẩm" description="Thêm vật phẩm đầu tiên bằng form bên trái." />
+          ) : visibleCatalog.length === 0 ? (
+            <EmptyState title="Không có vật phẩm phù hợp" description="Thử đổi hoặc đặt lại bộ lọc." action={<Button variant="secondary" onClick={() => setFilters({ search: '', type: '', rarity: '', status: '' })}>Đặt lại bộ lọc</Button>} />
           ) : (
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              {catalog.map((item) => (
+              {visibleCatalog.map((item) => (
                 <article key={item._id} className="rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4 shadow-[0_1px_2px_rgba(32,35,31,0.03)]">
                   <div className="flex gap-3">
                     <div className="flex h-16 w-16 shrink-0 items-center justify-center border border-[var(--admin-border)] bg-[var(--admin-surface-muted)]">
-                      {item.imageUrl ? <img src={item.imageUrl} alt={item.name} className="h-14 w-14 object-contain" /> : <span className="text-xs font-bold text-slate-400">No img</span>}
+                      {item.imageUrl ? <img src={item.imageUrl} alt={item.name} loading="lazy" className="h-14 w-14 object-contain" /> : <span className="text-xs font-bold text-slate-400">No img</span>}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">

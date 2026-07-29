@@ -48,7 +48,7 @@ export const Button = forwardRef(function Button({ children, variant = 'secondar
 
   return (
     <button
-      className={`inline-flex min-h-10 items-center justify-center rounded-md border px-3 py-2 text-sm font-semibold transition-[transform,background-color,border-color,color] duration-200 focus:outline-none focus:ring-2 focus:ring-[var(--admin-focus)] focus:ring-offset-2 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 ${variants[variant]} ${className}`}
+      className={`inline-flex min-h-11 items-center justify-center rounded-md border px-3 py-2 text-sm font-semibold transition-[transform,background-color,border-color,color] duration-200 focus:outline-none focus:ring-2 focus:ring-[var(--admin-focus)] focus:ring-offset-2 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 ${variants[variant]} ${className}`}
       ref={ref}
       {...props}
     >
@@ -71,7 +71,7 @@ export const inputClass =
   'min-h-11 w-full rounded-md border border-[var(--admin-border-strong)] bg-[var(--admin-surface)] px-3 py-2 text-sm text-[var(--admin-text)] outline-none transition-[border-color,box-shadow,background-color] duration-200 placeholder:text-[var(--admin-text-muted)] focus:border-[var(--admin-focus)] focus:ring-2 focus:ring-[var(--admin-focus)]/20 disabled:cursor-not-allowed disabled:bg-[var(--admin-surface-muted)] disabled:text-[var(--admin-text-muted)]';
 
 export function Alert({ children, tone = 'info' }) {
-  return <div role="status" className={`rounded-lg border px-4 py-3 text-sm font-medium leading-6 ${toneMap[tone] || toneMap.info}`}>{children}</div>;
+  return <div role={tone === 'danger' ? 'alert' : 'status'} className={`rounded-lg border px-4 py-3 text-sm font-medium leading-6 ${toneMap[tone] || toneMap.info}`}>{children}</div>;
 }
 
 export function EmptyState({ title, description, action }) {
@@ -84,9 +84,9 @@ export function EmptyState({ title, description, action }) {
   );
 }
 
-export function SkeletonBlock({ rows = 3 }) {
+export function SkeletonBlock({ rows = 3, label = 'Đang tải dữ liệu' }) {
   return (
-    <div className="space-y-3" aria-busy="true" aria-label="Đang tải dữ liệu">
+    <div className="space-y-3" aria-busy="true" aria-label={label}>
       {Array.from({ length: rows }).map((_, index) => (
         <div key={index} className="h-14 animate-pulse rounded-lg bg-[var(--admin-surface-muted)]" />
       ))}

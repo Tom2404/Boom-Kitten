@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 import Card from './Card.jsx';
 import { CheckIcon } from './Icons.jsx';
 import { ImageButton } from './ui/ImageButton.jsx';
@@ -6,6 +7,7 @@ import { IconButton } from './ui/IconButton.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { CARD_THEMES } from './Card.jsx';
 import { OverlayPortal } from './ui/OverlayPortal.jsx';
+import { getDefusePositionProgress, getGameMotionTransition } from '../pages/Game/gameMotion.js';
 
 // ==========================================
 // NEO-BRUTALIST MODAL WRAPPER (WITH TIMING CURVES)
@@ -171,7 +173,7 @@ export function NopeCountdown({
 
   return (
     <OverlayPortal>
-      <div className="fixed top-16 right-4 z-[10000] pointer-events-none max-md:top-2 max-md:right-2">
+    <div className="fixed top-24 right-4 z-[10000] pointer-events-none max-w-[360px] max-md:top-2 max-md:right-2">
         <div className="pointer-events-auto w-[300px] max-w-[calc(100vw-1.5rem)] bg-[#141918] border-2 border-[#0e1211] shadow-[4px_4px_0px_0px_#0e1211] text-[#f7e8c5] animate-fade-in p-2.5 flex flex-col gap-2 font-mono">
           {/* Header Bar */}
           <div className="flex items-center justify-between border-b border-dashed border-[#283430] pb-1.5">
@@ -702,24 +704,39 @@ export function ZombieReviveModal({ players, deckCount = 0, onRespond }) {
 // ==========================================
 export function DefusePositionModal({ deckCount, onRespond, cardType }) {
   const [position, setPosition] = useState(0);
+  const reduceMotion = useReducedMotion();
 
   const isImploding = cardType === 'imploding_kitten';
   const name = isImploding ? 'Mèo Sập Nguồn' : 'Mèo Nổ';
+  const markerProgress = getDefusePositionProgress(position, deckCount);
 
   return (
     <BrutalModal isOpen={true} onClose={() => {}} maxWidth="max-w-xl">
       {(closeModal) => (
         <>
-          <div>
-            <h3 className="text-2xl font-headline font-black text-primary uppercase">
+          <motion.div
+            initial={reduceMotion ? false : { opacity: 0, y: -18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={getGameMotionTransition(reduceMotion)}
+          >
+            <motion.div
+              className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full border-4 border-slate-900 bg-emerald-400 text-3xl font-black text-slate-950 shadow-[4px_4px_0px_#0f0f0f]"
+              initial={reduceMotion ? false : { scale: 0, rotate: -45 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={getGameMotionTransition(reduceMotion)}
+              aria-hidden="true"
+            >
+              ✓
+            </motion.div>
+            <h3 className="text-2xl font-headline font-black text-primary uppercase text-center">
               {isImploding ? 'Tránh Bom Thành Công!' : 'Gỡ Mìn Thành Công!'}
             </h3>
-            <p className="text-xs font-bold text-slate-500 mt-1">
+            <p className="text-xs font-bold text-slate-500 mt-1 text-center">
               {isImploding 
                 ? 'Bạn vừa bốc phải Mèo Sập Nguồn (mặt úp). Hãy chọn vị trí đặt lại lá bài này (lật ngửa) vào bộ bài bốc.' 
                 : `Bạn đã dùng lá bài Gỡ Mìn. Hãy chọn vị trí đặt quân **${name}** ngược lại vào bộ bài bốc.`}
             </p>
-          </div>
+          </motion.div>
 
           <div className="flex flex-col gap-3 px-6 py-4 bg-white border-2 border-slate-900 rounded-none text-left w-full shadow-[3px_3px_0px_0px_#0f0f0f]">
             <span className="text-xs font-headline font-black text-slate-900 uppercase">
@@ -733,6 +750,16 @@ export function DefusePositionModal({ deckCount, onRespond, cardType }) {
               onChange={(e) => setPosition(parseInt(e.target.value, 10))}
               className="w-full accent-primary cursor-pointer h-2 bg-slate-200 rounded-lg appearance-none border border-slate-900"
             />
+            <div className="relative h-8 border-x-2 border-slate-900" aria-hidden="true">
+              <div className="absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 bg-slate-900" />
+              <motion.div
+                className="absolute top-1/2 h-7 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-slate-950 bg-rose-600 text-center text-sm leading-[24px] shadow-[2px_2px_0_#0f0f0f]"
+                animate={{ left: `${markerProgress * 100}%` }}
+                transition={getGameMotionTransition(reduceMotion)}
+              >
+                💣
+              </motion.div>
+            </div>
             <div className="flex justify-between text-[9px] font-bold text-slate-400 uppercase">
               <span>Dưới đáy (0)</span>
               <span>Giữa bộ bài</span>
@@ -741,12 +768,14 @@ export function DefusePositionModal({ deckCount, onRespond, cardType }) {
           </div>
 
           <div className="flex justify-center mt-2">
-            <ImageButton variant="danger"
-              onClick={() => closeModal(() => onRespond(position))}
-              className=" px-8 py-3 rounded-none font-headline font-black uppercase text-sm "
-            >
-              {isImploding ? 'Đặt Lại Mèo Sập Nguồn' : 'Đặt Lại Quân Bài'}
-            </ImageButton>
+            <motion.div whileTap={reduceMotion ? undefined : { scale: 0.94, y: 3 }}>
+              <ImageButton variant="danger"
+                onClick={() => closeModal(() => onRespond(position))}
+                className=" px-8 py-3 rounded-none font-headline font-black uppercase text-sm "
+              >
+                {isImploding ? 'Đặt Lại Mèo Sập Nguồn' : 'Đặt Lại Quân Bài'}
+              </ImageButton>
+            </motion.div>
           </div>
         </>
       )}

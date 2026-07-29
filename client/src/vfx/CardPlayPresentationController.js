@@ -13,6 +13,8 @@ import {
     canTransitionPresentation,
     deferNopeUntilPending,
     deferResultUntilPending,
+    getCardFanLayout,
+    getCardResolutionMotion,
     getDiscardMaskCount,
 } from './cardPlayPresentationState.js';
 
@@ -217,6 +219,7 @@ export class CardPlayPresentationController {
             actionId,
             cardType,
             displayCardType,
+            displayCards,
             skinIndex = 0,
             sourceElementId,
             title = cardType.replace(/_/g, ' ').toUpperCase(),
@@ -229,23 +232,35 @@ export class CardPlayPresentationController {
             return;
         }
 
-        // Create visual clone
+        // Create one clone per played card. Regular actions still use one card.
         const displayType = displayCardType || (cardType?.startsWith('combo_') ? 'cat_taco' : cardType);
-        const cloneData = this._createCardClone(sourceElementId || 'player-hand-container', displayType, skinIndex);
-        if (!cloneData) return;
-
-        const { clone, startPos } = cloneData;
-        this.overlayContainer.appendChild(clone);
+        const cardsToDisplay = Array.isArray(displayCards) && displayCards.length > 0
+            ? displayCards
+            : [{ type: displayType, skinIndex, sourceElementId }];
+        const cloneEntries = cardsToDisplay.map((card) => this._createCardClone(
+            card.sourceElementId || sourceElementId || 'player-hand-container',
+            card.type || displayType,
+            card.skinIndex ?? skinIndex,
+        ));
+        const baseCards = cloneEntries.map(({ clone }) => clone);
+        const primaryIndex = Math.floor(baseCards.length / 2);
+        const clone = baseCards[primaryIndex];
+        const startPos = cloneEntries[primaryIndex].startPos;
+        baseCards.forEach((cardClone, index) => {
+            cardClone.style.zIndex = String(10000 + baseCards.length - Math.abs(index - primaryIndex));
+            this.overlayContainer.appendChild(cardClone);
+        });
 
         // Initialize action state
         const actionState = {
             state: CARD_PLAY_STATES.IDLE,
             timeline: gsap.timeline(),
-            elements: { clone },
+            elements: { clone, baseCards },
             nopeStack: [],
             deferredNopes: [],
             pendingResult: null,
             cardType,
+            cardCount: baseCards.length,
             skinIndex,
             startPos,
         };
@@ -263,8 +278,17 @@ export class CardPlayPresentationController {
 
         // Calculate focus size (responsive with clamp)
         const viewportMin = Math.min(window.innerWidth, window.innerHeight);
-        const focusWidth = Math.max(180, Math.min(280, viewportMin * 0.35));
+        const focusWidth = baseCards.length === 1
+            ? Math.max(180, Math.min(280, viewportMin * 0.35))
+            : Math.max(96, Math.min(
+                220,
+                viewportMin * 0.3,
+                (window.innerWidth * 0.9) / (1 + (baseCards.length - 1) * 0.24),
+            ));
         const focusHeight = focusWidth * 1.4; // Card aspect ratio
+        const fan = getCardFanLayout(baseCards.length);
+        const targetLeft = (index) => centerX - focusWidth / 2 + fan[index].x * focusWidth;
+        const targetTop = (index) => centerY - focusHeight / 2 + fan[index].y * focusHeight;
 
         // Check reduced motion preference
         const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -272,17 +296,19 @@ export class CardPlayPresentationController {
         if (prefersReducedMotion) {
             // REDUCED MOTION: Fade-based flow
             actionState.timeline
-                .to(clone, {
+                .to(baseCards, {
                     opacity: 0.3,
                     duration: 0.2,
                     ease: 'power1.out',
                 })
-                .to(clone, {
-                    left: centerX - focusWidth / 2,
-                    top: centerY - focusHeight / 2,
+                .to(baseCards, {
+                    left: (index) => targetLeft(index),
+                    top: (index) => targetTop(index),
                     width: focusWidth,
                     height: focusHeight,
+                    rotation: (index) => fan[index].rotation,
                     opacity: 1,
+                    stagger: 0.02,
                     duration: 0.2,
                     ease: 'power2.out',
                     onComplete: () => {
@@ -292,20 +318,21 @@ export class CardPlayPresentationController {
         } else {
             // NORMAL: Fly-based flow with curved path
             actionState.timeline
-                .to(clone, {
-                    left: centerX - focusWidth / 2,
-                    top: centerY - focusHeight / 2,
+                .to(baseCards, {
+                    left: (index) => targetLeft(index),
+                    top: (index) => targetTop(index),
                     width: focusWidth,
                     height: focusHeight,
                     scale: 1.0,
-                    rotation: 0,
+                    rotation: (index) => fan[index].rotation,
+                    stagger: 0.035,
                     duration: 0.3,
                     ease: 'power2.out',
                     onComplete: () => {
                         this._transitionTo(actionId, CARD_PLAY_STATES.PENDING);
                     },
                 })
-                .to(clone, {
+                .to(baseCards, {
                     scale: 1.1,
                     duration: 0.18,
                     ease: 'power1.inOut',
@@ -351,7 +378,7 @@ export class CardPlayPresentationController {
       display: block;
       color: ${getCardColor(cardType)};
       font-family: var(--font-headline), sans-serif;
-      font-size: clamp(15px, 3vw, 22px);
+            font-size: clamp(15px, 3vw, 22px);
       font-weight: 900;
       letter-spacing: 0.06em;
       line-height: 1.1;
@@ -447,6 +474,7 @@ export class CardPlayPresentationController {
         ];
 
         const nopeIndex = action.nopeStack.length; // 1, 2, 3...
+        nopeCard.style.zIndex = String(10100 + nopeIndex);
         const pattern = NOPE_STACK_PATTERN[(nopeIndex - 1) % NOPE_STACK_PATTERN.length];
         const layer = Math.floor((nopeIndex - 1) / NOPE_STACK_PATTERN.length);
 
@@ -521,50 +549,63 @@ export class CardPlayPresentationController {
 
         this._transitionTo(actionId, nextState);
 
-        const holdDuration = nopeCount > 0 ? 0.65 : 0.25;
-        const { clone } = action.elements;
+        const { clone, baseCards } = action.elements;
+        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const resolutionMotion = getCardResolutionMotion({
+            cardType: action.cardType,
+            isResolved,
+            nopeCount,
+            reducedMotion: prefersReducedMotion,
+        });
 
-        // Show Retro Badge for Action Result (Odd vs Even Chain Nope)
+        // Give every resolved action a readable activation beat. Nope chains keep
+        // their stronger warning flash while regular cards get a compact stamp.
         if (nopeCount > 0) {
             this._triggerScreenRedBorderFlash();
-            const badge = document.createElement('div');
-            badge.className = 'card-play-nope-stamp';
-            const isNoped = !isResolved;
-            badge.style.cssText = `
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%) rotate(-6deg);
-        background: ${isNoped ? '#dc2626' : '#059669'};
-        color: #ffffff;
-        padding: 8px 16px;
+        }
+        const badge = document.createElement('div');
+        badge.className = 'card-play-nope-stamp';
+        badge.style.cssText = `
+	        position: absolute;
+	        top: 50%;
+	        left: 50%;
+	        transform: translate(-50%, -50%) rotate(-6deg);
+	        background: ${resolutionMotion.accent};
+	        color: #ffffff;
+	        padding: 8px 16px;
         border: 3px solid #0e1211;
         box-shadow: 4px 4px 0px 0px #0e1211;
         font-family: var(--font-headline), 'Space Mono', monospace;
         font-weight: 900;
-        font-size: clamp(14px, 2.5vw, 20px);
+        font-size: clamp(16px, 3vw, 24px);
         text-transform: uppercase;
         letter-spacing: 0.08em;
         white-space: nowrap;
-        opacity: 0;
-        z-index: 10001;
-      `;
-            badge.textContent = isNoped ? 'ĐÃ BỊ VÔ HIỆU HÓA!' : 'HÀNH ĐỘNG TIẾP TỤC!';
-            clone.appendChild(badge);
-            action.elements.nopeStamp = badge;
+	        opacity: 0;
+	        z-index: 10001;
+	      `;
+        badge.textContent = resolutionMotion.label;
+        clone.appendChild(badge);
+        action.elements.nopeStamp = badge;
 
-            gsap.to(badge, {
+        gsap.timeline()
+            .to(baseCards || clone, {
+                scale: resolutionMotion.scale,
+                rotation: resolutionMotion.rotation,
+                duration: prefersReducedMotion ? 0.01 : 0.18,
+                ease: 'back.out(2)',
+            }, 0)
+            .to(badge, {
                 opacity: 1,
                 scale: 1.05,
-                duration: 0.25,
+                duration: prefersReducedMotion ? 0.01 : 0.2,
                 ease: 'back.out(2)',
-            });
-        }
+            }, 0);
 
         // After hold duration, fly to discard
         action.exitTimer = setTimeout(() => {
             this._flyToDiscard(actionId);
-        }, holdDuration * 1000);
+        }, resolutionMotion.holdSeconds * 1000);
     }
 
     /**
@@ -588,11 +629,11 @@ export class CardPlayPresentationController {
         const discardX = discardRect.left + discardRect.width / 2;
         const discardY = discardRect.top + discardRect.height / 2;
 
-        const { clone, backdrop, nopes } = action.elements;
+        const { clone, baseCards, backdrop, nopes } = action.elements;
         const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
         // Collect all cards to animate (main + nopes)
-        const allCards = [clone, ...(nopes || [])];
+        const allCards = [...(baseCards || [clone]), ...(nopes || [])];
 
         if (prefersReducedMotion) {
             // Fade out

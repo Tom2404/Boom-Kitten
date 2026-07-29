@@ -24,6 +24,19 @@ class ResolveComboEffect extends BaseEffect {
       }).execute(context, payload);
     }
 
+    if (cardIds.length === 3 && payload.targetPlayerId) {
+      const target = context.state.players.find((player) => player.userId === payload.targetPlayerId);
+      if (!target || !target.alive || target.hand.length === 0) {
+        return { status: 'NO_EFFECT', data: result };
+      }
+
+      return new RequestInteractionEffect({
+        type: 'combo_3',
+        duration: 15000,
+        onCompleteEffects: [{ type: 'CollectCombo3Response', params: {} }],
+      }).execute(context, payload);
+    }
+
     if (cardIds.length === 5) {
       return new RequestInteractionEffect({
         type: 'combo_5',

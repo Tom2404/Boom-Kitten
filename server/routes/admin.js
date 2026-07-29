@@ -1,6 +1,5 @@
 const express = require('express');
 const User = require('../models/User');
-const ShopItem = require('../models/ShopItem');
 const Quest = require('../models/Quest');
 const Transaction = require('../models/Transaction');
 const authMiddleware = require('../middleware/authMiddleware');
@@ -14,6 +13,7 @@ const { ApiError } = require('../utils/apiResponse');
 const { createQuest, deleteQuest, updateQuest } = require('../services/admin/questService');
 const { getPlayerOverview } = require('../services/admin/playerOverviewService');
 const { previewCurrencyAdjustment } = require('../services/admin/economyAdjustmentService');
+const { getAdminOverview } = require('../services/admin/overviewService');
 const {
   assertCanManageTarget,
   createManagedUser,
@@ -63,26 +63,7 @@ async function sendIdempotentMutation(req, res, { operation, payload, execute })
 // GET /api/admin/overview - Statistics dashboard
 router.get('/overview', requireAdminPermission('dashboard.read'), async (req, res, next) => {
   try {
-    const totalUsers = await User.countDocuments({ deletedAt: null });
-    const activeUsers = await User.countDocuments({ deletedAt: null, isOnline: true });
-    const bannedUsers = await User.countDocuments({ deletedAt: null, isBanned: true });
-    const totalShopItems = await ShopItem.countDocuments();
-    const activeShopItems = await ShopItem.countDocuments({ isActive: { $ne: false } });
-    const totalMissions = await Quest.countDocuments();
-    const activeMissions = await Quest.countDocuments({ isActive: true });
-
-    return res.json({
-      success: true,
-      data: {
-        totalUsers,
-        activeUsers,
-        bannedUsers,
-        totalShopItems,
-        activeShopItems,
-        totalMissions,
-        activeMissions
-      }
-    });
+    return res.json({ success: true, data: await getAdminOverview({ rangeDays: req.query.range }) });
   } catch (error) {
     return next(error);
   }

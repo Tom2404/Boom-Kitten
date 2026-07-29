@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 
 import {
   createGlitterTrailBlueprints,
@@ -71,4 +72,42 @@ test('trail sampling is deterministic, preserves endpoints, and changes with the
 
   assert.deepEqual(first, repeated);
   assert.notDeepEqual(first, differentSeed);
+});
+
+test('prepared glitter emitters are registered only when the trail starts', () => {
+  const source = fs.readFileSync(
+    new URL('../src/vfx/ParticleManager.js', import.meta.url),
+    'utf8',
+  );
+  const createTrail = source.slice(
+    source.indexOf('createGlitterTrail(options = {})'),
+    source.indexOf('\n  getGlitterConfig(', source.indexOf('createGlitterTrail(options = {})')),
+  );
+  const beforeStart = createTrail.slice(0, createTrail.indexOf('start:'));
+  const startBlock = createTrail.slice(createTrail.indexOf('start:'), createTrail.indexOf('moveTo:'));
+
+  assert.doesNotMatch(beforeStart, /this\.emitters\.push\(emitter\)/);
+  assert.match(startBlock, /this\.emitters\.push\(\.\.\.trailEmitters\)/);
+});
+
+test('radial burst tweens the Pixi scale point instead of unsupported scale aliases', () => {
+  const source = fs.readFileSync(
+    new URL('../src/vfx/PrimitiveEffects.js', import.meta.url),
+    'utf8',
+  );
+  const radialBurst = source.slice(
+    source.indexOf('createRadialBurst:'),
+    source.indexOf('createPixelTrail:', source.indexOf('createRadialBurst:')),
+  );
+
+  assert.doesNotMatch(radialBurst, /scaleX|scaleY/);
+  assert.match(radialBurst, /\.to\(group\.scale,/);
+});
+
+test('Pixi VFX never send CSS scale aliases to GSAP', () => {
+  const primitives = fs.readFileSync(new URL('../src/vfx/PrimitiveEffects.js', import.meta.url), 'utf8');
+  const factory = fs.readFileSync(new URL('../src/vfx/VFXFactory.js', import.meta.url), 'utf8');
+
+  assert.doesNotMatch(primitives, /scaleX|scaleY|pivotX|pivotY/);
+  assert.doesNotMatch(factory, /scaleX|scaleY/);
 });
