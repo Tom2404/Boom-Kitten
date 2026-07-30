@@ -4,6 +4,30 @@ export const getGameMotionTransition = (reducedMotion = false) => (
     : { type: 'spring', stiffness: 260, damping: 24, mass: 0.8 }
 );
 
+export const GAME_RESULT_DURATION_MS = 10_000;
+
+export function createGameResultState({
+  winnerId,
+  rankings,
+  wager,
+  snapshot,
+  now = Date.now(),
+}) {
+  return {
+    winnerId,
+    rankings: Array.isArray(rankings) ? rankings : [],
+    wager: wager ?? null,
+    snapshot: snapshot ?? null,
+    dismissAt: now + GAME_RESULT_DURATION_MS,
+    dismissed: false,
+  };
+}
+
+export function getGameResultRemainingSeconds(deadline, now = Date.now()) {
+  if (!Number.isFinite(deadline)) return 0;
+  return Math.max(0, Math.ceil((deadline - now) / 1000));
+}
+
 export function createTimeoutGroup(
   scheduleTimeout = globalThis.setTimeout.bind(globalThis),
   cancelTimeout = globalThis.clearTimeout.bind(globalThis),

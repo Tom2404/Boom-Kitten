@@ -1,6 +1,8 @@
 const ShopItem = require('../../models/ShopItem');
+const User = require('../../models/User');
 const { ApiError } = require('../../utils/apiResponse');
 const { createAdminAudit } = require('./auditService');
+const { isSafeAssetUrl } = require('../shopEquipmentService');
 
 const CATALOG_FIELDS = ['name', 'description', 'type', 'price', 'rarity', 'isLimited', 'availableUntil', 'imageUrl', 'previewUrl', 'isActive', 'sortOrder'];
 
@@ -34,6 +36,12 @@ function validateCatalogInput(input) {
   }
   if (input.price?.coins !== undefined && (!Number.isFinite(Number(input.price.coins)) || Number(input.price.coins) < 0)) {
     throw new ApiError(422, 'VALIDATION_ERROR', 'Giá Coin không hợp lệ.', { fields: { 'price.coins': 'Không được âm' } });
+  }
+  const unsafeAssetFields = ['imageUrl', 'previewUrl'].filter((field) => input[field] && !isSafeAssetUrl(input[field]));
+  if (unsafeAssetFields.length) {
+    throw new ApiError(422, 'VALIDATION_ERROR', 'URL asset không hợp lệ.', {
+      fields: Object.fromEntries(unsafeAssetFields.map((field) => [field, 'Chỉ hỗ trợ HTTPS hoặc đường dẫn cùng origin'])),
+    });
   }
 }
 
@@ -95,9 +103,35 @@ async function setCatalogItemStatus({ CatalogModel = ShopItem, audit = createAdm
   return item;
 }
 
-async function deleteCatalogItem({ CatalogModel = ShopItem, audit = createAdminAudit, actor, itemId, mutation, request = {} }) {
+async function deleteCatalogItem({
+  CatalogModel = ShopItem,
+  UserModel = User,
+  audit = createAdminAudit,
+  actor,
+  itemId,
+  mutation,
+  request = {},
+}) {
   const before = await CatalogModel.findById(itemId);
   if (!before) throw new ApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy vật phẩm.');
+  const referenceFilters = [
+    { ownedItemIds: itemId },
+    { 'equippedCosmetics.protector': itemId },
+    { 'equippedCosmetics.avatarFrame': itemId },
+    { 'equippedCosmetics.field': itemId },
+  ];
+  if (before.type === 'avatar_frame') {
+    referenceFilters.push(
+      { ownedAvatarFrames: before.name },
+      { activeAvatarFrame: before.name },
+    );
+  }
+  const inUse = await UserModel.exists({
+    $or: referenceFilters,
+  });
+  if (inUse) {
+    throw new ApiError(409, 'CATALOG_ITEM_IN_USE', 'Vật phẩm đang được sở hữu hoặc trang bị. Hãy tắt bán thay vì xóa.');
+  }
   const result = await CatalogModel.deleteOne({ _id: itemId, __v: before.__v });
   if (result.deletedCount !== 1) throw new ApiError(409, 'STATE_CONFLICT', 'Vật phẩm đã thay đổi. Hãy tải lại.');
   await audit({

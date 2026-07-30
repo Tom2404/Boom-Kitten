@@ -1,12 +1,14 @@
 // User profile and social routes.
 const express = require('express');
 const User = require('../models/User');
+const ShopItem = require('../models/ShopItem');
 const GameHistory = require('../models/GameHistory');
 const Transaction = require('../models/Transaction');
 const Friendship = require('../models/Friendship');
 const Quest = require('../models/Quest');
 const UserQuestProgress = require('../models/UserQuestProgress');
 const authMiddleware = require('../middleware/authMiddleware');
+const { resolveUserEquipment } = require('../services/shopEquipmentService');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -27,7 +29,8 @@ router.get('/me', async (req, res, next) => {
       await user.save();
     }
 
-    return res.json(user);
+    const equipped = await resolveUserEquipment(user, ShopItem);
+    return res.json({ ...user.toObject(), equipped });
   } catch (error) {
     return next(error);
   }
@@ -94,7 +97,8 @@ router.put('/me', async (req, res, next) => {
       { $set: { username, avatar, activeSkin } },
       { new: true, runValidators: true },
     ).select('-passwordHash');
-    return res.json(user);
+    const equipped = await resolveUserEquipment(user, ShopItem);
+    return res.json({ ...user.toObject(), equipped });
   } catch (error) {
     return next(error);
   }
@@ -104,7 +108,10 @@ router.get('/me/history', async (req, res, next) => {
   try {
     const page = Number(req.query.page ?? 1);
     const limit = Number(req.query.limit ?? 10);
-    const history = await GameHistory.find({ 'players.userId': req.user.id })
+    const history = await GameHistory.find({
+      'players.userId': req.user.id,
+      status: 'completed',
+    })
       .sort({ playedAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit);

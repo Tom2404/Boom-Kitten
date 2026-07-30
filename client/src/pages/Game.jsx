@@ -64,6 +64,7 @@ import { PixelStarIcon, PixelSkullIcon, PixelBombIcon } from '../components/Pixe
 import LobbyView from './Game/views/LobbyView.jsx';
 import WaitingRoomView from './Game/views/WaitingRoomView.jsx';
 import GameBoardView from './Game/views/GameBoardView.jsx';
+import GameEndedOverlay from './Game/Modals/GameEndedOverlay.jsx';
 import { GameProvider } from './Game/GameContext.jsx';
 import { animationManager } from '../vfx/AnimationManager.js';
 import { VFX_PRIORITY } from '../vfx/VFXEventAdapter.js';
@@ -771,10 +772,11 @@ function ExclusiveCard({ cardType, name, skinIndex = 0, fanAngle = 0, fanY = 0 }
   );
 }
 
-export default function Game({ setPage }) {
+export default function Game({ setPage, initialRoom = null }) {
   const {
     socket,
     connectionState,
+    localReconnectDeadline,
     roomState,
     gameState,
     privateHand,
@@ -834,7 +836,7 @@ export default function Game({ setPage }) {
     sendEmote,
     actionLog,
     playAgain,
-  } = useGame();
+  } = useGame({ initialRoom });
 
   const [reversePulse, setReversePulse] = React.useState(false);
   const previousTurnPlayerIdRef = React.useRef(null);
@@ -1359,41 +1361,6 @@ export default function Game({ setPage }) {
     }
   }, [roomState]);
 
-  const triggerConfetti = () => {
-    const container = document.getElementById('confetti-container');
-    if (!container) return;
-    container.innerHTML = '';
-    for (let i = 0; i < 80; i++) {
-      const confetti = document.createElement('div');
-      confetti.className = 'absolute w-3 h-3 rounded-sm pointer-events-none z-[999]';
-      const colors = ['#facc15', '#f97316', '#ef4444', '#3b82f6', '#10b981', '#a855f7', '#ec4899'];
-      confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-      confetti.style.left = `${Math.random() * 100}%`;
-      confetti.style.top = `-5%`;
-      container.appendChild(confetti);
-      gsap.to(confetti, {
-        y: window.innerHeight + 50,
-        x: `+=${(Math.random() - 0.5) * 300}`,
-        rotation: Math.random() * 720,
-        duration: 1.8 + Math.random() * 2.2,
-        ease: 'power1.out',
-        onComplete: () => confetti.remove()
-      });
-    }
-  };
-
-  useEffect(() => {
-    if (gameEnded) {
-      gsap.fromTo('.ended-overlay-anim',
-        { scale: 0.4, rotation: -8, opacity: 0 },
-        { scale: 1, rotation: 0, opacity: 1, duration: 0.65, ease: 'back.out(1.5)' }
-      );
-      if (gameEnded.winnerId === myUser?.id) {
-        setTimeout(triggerConfetti, 100);
-      }
-    }
-  }, [gameEnded, myUser]);
-
   const [numPlayAnims, setNumPlayAnims] = useState(0);
   const [nopeStamp, setNopeStamp] = useState(null);
   const mainContainerRef = useRef(null);
@@ -1648,6 +1615,32 @@ export default function Game({ setPage }) {
     );
   }
 
+  if (gameEnded && !gameEnded.dismissed) {
+    return (
+      <GameEndedOverlay
+        CoinIcon={CoinIcon}
+        PRESET_AVATARS={PRESET_AVATARS}
+        gameEnded={gameEnded}
+        myUser={myUser}
+        setGameEnded={setGameEnded}
+        t={t}
+      />
+    );
+  }
+
+  if (gameEnded?.dismissed && roomState?.status === 'finished') {
+    return (
+      <div className="game-loading-state min-h-[100dvh]" role="status" aria-live="polite" aria-busy="true">
+        <div className="game-loading-state__deck" aria-hidden="true" />
+        <div>
+          <p className="game-loading-state__eyebrow">{t('result_skip')}</p>
+          <h1 className="game-loading-state__title">{t('result_returning_title')}</h1>
+          <p className="game-loading-state__copy">{t('result_returning_copy')}</p>
+        </div>
+      </div>
+    );
+  }
+
   // ==========================================
   // VIEW 1: JOIN / CREATE ROOM
   // ==========================================
@@ -1771,6 +1764,7 @@ export default function Game({ setPage }) {
     CoinIcon,
     CrownIcon,
     LogoutIcon,
+    PRESET_AVATARS,
     copied,
     copyIcon,
     doorIcon,
@@ -1857,12 +1851,14 @@ export default function Game({ setPage }) {
     chatMessages,
     combo3Request,
     connectionState,
+    localReconnectDeadline,
     defuseRequest,
     dialogState,
     digDeeperRequest,
     discardCard,
     drawCard,
     drewKittenAlert,
+    equippedCosmetics: userProfile?.equipped || {},
     errorToast,
     favorRequest,
     feedTheDeadRequest,

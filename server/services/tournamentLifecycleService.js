@@ -1,8 +1,10 @@
 const crypto = require('crypto');
 const Tournament = require('../models/Tournament');
 const TournamentParticipant = require('../models/TournamentParticipant');
+const User = require('../models/User');
 const roomManager = require('../game/roomManager');
 const { ApiError } = require('../utils/apiResponse');
+const { toPlayerPresentation } = require('./shopEquipmentService');
 const {
   createTournamentPayoutPreview,
   executeTournamentPayout,
@@ -171,6 +173,7 @@ async function ensureTournamentMatchRoom({
   matchReference,
   userId,
   TournamentModel = Tournament,
+  UserModel = User,
   rooms = roomManager,
 }) {
   const tournament = await TournamentModel.findById(tournamentId);
@@ -182,11 +185,20 @@ async function ensureTournamentMatchRoom({
   const existing = rooms.getOperationalRoomStates().find((room) => room.tournamentMatchReference === matchReference);
   if (existing) return { roomCode: existing.code, matchReference };
   const [host, ...others] = located.match.participants;
+  const users = await UserModel.find({
+    _id: { $in: located.match.participants.map((person) => person.userId) },
+  }).populate('equippedCosmetics.avatarFrame equippedCosmetics.protector');
+  const usersById = new Map(users.map((user) => [String(user._id), user]));
+  const profileFor = (person) => toPlayerPresentation(usersById.get(String(person.userId)), person.username);
   const password = crypto.randomUUID();
-  const room = rooms.createRoom(host.userId, { edition: 'original', maxPlayers: 4, betAmount: 0, gameMode: 'tournament', password }, host.username);
+  const room = rooms.createRoom(
+    host.userId,
+    { edition: 'original', maxPlayers: 4, betAmount: 0, gameMode: 'tournament', password },
+    profileFor(host),
+  );
   room.tournamentId = String(tournamentId);
   room.tournamentMatchReference = matchReference;
-  for (const player of others) rooms.joinRoom(room.code, player.userId, player.username, password);
+  for (const player of others) rooms.joinRoom(room.code, player.userId, profileFor(player), password);
   located.match.roomCode = room.code;
   const updated = await TournamentModel.findOneAndUpdate(
     { _id: tournamentId, status: 'active', stateVersion: tournament.stateVersion },

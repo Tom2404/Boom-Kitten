@@ -26,10 +26,17 @@ const userSchema = new mongoose.Schema(
     ownedSkins: [{ type: String }],
     ownedEmotes: [{ type: String }],
     ownedAvatarFrames: [{ type: String }],
+    ownedItemIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'ShopItem' }],
     
     // Active cosmetics
     activeSkin: { type: String, default: '' },
     activeAvatarFrame: { type: String, default: '' },
+    equippedCosmetics: {
+      protector: { type: mongoose.Schema.Types.ObjectId, ref: 'ShopItem', default: null },
+      avatarFrame: { type: mongoose.Schema.Types.ObjectId, ref: 'ShopItem', default: null },
+      field: { type: mongoose.Schema.Types.ObjectId, ref: 'ShopItem', default: null },
+    },
+    cosmeticInventoryMigrationVersion: { type: String, default: '' },
     
     // Stats and Ranking
     stats: {

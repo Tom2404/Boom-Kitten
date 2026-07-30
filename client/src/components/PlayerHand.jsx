@@ -1,7 +1,7 @@
 import React, { useState, useRef, useMemo } from 'react';
 import Card, { CARD_THEMES } from './Card.jsx';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { getHandActionLabel, getHandDockState } from '../utils/gameRoomUi.js';
+import { getHandActionLabel, getHandCardLayout, getHandDockState } from '../utils/gameRoomUi.js';
 
 // Priority order for auto-sort: low number = high priority = leftmost in hand.
 // Same-type cards share the same priority so they cluster naturally.
@@ -329,6 +329,7 @@ export default function PlayerHand({
       : !canPerformAction
         ? 'Lựa chọn hiện tại chưa hợp lệ cho hành động này.'
         : 'Sẵn sàng thực hiện hành động.';
+  const showActionTray = selectedIds.length > 0 || hand.length > maxHandSize;
 
   const handleButtonClick = () => {
     if (!canPerformAction) return;
@@ -351,28 +352,13 @@ export default function PlayerHand({
   };
 
   return (
-    <section aria-label="Bài của bạn" className={`game-hand game-hand--${dockState}`}>
-      {/* Control Actions Bar */}
-      <div className="game-hand__toolbar">
-        <div className="game-hand__summary">
-          <span>Bài của bạn</span>
-          <span className="game-hand__count">
-            {hand.length} lá
-          </span>
-          {isMyTurn && hand.length <= maxHandSize && (
-            <span className="game-hand__state">
-              Đến lượt
-            </span>
-          )}
-          {hand.length > maxHandSize && (
-            <span className="game-hand__state">
-              Phải bỏ bài (&gt;{maxHandSize} lá)
-            </span>
-          )}
-        </div>
-
+    <section
+      aria-label="Bài của bạn"
+      className={`game-hand game-hand--${dockState} ${showActionTray ? 'game-hand--actions-visible' : ''}`}
+    >
+      {showActionTray && (
+        <div className="game-hand__toolbar">
         <div className="game-hand__actions">
-
           {selectedIds.length > 0 && (
             <button
               onClick={clearSelection}
@@ -391,8 +377,15 @@ export default function PlayerHand({
             {buttonText}
           </button>
         </div>
-      </div>
-      <p id="game-hand-action-hint" className="game-hand__helper" role="status">{actionHint}</p>
+        </div>
+      )}
+      <p
+        id="game-hand-action-hint"
+        className={showActionTray ? 'game-hand__helper' : 'sr-only'}
+        role="status"
+      >
+        {actionHint}
+      </p>
 
       {/* Cards List container with horizontal scrolling */}
       {hand.length === 0 ? (
@@ -401,11 +394,8 @@ export default function PlayerHand({
         </div>
       ) : (() => {
         const totalCards = sortedHand.length;
-        const midIndex = (totalCards - 1) / 2;
-        const overlap = totalCards > 1 ? Math.min(32, 10 + (totalCards - 2) * 2.5) : 0;
-        const justifyClass = totalCards <= 6
-          ? 'justify-center'
-          : (totalCards <= 11 ? 'justify-start md:justify-center' : 'justify-start');
+        const shouldCenter = getHandCardLayout({ cardCount: totalCards, index: 0 }).shouldCenter;
+        const justifyClass = shouldCenter ? 'justify-center' : 'justify-start';
 
         return (
           <div
@@ -423,16 +413,14 @@ export default function PlayerHand({
                 const isSelected = selectedIds.includes(card.id);
                 // Detect type boundary → add visual gap between groups
                 const isNewGroup = index > 0 && sortedHand[index - 1].type !== card.type;
-
-                const diff = index - midIndex;
-                const maxRotation = Math.min(18, (totalCards - 1) * 2.5);
-                const arcHeight = Math.min(20, (totalCards - 1) * 2.5);
-
-                const baseRotate = totalCards > 1 ? (diff / (midIndex || 1)) * maxRotation : 0;
-                const baseY = totalCards > 1 ? (Math.pow(diff, 2) / Math.pow(midIndex || 1, 2)) * arcHeight : 0;
+                const {
+                  rotate: baseRotate,
+                  y: baseY,
+                  marginLeft,
+                } = getHandCardLayout({ cardCount: totalCards, index, isNewGroup });
 
                 const cardStyle = {
-                  marginLeft: index > 0 ? (isNewGroup ? `-${overlap - 16}px` : `-${overlap}px`) : '0px',
+                  marginLeft: `${marginLeft}px`,
                 };
 
                 return (
@@ -446,7 +434,7 @@ export default function PlayerHand({
                     animate={{
                       opacity: 1,
                       x: 0,
-                      y: isSelected ? baseY - 24 : baseY,
+                      y: isSelected ? baseY - 14 : baseY,
                       rotate: isSelected ? 0 : baseRotate,
                       scale: isSelected ? 1.05 : 1,
                       zIndex: isSelected ? 100 : 10 + index,
@@ -460,7 +448,7 @@ export default function PlayerHand({
                       transition: { duration: 0.2 }
                     }}
                     whileHover={reduceMotion ? undefined : {
-                      y: baseY - 36,
+                      y: baseY - 18,
                       rotate: 0,
                       scale: 1.08,
                       zIndex: 200,
@@ -474,6 +462,7 @@ export default function PlayerHand({
                     skinIndex={card.skinIndex ?? 0}
                     selected={isSelected}
                     marked={card.marked}
+                    presentation="hand-strip"
                     onClick={() => {
                       if (!hasDragged.current) {
                         toggleSelectCard(card.id);

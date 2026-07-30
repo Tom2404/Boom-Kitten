@@ -165,6 +165,7 @@ export default function GameBoardView() {
     if (!isMyTurn) return false;
     const opp = opponents.find((o) => o.userId === oppId);
     if (!opp) return false;
+    if (opp.forfeited) return false;
     if (gameState?.edition === 'zombie' && !opp.alive) {
       return true;
     }

@@ -8,6 +8,7 @@ import { useRoomSync } from './useRoomSync.js';
 export const USE_GAME_RETURN_KEYS = [
   'socket',
   'connectionState',
+  'localReconnectDeadline',
   'roomState',
   'setRoomState',
   'gameState',
@@ -69,7 +70,7 @@ export const USE_GAME_RETURN_KEYS = [
   'playAgain',
 ];
 
-export function useGame() {
+export function useGame({ initialRoom = null } = {}) {
   const socket = useSocket();
   const { t } = useLanguage();
   const [statusMessage, setStatusMessage] = useState('');
@@ -77,6 +78,7 @@ export function useGame() {
   const interactions = useGameInteractions({ socket, t, setStatusMessage });
   const roomSync = useRoomSync({
     socket,
+    initialRoom,
     t,
     setStatusMessage,
     clearResolvedInteractions: interactions.clearResolvedInteractions,
@@ -110,6 +112,7 @@ export function useGame() {
   return {
     socket,
     connectionState: roomSync.connectionState,
+    localReconnectDeadline: roomSync.localReconnectDeadline,
     roomState: roomSync.roomState,
     setRoomState: roomSync.setRoomState,
     gameState: roomSync.gameState,

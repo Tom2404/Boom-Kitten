@@ -22,10 +22,12 @@ const {
   getInteractionEventName,
 } = require('./interactionEvents');
 const {
+  RECONNECT_GRACE_MS,
   createRoom,
   joinRoom,
   leaveRoom,
   startGame,
+  resetRoomForRematch,
   getPublicRooms,
   getRoomState,
   findRoomByUser,
@@ -33,6 +35,8 @@ const {
   toggleReady,
   updateRoomSettings,
   touchRoom,
+  markPlayerConnected,
+  markPlayerDisconnected,
 } = require('../game/roomManager');
 const { getRuntimeLiveOpsConfig } = require('../services/admin/liveOpsService');
 const {
@@ -52,9 +56,10 @@ const {
   eliminatePlayer,
 } = require('../game/gameLogic');
 const User = require('../models/User');
+const { toPlayerPresentation } = require('../services/shopEquipmentService');
 const findUserByIdSafe = async (id) => {
   if (mongoose.connection.readyState !== 1) return null;
-  return await User.findById(id);
+  return await User.findById(id).populate('equippedCosmetics.avatarFrame equippedCosmetics.protector');
 };
 const Transaction = require('../models/Transaction');
 const Quest = require('../models/Quest');
@@ -62,20 +67,27 @@ const UserQuestProgress = require('../models/UserQuestProgress');
 const { calculateMatchmakingChanges } = require('../utils/matchmakingCalculator');
 const { applyMatchmakingRating, shouldUpdateMatchmakingRating } = require('../utils/matchmakingRating');
 const { completeMatchHistory, startMatchHistory } = require('../services/matchLifecycleService');
-const { lockWager, markWagerReview, refundWager, settleWager } = require('../services/wagerLedgerService');
+const { lockWager, markWagerReview, settleWager } = require('../services/wagerLedgerService');
 
-async function refundCancelledRoomWager(room, reason) {
-  if (!room || room.betAmount <= 0 || !room.wagerReference) return;
-  try {
-    await refundWager({
-      roomCode: room.code,
-      reference: room.wagerReference,
-      requestId: `refund:${room.wagerReference}`,
-      reason,
-    });
-  } catch (error) {
-    await markWagerReview({ reference: room.wagerReference, reason: `Refund failed: ${error.message}` });
-    console.error(`Wager refund failed for ${room.code}:`, error);
+const reconnectTimers = new Map();
+
+function reconnectTimerKey(roomCode, userId) {
+  return `${roomCode}:${userId}`;
+}
+
+function clearReconnectTimer(roomCode, userId) {
+  const key = reconnectTimerKey(roomCode, userId);
+  const timer = reconnectTimers.get(key);
+  if (timer) clearTimeout(timer);
+  reconnectTimers.delete(key);
+}
+
+function clearRoomReconnectTimers(roomCode) {
+  const prefix = `${roomCode}:`;
+  for (const [key, timer] of reconnectTimers) {
+    if (!key.startsWith(prefix)) continue;
+    clearTimeout(timer);
+    reconnectTimers.delete(key);
   }
 }
 
@@ -153,7 +165,13 @@ function sanitizePublicGameState(gameState) {
     players: gameState.players.map((player) => ({
       userId: player.userId,
       username: player.username,
+      avatar: player.avatar || '',
+      avatarFrame: player.avatarFrame || null,
+      protector: player.protector || null,
       alive: player.alive,
+      connectionStatus: player.connectionStatus || 'connected',
+      reconnectDeadline: player.reconnectDeadline ?? null,
+      forfeited: !!player.forfeited,
       handCount: player.hand.length,
       markedCards: player.hand
         .filter((c) => c.marked)
@@ -183,6 +201,7 @@ function sanitizeRoom(room) {
   if (!room) return null;
   return {
     ...room,
+    reconnectGraceMs: RECONNECT_GRACE_MS,
     gameState: room.gameState ? sanitizePublicGameState(room.gameState) : room.gameState,
     password: undefined,
   };
@@ -204,11 +223,24 @@ function sendHands(io, room) {
   });
 }
 
+function sendPlayerSnapshot(socket, room, userId) {
+  if (!room.gameState) return;
+  socket.emit('game:stateUpdate', {
+    publicGameState: sanitizePublicGameState(room.gameState),
+  });
+  const player = room.gameState.players.find((candidate) => candidate.userId === userId);
+  if (player) socket.emit('game:privateHand', { cards: getPrivateHandCards(player) });
+  const resumedRequest = buildReconnectInteractionRequest(room.gameState, userId);
+  if (resumedRequest) socket.emit('interaction:request', resumedRequest);
+}
+
 async function finalizeGame(io, room) {
+  if (!room?.gameState || room.status === 'finished') return;
   const winnerId = checkWinCondition(room.gameState);
   if (!winnerId) return;
 
   room.status = 'finished';
+  clearRoomReconnectTimers(room.code);
   emitRoomUpdated(io.to(room.code), room);
 
   const rankings = room.gameState.players.map((player) => {
@@ -344,11 +376,11 @@ async function finalizeGame(io, room) {
         };
       });
 
-    if (validWinner && validPlayers.length > 0) {
+    if (validPlayers.length > 0) {
       await completeMatchHistory({
         room,
         validPlayers,
-        winnerId,
+        winnerId: validWinner ? winnerId : undefined,
       });
     }
   } catch (err) {
@@ -583,6 +615,7 @@ module.exports = function registerGameSocket(io) {
     const needsDeadTarget = cardType === 'feed_the_dead';
     return gameState.players.filter((player) => (
       player.userId !== playerId
+      && !player.forfeited
       && (needsDeadTarget ? !player.alive : player.alive)
     ));
   }
@@ -629,7 +662,7 @@ module.exports = function registerGameSocket(io) {
     startActionWindow(room, action);
   }
 
-  async function handlePlayerDisconnectFallback(room, userId) {
+  async function forfeitPlayer(room, userId) {
     const gameState = room.gameState;
     if (!gameState) return;
 
@@ -639,7 +672,14 @@ module.exports = function registerGameSocket(io) {
     const p = gameState.players.find(p => p.userId === userId);
     if (!p || !p.alive) return;
 
+    p.forfeited = true;
+    p.connectionStatus = 'connected';
+    p.reconnectDeadline = null;
     eliminatePlayer(gameState, userId);
+    if (p.hand.length > 0) {
+      gameState.discardPile.push(...p.hand);
+      p.hand = [];
+    }
 
     // If there is an active interaction, trigger an interaction timeout
     // to auto-resolve or cancel it based on the interaction rules.
@@ -677,6 +717,77 @@ module.exports = function registerGameSocket(io) {
     await afterGameStateChanged(room, innerPlayersBefore, innerTurnBefore);
   }
 
+  async function forfeitAndLeave(roomCode, userId, socketToLeave = null) {
+    const roomBefore = getRoomState(roomCode);
+    if (!roomBefore) return null;
+    clearReconnectTimer(roomCode, userId);
+
+    const gamePlayer = roomBefore.gameState?.players.find((player) => player.userId === userId);
+    if (roomBefore.status === 'playing' && gamePlayer?.alive) {
+      await forfeitPlayer(roomBefore, userId);
+    }
+
+    const room = leaveRoom(roomCode, userId);
+    socketToLeave?.leave(roomCode);
+    if (room) emitRoomUpdated(io.to(roomCode), room);
+    return room;
+  }
+
+  function scheduleReconnectForfeit(room, userId) {
+    const deadline = Date.now() + RECONNECT_GRACE_MS;
+    const player = markPlayerDisconnected(room.code, userId, deadline);
+    if (!player) return;
+
+    clearReconnectTimer(room.code, userId);
+    const key = reconnectTimerKey(room.code, userId);
+    const run = async () => {
+      const currentRoom = getRoomState(room.code);
+      const currentPlayer = currentRoom?.players.find((candidate) => candidate.userId === userId);
+      const gamePlayer = currentRoom?.gameState?.players.find((candidate) => candidate.userId === userId);
+      const activeSockets = io.sockets.adapter.rooms.get(`user:${userId}`);
+
+      if (
+        !currentRoom
+        || currentRoom.status !== 'playing'
+        || !currentPlayer
+        || !gamePlayer?.alive
+        || currentPlayer.connectionStatus !== 'reconnecting'
+        || currentPlayer.reconnectDeadline !== deadline
+        || currentPlayer.forfeited
+        || activeSockets?.size > 0
+      ) {
+        clearReconnectTimer(room.code, userId);
+        return;
+      }
+      if (Date.now() <= deadline) {
+        reconnectTimers.set(key, setTimeout(run, deadline - Date.now() + 1));
+        return;
+      }
+
+      reconnectTimers.delete(key);
+      const username = currentPlayer.username || userId;
+      await forfeitAndLeave(room.code, userId);
+      io.to(room.code).emit('chat:message', {
+        userId: 'system',
+        username: 'Hệ Thống',
+        text: `${username} đã bị xử thua do quá thời gian kết nối lại.`,
+        timestamp: new Date().toISOString(),
+      });
+    };
+
+    reconnectTimers.set(key, setTimeout(run, RECONNECT_GRACE_MS + 1));
+    emitRoomUpdated(io.to(room.code), room);
+    io.to(room.code).emit('game:stateUpdate', {
+      publicGameState: sanitizePublicGameState(room.gameState),
+    });
+    io.to(room.code).emit('chat:message', {
+      userId: 'system',
+      username: 'Hệ Thống',
+      text: `${player.username || userId} mất kết nối và có 60 giây để quay lại.`,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
   async function resolveBarkingKittenSocket(room, playerId, targetPlayerId) {
     const gameState = room.gameState;
     const playersBefore = gameState.players.map(p => ({ userId: p.userId, alive: p.alive }));
@@ -706,7 +817,7 @@ module.exports = function registerGameSocket(io) {
       const currentPendingZombie = gameState.pendingZombie;
       setTimeout(async () => {
         if (room.gameState && room.gameState.pendingZombie && room.gameState.pendingZombie === currentPendingZombie) {
-          const firstDead = room.gameState.players.find((p) => !p.alive);
+          const firstDead = room.gameState.players.find((p) => !p.alive && !p.forfeited);
           const revivedPlayerId = firstDead ? firstDead.userId : null;
           const randomPos = Math.floor(Math.random() * (room.gameState.deck.length + 1));
           const clairvoyancePlayerId = room.gameState.pendingZombie.clairvoyancePlayerId;
@@ -925,21 +1036,18 @@ module.exports = function registerGameSocket(io) {
     // Auto re-join room if the user was already in one (supports tab switching and reconnection)
     const activeRoom = findRoomByUser(userId);
     if (activeRoom) {
-      socket.join(activeRoom.code);
-      setTimeout(() => {
-        emitRoomUpdated(io.to(activeRoom.code), activeRoom);
-        if (activeRoom.gameState) {
-          socket.emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(activeRoom.gameState) });
-          const player = activeRoom.gameState.players.find((p) => p.userId === userId);
-          if (player) {
-            socket.emit('game:privateHand', { cards: getPrivateHandCards(player) });
-          }
-          const resumedRequest = buildReconnectInteractionRequest(activeRoom.gameState, userId);
-          if (resumedRequest) {
-            socket.emit('interaction:request', resumedRequest);
-          }
-        }
-      }, 200);
+      const roomPlayer = markPlayerConnected(activeRoom.code, userId);
+      if (!roomPlayer) {
+        void forfeitAndLeave(activeRoom.code, userId);
+      } else {
+        clearReconnectTimer(activeRoom.code, userId);
+        socket.join(activeRoom.code);
+        setTimeout(() => {
+          if (getRoomState(activeRoom.code) !== activeRoom) return;
+          emitRoomUpdated(io.to(activeRoom.code), activeRoom);
+          sendPlayerSnapshot(socket, activeRoom, userId);
+        }, 200);
+      }
     }
     const ensureLeaveOtherRooms = async (targetRoomCode) => {
       const activeRooms = [...socket.rooms].filter((r) => r.length === 6 && r !== targetRoomCode);
@@ -954,8 +1062,10 @@ module.exports = function registerGameSocket(io) {
         const pName = player ? player.username : userId;
         const wasPlaying = roomBefore?.status === 'playing';
 
-        const room = leaveRoom(rCode, userId);
-        socket.leave(rCode);
+        const room = wasPlaying
+          ? await forfeitAndLeave(rCode, userId, socket)
+          : leaveRoom(rCode, userId);
+        if (!wasPlaying) socket.leave(rCode);
         if (room) {
           emitRoomUpdated(io.to(rCode), room);
           io.to(rCode).emit('chat:message', {
@@ -964,13 +1074,6 @@ module.exports = function registerGameSocket(io) {
             text: `Người chơi ${pName} đã rời phòng.`,
             timestamp: new Date().toISOString(),
           });
-
-          if (wasPlaying && room.status === 'playing') {
-            await handlePlayerDisconnectFallback(room, userId);
-          }
-        }
-        if (wasPlaying && (!room || room.status !== 'playing')) {
-          await refundCancelledRoomWager(roomBefore, 'Match cancelled after player left');
         }
       }
     };
@@ -985,11 +1088,11 @@ module.exports = function registerGameSocket(io) {
         if (liveOps.config.maintenanceMode) throw new Error('Hệ thống đang bảo trì. Tạm thời không thể tạo phòng mới.');
         if (getPublicRooms().length >= liveOps.config.maxActiveRooms) throw new Error('Hệ thống đã đạt giới hạn phòng đang hoạt động. Vui lòng thử lại sau.');
         await ensureLeaveOtherRooms(null);
-        let username = socket.user?.username ?? `Guest-${guestId.slice(6, 11)}`;
+        let playerProfile = { username: socket.user?.username ?? `Guest-${guestId.slice(6, 11)}` };
         if (socket.user?.id) {
           const dbUser = await findUserByIdSafe(socket.user.id);
           if (dbUser) {
-            username = dbUser.username;
+            playerProfile = toPlayerPresentation(dbUser, playerProfile.username);
             const requestedBet = parseInt(betAmount, 10);
             const actualBet = !isNaN(requestedBet) && requestedBet >= 0 ? requestedBet : 50;
             if (dbUser.coins < actualBet) {
@@ -1003,7 +1106,7 @@ module.exports = function registerGameSocket(io) {
             throw new Error('Tài khoản Khách chỉ có thể tạo phòng chơi miễn phí (Cược = 0)');
           }
         }
-        const room = createRoom(userId, { password, edition, maxPlayers, betAmount, gameMode, customDefuses, customExplodingKittens }, username);
+        const room = createRoom(userId, { password, edition, maxPlayers, betAmount, gameMode, customDefuses, customExplodingKittens }, playerProfile);
         socket.join(room.code);
         emitRoomUpdated(io.to(room.code), room);
       } catch (error) {
@@ -1012,18 +1115,32 @@ module.exports = function registerGameSocket(io) {
     });
 
     socket.on('room:join', async ({ roomCode, password }) => {
-      if (!socket.user) {
-        socket.emit('error', { code: 'AUTH_REQUIRED', message: 'Bạn cần đăng nhập để tham gia phòng.' });
-        return;
-      }
       try {
-        await ensureLeaveOtherRooms(roomCode);
-        let username = socket.user?.username ?? `Guest-${guestId.slice(6, 11)}`;
         const roomBefore = getRoomState(roomCode);
+        if (roomBefore?.players.some((player) => player.userId === userId)) {
+          const player = markPlayerConnected(roomCode, userId);
+          if (!player) {
+            await forfeitAndLeave(roomCode, userId, socket);
+            throw new Error('Đã quá thời gian kết nối lại trận đấu');
+          }
+          clearReconnectTimer(roomCode, userId);
+          socket.join(roomCode);
+          emitRoomUpdated(io.to(roomCode), roomBefore);
+          sendPlayerSnapshot(socket, roomBefore, userId);
+          return;
+        }
+
+        if (!socket.user) {
+          socket.emit('error', { code: 'AUTH_REQUIRED', message: 'Bạn cần đăng nhập để tham gia phòng.' });
+          return;
+        }
+
+        await ensureLeaveOtherRooms(roomCode);
+        let playerProfile = { username: socket.user?.username ?? `Guest-${guestId.slice(6, 11)}` };
         if (socket.user?.id) {
           const dbUser = await findUserByIdSafe(socket.user.id);
           if (dbUser) {
-            username = dbUser.username;
+            playerProfile = toPlayerPresentation(dbUser, playerProfile.username);
             if (roomBefore && dbUser.coins < roomBefore.betAmount) {
               throw new Error('Không đủ GoldCoin để vào phòng');
             }
@@ -1033,9 +1150,10 @@ module.exports = function registerGameSocket(io) {
             throw new Error('Tài khoản Khách chỉ có thể tham gia phòng chơi miễn phí (Cược = 0)');
           }
         }
-        const room = joinRoom(roomCode, userId, username, password);
+        const room = joinRoom(roomCode, userId, playerProfile, password);
         socket.join(room.code);
         emitRoomUpdated(io.to(room.code), room);
+        sendPlayerSnapshot(socket, room, userId);
       } catch (error) {
         socket.emit('error', { message: error.message });
       }
@@ -1122,8 +1240,10 @@ module.exports = function registerGameSocket(io) {
         const pName = player ? player.username : userId;
         const wasPlaying = roomBefore?.status === 'playing';
 
-        const room = leaveRoom(roomCode, userId);
-        socket.leave(roomCode);
+        const room = wasPlaying
+          ? await forfeitAndLeave(roomCode, userId, socket)
+          : leaveRoom(roomCode, userId);
+        if (!wasPlaying) socket.leave(roomCode);
         emitRoomUpdated(socket, null);
         if (room) {
           emitRoomUpdated(io.to(roomCode), room);
@@ -1133,13 +1253,6 @@ module.exports = function registerGameSocket(io) {
             text: `Người chơi ${pName} đã rời phòng.`,
             timestamp: new Date().toISOString(),
           });
-
-          if (wasPlaying && room.status === 'playing') {
-            await handlePlayerDisconnectFallback(room, userId);
-          }
-        }
-        if (wasPlaying && (!room || room.status !== 'playing')) {
-          await refundCancelledRoomWager(roomBefore, 'Match cancelled after player left');
         }
       }
     });
@@ -1147,12 +1260,7 @@ module.exports = function registerGameSocket(io) {
     socket.on('room:playAgain', () => {
       const activeRoom = findRoomByUser(userId);
       if (activeRoom && activeRoom.status === 'finished') {
-        activeRoom.status = 'waiting';
-        activeRoom.gameState = null;
-        activeRoom.players.forEach((p) => {
-          p.hand = [];
-          p.alive = true;
-        });
+        resetRoomForRematch(activeRoom);
         emitRoomUpdated(io.to(activeRoom.code), activeRoom);
         io.to(activeRoom.code).emit('chat:message', {
           userId: 'system',
@@ -1170,37 +1278,22 @@ module.exports = function registerGameSocket(io) {
           const activeRoom = findRoomByUser(userId);
           if (activeRoom) {
             const player = activeRoom.players.find((p) => p.userId === userId);
-            const pName = player ? player.username : userId;
-            const wasPlaying = activeRoom.status === 'playing';
-            const room = leaveRoom(activeRoom.code, userId);
-            if (room) {
-              emitRoomUpdated(io.to(activeRoom.code), room);
-              if (wasPlaying && room.status === 'waiting') {
-                io.to(activeRoom.code).emit('chat:message', {
-                  userId: 'system',
-                  username: 'Hệ Thống',
-                  text: `Trận đấu bị hủy do người chơi ${pName} đã thoát hoặc mất kết nối.`,
-                  timestamp: new Date().toISOString(),
-                });
-              } else {
-                io.to(activeRoom.code).emit('chat:message', {
-                  userId: 'system',
-                  username: 'Hệ Thống',
-                  text: `Người chơi ${pName} đã rời phòng hoặc mất kết nối.`,
-                  timestamp: new Date().toISOString(),
-                });
-
-                if (wasPlaying && room.status === 'playing') {
-                  await handlePlayerDisconnectFallback(room, userId);
-                }
-              }
-            }
-            if (wasPlaying && (!room || room.status !== 'playing')) {
-              await refundCancelledRoomWager(activeRoom, 'Match cancelled after disconnect');
+            const gamePlayer = activeRoom.gameState?.players.find((p) => p.userId === userId);
+            if (activeRoom.status === 'playing' && gamePlayer?.alive) {
+              scheduleReconnectForfeit(activeRoom, userId);
+            } else {
+              const room = leaveRoom(activeRoom.code, userId);
+              if (room) emitRoomUpdated(io.to(activeRoom.code), room);
+              io.to(activeRoom.code).emit('chat:message', {
+                userId: 'system',
+                username: 'Hệ Thống',
+                text: `Người chơi ${player?.username || userId} đã rời phòng hoặc mất kết nối.`,
+                timestamp: new Date().toISOString(),
+              });
             }
           }
         }
-      }, 5000);
+      }, 0);
     });
 
     socket.on('game:start', async ({ roomCode } = {}) => {
@@ -1705,7 +1798,12 @@ module.exports = function registerGameSocket(io) {
 
       // Validate target (must be dead for feed_the_dead, alive for others)
       const isFeed = pending.cardType === 'feed_the_dead';
-      const target = room.gameState.players.find(p => p.userId === targetPlayerId && (isFeed ? !p.alive : p.alive) && p.userId !== userId);
+      const target = room.gameState.players.find(p => (
+        p.userId === targetPlayerId
+        && !p.forfeited
+        && (isFeed ? !p.alive : p.alive)
+        && p.userId !== userId
+      ));
       if (!target) return;
 
       resolveTargetSelect(room, targetPlayerId);
@@ -2028,3 +2126,5 @@ module.exports = function registerGameSocket(io) {
     });
   });
 };
+
+module.exports.sanitizePublicGameState = sanitizePublicGameState;

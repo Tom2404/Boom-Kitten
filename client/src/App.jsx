@@ -6,6 +6,7 @@ import { useLanguage } from './context/LanguageContext.jsx';
 import CustomDialog from './components/CustomDialog.jsx';
 import { isAdminRole } from './utils/adminRoles.js';
 import { REQUIRED_VFX_ASSET_URLS } from './vfx/config/vfxAssets.js';
+import { shouldResumeActiveMatch } from './utils/gameRoomUi.js';
 
 const Login = lazy(() => import('./pages/Login.jsx'));
 const Register = lazy(() => import('./pages/Register.jsx'));
@@ -121,6 +122,7 @@ export default function App() {
 
     const handleRoomUpdated = ({ room }) => {
       setActiveRoom(room);
+      if (shouldResumeActiveMatch(room)) setPage('Game');
     };
 
     socket.on('server_announcement', handleAnnouncement);
@@ -209,6 +211,7 @@ export default function App() {
     }
   };
 
+
   const Page = useMemo(() => PAGES[page] ?? Home, [page]);
   const isInMatch = page === 'Game' && activeRoom !== null;
   const shouldRenderVfx = page === 'Game' && activeRoom?.status === 'playing';
@@ -250,7 +253,7 @@ export default function App() {
   return (
     <div className={isAdminPage
       ? 'admin-console min-h-screen bg-[var(--admin-canvas)] text-[var(--admin-text)] flex flex-col selection:bg-[var(--admin-danger-bg)] selection:text-[var(--admin-text)]'
-      : 'pop-art-theme min-h-screen bg-[var(--pop-cream)] text-[var(--pop-black)] flex flex-col selection:bg-[var(--pop-amber)] selection:text-[var(--pop-black)]'
+      : `pop-art-theme min-h-screen ${isInMatch ? 'bg-[#0b0d14]' : 'bg-[var(--pop-cream)]'} text-[var(--pop-black)] flex flex-col selection:bg-[var(--pop-amber)] selection:text-[var(--pop-black)]`
     }>
       {/* Floating Server Announcement */}
       {announcement && (
@@ -287,10 +290,10 @@ export default function App() {
       )}
 
       {/* Main Page Area */}
-      <main className={`flex-grow ${isAdminPage ? 'w-full' : isInMatch ? 'p-4 w-full max-w-none' : 'p-4 md:p-8 max-w-7xl mx-auto w-full'}`}>
+      <main className={`flex-grow ${isAdminPage ? 'w-full' : isInMatch ? 'p-0 w-full max-w-none' : 'p-4 md:p-8 max-w-7xl mx-auto w-full'}`}>
         <ErrorBoundary>
           <Suspense fallback={<div className={isAdminPage ? 'py-10 text-center text-sm text-[var(--admin-text-muted)]' : 'font-pop-body text-center py-10'}>Loading...</div>}>
-            <Page setPage={setPage} />
+            <Page setPage={setPage} initialRoom={page === 'Game' ? activeRoom : null} />
           </Suspense>
         </ErrorBoundary>
       </main>
@@ -298,17 +301,17 @@ export default function App() {
       {/* Footer */}
       {!isInMatch && !isAdminPage && (
         <footer className="w-full border-t-2 border-[var(--pop-black)] py-8 bg-[var(--pop-cream)] mt-auto font-pop-body">
-        <div className="max-w-7xl mx-auto px-4 md:px-12 flex flex-col md:flex-row justify-between items-center gap-4 text-center md:text-left">
-          <div className="font-pop-display font-black text-xl text-[var(--pop-red)] uppercase tracking-tight">
-            Mèo Nổ
+          <div className="max-w-7xl mx-auto px-4 md:px-12 flex flex-col md:flex-row justify-between items-center gap-4 text-center md:text-left">
+            <div className="font-pop-display font-black text-xl text-[var(--pop-red)] uppercase tracking-tight">
+              Mèo Nổ
+            </div>
+            <p className="text-xs text-[var(--pop-black)]/60 font-bold uppercase tracking-wider">
+              {language === 'en'
+                ? "© 2026 BOOM-KITTEN — WARNING: DON'T TOUCH THE RED BUTTON."
+                : "© 2026 BOOM-KITTEN — CẢNH BÁO: ĐỪNG CHẠM VÀO NÚT ĐỎ."
+              }
+            </p>
           </div>
-          <p className="text-xs text-[var(--pop-black)]/60 font-bold uppercase tracking-wider">
-            {language === 'en' 
-              ? "© 2026 BOOM-KITTEN — WARNING: DON'T TOUCH THE RED BUTTON."
-              : "© 2026 BOOM-KITTEN — CẢNH BÁO: ĐỪNG CHẠM VÀO NÚT ĐỎ."
-            }
-          </p>
-        </div>
         </footer>
       )}
 

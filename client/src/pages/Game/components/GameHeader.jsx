@@ -1,6 +1,9 @@
 import React from 'react';
 import { useGameContext } from '../GameContext.jsx';
-import { getActivityStatus } from '../../../utils/gameRoomUi.js';
+import {
+  getActivityStatus,
+  getReconnectRemainingSeconds,
+} from '../../../utils/gameRoomUi.js';
 
 export default function GameHeader() {
   const {
@@ -10,17 +13,28 @@ export default function GameHeader() {
     handleLeaveConfirm,
     hasUnreadMessages,
     isSidebarOpen,
+    localReconnectDeadline,
     roomState,
     setIsSidebarOpen,
     setRightPanelTab,
     t,
   } = useGameContext();
+  const [now, setNow] = React.useState(Date.now());
+
+  React.useEffect(() => {
+    if (connectionState === 'connected' || !localReconnectDeadline) return undefined;
+    setNow(Date.now());
+    const interval = setInterval(() => setNow(Date.now()), 1_000);
+    return () => clearInterval(interval);
+  }, [connectionState, localReconnectDeadline]);
+
+  const reconnectSeconds = getReconnectRemainingSeconds(localReconnectDeadline, now);
 
   const connectionLabel = connectionState === 'connected'
     ? 'Kết nối tốt'
     : connectionState === 'error'
-      ? 'Mất kết nối'
-      : 'Đang nối lại';
+      ? `Mất kết nối · ${reconnectSeconds}s`
+      : `Đang nối lại · ${reconnectSeconds}s`;
 
   const toggleActivity = () => {
     setIsSidebarOpen((current) => !current);
@@ -49,7 +63,11 @@ export default function GameHeader() {
       </div>
 
       <div className="game-room-header__actions">
-        <span className={`game-connection game-connection--${connectionState}`} role="status">
+        <span
+          className={`game-connection game-connection--${connectionState}`}
+          role="status"
+          aria-live="polite"
+        >
           <i aria-hidden="true" />
           {connectionLabel}
         </span>

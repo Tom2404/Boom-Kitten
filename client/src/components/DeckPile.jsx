@@ -1,7 +1,15 @@
 import React from 'react';
 import Card from './Card.jsx';
 
-export default function DeckPile({ count, topCard, onDraw, isMyTurn, disabled, compact = false }) {
+export default function DeckPile({
+  count,
+  topCard,
+  onDraw,
+  isMyTurn,
+  disabled,
+  compact = false,
+  protectorUrl = '',
+}) {
   const handleDraw = () => {
     if (isMyTurn && !disabled) {
       onDraw();
@@ -18,7 +26,7 @@ export default function DeckPile({ count, topCard, onDraw, isMyTurn, disabled, c
   return (
     <div className={`game-pile game-pile--draw ${compact ? 'game-pile--compact' : ''}`}>
       <span className="game-pile__label">Bài bốc</span>
-      
+
       <div
         id="deck-pile-element"
         onClick={handleDraw}
@@ -53,11 +61,19 @@ export default function DeckPile({ count, topCard, onDraw, isMyTurn, disabled, c
             <Card type={topCard.type} disabled={false} compact={compact} />
           </span>
         ) : (
-          <span className="game-pile__back">
+          <span className={`game-pile__back ${protectorUrl ? 'game-pile__back--protector' : ''}`}>
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M12 2l2 4 4-2-2 4 4 2-4 2 2 4-4-2-2 4-2-4-4 2 2-4-4-2 4-2-2-4 4 2z" />
             </svg>
             <span>Mèo nổ</span>
+            {protectorUrl && (
+              <img
+                className="game-pile__protector"
+                src={protectorUrl}
+                alt=""
+                onError={(event) => event.currentTarget.remove()}
+              />
+            )}
           </span>
         )}
 
@@ -66,10 +82,6 @@ export default function DeckPile({ count, topCard, onDraw, isMyTurn, disabled, c
           {count}
         </span>
 
-        {/* Draw arrow indicator when clickable */}
-        {isClickable && (
-          <span className="game-pile__draw-cue" aria-hidden="true">Bốc</span>
-        )}
       </div>
 
       <span className={`game-pile__hint ${isClickable ? 'game-pile__hint--active' : ''}`}>

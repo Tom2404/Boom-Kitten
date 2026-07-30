@@ -4,6 +4,7 @@ import GameTableCore from './GameTableCore.jsx';
 import PlayerHandDock from './PlayerHandDock.jsx';
 import { calculateRelativeOpponents } from '../../../utils/seatAllocation.js';
 import { getInteractionState } from '../../../utils/interactionState.js';
+import { getEquippedAssetUrl } from '../../../utils/shopEquipment.js';
 
 export default function GameTable(props) {
   const context = useGameContext();
@@ -17,6 +18,7 @@ export default function GameTable(props) {
     discardCard,
     displayedDiscardPile,
     drawCard,
+    equippedCosmetics,
     gameState,
     getStatusDisplay,
     isMyTurn,
@@ -34,8 +36,11 @@ export default function GameTable(props) {
   const [targetPlayerId, setTargetPlayerId] = useState(null);
   const [layoutMode, setLayoutMode] = useState('horseshoe-large');
   const containerRef = useRef(null);
+  const fieldUrl = getEquippedAssetUrl(equippedCosmetics?.field);
+  const protectorUrl = getEquippedAssetUrl(equippedCosmetics?.protector);
 
   const relativeOpponents = calculateRelativeOpponents(gameState.players, myUser.id);
+  const localPlayer = gameState.players.find((player) => player.userId === myUser.id);
   const totalOpponents = relativeOpponents.length;
 
   // Responsive Layout detection using ResizeObserver
@@ -89,8 +94,9 @@ export default function GameTable(props) {
     <div
       id="game-board-container"
       ref={containerRef}
-      className={`game-board game-stage`}
+      className={`game-board game-stage ${fieldUrl ? 'game-board--custom-field' : ''}`}
       data-layout={layoutMode}
+      style={fieldUrl ? { '--game-field-image': `url("${fieldUrl}")` } : undefined}
     >
       <GameTableCore
         DeckPile={DeckPile}
@@ -111,6 +117,7 @@ export default function GameTable(props) {
         opponents={relativeOpponents}
         pendingCombo5={gameState.pendingCombo5}
         playDirection={gameState.playDirection}
+        protectorUrl={protectorUrl}
         reversePulse={reversePulse}
         selectedTargetId={targetPlayerId}
         interactionState={interactionState}
@@ -127,6 +134,7 @@ export default function GameTable(props) {
         gameState={gameState}
         isMyTurn={isMyTurn}
         myUser={myUser}
+        player={localPlayer}
         nopeWindow={nopeWindow}
         playCard={playCard}
         playCombo={playCombo}

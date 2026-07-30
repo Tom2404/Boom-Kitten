@@ -1,6 +1,6 @@
 function getInteractionParticipants(state, { type, owner, targetPlayerId }) {
   const players = state?.players || [];
-  const alivePlayers = players.filter((player) => player.alive);
+  const alivePlayers = players.filter((player) => player.alive && !player.forfeited);
   const participantsByType = {
     alter_the_future: [owner],
     bury: [owner],
@@ -13,7 +13,7 @@ function getInteractionParticipants(state, { type, owner, targetPlayerId }) {
     pot_luck: alivePlayers.map((player) => player.userId),
     garbage_collection: alivePlayers.map((player) => player.userId),
     grave_robber: players
-      .filter((player) => !player.alive && player.hand.length > 0)
+      .filter((player) => !player.alive && !player.forfeited && player.hand.length > 0)
       .map((player) => player.userId),
     combo_3: [owner],
     combo_5: [owner],
@@ -30,6 +30,7 @@ function isNopeResponderEligible(state, pendingAction, playerId) {
   const player = state?.players?.find((candidate) => candidate.userId === playerId);
   return Boolean(
     player?.alive
+    && !player.forfeited
     && playerId !== getNopeResponseOwnerId(pendingAction),
   );
 }

@@ -2,11 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  GAME_RESULT_DURATION_MS,
+  createGameResultState,
   createTimeoutGroup,
   getDrawRevealMotion,
   getDefusePositionProgress,
   getEndgameSequence,
   getGameMotionTransition,
+  getGameResultRemainingSeconds,
 } from '../src/pages/Game/gameMotion.js';
 
 test('draw reveal keeps a readable hold before exiting toward the hand', () => {
@@ -35,6 +38,36 @@ test('victory and defeat use distinct staged endgame sequences', () => {
   assert.equal(defeat.tone, 'defeat');
   assert.ok(victory.title.scale > defeat.title.scale);
   assert.ok(victory.contentDelay < defeat.contentDelay);
+});
+
+test('game results use a wall-clock ten second deadline that clamps at zero', () => {
+  assert.equal(GAME_RESULT_DURATION_MS, 10_000);
+  assert.equal(getGameResultRemainingSeconds(11_000, 1_000), 10);
+  assert.equal(getGameResultRemainingSeconds(10_001, 1_000), 10);
+  assert.equal(getGameResultRemainingSeconds(10_000, 1_000), 9);
+  assert.equal(getGameResultRemainingSeconds(1_000, 1_000), 0);
+  assert.equal(getGameResultRemainingSeconds(999, 1_000), 0);
+  assert.equal(getGameResultRemainingSeconds(null, 1_000), 0);
+});
+
+test('game result state keeps the final snapshot while the room resets underneath it', () => {
+  const snapshot = { players: [{ userId: 'winner' }], discardPile: [{ type: 'defuse' }] };
+  const result = createGameResultState({
+    winnerId: 'winner',
+    rankings: undefined,
+    wager: null,
+    snapshot,
+    now: 5_000,
+  });
+
+  assert.deepEqual(result, {
+    winnerId: 'winner',
+    rankings: [],
+    wager: null,
+    snapshot,
+    dismissAt: 15_000,
+    dismissed: false,
+  });
 });
 
 test('Defuse deck marker clamps the selected reinsertion position', () => {

@@ -8,6 +8,7 @@ export default function WaitingRoomView() {
     CoinIcon,
     CrownIcon,
     LogoutIcon,
+    PRESET_AVATARS,
     copied,
     copyIcon,
     doorIcon,
@@ -102,10 +103,29 @@ export default function WaitingRoomView() {
                     className={`bg-white border-4 p-3 flex items-center gap-4 shadow-[inset_-3px_-3px_0_rgba(0,0,0,0.05),4px_4px_0_rgba(0,0,0,0.2)] relative transition-transform ${isMe ? 'border-[var(--pop-amber)] scale-[1.02]' : 'border-[var(--pop-black)] hover:scale-[1.02]'}`}
                   >
                     <div
-                      className="w-[50px] h-[50px] bg-[#ddd] border-2 border-[var(--pop-black)] flex justify-center items-center font-pop-display font-black text-2xl uppercase shrink-0"
+                      className="relative w-[50px] h-[50px] bg-[#ddd] border-2 border-[var(--pop-black)] flex justify-center items-center font-pop-display font-black text-2xl uppercase shrink-0"
                       style={{ backgroundColor: getAvatarBgColor(player.username || player.userId) }}
                     >
-                      {player.username ? player.username.slice(0, 2) : player.userId.slice(0, 2)}
+                      <span>
+                        {PRESET_AVATARS[player.avatar]
+                          || (player.username ? player.username.slice(0, 2) : player.userId.slice(0, 2))}
+                      </span>
+                      {player.avatar && !PRESET_AVATARS[player.avatar] && (
+                        <img
+                          src={player.avatar}
+                          alt=""
+                          className="absolute inset-0 h-full w-full object-cover"
+                          onError={(event) => event.currentTarget.remove()}
+                        />
+                      )}
+                      {player.avatarFrame?.assetUrl && (
+                        <img
+                          src={player.avatarFrame.assetUrl}
+                          alt=""
+                          className="absolute inset-[-7px] z-10 h-[calc(100%+14px)] w-[calc(100%+14px)] object-contain pointer-events-none"
+                          onError={(event) => event.currentTarget.remove()}
+                        />
+                      )}
                     </div>
 
                     <div className="flex-1 overflow-hidden">

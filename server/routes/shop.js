@@ -1,5 +1,6 @@
 // Shop routes for listing items, buying items, and fetching owned cosmetics.
 const express = require('express');
+const mongoose = require('mongoose');
 const ShopItem = require('../models/ShopItem');
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
@@ -14,11 +15,26 @@ const {
 } = require('../services/admin/catalogService');
 const { getRuntimeLiveOpsConfig } = require('../services/admin/liveOpsService');
 const { ApiError } = require('../utils/apiResponse');
+const {
+  SHOPPABLE_TYPES,
+  equipCosmetic,
+  isItemAvailableForPurchase,
+  purchaseCosmetic,
+  resolveUserEquipment,
+  toPublicCosmetic,
+} = require('../services/shopEquipmentService');
 
 const router = express.Router();
 
 function adminRequestContext(req) {
   return { requestId: req.requestId, ip: req.ip, userAgent: req.get('user-agent') };
+}
+
+function assertValidItemId(itemId, { allowNull = false } = {}) {
+  if (allowNull && (itemId === null || itemId === undefined || itemId === '')) return;
+  if (!mongoose.isValidObjectId(itemId)) {
+    throw new ApiError(422, 'VALIDATION_ERROR', 'Item ID không hợp lệ.');
+  }
 }
 
 async function sendIdempotentMutation(req, res, { operation, payload, execute }) {
@@ -33,13 +49,6 @@ async function sendIdempotentMutation(req, res, { operation, payload, execute })
   return res.status(outcome.statusCode).json(outcome.body);
 }
 
-const rarityCoinPrice = {
-  common: 200,
-  rare: 500,
-  epic: 1000,
-  legendary: 1500,
-};
-
 router.get('/items', async (_req, res, next) => {
   try {
     const liveOps = await getRuntimeLiveOpsConfig();
@@ -47,12 +56,18 @@ router.get('/items', async (_req, res, next) => {
     const now = new Date();
     const items = await ShopItem.find({
       isActive: { $ne: false },
+      type: { $in: SHOPPABLE_TYPES },
       $or: [{ isLimited: false }, { availableUntil: { $gte: now } }],
     }).sort({ sortOrder: 1, createdAt: -1 });
-    return res.json(items.map((item) => {
+    return res.json(items.filter((item) => isItemAvailableForPurchase(item, now)).map((item) => {
       const value = item.toObject();
-      value.price = { coins: (value.price?.coins ?? 0) + (value.price?.gems ?? 0) * 50 };
-      return value;
+      return {
+        ...toPublicCosmetic(item),
+        description: value.description || '',
+        price: { coins: (value.price?.coins ?? 0) + (value.price?.gems ?? 0) * 50 },
+        isLimited: Boolean(value.isLimited),
+        availableUntil: value.availableUntil || null,
+      };
     }));
   } catch (error) {
     return next(error);
@@ -63,69 +78,16 @@ router.use(authMiddleware);
 
 router.post('/buy', async (req, res, next) => {
   try {
+    assertValidItemId(req.body?.itemId);
     const liveOps = await getRuntimeLiveOpsConfig();
     if (liveOps.config.maintenanceMode || !liveOps.config.features.shop) throw new ApiError(503, 'FEATURE_UNAVAILABLE', 'Shop đang tạm dừng theo cấu hình Live Ops.');
-    const { itemId } = req.body;
-    const item = await ShopItem.findById(itemId);
-    if (!item) return res.status(404).json({ message: 'Item not found' });
-
-    let coinPrice = (item.price?.coins ?? 0) + (item.price?.gems ?? 0) * 50;
-    if (item.type === 'skin' && coinPrice <= 0) coinPrice = rarityCoinPrice[item.rarity] ?? 200;
-    if (item.type === 'emote' && coinPrice <= 0) coinPrice = 100;
-    if (item.type === 'emote') coinPrice = Math.max(100, Math.min(coinPrice, 300));
-    const updateQuery = {
-      _id: req.user.id,
-      coins: { $gte: coinPrice },
-    };
-
-    const updateFields = {
-      $inc: { coins: -coinPrice }
-    };
-
-    if (item.type === 'skin') {
-      updateQuery.ownedSkins = { $ne: item.name };
-      updateFields.$push = { ownedSkins: item.name };
-    } else if (item.type === 'emote') {
-      updateQuery.ownedEmotes = { $ne: item.name };
-      updateFields.$push = { ownedEmotes: item.name };
-    } else if (item.type === 'avatar_frame') {
-      updateQuery.ownedAvatarFrames = { $ne: item.name };
-      updateFields.$push = { ownedAvatarFrames: item.name };
-    }
-
-    const user = await User.findOneAndUpdate(updateQuery, updateFields, { new: true });
-    if (!user) {
-      const checkUser = await User.findById(req.user.id);
-      if (!checkUser) return res.status(404).json({ message: 'User not found' });
-
-      let isOwned = false;
-      if (item.type === 'skin') isOwned = checkUser.ownedSkins.includes(item.name);
-      else if (item.type === 'emote') isOwned = checkUser.ownedEmotes.includes(item.name);
-      else if (item.type === 'avatar_frame') isOwned = checkUser.ownedAvatarFrames.includes(item.name);
-
-      if (isOwned) {
-        return res.status(400).json({ message: 'Bạn đã sở hữu vật phẩm này rồi.' });
-      }
-      return res.status(400).json({ message: 'Số dư không đủ để thực hiện giao dịch.' });
-    }
-
-    if (coinPrice > 0) {
-      await Transaction.create({
-        userId: user._id,
-        type: 'purchase',
-        amount: coinPrice,
-        currency: 'coin',
-        source: `shop:${item._id}`,
-        description: `Purchased ${item.name}`,
-      });
-    }
-
-    return res.json({
-      success: true,
-      coins: user.coins,
-      activeSkin: user.activeSkin,
-      activeAvatarFrame: user.activeAvatarFrame,
-    });
+    return res.json(await purchaseCosmetic({
+      userId: req.user.id,
+      itemId: req.body?.itemId,
+      UserModel: User,
+      ShopItemModel: ShopItem,
+      TransactionModel: Transaction,
+    }));
   } catch (error) {
     return next(error);
   }
@@ -138,18 +100,54 @@ router.get('/owned', async (req, res, next) => {
   try {
     const liveOps = await getRuntimeLiveOpsConfig();
     if (liveOps.config.maintenanceMode || !liveOps.config.features.shop) throw new ApiError(503, 'FEATURE_UNAVAILABLE', 'Shop đang tạm dừng theo cấu hình Live Ops.');
-    const user = await User.findById(req.user.id).select('ownedSkins ownedEmotes ownedAvatarFrames');
+    const user = await User.findById(req.user.id)
+      .select('ownedSkins ownedEmotes ownedAvatarFrames ownedItemIds equippedCosmetics');
+    if (!user) throw new ApiError(404, 'USER_NOT_FOUND', 'Không tìm thấy người dùng.');
+    const items = user.ownedItemIds?.length
+      ? await ShopItem.find({ _id: { $in: user.ownedItemIds } })
+      : [];
     return res.json({
-      ownedSkins: user?.ownedSkins ?? [],
-      ownedEmotes: user?.ownedEmotes ?? [],
-      ownedAvatarFrames: user?.ownedAvatarFrames ?? [],
+      items: items.map(toPublicCosmetic),
+      ownedItemIds: (user.ownedItemIds || []).map(String),
+      equipped: await resolveUserEquipment(user, ShopItem),
+      ownedSkins: user.ownedSkins ?? [],
+      ownedEmotes: user.ownedEmotes ?? [],
+      ownedAvatarFrames: user.ownedAvatarFrames ?? [],
     });
   } catch (error) {
     return next(error);
   }
 });
 
+router.put('/equipment/:slot', async (req, res, next) => {
+  try {
+    assertValidItemId(req.body?.itemId, { allowNull: true });
+    const liveOps = await getRuntimeLiveOpsConfig();
+    if (liveOps.config.maintenanceMode || !liveOps.config.features.shop) {
+      throw new ApiError(503, 'FEATURE_UNAVAILABLE', 'Shop đang tạm dừng theo cấu hình Live Ops.');
+    }
+    const equipped = await equipCosmetic({
+      userId: req.user.id,
+      slot: req.params.slot,
+      itemId: req.body?.itemId,
+      UserModel: User,
+      ShopItemModel: ShopItem,
+    });
+    return res.json({ success: true, equipped });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 // Admin-only endpoints for managing shop items
+router.get('/catalog', adminMiddleware, requireAdminPermission('catalog.read'), async (_req, res, next) => {
+  try {
+    return res.json(await ShopItem.find({}).sort({ sortOrder: 1, createdAt: -1 }));
+  } catch (error) {
+    return next(error);
+  }
+});
+
 router.post('/items', adminMiddleware, requireAdminPermission('catalog.write'), requireAdminMutationContext({ reasonRequired: false }), async (req, res, next) => {
   try {
     return await sendIdempotentMutation(req, res, {

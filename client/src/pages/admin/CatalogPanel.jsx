@@ -6,7 +6,8 @@ import { getAdminPanelAccess } from './adminPanelAccess.js';
 import { buildDeleteAdminPayload, buildRoutineAdminPayload, createAdminOperationRequestId } from './adminMutation.js';
 import { filterCatalog, getCatalogSummary } from './adminListFilters.js';
 
-const blankItem = { name: '', description: '', type: 'skin', rarity: 'common', priceCoins: 0, imageUrl: '', isActive: true, sortOrder: 0 };
+const blankItem = { name: '', description: '', type: 'protector', rarity: 'common', priceCoins: 0, imageUrl: '', previewUrl: '', isActive: true, sortOrder: 0 };
+const responseMessage = (response, fallback) => response.data?.error?.message || response.data?.message || response.error || fallback;
 
 export default function CatalogPanel({ permissions = [] }) {
   const { request } = useAdminApi();
@@ -29,9 +30,9 @@ export default function CatalogPanel({ permissions = [] }) {
 
   const loadCatalog = async () => {
     setLoading(true);
-    const res = await request('/api/shop/items');
+    const res = await request('/api/shop/catalog');
     if (res.ok) setCatalog(Array.isArray(res.data) ? res.data : []);
-    else setMessage({ tone: 'danger', text: res.data?.message || res.error || 'Không thể tải shop.' });
+    else setMessage({ tone: 'danger', text: responseMessage(res, 'Không thể tải shop.') });
     setLoading(false);
   };
 
@@ -39,6 +40,12 @@ export default function CatalogPanel({ permissions = [] }) {
 
   const activeForm = editing || form;
   const setActiveForm = (next) => (editing ? setEditing(next) : setForm(next));
+  const previewAssetUrl = activeForm.previewUrl || activeForm.imageUrl;
+  const previewRatio = activeForm.type === 'field'
+    ? 'aspect-video'
+    : activeForm.type === 'avatar_frame'
+      ? 'aspect-square'
+      : 'aspect-[2/3]';
 
   const toPayload = (item) => ({
     name: item.name,
@@ -47,6 +54,7 @@ export default function CatalogPanel({ permissions = [] }) {
     rarity: item.rarity,
     price: { coins: Number(item.priceCoins) },
     imageUrl: item.imageUrl,
+    previewUrl: item.previewUrl,
     isActive: item.isActive,
     sortOrder: Number(item.sortOrder),
   });
@@ -67,7 +75,7 @@ export default function CatalogPanel({ permissions = [] }) {
       setFormRequestId(createAdminOperationRequestId());
       loadCatalog();
     } else {
-      setMessage({ tone: 'danger', text: res.data?.message || res.error || 'Không thể lưu vật phẩm.' });
+      setMessage({ tone: 'danger', text: responseMessage(res, 'Không thể lưu vật phẩm.') });
     }
   };
 
@@ -79,7 +87,7 @@ export default function CatalogPanel({ permissions = [] }) {
     if (res.ok) {
       setMessage({ tone: 'success', text: `Đã ${item.isActive === false ? 'bật' : 'tắt'} ${item.name}.` });
       loadCatalog();
-    } else setMessage({ tone: 'danger', text: res.data?.message || 'Đổi trạng thái thất bại.' });
+    } else setMessage({ tone: 'danger', text: responseMessage(res, 'Đổi trạng thái thất bại.') });
   };
 
   const deleteItem = async () => {
@@ -93,7 +101,7 @@ export default function CatalogPanel({ permissions = [] }) {
       setDeleteReason('');
       setDeleteRequestId(createAdminOperationRequestId());
       loadCatalog();
-    } else setMessage({ tone: 'danger', text: res.data?.message || 'Không thể xóa vật phẩm.' });
+    } else setMessage({ tone: 'danger', text: responseMessage(res, 'Không thể xóa vật phẩm.') });
   };
 
   return (
@@ -106,7 +114,7 @@ export default function CatalogPanel({ permissions = [] }) {
       </dl>
       <Toolbar>
         <Field label="Tìm vật phẩm"><input className={`${inputClass} md:min-w-56`} type="search" value={filters.search} onChange={(event) => setFilters({ ...filters, search: event.target.value })} placeholder="Tên vật phẩm" /></Field>
-        <Field label="Loại"><select className={inputClass} value={filters.type} onChange={(event) => setFilters({ ...filters, type: event.target.value })}><option value="">Tất cả</option><option value="skin">Skin</option><option value="emote">Emote</option><option value="avatar_frame">Khung avatar</option></select></Field>
+        <Field label="Loại"><select className={inputClass} value={filters.type} onChange={(event) => setFilters({ ...filters, type: event.target.value })}><option value="">Tất cả</option><option value="protector">Protector</option><option value="avatar_frame">Khung avatar</option><option value="field">Field</option><option value="skin">Skin (legacy)</option><option value="emote">Emote (legacy)</option></select></Field>
         <Field label="Độ hiếm"><select className={inputClass} value={filters.rarity} onChange={(event) => setFilters({ ...filters, rarity: event.target.value })}><option value="">Tất cả</option><option value="common">Common</option><option value="rare">Rare</option><option value="epic">Epic</option><option value="legendary">Legendary</option></select></Field>
         <Field label="Trạng thái"><select className={inputClass} value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value })}><option value="">Tất cả</option><option value="active">Active</option><option value="inactive">Inactive</option></select></Field>
         <Button type="button" variant="secondary" disabled={!filtersActive} onClick={() => setFilters({ search: '', type: '', rarity: '', status: '' })}>Đặt lại</Button>
@@ -118,13 +126,28 @@ export default function CatalogPanel({ permissions = [] }) {
             <Field label="Tên vật phẩm"><input className={inputClass} value={activeForm.name} onChange={(event) => setActiveForm({ ...activeForm, name: event.target.value })} /></Field>
             <Field label="Mô tả"><textarea className={inputClass} rows="3" value={activeForm.description} onChange={(event) => setActiveForm({ ...activeForm, description: event.target.value })} /></Field>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Loại"><select className={inputClass} value={activeForm.type} onChange={(event) => setActiveForm({ ...activeForm, type: event.target.value })}><option value="skin">Skin bài</option><option value="emote">Biểu cảm</option><option value="avatar_frame">Khung avatar</option></select></Field>
+              <Field label="Loại"><select className={inputClass} value={activeForm.type} onChange={(event) => setActiveForm({ ...activeForm, type: event.target.value })}><option value="protector">Protector</option><option value="avatar_frame">Khung avatar</option><option value="field">Field</option><option value="skin">Skin bài (legacy)</option><option value="emote">Biểu cảm (legacy)</option></select></Field>
               <Field label="Độ hiếm"><select className={inputClass} value={activeForm.rarity} onChange={(event) => setActiveForm({ ...activeForm, rarity: event.target.value })}><option value="common">Common</option><option value="rare">Rare</option><option value="epic">Epic</option><option value="legendary">Legendary</option></select></Field>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <Field label="GoldCoin"><input className={inputClass} type="number" min="0" value={activeForm.priceCoins} onChange={(event) => setActiveForm({ ...activeForm, priceCoins: event.target.value })} /></Field>
             </div>
             <Field label="URL hình ảnh"><input className={inputClass} value={activeForm.imageUrl} onChange={(event) => setActiveForm({ ...activeForm, imageUrl: event.target.value })} placeholder="https://..." /></Field>
+            <Field label="URL asset trang bị"><input className={inputClass} value={activeForm.previewUrl} onChange={(event) => setActiveForm({ ...activeForm, previewUrl: event.target.value })} placeholder="https://... hoặc /assets/..." /></Field>
+            {previewAssetUrl && (
+              <div>
+                <p className="mb-1 text-xs font-semibold text-[var(--admin-text-muted)]">Preview asset trang bị</p>
+                <div className={`relative max-h-48 w-full overflow-hidden border border-[var(--admin-border)] bg-[var(--admin-surface-muted)] ${previewRatio}`}>
+                  <span className="absolute inset-0 grid place-items-center text-xs font-semibold text-slate-400">Không tải được preview</span>
+                  <img
+                    src={previewAssetUrl}
+                    alt=""
+                    className="absolute inset-0 h-full w-full object-cover"
+                    onError={(event) => event.currentTarget.remove()}
+                  />
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <Field label="Sort order"><input className={inputClass} type="number" value={activeForm.sortOrder} onChange={(event) => setActiveForm({ ...activeForm, sortOrder: event.target.value })} /></Field>
               <Field label="Trạng thái"><select className={inputClass} value={activeForm.isActive ? 'true' : 'false'} onChange={(event) => setActiveForm({ ...activeForm, isActive: event.target.value === 'true' })}><option value="true">Active</option><option value="false">Inactive</option></select></Field>
@@ -152,6 +175,7 @@ export default function CatalogPanel({ permissions = [] }) {
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="font-sans font-semibold text-slate-950">{item.name}</h3>
+                        <StatusBadge tone="neutral">{['skin', 'emote'].includes(item.type) ? `${item.type} · legacy` : item.type}</StatusBadge>
                         <StatusBadge tone={item.isActive === false ? 'neutral' : 'success'}>{item.isActive === false ? 'Inactive' : 'Active'}</StatusBadge>
                       </div>
                       <p className="mt-1 line-clamp-2 text-sm font-semibold text-slate-500">{item.description || 'Chưa có mô tả.'}</p>
@@ -160,7 +184,7 @@ export default function CatalogPanel({ permissions = [] }) {
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--admin-border)] pt-3">
                     <p className="text-sm font-semibold text-slate-700">{formatNumber(item.price?.coins)} Coin</p>
                     {canWriteCatalog && <div className="flex flex-wrap gap-2">
-                      <Button variant="subtle" disabled={!!pendingItemId} onClick={() => { setEditing({ _id: item._id, name: item.name, description: item.description || '', type: item.type, rarity: item.rarity, priceCoins: item.price?.coins || 0, imageUrl: item.imageUrl || '', isActive: item.isActive !== false, sortOrder: item.sortOrder || 0 }); setFormRequestId(createAdminOperationRequestId()); }}>Sửa</Button>
+                      <Button variant="subtle" disabled={!!pendingItemId} onClick={() => { setEditing({ _id: item._id, name: item.name, description: item.description || '', type: item.type, rarity: item.rarity, priceCoins: item.price?.coins || 0, imageUrl: item.imageUrl || '', previewUrl: item.previewUrl || '', isActive: item.isActive !== false, sortOrder: item.sortOrder || 0 }); setFormRequestId(createAdminOperationRequestId()); }}>Sửa</Button>
                       <Button variant="secondary" disabled={!!pendingItemId} onClick={() => toggleItem(item)}>{pendingItemId === item._id ? 'Đang xử lý...' : item.isActive === false ? 'Bật' : 'Tắt'}</Button>
                       <Button variant="danger" disabled={!!pendingItemId} onClick={() => { setDeleteTarget(item); setDeleteReason(''); setDeleteRequestId(createAdminOperationRequestId()); }}>Xóa</Button>
                     </div>}

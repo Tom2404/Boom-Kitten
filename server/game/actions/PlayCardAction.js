@@ -46,7 +46,7 @@ class PlayCardAction extends BaseAction {
 
     // Check Zombie edition card rules
     if (cardType === 'feed_the_dead' || cardType === 'grave_robber') {
-      const deadCount = state.players.filter(p => !p.alive).length;
+      const deadCount = state.players.filter(p => !p.alive && !p.forfeited).length;
       if (deadCount === 0) {
         return { valid: false, error: 'Không thể đánh lá bài này khi chưa có Zombie (người chơi đã chết)!' };
       }
@@ -54,7 +54,7 @@ class PlayCardAction extends BaseAction {
 
     let finalTargetPlayerId = targetPlayerId;
     if (cardType === 'feed_the_dead' && !finalTargetPlayerId) {
-      const deadPlayers = state.players.filter(p => !p.alive);
+      const deadPlayers = state.players.filter(p => !p.alive && !p.forfeited);
       if (deadPlayers.length === 1) {
         finalTargetPlayerId = deadPlayers[0].userId;
       }
@@ -62,7 +62,7 @@ class PlayCardAction extends BaseAction {
 
     if (finalTargetPlayerId) {
       const target = state.players.find(p => p.userId === finalTargetPlayerId);
-      if (!target) {
+      if (!target || target.forfeited) {
         return { valid: false, error: 'Người chơi mục tiêu không tồn tại!' };
       }
       if (cardType === 'feed_the_dead') {
@@ -79,7 +79,7 @@ class PlayCardAction extends BaseAction {
     let finalPayload = { ...payload, finalTargetPlayerId };
 
     if (cardType === 'attack_of_the_dead') {
-      const deadCount = state.players.filter(p => !p.alive).length;
+      const deadCount = state.players.filter(p => !p.alive && !p.forfeited).length;
       finalPayload.countDelta = 3 * deadCount;
     }
 

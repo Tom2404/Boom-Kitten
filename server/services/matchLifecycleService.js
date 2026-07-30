@@ -31,13 +31,13 @@ async function completeMatchHistory({
   const duration = Math.max(0, Math.round((now.getTime() - startedAt.getTime()) / 1000));
   const completedFields = {
     players: validPlayers,
-    winner: winnerId,
     status: 'completed',
     duration,
     cardsPlayed: room.gameState?.discardPile?.length || 0,
     endedAt: now,
     playedAt: now,
   };
+  if (winnerId) completedFields.winner = winnerId;
   let completed;
   if (room.analyticsHistoryId) {
     completed = await GameHistoryModel.findOneAndUpdate(

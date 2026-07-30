@@ -176,9 +176,16 @@ export default function Profile() {
         {/* Profile Details Card */}
         <div className="bg-white border-3 border-[var(--pop-black)] shadow-[5px_5px_0_var(--pop-black)] rounded-none p-6 flex flex-col items-center relative text-left">
           <div className="relative h-24 w-24 mb-4">
-            {profile.activeAvatarFrame && (
+            {profile.equipped?.avatarFrame?.assetUrl ? (
+              <img
+                src={profile.equipped.avatarFrame.assetUrl}
+                alt=""
+                className="absolute inset-[-10px] z-10 h-[calc(100%+20px)] w-[calc(100%+20px)] object-contain pointer-events-none"
+                onError={(event) => event.currentTarget.remove()}
+              />
+            ) : profile.activeAvatarFrame ? (
               <div className="absolute inset-[-8px] border-4 border-[var(--pop-amber)] animate-spin-slow pointer-events-none z-10" />
-            )}
+            ) : null}
             <div className="h-full w-full rounded-none flex items-center justify-center text-3xl font-pop-accent font-black bg-white border-3 border-[var(--pop-black)] overflow-hidden shadow-[3px_3px_0_var(--pop-black)]">
               {avatar && PRESET_AVATARS[avatar] ? (
                 <span className="text-5xl">{PRESET_AVATARS[avatar]}</span>

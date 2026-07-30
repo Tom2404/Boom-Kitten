@@ -3,20 +3,28 @@ import { gsap } from 'gsap';
 import { CoinIcon } from '../components/CoinDisplay.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import CustomDialog from '../components/CustomDialog.jsx';
-
-const RARITY_COLORS = {
-  common: 'bg-slate-200 text-slate-800',
-  rare: 'bg-sky-200 text-sky-800',
-  epic: 'bg-purple-200 text-purple-800',
-  legendary: 'bg-yellow-200 text-yellow-800',
-};
+import {
+  EQUIPMENT_SLOTS,
+  TYPE_TO_SLOT,
+  getEquipmentAction,
+  getEquippedAssetUrl,
+  isOwnedItem,
+} from '../utils/shopEquipment.js';
 
 export default function Shop({ setPage }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [items, setItems] = useState([]);
-  const [ownedItems, setOwnedItems] = useState({ ownedSkins: [], ownedEmotes: [], ownedAvatarFrames: [] });
+  const [ownedItems, setOwnedItems] = useState({
+    items: [],
+    ownedItemIds: [],
+    equipped: { protector: null, avatarFrame: null, field: null },
+    ownedSkins: [],
+    ownedEmotes: [],
+    ownedAvatarFrames: [],
+  });
   const [userBalance, setUserBalance] = useState({ coins: 0 });
-  const [selectedTab, setSelectedTab] = useState('skin');
+  const [selectedTab, setSelectedTab] = useState('protector');
+  const [pendingItemId, setPendingItemId] = useState(null);
 
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
@@ -32,6 +40,14 @@ export default function Shop({ setPage }) {
   });
 
   const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5000';
+  const getRequestError = (data, fallbackKey) => {
+    const code = data.error?.code || data.code;
+    if (code) {
+      const translated = t(`shop_error_${code}`);
+      if (translated !== `shop_error_${code}`) return translated;
+    }
+    return data.error?.message || data.message || t(fallbackKey);
+  };
 
   const fetchShopData = async () => {
     const token = localStorage.getItem('accessToken');
@@ -85,6 +101,7 @@ export default function Shop({ setPage }) {
   }, [filteredItems, loading, selectedTab]);
 
   const handleBuyItem = async (itemId) => {
+    if (pendingItemId) return;
     setMessage('');
     setIsError(false);
 
@@ -92,11 +109,11 @@ export default function Shop({ setPage }) {
     if (!token) {
       setDialogState({
         isOpen: true,
-        title: t('loginRequiredQuickPlay') ? '🔒 Yêu cầu đăng nhập' : '🔒 Login Required',
+        title: language === 'vi' ? '🔒 Yêu cầu đăng nhập' : '🔒 Login Required',
         message: t('loginRequiredShop') || 'Bạn cần đăng nhập để mua vật phẩm.',
         isConfirm: true,
-        confirmText: t('loginRequiredQuickPlay') ? 'Đăng nhập' : 'Login',
-        cancelText: t('loginRequiredQuickPlay') ? 'Hủy' : 'Cancel',
+        confirmText: language === 'vi' ? 'Đăng nhập' : 'Login',
+        cancelText: language === 'vi' ? 'Hủy' : 'Cancel',
         onConfirm: () => {
           setDialogState({ isOpen: false });
           setPage('Login');
@@ -107,6 +124,7 @@ export default function Shop({ setPage }) {
     }
 
     try {
+      setPendingItemId(itemId);
       const res = await fetch(`${API_URL}/api/shop/buy`, {
         method: 'POST',
         headers: {
@@ -118,7 +136,7 @@ export default function Shop({ setPage }) {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.message || t('shop_buy_fail'));
+        throw new Error(getRequestError(data, 'shop_buy_fail'));
       }
 
       setIsError(false);
@@ -129,27 +147,44 @@ export default function Shop({ setPage }) {
     } catch (err) {
       setIsError(true);
       setMessage(err.message);
+    } finally {
+      setPendingItemId(null);
     }
   };
 
-  const isItemOwned = (item) => {
-    if (item.type === 'skin') return ownedItems.ownedSkins.includes(item.name);
-    if (item.type === 'emote') return ownedItems.ownedEmotes.includes(item.name);
-    if (item.type === 'avatar_frame') return ownedItems.ownedAvatarFrames.includes(item.name);
-    return false;
+  const handleEquipment = async (slot, itemId) => {
+    const token = localStorage.getItem('accessToken');
+    if (!token || pendingItemId) return;
+    setPendingItemId(itemId || `unequip:${slot}`);
+    setMessage('');
+    try {
+      const res = await fetch(`${API_URL}/api/shop/equipment/${slot}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ itemId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(getRequestError(data, 'shop_equipment_update_fail'));
+      setOwnedItems((current) => ({ ...current, equipped: data.equipped }));
+      setIsError(false);
+      setMessage(t(itemId ? 'shop_equipped_success' : 'shop_unequipped_success'));
+    } catch (error) {
+      setIsError(true);
+      setMessage(error.message);
+    } finally {
+      setPendingItemId(null);
+    }
   };
 
   const getDescription = (item) => {
     if (item.description) return item.description;
-    if (item.type === 'skin') {
-      if (item.name.toLowerCase().includes('toxic')) return 'Glows in the dark. Might mutate your fingers.';
-      if (item.name.toLowerCase().includes('basic')) return 'Boring. Reliable. Doesn\'t explode (often).';
-      if (item.name.toLowerCase().includes('king')) return 'Bow down to the meow-jesty. Shiny foil effect included.';
-      return 'Cool custom card sleeve. Might not explode.';
-    }
-    if (item.type === 'emote') return 'Show your emotions to your opponents.';
-    if (item.type === 'avatar_frame') return 'Khung avatar độc quyền để thể hiện phong cách.';
-    return 'Special item for Kitten Arena.';
+    if (item.type === 'protector') return t('shop_desc_protector');
+    if (item.type === 'avatar_frame') return t('shop_desc_avatar_frame');
+    if (item.type === 'field') return t('shop_desc_field');
+    return t('shop_desc_fallback');
   };
 
   return (
@@ -189,12 +224,66 @@ export default function Shop({ setPage }) {
         </div>
       </div>
 
+      <section aria-labelledby="shop-loadout-title" className="bg-[var(--pop-cream)] border-3 border-[var(--pop-black)] p-4 md:p-5 shadow-[5px_5px_0_var(--pop-black)]">
+        <div className="flex flex-col gap-1 mb-4">
+          <h2 id="shop-loadout-title" className="font-pop-display font-black text-xl uppercase text-[var(--pop-black)]">
+            {t('shop_loadout_title')}
+          </h2>
+          <p className="text-[10px] font-bold text-[var(--pop-black)]/60">
+            {t('shop_loadout_desc')}
+          </p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {EQUIPMENT_SLOTS.map(({ slot, type }) => {
+            const equipped = ownedItems.equipped?.[slot];
+            const labels = {
+              protector: t('shop_slot_protector'),
+              avatar_frame: t('shop_slot_avatar_frame'),
+              field: t('shop_slot_field'),
+            };
+            return (
+              <article key={slot} className="flex min-h-24 items-center gap-3 bg-white border-2 border-[var(--pop-black)] p-3 shadow-[2px_2px_0_var(--pop-black)]">
+                <div className="relative h-16 w-16 shrink-0 overflow-hidden border-2 border-[var(--pop-black)] bg-slate-100 flex items-center justify-center">
+                  <span className="text-2xl" aria-hidden="true">{type === 'protector' ? '🂠' : type === 'avatar_frame' ? '🖼️' : '⚔️'}</span>
+                  {getEquippedAssetUrl(equipped) && (
+                    <img
+                      src={getEquippedAssetUrl(equipped)}
+                      alt=""
+                      className="absolute inset-0 h-full w-full object-cover"
+                      onError={(event) => event.currentTarget.remove()}
+                    />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-pop-accent font-black text-[10px] uppercase text-[var(--pop-black)]">{labels[type]}</h3>
+                  <p className="truncate text-xs font-bold text-[var(--pop-black)]/65 mt-1">
+                    {equipped?.name || t('shop_default')}
+                  </p>
+                  {equipped && (
+                    <button
+                      type="button"
+                      disabled={Boolean(pendingItemId)}
+                      onClick={() => handleEquipment(slot, null)}
+                      className="mt-2 text-[9px] font-pop-accent font-black uppercase underline decoration-2 underline-offset-2 disabled:opacity-50"
+                    >
+                      {pendingItemId === `unequip:${slot}`
+                        ? t('shop_unequipping')
+                        : t('shop_unequip')}
+                    </button>
+                  )}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+
       {/* Tabs Menu */}
       <div className="flex gap-4 flex-wrap border-b-3 border-dashed border-[var(--pop-black)]/20 pb-4">
         {[
-          { id: 'skin', label: t('shop_tab_skins') },
-          { id: 'avatar_frame', label: t('shop_tab_avatars') },
-          { id: 'emote', label: t('shop_tab_emotes') },
+          { id: 'protector', label: 'Protector' },
+          { id: 'avatar_frame', label: 'Avatar Frame' },
+          { id: 'field', label: 'Field' },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -235,7 +324,8 @@ export default function Shop({ setPage }) {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8 w-full">
           {filteredItems.map((item) => {
-            const owned = isItemOwned(item);
+            const owned = isOwnedItem(item, ownedItems.ownedItemIds);
+            const action = getEquipmentAction(item, ownedItems);
             const isLegendary = item.rarity === 'legendary';
             const isEpic = item.rarity === 'epic';
             const isHot = item.name.toLowerCase().includes('toxic') || isEpic;
@@ -264,14 +354,18 @@ export default function Shop({ setPage }) {
                     : isEpic 
                       ? 'bg-gradient-to-br from-rose-50 to-rose-100 border-rose-400' 
                       : 'bg-slate-50'}`}>
-                  {item.imageUrl ? (
-                    <img src={item.imageUrl} alt={item.name} className="h-full w-full object-cover" />
-                  ) : (
-                    <span className="text-5xl">
-                      {item.type === 'skin' && '🃏'}
-                      {item.type === 'emote' && '🎭'}
-                      {item.type === 'avatar_frame' && '🖼️'}
-                    </span>
+                  <span className="text-5xl" aria-hidden="true">
+                    {item.type === 'protector' && '🂠'}
+                    {item.type === 'avatar_frame' && '🖼️'}
+                    {item.type === 'field' && '⚔️'}
+                  </span>
+                  {item.imageUrl && (
+                    <img
+                      src={item.imageUrl}
+                      alt={item.name}
+                      className="absolute inset-0 h-full w-full object-cover"
+                      onError={(event) => event.currentTarget.remove()}
+                    />
                   )}
                 </div>
 
@@ -294,34 +388,48 @@ export default function Shop({ setPage }) {
                         <CoinIcon className="w-4 h-4 text-yellow-500" /> {item.price.coins.toLocaleString()}
                       </span>
                     ) : (
-                      <span className="font-pop-accent font-black text-emerald-600 text-xs">FREE</span>
+                      <span className="font-pop-accent font-black text-emerald-600 text-xs">{t('shop_free')}</span>
                     )}
                   </div>
 
                   {/* Action Button */}
-                  {owned ? (
-                    <div className="flex gap-1.5 items-center">
+                  <div className="flex gap-1.5 items-center">
+                    {owned && (
                       <span className="bg-emerald-50 border-2 border-emerald-400 text-emerald-700 text-[9px] font-pop-accent font-black px-2 py-0.5 rounded-none">
                         {t('shop_owned')}
                       </span>
-                      <button 
+                    )}
+                    {action === 'equipped' ? (
+                      <button
+                        type="button"
                         disabled
-                        className="bg-white border-2 border-slate-200 text-[9px] font-pop-accent font-black uppercase px-2.5 py-1 rounded-none cursor-not-allowed text-slate-400"
+                        className="bg-[var(--pop-black)] border-2 border-[var(--pop-black)] text-white text-[9px] font-pop-accent font-black uppercase px-2.5 py-1 rounded-none cursor-default"
                       >
-                        {t('shop_equip')}
+                        {t('shop_equipped')}
                       </button>
-                    </div>
-                  ) : (
+                    ) : action === 'equip' ? (
+                      <button
+                        type="button"
+                        disabled={Boolean(pendingItemId)}
+                        onClick={() => handleEquipment(TYPE_TO_SLOT[item.type], item._id)}
+                        className="bg-[var(--pop-amber)] border-2 border-[var(--pop-black)] text-[var(--pop-black)] text-[9px] font-pop-accent font-black uppercase px-2.5 py-1 rounded-none shadow-[2px_2px_0_var(--pop-black)] disabled:opacity-50 disabled:shadow-none"
+                      >
+                        {pendingItemId === item._id ? t('shop_equipping') : t('shop_equip')}
+                      </button>
+                    ) : (
                     <button
+                      type="button"
+                      disabled={Boolean(pendingItemId)}
                       onClick={() => handleBuyItem(item._id)}
-                      className={`border-2 border-[var(--pop-black)] text-[9px] font-pop-accent font-black uppercase px-4 py-1.5 rounded-none shadow-[2px_2px_0_var(--pop-black)] hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all cursor-pointer
+                      className={`border-2 border-[var(--pop-black)] text-[9px] font-pop-accent font-black uppercase px-4 py-1.5 rounded-none shadow-[2px_2px_0_var(--pop-black)] hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all cursor-pointer disabled:opacity-50 disabled:shadow-none
                         ${isLegendary 
                           ? 'bg-[var(--pop-amber)] text-[var(--pop-black)] hover:bg-yellow-300' 
                           : 'bg-[var(--pop-red)] text-white hover:bg-red-800'}`}
                     >
-                      {t('shop_buy')}
+                      {pendingItemId === item._id ? t('shop_buying') : t('shop_buy')}
                     </button>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
             );

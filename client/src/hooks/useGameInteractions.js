@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getInteractionRequestState } from '../utils/gameRoomUi.js';
+import { createInteractionExpiry } from '../utils/gameModalUi.js';
 
 export function useGameInteractions({ socket, t, setStatusMessage }) {
   const [nopeWindow, setNopeWindow] = useState(null);
@@ -139,11 +140,22 @@ export function useGameInteractions({ socket, t, setStatusMessage }) {
     };
 
     const onAlterFutureRequest = ({ cards, count, timeoutMs }) => {
-      setAlterFutureRequest({ cards, count: count || 3, timeoutMs, active: true });
+      setAlterFutureRequest({
+        cards,
+        count: count || 3,
+        timeoutMs,
+        expiresAt: createInteractionExpiry(timeoutMs),
+        active: true,
+      });
     };
 
     const onFavorRequest = ({ fromPlayerId, timeoutMs }) => {
-      setFavorRequest({ fromPlayerId, timeoutMs, active: true });
+      setFavorRequest({
+        fromPlayerId,
+        timeoutMs,
+        expiresAt: createInteractionExpiry(timeoutMs),
+        active: true,
+      });
     };
 
     const onBuryRequest = ({ timeoutMs }) => {
@@ -191,6 +203,7 @@ export function useGameInteractions({ socket, t, setStatusMessage }) {
         ...payload,
         active: true,
         timeoutMs: payload.timeoutMs,
+        expiresAt: createInteractionExpiry(payload.timeoutMs),
         interactionId: payload.interactionId,
       };
 

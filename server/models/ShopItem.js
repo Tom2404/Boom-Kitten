@@ -5,7 +5,7 @@ const shopItemSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
     description: { type: String, default: '' },
-    type: { type: String, enum: ['skin', 'emote', 'avatar_frame'], required: true },
+    type: { type: String, enum: ['skin', 'emote', 'avatar_frame', 'protector', 'field'], required: true },
     price: {
       coins: { type: Number, default: 0 },
       gems: { type: Number, default: 0 },
