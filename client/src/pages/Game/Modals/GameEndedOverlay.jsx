@@ -6,6 +6,7 @@ import {
   getGameMotionTransition,
   getGameResultRemainingSeconds,
 } from '../gameMotion.js';
+import { getAssetTransformStyle } from '../../../utils/shopEquipment.js';
 
 const PARTICLE_COLORS = ['#f97316', '#facc15', '#ef4444', '#10b981', '#3b82f6'];
 
@@ -154,6 +155,7 @@ export default function GameEndedOverlay({
                 <img
                   src={winnerFrameUrl}
                   alt=""
+                  style={getAssetTransformStyle(winnerPlayer.avatarFrame.assetTransform)}
                   className="pointer-events-none absolute inset-[-10px] z-10 h-[calc(100%+20px)] w-[calc(100%+20px)] object-contain"
                   onError={(event) => event.currentTarget.remove()}
                 />

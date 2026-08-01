@@ -47,6 +47,7 @@ test('public cosmetic descriptor uses previewUrl and falls back to imageUrl', ()
     rarity: 'epic',
     imageUrl: '/thumb.webp',
     previewUrl: '/frame.webp',
+    assetTransform: { scale: 1.5, x: 20, y: -10 },
   }), {
     _id: 'frame-1',
     id: 'frame-1',
@@ -56,6 +57,7 @@ test('public cosmetic descriptor uses previewUrl and falls back to imageUrl', ()
     imageUrl: '/thumb.webp',
     previewUrl: '/frame.webp',
     assetUrl: '/frame.webp',
+    assetTransform: { scale: 1.5, x: 20, y: -10 },
   });
 
   assert.equal(toPublicCosmetic({
@@ -64,6 +66,23 @@ test('public cosmetic descriptor uses previewUrl and falls back to imageUrl', ()
     type: 'field',
     imageUrl: '/field.webp',
   }).assetUrl, '/field.webp');
+});
+
+test('public cosmetic descriptor defaults and clamps asset framing', () => {
+  assert.deepEqual(toPublicCosmetic({
+    _id: 'default-transform',
+    name: 'Default',
+    type: 'protector',
+    imageUrl: '/default.webp',
+  }).assetTransform, { scale: 1, x: 0, y: 0 });
+
+  assert.deepEqual(toPublicCosmetic({
+    _id: 'clamped-transform',
+    name: 'Clamped',
+    type: 'field',
+    imageUrl: '/field.webp',
+    assetTransform: { scale: 0.1, x: -100, y: 100 },
+  }).assetTransform, { scale: 0.5, x: -50, y: 50 });
 });
 
 test('equipment response resolves one public item per slot', () => {

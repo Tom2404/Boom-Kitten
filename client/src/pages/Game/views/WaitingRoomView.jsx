@@ -1,5 +1,6 @@
 import React from 'react';
 import { useGameContext } from '../GameContext.jsx';
+import { getAssetTransformStyle } from '../../../utils/shopEquipment.js';
 
 export default function WaitingRoomView() {
   const props = useGameContext();
@@ -122,6 +123,7 @@ export default function WaitingRoomView() {
                         <img
                           src={player.avatarFrame.assetUrl}
                           alt=""
+                          style={getAssetTransformStyle(player.avatarFrame.assetTransform)}
                           className="absolute inset-[-7px] z-10 h-[calc(100%+14px)] w-[calc(100%+14px)] object-contain pointer-events-none"
                           onError={(event) => event.currentTarget.remove()}
                         />
@@ -204,7 +206,7 @@ export default function WaitingRoomView() {
                     <span className="flex items-center gap-1">
                       <CoinIcon className="w-4 h-4 text-[var(--pop-amber)]" /> Cược:
                     </span>
-                    <strong className="text-[var(--pop-amber)] text-lg font-black" style={{ textShadow: '1px 1px 0 var(--pop-black)' }}>{roomState.betAmount || 50}</strong>
+                    <strong className="text-[var(--pop-amber)] text-lg font-black" style={{ textShadow: '1px 1px 0 var(--pop-black)' }}>{roomState.betAmount ?? 50}</strong>
                   </div>
                 </div>
               </div>

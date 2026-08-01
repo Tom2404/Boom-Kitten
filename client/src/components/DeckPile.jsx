@@ -1,5 +1,6 @@
 import React from 'react';
 import Card from './Card.jsx';
+import { getAssetTransformStyle } from '../utils/shopEquipment.js';
 
 export default function DeckPile({
   count,
@@ -9,6 +10,7 @@ export default function DeckPile({
   disabled,
   compact = false,
   protectorUrl = '',
+  protectorTransform,
 }) {
   const handleDraw = () => {
     if (isMyTurn && !disabled) {
@@ -71,6 +73,7 @@ export default function DeckPile({
                 className="game-pile__protector"
                 src={protectorUrl}
                 alt=""
+                style={getAssetTransformStyle(protectorTransform)}
                 onError={(event) => event.currentTarget.remove()}
               />
             )}

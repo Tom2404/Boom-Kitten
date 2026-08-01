@@ -2,11 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  DEFAULT_ASSET_TRANSFORM,
   EQUIPMENT_SLOTS,
+  getAssetTransformStyle,
   getEquipmentAction,
   getEquippedAssetUrl,
+  getFieldTransformStyle,
   getProtectorStackSize,
   isOwnedItem,
+  needsAssetFraming,
+  normalizeAssetTransform,
 } from '../src/utils/shopEquipment.js';
 import { translations } from '../src/utils/translations.js';
 
@@ -46,6 +51,39 @@ test('opponent Protector stack stays representative instead of scaling with hand
   assert.equal(getProtectorStackSize(8), 3);
   assert.equal(getProtectorStackSize(55), 3);
   assert.equal(getProtectorStackSize('invalid'), 0);
+});
+
+test('asset framing clamps untrusted values and keeps a stable default', () => {
+  assert.deepEqual(DEFAULT_ASSET_TRANSFORM, { scale: 1, x: 0, y: 0 });
+  assert.deepEqual(
+    normalizeAssetTransform({ scale: '9', x: -80, y: 12.5 }),
+    { scale: 3, x: -50, y: 12.5 },
+  );
+  assert.deepEqual(
+    normalizeAssetTransform({ scale: 0.1, x: 0, y: 0 }),
+    { scale: 0.5, x: 0, y: 0 },
+  );
+  assert.deepEqual(normalizeAssetTransform(null), DEFAULT_ASSET_TRANSFORM);
+});
+
+test('asset framing maps focal position and zoom to image and field styles', () => {
+  const transform = { scale: 1.5, x: 25, y: -20 };
+  assert.deepEqual(getAssetTransformStyle(transform), {
+    objectPosition: '50% 50%',
+    transform: 'translate(25%, -20%) scale(1.5)',
+    transformOrigin: 'center',
+  });
+  assert.deepEqual(getFieldTransformStyle(transform), {
+    '--game-field-position': '75% 30%',
+    '--game-field-size': '150% auto',
+  });
+});
+
+test('asset framing flags images whose ratio does not fit their equipment slot', () => {
+  assert.equal(needsAssetFraming('protector', 600, 900), false);
+  assert.equal(needsAssetFraming('protector', 1672, 941), true);
+  assert.equal(needsAssetFraming('avatar_frame', 512, 512), false);
+  assert.equal(needsAssetFraming('field', 1254, 1254), true);
 });
 
 test('equipment loadout copy is complete in Vietnamese and English', () => {

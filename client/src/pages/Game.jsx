@@ -1668,12 +1668,12 @@ export default function Game({ setPage, initialRoom = null }) {
     PixelStarIcon,
     PlayModeCard,
     createPassword,
-    createRoom: (opts, username) => {
+    createRoom: (...args) => {
       if (!isAuthenticated) {
         showLoginRequired('create_room');
         return;
       }
-      createRoom(opts, username);
+      createRoom(...args);
     },
     createRoomIcon,
     createRoomStep,

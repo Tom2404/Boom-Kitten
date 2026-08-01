@@ -8,6 +8,50 @@ export const TYPE_TO_SLOT = Object.freeze(
   Object.fromEntries(EQUIPMENT_SLOTS.map(({ slot, type }) => [type, slot])),
 );
 
+export const DEFAULT_ASSET_TRANSFORM = Object.freeze({ scale: 1, x: 0, y: 0 });
+
+const SLOT_ASPECT_RATIOS = Object.freeze({
+  protector: 2 / 3,
+  avatar_frame: 1,
+  field: 16 / 9,
+});
+
+function clamp(value, min, max, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.min(max, Math.max(min, number)) : fallback;
+}
+
+export function normalizeAssetTransform(value) {
+  return {
+    scale: clamp(value?.scale, 0.5, 3, DEFAULT_ASSET_TRANSFORM.scale),
+    x: clamp(value?.x, -50, 50, DEFAULT_ASSET_TRANSFORM.x),
+    y: clamp(value?.y, -50, 50, DEFAULT_ASSET_TRANSFORM.y),
+  };
+}
+
+export function getAssetTransformStyle(value) {
+  const transform = normalizeAssetTransform(value);
+  return {
+    objectPosition: '50% 50%',
+    transform: `translate(${transform.x}%, ${transform.y}%) scale(${transform.scale})`,
+    transformOrigin: 'center',
+  };
+}
+
+export function getFieldTransformStyle(value) {
+  const transform = normalizeAssetTransform(value);
+  return {
+    '--game-field-position': `${50 + transform.x}% ${50 + transform.y}%`,
+    '--game-field-size': transform.scale === 1 ? 'cover' : `${transform.scale * 100}% auto`,
+  };
+}
+
+export function needsAssetFraming(type, width, height, tolerance = 0.05) {
+  const targetRatio = SLOT_ASPECT_RATIOS[type];
+  if (!targetRatio || !Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return false;
+  return Math.abs((width / height) / targetRatio - 1) > tolerance;
+}
+
 export function isOwnedItem(item, ownedItemIds = []) {
   return ownedItemIds.some((id) => String(id) === String(item?._id));
 }

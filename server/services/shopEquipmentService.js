@@ -6,6 +6,20 @@ const SLOT_TO_TYPE = Object.freeze({
   avatarFrame: 'avatar_frame',
   field: 'field',
 });
+const DEFAULT_ASSET_TRANSFORM = Object.freeze({ scale: 1, x: 0, y: 0 });
+
+function clamp(value, min, max, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.min(max, Math.max(min, number)) : fallback;
+}
+
+function normalizeAssetTransform(value) {
+  return {
+    scale: clamp(value?.scale, 0.5, 3, DEFAULT_ASSET_TRANSFORM.scale),
+    x: clamp(value?.x, -50, 50, DEFAULT_ASSET_TRANSFORM.x),
+    y: clamp(value?.y, -50, 50, DEFAULT_ASSET_TRANSFORM.y),
+  };
+}
 
 function isSafeAssetUrl(value) {
   if (typeof value !== 'string' || !value.trim()) return false;
@@ -38,6 +52,7 @@ function toPublicCosmetic(item) {
     imageUrl,
     previewUrl,
     assetUrl: previewUrl || imageUrl,
+    assetTransform: normalizeAssetTransform(value.assetTransform),
   };
 }
 
@@ -62,12 +77,14 @@ function toPlayerPresentation(user, fallbackUsername = 'Guest') {
       name: frame.name,
       rarity: frame.rarity,
       assetUrl: frame.assetUrl,
+      assetTransform: frame.assetTransform,
     } : null,
     protector: protector ? {
       id: protector.id,
       name: protector.name,
       rarity: protector.rarity,
       assetUrl: protector.assetUrl,
+      assetTransform: protector.assetTransform,
     } : null,
   };
 }
@@ -162,12 +179,14 @@ async function purchaseCosmetic({
 }
 
 module.exports = {
+  DEFAULT_ASSET_TRANSFORM,
   SHOPPABLE_TYPES,
   SLOT_TO_TYPE,
   buildEquippedCosmetics,
   equipCosmetic,
   isItemAvailableForPurchase,
   isSafeAssetUrl,
+  normalizeAssetTransform,
   purchaseCosmetic,
   resolveUserEquipment,
   toPlayerPresentation,

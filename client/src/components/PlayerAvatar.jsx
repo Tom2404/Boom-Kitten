@@ -6,7 +6,7 @@ import {
   getPlayerStatus,
   getReconnectRemainingSeconds,
 } from '../utils/gameRoomUi.js';
-import { getProtectorStackSize } from '../utils/shopEquipment.js';
+import { getAssetTransformStyle, getProtectorStackSize } from '../utils/shopEquipment.js';
 
 const PRESET_AVATARS = {
   angry_kitten: '😿',
@@ -111,6 +111,7 @@ export default function PlayerAvatar({
               className="game-opponent-seat__frame"
               src={avatarFrameUrl}
               alt=""
+              style={getAssetTransformStyle(avatarFrame?.assetTransform)}
               onError={(event) => event.currentTarget.remove()}
             />
           )}
@@ -128,6 +129,7 @@ export default function PlayerAvatar({
                     <img
                       src={protectorUrl}
                       alt=""
+                      style={getAssetTransformStyle(protector?.assetTransform)}
                       onError={(event) => event.currentTarget.remove()}
                     />
                   )}
@@ -236,6 +238,7 @@ export default function PlayerAvatar({
                   className="absolute inset-[-8px] z-10 h-[calc(100%+16px)] w-[calc(100%+16px)] object-contain pointer-events-none"
                   src={avatarFrameUrl}
                   alt=""
+                  style={getAssetTransformStyle(avatarFrame?.assetTransform)}
                   onError={(event) => event.currentTarget.remove()}
                 />
               ) : activeAvatarFrame ? (

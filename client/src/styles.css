@@ -2997,17 +2997,6 @@ body.lang-vi .font-pixel-body {
   box-shadow: inset 0 0 0 6px #323c38, inset 0 0 0 8px var(--game-table-edge, #0e1211);
 }
 
-.game-board--custom-field .game-table-core {
-  background-image:
-    linear-gradient(rgba(10, 14, 13, .5), rgba(10, 14, 13, .5)),
-    var(--game-field-image),
-    linear-gradient(var(--game-table-grid, rgba(248, 237, 207, 0.05)) 1px, transparent 1px),
-    linear-gradient(90deg, var(--game-table-grid, rgba(248, 237, 207, 0.05)) 1px, transparent 1px);
-  background-position: center, center, center, center;
-  background-repeat: no-repeat, no-repeat, repeat, repeat;
-  background-size: cover, cover, 16px 16px, 16px 16px;
-}
-
 .game-table-core::after {
   position: absolute;
   inset: 0.8rem;
@@ -3577,6 +3566,17 @@ body.lang-vi .font-pixel-body {
     inset 0 0 0 0.9rem var(--game-rail),
     inset 0 1.3rem 2.7rem rgba(0, 0, 0, 0.25),
     0 1.25rem 2.8rem rgba(0, 0, 0, 0.46);
+}
+
+.game-stage.game-board--custom-field .game-table-core {
+  background-image:
+    linear-gradient(rgba(10, 14, 13, .5), rgba(10, 14, 13, .5)),
+    var(--game-field-image),
+    linear-gradient(var(--game-table-grid, rgba(248, 237, 207, 0.05)) 1px, transparent 1px),
+    linear-gradient(90deg, var(--game-table-grid, rgba(248, 237, 207, 0.05)) 1px, transparent 1px);
+  background-position: center, var(--game-field-position, center), center, center;
+  background-repeat: no-repeat, no-repeat, repeat, repeat;
+  background-size: cover, var(--game-field-size, cover), 16px 16px, 16px 16px;
 }
 
 .game-stage .game-table-core::after {

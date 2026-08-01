@@ -4,6 +4,7 @@ import { gsap } from 'gsap';
 import CustomDialog from '../components/CustomDialog.jsx';
 import { CoinIcon } from '../components/CoinDisplay.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
+import { getAssetTransformStyle } from '../utils/shopEquipment.js';
 
 export default function Profile() {
   const { t } = useLanguage();
@@ -180,6 +181,7 @@ export default function Profile() {
               <img
                 src={profile.equipped.avatarFrame.assetUrl}
                 alt=""
+                style={getAssetTransformStyle(profile.equipped.avatarFrame.assetTransform)}
                 className="absolute inset-[-10px] z-10 h-[calc(100%+20px)] w-[calc(100%+20px)] object-contain pointer-events-none"
                 onError={(event) => event.currentTarget.remove()}
               />

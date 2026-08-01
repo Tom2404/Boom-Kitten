@@ -1,5 +1,6 @@
 import React from 'react';
 import { PRESET_AVATARS } from '../../../components/PlayerAvatar.jsx';
+import { getAssetTransformStyle } from '../../../utils/shopEquipment.js';
 
 export default function PlayerHandDock({
   PlayerHand,
@@ -49,6 +50,7 @@ export default function PlayerHandDock({
                   className="absolute -inset-1.5 w-[calc(100%+12px)] h-[calc(100%+12px)] object-contain pointer-events-none"
                   src={player.avatarFrame.assetUrl}
                   alt=""
+                  style={getAssetTransformStyle(player.avatarFrame.assetTransform)}
                   onError={(event) => event.currentTarget.remove()}
                 />
               )}

@@ -4,7 +4,7 @@ import GameTableCore from './GameTableCore.jsx';
 import PlayerHandDock from './PlayerHandDock.jsx';
 import { calculateRelativeOpponents } from '../../../utils/seatAllocation.js';
 import { getInteractionState } from '../../../utils/interactionState.js';
-import { getEquippedAssetUrl } from '../../../utils/shopEquipment.js';
+import { getEquippedAssetUrl, getFieldTransformStyle } from '../../../utils/shopEquipment.js';
 
 export default function GameTable(props) {
   const context = useGameContext();
@@ -36,8 +36,10 @@ export default function GameTable(props) {
   const [targetPlayerId, setTargetPlayerId] = useState(null);
   const [layoutMode, setLayoutMode] = useState('horseshoe-large');
   const containerRef = useRef(null);
-  const fieldUrl = getEquippedAssetUrl(equippedCosmetics?.field);
-  const protectorUrl = getEquippedAssetUrl(equippedCosmetics?.protector);
+  const field = equippedCosmetics?.field;
+  const protector = equippedCosmetics?.protector;
+  const fieldUrl = getEquippedAssetUrl(field);
+  const protectorUrl = getEquippedAssetUrl(protector);
 
   const relativeOpponents = calculateRelativeOpponents(gameState.players, myUser.id);
   const localPlayer = gameState.players.find((player) => player.userId === myUser.id);
@@ -96,7 +98,7 @@ export default function GameTable(props) {
       ref={containerRef}
       className={`game-board game-stage ${fieldUrl ? 'game-board--custom-field' : ''}`}
       data-layout={layoutMode}
-      style={fieldUrl ? { '--game-field-image': `url("${fieldUrl}")` } : undefined}
+      style={fieldUrl ? { '--game-field-image': `url("${fieldUrl}")`, ...getFieldTransformStyle(field.assetTransform) } : undefined}
     >
       <GameTableCore
         DeckPile={DeckPile}
@@ -118,6 +120,7 @@ export default function GameTable(props) {
         pendingCombo5={gameState.pendingCombo5}
         playDirection={gameState.playDirection}
         protectorUrl={protectorUrl}
+        protectorTransform={protector?.assetTransform}
         reversePulse={reversePulse}
         selectedTargetId={targetPlayerId}
         interactionState={interactionState}

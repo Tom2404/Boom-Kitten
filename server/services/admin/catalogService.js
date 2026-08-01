@@ -2,9 +2,9 @@ const ShopItem = require('../../models/ShopItem');
 const User = require('../../models/User');
 const { ApiError } = require('../../utils/apiResponse');
 const { createAdminAudit } = require('./auditService');
-const { isSafeAssetUrl } = require('../shopEquipmentService');
+const { isSafeAssetUrl, normalizeAssetTransform } = require('../shopEquipmentService');
 
-const CATALOG_FIELDS = ['name', 'description', 'type', 'price', 'rarity', 'isLimited', 'availableUntil', 'imageUrl', 'previewUrl', 'isActive', 'sortOrder'];
+const CATALOG_FIELDS = ['name', 'description', 'type', 'price', 'rarity', 'isLimited', 'availableUntil', 'imageUrl', 'previewUrl', 'assetTransform', 'isActive', 'sortOrder'];
 
 function toPlain(value) {
   return value?.toObject ? value.toObject() : value;
@@ -21,10 +21,12 @@ function selectCatalogFields(input, { defaults = false } = {}) {
     if (payload.isLimited === undefined) payload.isLimited = false;
     if (payload.imageUrl === undefined) payload.imageUrl = '';
     if (payload.previewUrl === undefined) payload.previewUrl = '';
+    if (payload.assetTransform === undefined) payload.assetTransform = normalizeAssetTransform();
     if (payload.isActive === undefined) payload.isActive = true;
     if (payload.sortOrder === undefined) payload.sortOrder = 0;
   }
   if (payload.price !== undefined) payload.price = { coins: Number(payload.price?.coins) || 0 };
+  if (payload.assetTransform !== undefined) payload.assetTransform = normalizeAssetTransform(payload.assetTransform);
   return payload;
 }
 

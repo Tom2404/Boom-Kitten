@@ -5,8 +5,11 @@ import { formatNumber } from './utils.js';
 import { getAdminPanelAccess } from './adminPanelAccess.js';
 import { buildDeleteAdminPayload, buildRoutineAdminPayload, createAdminOperationRequestId } from './adminMutation.js';
 import { filterCatalog, getCatalogSummary } from './adminListFilters.js';
+import { DEFAULT_ASSET_TRANSFORM, normalizeAssetTransform } from '../../utils/shopEquipment.js';
+import AssetPositionEditor from './AssetPositionEditor.jsx';
 
-const blankItem = { name: '', description: '', type: 'protector', rarity: 'common', priceCoins: 0, imageUrl: '', previewUrl: '', isActive: true, sortOrder: 0 };
+const blankItem = { name: '', description: '', type: 'protector', rarity: 'common', priceCoins: 0, imageUrl: '', previewUrl: '', assetTransform: DEFAULT_ASSET_TRANSFORM, isActive: true, sortOrder: 0 };
+const framedTypes = new Set(['protector', 'avatar_frame', 'field']);
 const responseMessage = (response, fallback) => response.data?.error?.message || response.data?.message || response.error || fallback;
 
 export default function CatalogPanel({ permissions = [] }) {
@@ -22,6 +25,8 @@ export default function CatalogPanel({ permissions = [] }) {
   const [deleteRequestId, setDeleteRequestId] = useState(createAdminOperationRequestId);
   const [saving, setSaving] = useState(false);
   const [pendingItemId, setPendingItemId] = useState(null);
+  const [assetCheck, setAssetCheck] = useState({ status: 'idle', requiresFraming: false, url: '', type: '' });
+  const [fitConfirmed, setFitConfirmed] = useState(false);
   const [filters, setFilters] = useState({ search: '', type: '', rarity: '', status: '' });
   const { canWriteCatalog } = getAdminPanelAccess(permissions);
   const summary = useMemo(() => getCatalogSummary(catalog), [catalog]);
@@ -41,11 +46,13 @@ export default function CatalogPanel({ permissions = [] }) {
   const activeForm = editing || form;
   const setActiveForm = (next) => (editing ? setEditing(next) : setForm(next));
   const previewAssetUrl = activeForm.previewUrl || activeForm.imageUrl;
-  const previewRatio = activeForm.type === 'field'
-    ? 'aspect-video'
-    : activeForm.type === 'avatar_frame'
-      ? 'aspect-square'
-      : 'aspect-[2/3]';
+  const supportsFraming = framedTypes.has(activeForm.type);
+
+  const updateAssetSource = (field, value) => {
+    setActiveForm({ ...activeForm, [field]: value, assetTransform: DEFAULT_ASSET_TRANSFORM });
+    setAssetCheck({ status: 'loading', requiresFraming: false, url: '', type: '' });
+    setFitConfirmed(false);
+  };
 
   const toPayload = (item) => ({
     name: item.name,
@@ -55,6 +62,7 @@ export default function CatalogPanel({ permissions = [] }) {
     price: { coins: Number(item.priceCoins) },
     imageUrl: item.imageUrl,
     previewUrl: item.previewUrl,
+    assetTransform: item.assetTransform,
     isActive: item.isActive,
     sortOrder: Number(item.sortOrder),
   });
@@ -64,6 +72,9 @@ export default function CatalogPanel({ permissions = [] }) {
     if (saving) return;
     setMessage({ tone: '', text: '' });
     if (!activeForm.name || !activeForm.imageUrl) return setMessage({ tone: 'danger', text: 'Tên vật phẩm và URL hình ảnh là bắt buộc.' });
+    const checkedCurrentAsset = assetCheck.url === previewAssetUrl && assetCheck.type === activeForm.type;
+    if (supportsFraming && (!checkedCurrentAsset || assetCheck.status !== 'ready')) return setMessage({ tone: 'danger', text: 'Asset phải tải thành công như một hình ảnh trước khi lưu.' });
+    if (supportsFraming && assetCheck.requiresFraming && !fitConfirmed) return setMessage({ tone: 'danger', text: 'Hãy căn và xác nhận asset trong khung chuẩn trước khi lưu.' });
     const endpoint = editing ? `/api/shop/items/${editing._id}` : '/api/shop/items';
     setSaving(true);
     const res = await request(endpoint, { method: editing ? 'PUT' : 'POST', body: JSON.stringify(buildRoutineAdminPayload(toPayload(activeForm), formRequestId)) });
@@ -72,6 +83,8 @@ export default function CatalogPanel({ permissions = [] }) {
       setMessage({ tone: 'success', text: editing ? 'Đã cập nhật vật phẩm.' : 'Đã thêm vật phẩm mới.' });
       setForm(blankItem);
       setEditing(null);
+      setAssetCheck({ status: 'idle', requiresFraming: false, url: '', type: '' });
+      setFitConfirmed(false);
       setFormRequestId(createAdminOperationRequestId());
       loadCatalog();
     } else {
@@ -104,6 +117,25 @@ export default function CatalogPanel({ permissions = [] }) {
     } else setMessage({ tone: 'danger', text: responseMessage(res, 'Không thể xóa vật phẩm.') });
   };
 
+  const startEditing = (item) => {
+    setEditing({
+      _id: item._id,
+      name: item.name,
+      description: item.description || '',
+      type: item.type,
+      rarity: item.rarity,
+      priceCoins: item.price?.coins || 0,
+      imageUrl: item.imageUrl || '',
+      previewUrl: item.previewUrl || '',
+      assetTransform: normalizeAssetTransform(item.assetTransform),
+      isActive: item.isActive !== false,
+      sortOrder: item.sortOrder || 0,
+    });
+    setAssetCheck({ status: 'loading', requiresFraming: false, url: '', type: '' });
+    setFitConfirmed(true);
+    setFormRequestId(createAdminOperationRequestId());
+  };
+
   return (
     <div className="flex flex-col gap-5">
       <SectionHeader title="Shop game" description="Quản lý vật phẩm, giá, độ hiếm, ảnh và trạng thái bán trong shop." actions={<Button onClick={loadCatalog}>Làm mới</Button>} />
@@ -126,28 +158,23 @@ export default function CatalogPanel({ permissions = [] }) {
             <Field label="Tên vật phẩm"><input className={inputClass} value={activeForm.name} onChange={(event) => setActiveForm({ ...activeForm, name: event.target.value })} /></Field>
             <Field label="Mô tả"><textarea className={inputClass} rows="3" value={activeForm.description} onChange={(event) => setActiveForm({ ...activeForm, description: event.target.value })} /></Field>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Loại"><select className={inputClass} value={activeForm.type} onChange={(event) => setActiveForm({ ...activeForm, type: event.target.value })}><option value="protector">Protector</option><option value="avatar_frame">Khung avatar</option><option value="field">Field</option><option value="skin">Skin bài (legacy)</option><option value="emote">Biểu cảm (legacy)</option></select></Field>
+              <Field label="Loại"><select className={inputClass} value={activeForm.type} onChange={(event) => updateAssetSource('type', event.target.value)}><option value="protector">Protector</option><option value="avatar_frame">Khung avatar</option><option value="field">Field</option><option value="skin">Skin bài (legacy)</option><option value="emote">Biểu cảm (legacy)</option></select></Field>
               <Field label="Độ hiếm"><select className={inputClass} value={activeForm.rarity} onChange={(event) => setActiveForm({ ...activeForm, rarity: event.target.value })}><option value="common">Common</option><option value="rare">Rare</option><option value="epic">Epic</option><option value="legendary">Legendary</option></select></Field>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <Field label="GoldCoin"><input className={inputClass} type="number" min="0" value={activeForm.priceCoins} onChange={(event) => setActiveForm({ ...activeForm, priceCoins: event.target.value })} /></Field>
             </div>
-            <Field label="URL hình ảnh"><input className={inputClass} value={activeForm.imageUrl} onChange={(event) => setActiveForm({ ...activeForm, imageUrl: event.target.value })} placeholder="https://..." /></Field>
-            <Field label="URL asset trang bị"><input className={inputClass} value={activeForm.previewUrl} onChange={(event) => setActiveForm({ ...activeForm, previewUrl: event.target.value })} placeholder="https://... hoặc /assets/..." /></Field>
-            {previewAssetUrl && (
-              <div>
-                <p className="mb-1 text-xs font-semibold text-[var(--admin-text-muted)]">Preview asset trang bị</p>
-                <div className={`relative max-h-48 w-full overflow-hidden border border-[var(--admin-border)] bg-[var(--admin-surface-muted)] ${previewRatio}`}>
-                  <span className="absolute inset-0 grid place-items-center text-xs font-semibold text-slate-400">Không tải được preview</span>
-                  <img
-                    src={previewAssetUrl}
-                    alt=""
-                    className="absolute inset-0 h-full w-full object-cover"
-                    onError={(event) => event.currentTarget.remove()}
-                  />
-                </div>
-              </div>
-            )}
+            <Field label="URL hình ảnh"><input className={inputClass} value={activeForm.imageUrl} onChange={(event) => updateAssetSource('imageUrl', event.target.value)} placeholder="https://..." /></Field>
+            <Field label="URL asset trang bị"><input className={inputClass} value={activeForm.previewUrl} onChange={(event) => updateAssetSource('previewUrl', event.target.value)} placeholder="https://... hoặc /assets/..." /></Field>
+            {previewAssetUrl && supportsFraming && <AssetPositionEditor
+              confirmed={fitConfirmed}
+              onChange={(assetTransform) => setActiveForm({ ...activeForm, assetTransform })}
+              onConfirmedChange={setFitConfirmed}
+              onValidationChange={(next) => setAssetCheck({ ...next, url: previewAssetUrl, type: activeForm.type })}
+              type={activeForm.type}
+              url={previewAssetUrl}
+              value={activeForm.assetTransform}
+            />}
             <div className="grid grid-cols-2 gap-3">
               <Field label="Sort order"><input className={inputClass} type="number" value={activeForm.sortOrder} onChange={(event) => setActiveForm({ ...activeForm, sortOrder: event.target.value })} /></Field>
               <Field label="Trạng thái"><select className={inputClass} value={activeForm.isActive ? 'true' : 'false'} onChange={(event) => setActiveForm({ ...activeForm, isActive: event.target.value === 'true' })}><option value="true">Active</option><option value="false">Inactive</option></select></Field>
@@ -184,7 +211,7 @@ export default function CatalogPanel({ permissions = [] }) {
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--admin-border)] pt-3">
                     <p className="text-sm font-semibold text-slate-700">{formatNumber(item.price?.coins)} Coin</p>
                     {canWriteCatalog && <div className="flex flex-wrap gap-2">
-                      <Button variant="subtle" disabled={!!pendingItemId} onClick={() => { setEditing({ _id: item._id, name: item.name, description: item.description || '', type: item.type, rarity: item.rarity, priceCoins: item.price?.coins || 0, imageUrl: item.imageUrl || '', previewUrl: item.previewUrl || '', isActive: item.isActive !== false, sortOrder: item.sortOrder || 0 }); setFormRequestId(createAdminOperationRequestId()); }}>Sửa</Button>
+                      <Button variant="subtle" disabled={!!pendingItemId} onClick={() => startEditing(item)}>Sửa</Button>
                       <Button variant="secondary" disabled={!!pendingItemId} onClick={() => toggleItem(item)}>{pendingItemId === item._id ? 'Đang xử lý...' : item.isActive === false ? 'Bật' : 'Tắt'}</Button>
                       <Button variant="danger" disabled={!!pendingItemId} onClick={() => { setDeleteTarget(item); setDeleteReason(''); setDeleteRequestId(createAdminOperationRequestId()); }}>Xóa</Button>
                     </div>}

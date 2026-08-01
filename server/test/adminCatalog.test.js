@@ -30,6 +30,26 @@ test('creates a catalog item and writes the normalized audit record', async () =
   assert.equal(auditInput.request.operationRequestId, 'catalog-create-1');
 });
 
+test('normalizes asset framing before creating a catalog item', async () => {
+  let persisted;
+  const created = { _id: 'item-transform', name: 'Framed Field', type: 'field', __v: 0 };
+
+  await createCatalogItem({
+    CatalogModel: { create: async (payload) => { persisted = payload; return created; } },
+    audit: async () => {},
+    actor,
+    input: {
+      name: 'Framed Field',
+      type: 'field',
+      assetTransform: { scale: '9', x: '-80', y: '12.5' },
+    },
+    mutation: { requestId: 'catalog-create-transform', reason: '' },
+    request,
+  });
+
+  assert.deepEqual(persisted.assetTransform, { scale: 3, x: -50, y: 12.5 });
+});
+
 test('rejects unsafe catalog asset URLs before writing', async () => {
   await assert.rejects(
     createCatalogItem({
