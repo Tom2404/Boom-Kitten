@@ -6,6 +6,11 @@ const crypto = require('crypto');
 const { ApiError } = require('../../utils/apiResponse');
 const { createAdminAudit } = require('./auditService');
 const { refundCancelledTournamentEntries } = require('../tournamentPlayerService');
+const {
+  TOURNAMENT_FORMAT,
+  TOURNAMENT_MAX_PARTICIPANTS,
+  TOURNAMENT_PAYOUT_WEIGHTS,
+} = require('../../utils/tournamentRules');
 
 const TOURNAMENT_TRANSITIONS = Object.freeze({
   registration: ['active', 'cancelled'],
@@ -35,11 +40,17 @@ function validateTournamentInput(input, now = new Date()) {
   if (startTime <= now) throw invalid('Thời gian bắt đầu phải ở tương lai.', { startTime: 'Phải ở tương lai' });
   const registrationClosesAt = input.registrationClosesAt ? dateValue(input.registrationClosesAt, 'registrationClosesAt') : startTime;
   if (registrationClosesAt > startTime) throw invalid('Đóng đăng ký phải trước hoặc bằng thời gian bắt đầu.', { registrationClosesAt: 'Không được sau startTime' });
+  const registrationOpensAt = input.registrationOpensAt ? dateValue(input.registrationOpensAt, 'registrationOpensAt') : now;
+  if (registrationOpensAt > registrationClosesAt) throw invalid('Mở đăng ký phải trước khi đóng đăng ký.', { registrationOpensAt: 'Không được sau registrationClosesAt' });
+  const matchGraceMinutes = integer(input.matchGraceMinutes ?? 5, 'matchGraceMinutes', { min: 1, max: 30 });
+  if (matchGraceMinutes !== 5) throw invalid('Format v1 cố định grace period 5 phút.', { matchGraceMinutes: 'Phải bằng 5' });
   return {
     name,
     description: typeof input.description === 'string' ? input.description.trim().slice(0, 2000) : '',
     entryFee: integer(input.entryFee ?? 0, 'entryFee', { max: 1000000 }),
-    maxParticipants: integer(input.maxParticipants ?? 8, 'maxParticipants', { min: 8, max: 8 }),
+    format: TOURNAMENT_FORMAT,
+    rulesVersion: 1,
+    maxParticipants: integer(input.maxParticipants ?? TOURNAMENT_MAX_PARTICIPANTS, 'maxParticipants', { min: TOURNAMENT_MAX_PARTICIPANTS, max: TOURNAMENT_MAX_PARTICIPANTS }),
     prizePool: {
       coins: integer(input.prizePool?.coins ?? 0, 'prizePool.coins', { max: 100000000 }),
     },
@@ -49,8 +60,10 @@ function validateTournamentInput(input, now = new Date()) {
       if (!['skin', 'emote', 'avatar_frame'].includes(type) || !itemId) throw invalid('Cosmetic reward không hợp lệ.', { cosmeticRewards: 'Cần rank, type và itemId hợp lệ' });
       return { rank: integer(reward.rank, 'cosmeticRewards.rank', { min: 1, max: 3 }), type, itemId };
     }),
+    registrationOpensAt,
     startTime,
     registrationClosesAt,
+    matchGraceMinutes,
   };
 }
 
@@ -77,7 +90,7 @@ function allocatePool(total, weights) {
 function buildTournamentPayoutPreview(tournament, participants) {
   const ranked = participants.filter((item) => Number.isInteger(item.finalRank) && item.finalRank > 0).sort((left, right) => left.finalRank - right.finalRank).slice(0, 3);
   if (!ranked.length) throw invalid('Chưa có xếp hạng cuối để preview payout.', { participants: 'Cần ít nhất một finalRank' });
-  const baseWeights = [60, 30, 10].slice(0, ranked.length);
+  const baseWeights = TOURNAMENT_PAYOUT_WEIGHTS.slice(0, ranked.length);
   const coinAmounts = allocatePool(integer(tournament.prizePool?.coins ?? 0, 'prizePool.coins'), baseWeights);
   const rows = ranked.map((participant, index) => ({
     ...participantIdentity(participant),
@@ -221,12 +234,12 @@ async function registerTournamentParticipant({
 }) {
   const tournament = await TournamentModel.findById(tournamentId);
   if (!tournament) throw new ApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy giải đấu.');
-  if (tournament.status !== 'registration' || new Date(tournament.registrationClosesAt || tournament.startTime) <= now) throw new ApiError(409, 'STATE_CONFLICT', 'Giải đấu không còn nhận đăng ký.');
+  if (tournament.status !== 'registration' || (tournament.registrationOpensAt && new Date(tournament.registrationOpensAt) > now) || new Date(tournament.registrationClosesAt || tournament.startTime) <= now) throw new ApiError(409, 'STATE_CONFLICT', 'Giải đấu không còn nhận đăng ký.');
   const user = await UserModel.findById(userId);
   if (!user) throw new ApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy người chơi.');
 
   const slot = await TournamentModel.findOneAndUpdate(
-    { _id: tournamentId, status: 'registration', registeredCount: { $lt: tournament.maxParticipants }, registrationClosesAt: { $gt: now } },
+    { _id: tournamentId, status: 'registration', registeredCount: { $lt: tournament.maxParticipants }, registrationClosesAt: { $gt: now }, $or: [{ registrationOpensAt: { $exists: false } }, { registrationOpensAt: { $lte: now } }] },
     { $inc: { registeredCount: 1, stateVersion: 1 } },
     { new: true },
   );
@@ -287,7 +300,11 @@ async function transitionTournament({
     set.bracket = buildEightPlayerTournament(String(tournamentId), participants);
     set.startedAt = now;
   }
-  if (nextStatus === 'cancelled') set.cancelledAt = now;
+  if (nextStatus === 'cancelled') {
+    set.cancelledAt = now;
+    set.cancelReason = mutation.reason;
+    set.refundState = 'pending';
+  }
   const tournament = await TournamentModel.findOneAndUpdate(
     { _id: tournamentId, status: before.status, stateVersion: Number(expectedVersion) },
     { $set: set, $inc: { stateVersion: 1 } },

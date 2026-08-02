@@ -5,11 +5,12 @@ export function buildTournamentCreatePayload(form, requestId) {
     name: form.name.trim(),
     description: form.description.trim(),
     entryFee: Number(form.entryFee),
-    maxParticipants: Number(form.maxParticipants),
+    maxParticipants: 8,
     prizePool: { coins: Number(form.prizeCoins) },
     cosmeticRewards: (form.cosmeticRewards || [])
       .filter((reward) => reward.itemId?.trim())
       .map((reward) => ({ rank: Number(reward.rank), type: reward.type, itemId: reward.itemId.trim() })),
+    registrationOpensAt: form.registrationOpensAt ? new Date(form.registrationOpensAt).toISOString() : undefined,
     startTime: new Date(form.startTime).toISOString(),
     registrationClosesAt: new Date(form.registrationClosesAt || form.startTime).toISOString(),
     reason: form.reason.trim(),

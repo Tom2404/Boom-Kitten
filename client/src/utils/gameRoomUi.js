@@ -75,6 +75,20 @@ export function shouldResumeActiveMatch(room) {
   return room?.status === 'playing';
 }
 
+export function shouldShowEliminationOverlay({
+  roomStatus,
+  edition,
+  players = [],
+  myUserId,
+  dismissed = false,
+}) {
+  if (dismissed || roomStatus !== 'playing' || edition === 'zombie' || !myUserId) return false;
+
+  const localPlayer = players.find((player) => player.userId === myUserId);
+  const alivePlayers = players.filter((player) => player.alive);
+  return Boolean(localPlayer && !localPlayer.alive && alivePlayers.length > 1);
+}
+
 export function getActivityStatus({ isOpen = false, hasUnreadMessages = false, connectionState = 'connected' }) {
   if (connectionState === 'error') return 'connection-error';
   if (connectionState !== 'connected') return 'reconnecting';

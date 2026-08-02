@@ -201,7 +201,7 @@ function sanitizeRoom(room) {
   if (!room) return null;
   return {
     ...room,
-    reconnectGraceMs: RECONNECT_GRACE_MS,
+    reconnectGraceMs: room.reconnectGraceMs || RECONNECT_GRACE_MS,
     gameState: room.gameState ? sanitizePublicGameState(room.gameState) : room.gameState,
     password: undefined,
   };
@@ -251,7 +251,7 @@ async function finalizeGame(io, room) {
       : (elimIndex >= 0 
           ? room.gameState.players.length - elimIndex 
           : room.gameState.players.length);
-    return { userId: player.userId, placement, result: isWinner ? 'win' : 'lose' };
+    return { userId: player.userId, placement, result: isWinner ? 'win' : 'lose', forfeit: Boolean(player.forfeited) };
   }).sort((a, b) => a.placement - b.placement);
 
   const matchmakingRatingChanges = {};
@@ -373,6 +373,7 @@ async function finalizeGame(io, room) {
           matchmakingRatingBefore,
           matchmakingRatingAfter,
           matchmakingRatingChange,
+          forfeit: Boolean(entry.forfeit),
         };
       });
 
@@ -734,7 +735,8 @@ module.exports = function registerGameSocket(io) {
   }
 
   function scheduleReconnectForfeit(room, userId) {
-    const deadline = Date.now() + RECONNECT_GRACE_MS;
+    const graceMs = room.reconnectGraceMs || RECONNECT_GRACE_MS;
+    const deadline = Date.now() + graceMs;
     const player = markPlayerDisconnected(room.code, userId, deadline);
     if (!player) return;
 
@@ -775,7 +777,7 @@ module.exports = function registerGameSocket(io) {
       });
     };
 
-    reconnectTimers.set(key, setTimeout(run, RECONNECT_GRACE_MS + 1));
+    reconnectTimers.set(key, setTimeout(run, graceMs + 1));
     emitRoomUpdated(io.to(room.code), room);
     io.to(room.code).emit('game:stateUpdate', {
       publicGameState: sanitizePublicGameState(room.gameState),

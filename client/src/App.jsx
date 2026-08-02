@@ -14,6 +14,7 @@ const Lobby = lazy(() => import('./pages/Lobby.jsx'));
 const Game = lazy(() => import('./pages/Game.jsx'));
 const Profile = lazy(() => import('./pages/Profile.jsx'));
 const Shop = lazy(() => import('./pages/Shop.jsx'));
+const Wardrobe = lazy(() => import('./pages/Wardrobe.jsx'));
 const Tournaments = lazy(() => import('./pages/Tournaments.jsx'));
 const Admin = lazy(() => import('./pages/Admin.jsx'));
 const loadVfxOverlay = () => import('./components/VFXOverlay.jsx').then((module) => ({ default: module.VFXOverlay }));
@@ -44,7 +45,7 @@ class ErrorBoundary extends Component {
 
 const Mission = lazy(() => import('./pages/Mission.jsx'));
 
-const PAGES = { Home, Login, Register, Lobby, Game, Profile, Shop, Tournaments, Admin, Mission };
+const PAGES = { Home, Login, Register, Lobby, Game, Profile, Shop, Wardrobe, Tournaments, Admin, Mission };
 
 export default function App() {
   const { language, setLanguage, t } = useLanguage();
@@ -155,7 +156,7 @@ export default function App() {
 
   // Global access guard for admin role to restrict user-facing routes
   useEffect(() => {
-    if (isAdminRole(userRole) && ['Game', 'Mission', 'Shop', 'Profile', 'Tournaments'].includes(page)) {
+    if (isAdminRole(userRole) && ['Game', 'Mission', 'Shop', 'Wardrobe', 'Profile', 'Tournaments'].includes(page)) {
       setPage('Admin');
     }
   }, [page, userRole]);
@@ -290,7 +291,7 @@ export default function App() {
       )}
 
       {/* Main Page Area */}
-      <main className={`flex-grow ${isAdminPage ? 'w-full' : isInMatch ? 'p-0 w-full max-w-none' : 'p-4 md:p-8 max-w-7xl mx-auto w-full'}`}>
+      <main className={`flex-grow ${isAdminPage ? 'w-full' : isInMatch ? 'p-0 w-full max-w-none' : page === 'Wardrobe' ? 'mx-auto w-full max-w-[1500px] p-3 md:p-6' : 'p-4 md:p-8 max-w-7xl mx-auto w-full'}`}>
         <ErrorBoundary>
           <Suspense fallback={<div className={isAdminPage ? 'py-10 text-center text-sm text-[var(--admin-text-muted)]' : 'font-pop-body text-center py-10'}>Loading...</div>}>
             <Page setPage={setPage} initialRoom={page === 'Game' ? activeRoom : null} />

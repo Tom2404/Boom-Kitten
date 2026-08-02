@@ -18,7 +18,7 @@ player storefront. Equipment and ownership always reference the catalog
 - `previewUrl` is the runtime asset and falls back to `imageUrl`.
 - Assets must use HTTPS or a same-origin path beginning with `/`.
 - `http:`, `data:`, `javascript:` and protocol-relative URLs are rejected.
-- Protector uses a static image near 2:3, Avatar Frame a transparent static
+- Protector uses a static image near 5:7, Avatar Frame a transparent static
   image near 1:1, and Field a static image near 16:9.
 - A missing or failed image restores the existing default presentation.
 

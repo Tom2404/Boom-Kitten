@@ -3,25 +3,12 @@ import { gsap } from 'gsap';
 import { CoinIcon } from '../components/CoinDisplay.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import CustomDialog from '../components/CustomDialog.jsx';
-import {
-  EQUIPMENT_SLOTS,
-  TYPE_TO_SLOT,
-  getEquipmentAction,
-  getEquippedAssetUrl,
-  isOwnedItem,
-} from '../utils/shopEquipment.js';
+import { isOwnedItem } from '../utils/shopEquipment.js';
 
 export default function Shop({ setPage }) {
   const { t, language } = useLanguage();
   const [items, setItems] = useState([]);
-  const [ownedItems, setOwnedItems] = useState({
-    items: [],
-    ownedItemIds: [],
-    equipped: { protector: null, avatarFrame: null, field: null },
-    ownedSkins: [],
-    ownedEmotes: [],
-    ownedAvatarFrames: [],
-  });
+  const [ownedItems, setOwnedItems] = useState({ ownedItemIds: [] });
   const [userBalance, setUserBalance] = useState({ coins: 0 });
   const [selectedTab, setSelectedTab] = useState('protector');
   const [pendingItemId, setPendingItemId] = useState(null);
@@ -152,33 +139,6 @@ export default function Shop({ setPage }) {
     }
   };
 
-  const handleEquipment = async (slot, itemId) => {
-    const token = localStorage.getItem('accessToken');
-    if (!token || pendingItemId) return;
-    setPendingItemId(itemId || `unequip:${slot}`);
-    setMessage('');
-    try {
-      const res = await fetch(`${API_URL}/api/shop/equipment/${slot}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ itemId }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(getRequestError(data, 'shop_equipment_update_fail'));
-      setOwnedItems((current) => ({ ...current, equipped: data.equipped }));
-      setIsError(false);
-      setMessage(t(itemId ? 'shop_equipped_success' : 'shop_unequipped_success'));
-    } catch (error) {
-      setIsError(true);
-      setMessage(error.message);
-    } finally {
-      setPendingItemId(null);
-    }
-  };
-
   const getDescription = (item) => {
     if (item.description) return item.description;
     if (item.type === 'protector') return t('shop_desc_protector');
@@ -223,60 +183,6 @@ export default function Shop({ setPage }) {
           </button>
         </div>
       </div>
-
-      <section aria-labelledby="shop-loadout-title" className="bg-[var(--pop-cream)] border-3 border-[var(--pop-black)] p-4 md:p-5 shadow-[5px_5px_0_var(--pop-black)]">
-        <div className="flex flex-col gap-1 mb-4">
-          <h2 id="shop-loadout-title" className="font-pop-display font-black text-xl uppercase text-[var(--pop-black)]">
-            {t('shop_loadout_title')}
-          </h2>
-          <p className="text-[10px] font-bold text-[var(--pop-black)]/60">
-            {t('shop_loadout_desc')}
-          </p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {EQUIPMENT_SLOTS.map(({ slot, type }) => {
-            const equipped = ownedItems.equipped?.[slot];
-            const labels = {
-              protector: t('shop_slot_protector'),
-              avatar_frame: t('shop_slot_avatar_frame'),
-              field: t('shop_slot_field'),
-            };
-            return (
-              <article key={slot} className="flex min-h-24 items-center gap-3 bg-white border-2 border-[var(--pop-black)] p-3 shadow-[2px_2px_0_var(--pop-black)]">
-                <div className="relative h-16 w-16 shrink-0 overflow-hidden border-2 border-[var(--pop-black)] bg-slate-100 flex items-center justify-center">
-                  <span className="text-2xl" aria-hidden="true">{type === 'protector' ? '🂠' : type === 'avatar_frame' ? '🖼️' : '⚔️'}</span>
-                  {getEquippedAssetUrl(equipped) && (
-                    <img
-                      src={getEquippedAssetUrl(equipped)}
-                      alt=""
-                      className="absolute inset-0 h-full w-full object-cover"
-                      onError={(event) => event.currentTarget.remove()}
-                    />
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h3 className="font-pop-accent font-black text-[10px] uppercase text-[var(--pop-black)]">{labels[type]}</h3>
-                  <p className="truncate text-xs font-bold text-[var(--pop-black)]/65 mt-1">
-                    {equipped?.name || t('shop_default')}
-                  </p>
-                  {equipped && (
-                    <button
-                      type="button"
-                      disabled={Boolean(pendingItemId)}
-                      onClick={() => handleEquipment(slot, null)}
-                      className="mt-2 text-[9px] font-pop-accent font-black uppercase underline decoration-2 underline-offset-2 disabled:opacity-50"
-                    >
-                      {pendingItemId === `unequip:${slot}`
-                        ? t('shop_unequipping')
-                        : t('shop_unequip')}
-                    </button>
-                  )}
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      </section>
 
       {/* Tabs Menu */}
       <div className="flex gap-4 flex-wrap border-b-3 border-dashed border-[var(--pop-black)]/20 pb-4">
@@ -325,7 +231,6 @@ export default function Shop({ setPage }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8 w-full">
           {filteredItems.map((item) => {
             const owned = isOwnedItem(item, ownedItems.ownedItemIds);
-            const action = getEquipmentAction(item, ownedItems);
             const isLegendary = item.rarity === 'legendary';
             const isEpic = item.rarity === 'epic';
             const isHot = item.name.toLowerCase().includes('toxic') || isEpic;
@@ -399,22 +304,13 @@ export default function Shop({ setPage }) {
                         {t('shop_owned')}
                       </span>
                     )}
-                    {action === 'equipped' ? (
+                    {owned ? (
                       <button
                         type="button"
-                        disabled
-                        className="bg-[var(--pop-black)] border-2 border-[var(--pop-black)] text-white text-[9px] font-pop-accent font-black uppercase px-2.5 py-1 rounded-none cursor-default"
+                        onClick={() => setPage('Wardrobe')}
+                        className="bg-[var(--pop-black)] border-2 border-[var(--pop-black)] text-white text-[9px] font-pop-accent font-black uppercase px-2.5 py-1 rounded-none shadow-[2px_2px_0_var(--pop-red)]"
                       >
-                        {t('shop_equipped')}
-                      </button>
-                    ) : action === 'equip' ? (
-                      <button
-                        type="button"
-                        disabled={Boolean(pendingItemId)}
-                        onClick={() => handleEquipment(TYPE_TO_SLOT[item.type], item._id)}
-                        className="bg-[var(--pop-amber)] border-2 border-[var(--pop-black)] text-[var(--pop-black)] text-[9px] font-pop-accent font-black uppercase px-2.5 py-1 rounded-none shadow-[2px_2px_0_var(--pop-black)] disabled:opacity-50 disabled:shadow-none"
-                      >
-                        {pendingItemId === item._id ? t('shop_equipping') : t('shop_equip')}
+                        {t('wardrobe')}
                       </button>
                     ) : (
                     <button

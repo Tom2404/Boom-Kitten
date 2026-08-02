@@ -25,6 +25,17 @@ test('asset editor supports pointer drag, zoom, reset, and explicit confirmation
   assert.match(editor, /Không thể tải asset như một hình ảnh hợp lệ/);
 });
 
+test('Protector previews use the shared 5:7 card frame in Wardrobe and Admin', () => {
+  const editor = read('../src/pages/admin/AssetPositionEditor.jsx');
+  const wardrobeAsset = read('../src/components/wardrobe/WardrobeAsset.jsx');
+
+  assert.match(editor, /protector:\s*'aspect-\[5\/7\] max-w-48'/);
+  assert.match(wardrobeAsset, /protector:.*aspect:\s*'aspect-\[5\/7\]'/);
+
+  const itemCard = read('../src/components/wardrobe/WardrobeItemCard.jsx');
+  assert.match(itemCard, /item\.type === 'protector' \? 'h-full w-auto' : 'w-full max-w-\[9rem\]'/);
+});
+
 test('runtime renderers consume the saved transform for every equipment slot', () => {
   const gameTable = read('../src/pages/Game/components/GameTable.jsx');
   const deckPile = read('../src/components/DeckPile.jsx');

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Card, { CARD_THEMES } from './Card.jsx';
 import { motion } from 'framer-motion';
+import Combo5SelectionModal from './Combo5SelectionModal.jsx';
 
 export default function DiscardPile({ discardPile = [], pendingCombo5, myUserId, onSelectCard, compact = false }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -31,6 +32,11 @@ export default function DiscardPile({ discardPile = [], pendingCombo5, myUserId,
 
   return (
     <div className={`game-pile game-pile--discard ${compact ? 'game-pile--compact' : ''}`} onClick={(e) => e.stopPropagation()}>
+      <Combo5SelectionModal
+        cards={discardPile}
+        isOpen={isOpen && isChoosing}
+        onSelect={handleSelect}
+      />
       <span className="game-pile__label">Bài đã đánh</span>
 
       <div
@@ -101,7 +107,7 @@ export default function DiscardPile({ discardPile = [], pendingCombo5, myUserId,
       </button>
 
       {/* Discard Pile Modal Viewer */}
-      {isOpen && (() => {
+      {isOpen && !isChoosing && (() => {
         const typeCounts = discardPile.reduce((acc, card) => {
           acc[card.type] = (acc[card.type] || 0) + 1;
           return acc;

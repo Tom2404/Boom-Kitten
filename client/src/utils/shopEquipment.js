@@ -11,7 +11,7 @@ export const TYPE_TO_SLOT = Object.freeze(
 export const DEFAULT_ASSET_TRANSFORM = Object.freeze({ scale: 1, x: 0, y: 0 });
 
 const SLOT_ASPECT_RATIOS = Object.freeze({
-  protector: 2 / 3,
+  protector: 5 / 7,
   avatar_frame: 1,
   field: 16 / 9,
 });

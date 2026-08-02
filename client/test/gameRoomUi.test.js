@@ -12,6 +12,7 @@ import {
   getInteractionRequestState,
   getPlayerStatus,
   getReconnectRemainingSeconds,
+  shouldShowEliminationOverlay,
   shouldResumeActiveMatch,
 } from '../src/utils/gameRoomUi.js';
 
@@ -103,6 +104,40 @@ test('only a playing room automatically resumes the Game page', () => {
   assert.equal(shouldResumeActiveMatch({ status: 'playing' }), true);
   assert.equal(shouldResumeActiveMatch({ status: 'waiting' }), false);
   assert.equal(shouldResumeActiveMatch(null), false);
+});
+
+test('elimination overlay is local-only and stays hidden after the player continues watching', () => {
+  const players = [
+    { userId: 'a', alive: false },
+    { userId: 'b', alive: true },
+    { userId: 'c', alive: true },
+  ];
+
+  assert.equal(shouldShowEliminationOverlay({
+    roomStatus: 'playing',
+    edition: 'all',
+    players,
+    myUserId: 'a',
+  }), true);
+  assert.equal(shouldShowEliminationOverlay({
+    roomStatus: 'playing',
+    edition: 'all',
+    players,
+    myUserId: 'b',
+  }), false);
+  assert.equal(shouldShowEliminationOverlay({
+    roomStatus: 'playing',
+    edition: 'all',
+    players,
+    myUserId: 'a',
+    dismissed: true,
+  }), false);
+  assert.equal(shouldShowEliminationOverlay({
+    roomStatus: 'playing',
+    edition: 'zombie',
+    players,
+    myUserId: 'a',
+  }), false);
 });
 
 test('activity status distinguishes unread, open and connection states', () => {

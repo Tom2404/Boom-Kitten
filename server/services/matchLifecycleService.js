@@ -59,7 +59,7 @@ async function completeMatchHistory({
   if (room.tournamentMatchReference) {
     await recordTournamentResult({
       matchReference: room.tournamentMatchReference,
-      placements: validPlayers.map((player) => ({ userId: String(player.userId), placement: player.rank })),
+      placements: validPlayers.map((player) => ({ userId: String(player.userId), placement: player.rank, forfeit: Boolean(player.forfeit) })),
     });
   }
   return completed;

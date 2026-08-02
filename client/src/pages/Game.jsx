@@ -65,10 +65,12 @@ import LobbyView from './Game/views/LobbyView.jsx';
 import WaitingRoomView from './Game/views/WaitingRoomView.jsx';
 import GameBoardView from './Game/views/GameBoardView.jsx';
 import GameEndedOverlay from './Game/Modals/GameEndedOverlay.jsx';
+import EliminatedPlayerOverlay from './Game/Modals/EliminatedPlayerOverlay.jsx';
 import { GameProvider } from './Game/GameContext.jsx';
 import { animationManager } from '../vfx/AnimationManager.js';
 import { VFX_PRIORITY } from '../vfx/VFXEventAdapter.js';
 import { createTimeoutGroup } from './Game/gameMotion.js';
+import { shouldShowEliminationOverlay } from '../utils/gameRoomUi.js';
 
 /**
  * Renders custom pixel art artwork for each game edition/expansion
@@ -847,6 +849,22 @@ export default function Game({ setPage, initialRoom = null }) {
   const { t, language } = useLanguage();
 
   const [myUser, setMyUser] = useState(null);
+  const [eliminationOverlayDismissed, setEliminationOverlayDismissed] = useState(false);
+
+  const localPlayerAlive = gameState?.players?.find((player) => player.userId === myUser?.id)?.alive;
+  useEffect(() => {
+    if (roomState?.status !== 'playing' || localPlayerAlive !== false) {
+      setEliminationOverlayDismissed(false);
+    }
+  }, [localPlayerAlive, myUser?.id, roomState?.code, roomState?.status]);
+
+  const showEliminationOverlay = shouldShowEliminationOverlay({
+    roomStatus: roomState?.status,
+    edition: gameState?.edition,
+    players: gameState?.players,
+    myUserId: myUser?.id,
+    dismissed: eliminationOverlayDismissed,
+  });
 
   const [dialogState, setDialogState] = useState({
     isOpen: false,
@@ -1638,6 +1656,16 @@ export default function Game({ setPage, initialRoom = null }) {
           <p className="game-loading-state__copy">{t('result_returning_copy')}</p>
         </div>
       </div>
+    );
+  }
+
+  if (showEliminationOverlay) {
+    return (
+      <EliminatedPlayerOverlay
+        onContinue={() => setEliminationOverlayDismissed(true)}
+        onLeave={leaveRoom}
+        t={t}
+      />
     );
   }
 

@@ -80,7 +80,8 @@ test('asset framing maps focal position and zoom to image and field styles', () 
 });
 
 test('asset framing flags images whose ratio does not fit their equipment slot', () => {
-  assert.equal(needsAssetFraming('protector', 600, 900), false);
+  assert.equal(needsAssetFraming('protector', 500, 700), false);
+  assert.equal(needsAssetFraming('protector', 600, 900), true);
   assert.equal(needsAssetFraming('protector', 1672, 941), true);
   assert.equal(needsAssetFraming('avatar_frame', 512, 512), false);
   assert.equal(needsAssetFraming('field', 1254, 1254), true);

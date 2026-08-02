@@ -22,6 +22,7 @@ test('registration checks state, capacity, close time, and Coin only', () => {
   assert.throws(() => validatePlayerRegistration(tournament, { coins: 24 }, new Date('2030-01-01')), /Coin/i);
   assert.throws(() => validatePlayerRegistration({ ...tournament, registeredCount: 8 }, { coins: 100 }, new Date('2030-01-01')), /đầy/i);
   assert.throws(() => validatePlayerRegistration(tournament, { coins: 100 }, new Date('2030-01-03')), /đăng ký/i);
+  assert.throws(() => validatePlayerRegistration({ ...tournament, registrationOpensAt: new Date('2030-01-02') }, { coins: 100 }, new Date('2030-01-01')), (error) => error.code === 'STATE_CONFLICT');
 });
 
 test('cancellation refunds each paid entry atomically and records Coin transactions', async () => {

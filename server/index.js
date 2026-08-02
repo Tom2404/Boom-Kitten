@@ -78,14 +78,22 @@ const MONGO_URI = process.env.MONGO_URI;
 async function start() {
   if (!MONGO_URI) throw new Error('Missing MONGO_URI in environment');
   await mongoose.connect(MONGO_URI);
-  startAnnouncementScheduler({ io });
-  server.listen(PORT, () => {
-    // Startup log for local development visibility.
-    process.stdout.write(`Server listening on http://localhost:${PORT}\n`);
+  // HTTP listen failures are emitted asynchronously, so bridge them into start().
+  await new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(PORT, () => {
+      server.off('error', reject);
+      resolve();
+    });
   });
+  startAnnouncementScheduler({ io });
+  process.stdout.write(`Server listening on http://localhost:${PORT}\n`);
 }
 
 start().catch((error) => {
-  process.stderr.write(`${error.message}\n`);
+  const message = error.code === 'EADDRINUSE'
+    ? `Port ${PORT} is already in use. Stop the existing server process or set a different PORT.`
+    : error.message;
+  process.stderr.write(`${message}\n`);
   process.exit(1);
 });

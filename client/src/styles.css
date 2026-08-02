@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,100..900;1,100..900&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&family=Pixelify+Sans:wght@400;500;600;700&family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,100..900;1,100..900&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&family=Chakra+Petch:wght@500;600;700&family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap');
 
 /* Tailwind layers and small app-level styles. */
 @tailwind base;
@@ -11,6 +11,349 @@ body {
   color: #f8edcf;
   margin: 0;
   padding: 0;
+}
+
+/* Player wardrobe: scoped pixel-retro fitting room. */
+.wardrobe-shell {
+  --wardrobe-surface: #fffaf0;
+  position: relative;
+  isolation: isolate;
+}
+
+.wardrobe-shell::before {
+  position: fixed;
+  inset: 60px 0 0;
+  z-index: -1;
+  pointer-events: none;
+  content: '';
+  opacity: .2;
+  background-image: radial-gradient(#d8ae82 1px, transparent 1px);
+  background-size: 12px 12px;
+}
+
+.font-pixel {
+  font-family: 'Chakra Petch', 'Space Mono', monospace;
+}
+
+.wardrobe-page-title {
+  font-size: clamp(2.375rem, 4vw, 3.625rem);
+}
+
+.wardrobe-inventory-heading {
+  display: flex;
+  min-height: 4rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .75rem 1rem;
+  border-bottom: 2px solid var(--pop-black);
+  background: var(--wardrobe-surface);
+}
+
+.wardrobe-collection-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: .25rem;
+}
+
+.wardrobe-category-tab {
+  min-height: 3.25rem;
+}
+
+.wardrobe-category-tab--active {
+  background: #fbe1d8;
+  color: var(--pop-black);
+  box-shadow: inset 0 -4px 0 var(--pop-red);
+}
+
+.wardrobe-inventory-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11.25rem, 13.125rem));
+  align-items: start;
+  justify-content: start;
+  gap: 1rem;
+}
+
+.wardrobe-inventory-discovery {
+  display: flex;
+  min-height: 5.5rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 2px dashed rgba(36, 25, 20, .42);
+  background: #f7ead1;
+}
+
+.wardrobe-panel {
+  border: 3px solid var(--pop-black);
+  background: var(--wardrobe-surface);
+  box-shadow: 5px 5px 0 var(--pop-black);
+}
+
+.wardrobe-preview-spotlight {
+  position: absolute;
+  bottom: 1.35rem;
+  left: 50%;
+  z-index: 11;
+  width: 12rem;
+  height: 3.25rem;
+  border: 3px solid rgba(255, 224, 138, .72);
+  border-radius: 50%;
+  background: rgba(255, 193, 79, .18);
+  box-shadow: 0 0 0 7px rgba(90, 45, 34, .22);
+  transform: translateX(-50%);
+}
+
+.wardrobe-preview-focus {
+  filter: drop-shadow(0 8px 0 rgba(14, 10, 18, .28));
+}
+
+.wardrobe-status-badge {
+  min-height: 1.6rem;
+  padding: .3rem .5rem;
+  border: 2px solid var(--pop-black);
+  color: white;
+  font-family: 'Chakra Petch', 'Space Mono', monospace;
+  font-size: .65rem;
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+  box-shadow: 2px 2px 0 var(--pop-black);
+}
+
+.wardrobe-preview-status {
+  position: relative;
+  z-index: 21;
+  flex: 0 0 auto;
+}
+
+.wardrobe-loadout-slot {
+  padding: .65rem;
+  border: 2px solid var(--pop-black);
+  background: var(--wardrobe-surface);
+  box-shadow: 2px 2px 0 rgba(36, 25, 20, .7);
+}
+
+.wardrobe-slot-button,
+.wardrobe-card-action {
+  border: 2px solid var(--pop-black);
+  padding: .45rem .6rem;
+  font-family: 'Chakra Petch', 'Space Mono', monospace;
+  font-size: .7rem;
+  font-weight: 800;
+  line-height: 1;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.wardrobe-slot-button {
+  background: white;
+}
+
+.wardrobe-slot-button:hover:not(:disabled) {
+  background: #fbe1d8;
+}
+
+.wardrobe-slot-button--muted {
+  color: rgba(36, 25, 20, .68);
+}
+
+.wardrobe-preview-stage::before {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  content: '';
+  opacity: .18;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, .12) 1px, transparent 1px),
+    radial-gradient(circle at 50% 85%, #f4a340 0 2px, transparent 3px);
+  background-size: 100% 4px, 18px 18px;
+}
+
+.wardrobe-asset img {
+  image-rendering: pixelated;
+}
+
+.wardrobe-primary-button,
+.wardrobe-secondary-button,
+.wardrobe-small-button,
+.wardrobe-page-button {
+  border: 2px solid var(--pop-black);
+  font-family: 'Chakra Petch', 'Space Mono', monospace;
+  font-weight: 800;
+  text-transform: uppercase;
+  transition: transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
+}
+
+.wardrobe-primary-button {
+  padding: .65rem 1rem;
+  background: var(--pop-red);
+  color: white;
+  box-shadow: 3px 3px 0 var(--pop-black);
+  font-size: .72rem;
+}
+
+.wardrobe-secondary-button {
+  padding: .65rem .75rem;
+  background: var(--wardrobe-surface);
+  box-shadow: 1px 1px 0 var(--pop-black);
+  font-size: .68rem;
+}
+
+.wardrobe-small-button {
+  padding: .35rem .55rem;
+  background: var(--pop-red);
+  color: white;
+  box-shadow: 1px 1px 0 var(--pop-black);
+  font-size: .58rem;
+}
+
+.wardrobe-page-button {
+  display: grid;
+  width: 2.2rem;
+  height: 2.2rem;
+  place-items: center;
+  background: var(--wardrobe-surface);
+  box-shadow: none;
+  font-size: .7rem;
+}
+
+.wardrobe-primary-button:hover:not(:disabled),
+.wardrobe-secondary-button:hover:not(:disabled),
+.wardrobe-small-button:hover:not(:disabled),
+.wardrobe-page-button:hover:not(:disabled) {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--pop-black);
+}
+
+.wardrobe-primary-button:active:not(:disabled),
+.wardrobe-secondary-button:active:not(:disabled),
+.wardrobe-small-button:active:not(:disabled),
+.wardrobe-page-button:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+
+.wardrobe-primary-button:focus-visible,
+.wardrobe-secondary-button:focus-visible,
+.wardrobe-small-button:focus-visible,
+.wardrobe-page-button:focus-visible,
+.wardrobe-shell select:focus-visible {
+  outline: 3px solid #0891b2;
+  outline-offset: 2px;
+}
+
+.wardrobe-page-button:disabled {
+  cursor: not-allowed;
+  opacity: .35;
+  box-shadow: none;
+}
+
+.wardrobe-item-card {
+  --wardrobe-rarity: #a8a29e;
+  transition: transform 120ms ease, box-shadow 120ms ease, outline-color 120ms ease;
+}
+
+.wardrobe-item-card::before {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 10;
+  height: 5px;
+  content: '';
+  background: repeating-linear-gradient(90deg, var(--wardrobe-rarity) 0 14px, transparent 14px 18px);
+}
+
+.wardrobe-item-card[data-rarity='rare'] { --wardrobe-rarity: #159bc2; }
+.wardrobe-item-card[data-rarity='epic'] { --wardrobe-rarity: #a855f7; }
+.wardrobe-item-card[data-rarity='legendary'] { --wardrobe-rarity: #e39224; }
+
+.wardrobe-item-card .wardrobe-rarity-label {
+  border: 2px solid var(--pop-black);
+  background: var(--wardrobe-rarity);
+  padding: .2rem .5rem;
+  box-shadow: 2px 2px 0 var(--pop-black);
+  color: #111;
+}
+
+.wardrobe-item-card[data-previewed='true'] {
+  outline: 4px solid #06b6d4;
+  outline-offset: -4px;
+  transform: translateY(-3px);
+  box-shadow: 5px 6px 0 var(--pop-black);
+}
+
+.wardrobe-item-card[data-equipped='true'] {
+  border-color: #0f7b57;
+  box-shadow: 4px 4px 0 #0f7b57;
+}
+
+.wardrobe-item-card[data-locked='true'] .wardrobe-asset img {
+  filter: grayscale(.7) brightness(.7);
+  opacity: .72;
+}
+
+.wardrobe-item-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 4px 5px 0 var(--pop-black);
+}
+
+.wardrobe-toast {
+  animation: wardrobe-toast-in 150ms ease-out both;
+}
+
+@keyframes wardrobe-toast-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 479px) {
+  .wardrobe-inventory-heading,
+  .wardrobe-inventory-discovery {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .wardrobe-collection-progress {
+    align-items: stretch;
+  }
+
+  .wardrobe-collection-progress > span:last-child {
+    width: 100%;
+  }
+
+  .wardrobe-inventory-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .wardrobe-action-dock {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 60;
+    box-shadow: 0 -4px 0 var(--pop-black);
+  }
+}
+
+@media (max-width: 359px) {
+  .wardrobe-inventory-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wardrobe-shell *,
+  .wardrobe-shell *::before,
+  .wardrobe-shell *::after,
+  .wardrobe-toast {
+    scroll-behavior: auto !important;
+    animation: none !important;
+    transition: none !important;
+  }
 }
 
 /* Admin is a quiet operations surface; keep these tokens scoped away from the game UI. */
@@ -561,7 +904,7 @@ body {
 
 .pixel-dialog__header h2 {
   margin: 0;
-  font-family: 'Pixelify Sans', 'Space Mono', monospace;
+  font-family: 'Chakra Petch', 'Space Mono', monospace;
   font-size: clamp(1.2rem, 4vw, 1.65rem);
   font-weight: 800;
   line-height: 1.05;
@@ -593,7 +936,7 @@ body {
   padding: .55rem .8rem;
   border: 2px solid var(--dialog-ink);
   border-radius: 0;
-  font-family: 'Pixelify Sans', 'Space Mono', monospace;
+  font-family: 'Chakra Petch', 'Space Mono', monospace;
   font-size: .76rem;
   font-weight: 800;
   text-transform: uppercase;
@@ -625,6 +968,122 @@ body {
   font-weight: 800;
   text-align: center;
   text-transform: uppercase;
+}
+
+.combo5-dialog__callout {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  margin-bottom: 1rem;
+  padding: .7rem .8rem;
+  border: 2px solid var(--dialog-accent);
+  background: rgba(239, 170, 50, .1);
+  color: var(--dialog-ink);
+  font-family: 'Space Mono', monospace;
+  font-size: .65rem;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.combo5-dialog__callout::before {
+  display: grid;
+  width: 1.35rem;
+  height: 1.35rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 2px solid var(--dialog-accent);
+  background: var(--dialog-accent);
+  color: var(--dialog-accent-ink);
+  content: '★';
+  font-size: .8rem;
+}
+
+.combo5-dialog__callout strong,
+.combo5-dialog__callout span { display: block; }
+.combo5-dialog__callout span { margin-top: .15rem; color: var(--dialog-muted); font-size: .58rem; }
+
+.combo5-dialog__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: 1rem;
+  max-height: min(46vh, 31rem);
+  overflow-y: auto;
+  padding: .45rem .35rem .8rem;
+  scrollbar-color: var(--dialog-accent) var(--dialog-panel);
+}
+
+.combo5-dialog__card {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  padding: .7rem .45rem .55rem;
+  border: 2px solid color-mix(in srgb, var(--dialog-ink) 55%, transparent);
+  background: rgba(7, 9, 9, .32);
+  cursor: pointer;
+  transition: transform 120ms steps(2, end), border-color 120ms ease, background-color 120ms ease;
+}
+
+.combo5-dialog__card:hover,
+.combo5-dialog__card:focus-visible {
+  border-color: var(--dialog-accent);
+  background: rgba(239, 170, 50, .12);
+  outline: none;
+  transform: translateY(-3px);
+}
+
+.combo5-dialog__card:active { transform: translateY(2px); }
+
+.combo5-dialog__badge,
+.combo5-dialog__select-label {
+  position: absolute;
+  z-index: 3;
+  border: 2px solid var(--dialog-ink);
+  background: var(--dialog-accent);
+  color: var(--dialog-accent-ink);
+  font-family: 'Chakra Petch', monospace;
+  font-size: .55rem;
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.combo5-dialog__badge {
+  top: -.55rem;
+  left: -.35rem;
+  padding: .3rem .35rem;
+  transform: rotate(-3deg);
+}
+
+.combo5-dialog__select-label {
+  right: .2rem;
+  bottom: .15rem;
+  left: .2rem;
+  padding: .28rem .2rem;
+  text-align: center;
+}
+
+.combo5-dialog__footer {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  width: 100%;
+  color: var(--dialog-muted);
+  font-family: 'Space Mono', monospace;
+  font-size: .62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.combo5-dialog__footer-mark {
+  display: grid;
+  width: 1.2rem;
+  height: 1.2rem;
+  flex: 0 0 auto;
+  place-items: center;
+  background: var(--dialog-accent);
+  color: var(--dialog-accent-ink);
 }
 
 .pixel-card-rail,
@@ -720,7 +1179,7 @@ body {
   border-bottom: 2px solid var(--dialog-ink);
   background: var(--dialog-accent);
   color: var(--dialog-accent-ink);
-  font-family: 'Pixelify Sans', 'Space Mono', monospace;
+  font-family: 'Chakra Petch', 'Space Mono', monospace;
   font-size: .68rem;
   font-weight: 800;
   text-align: center;
@@ -1247,7 +1706,7 @@ body {
 
 /* Retro Pixel/Arcade Theme Extensions */
 .font-pixel-title {
-  font-family: 'Anybody', 'Pixelify Sans', sans-serif;
+  font-family: 'Anybody', 'Chakra Petch', sans-serif;
   font-weight: 700;
   image-rendering: pixelated;
 }
@@ -1523,13 +1982,13 @@ input::placeholder {
 
 /* Vietnamese Font Overrides to prevent mixed/broken pixel font diacritics */
 body.lang-vi .font-pixel-title {
-  font-family: 'Anybody', 'Space Mono', sans-serif;
+  font-family: 'Chakra Petch', 'DM Sans', sans-serif;
   font-weight: 800;
   letter-spacing: -0.01em;
 }
 
 body.lang-vi .font-pixel-body {
-  font-family: 'Space Mono', 'DM Sans', monospace;
+  font-family: 'Chakra Petch', 'DM Sans', sans-serif;
   font-weight: 500;
   font-size: 1.05rem;
 }
@@ -2230,7 +2689,7 @@ body.lang-vi .font-pixel-body {
  * Utility class for pixel-art VFX text overlays (card name stamps, etc.)
  */
 .vfx-pixel-label {
-  font-family: 'Pixelify Sans', 'Space Mono', monospace;
+  font-family: 'Chakra Petch', 'Space Mono', monospace;
   font-weight: 700;
   text-rendering: optimizeSpeed;
   image-rendering: pixelated;
@@ -2409,7 +2868,7 @@ body.lang-vi .font-pixel-body {
 .game-room-header__brand h1 { margin: 0; }
 .game-room-header__brand p {
   color: var(--game-brand);
-  font-family: 'Pixelify Sans', 'Space Mono', monospace;
+  font-family: 'Chakra Petch', 'Space Mono', monospace;
   font-size: .72rem;
   font-weight: 700;
   letter-spacing: .12em;
@@ -2457,7 +2916,7 @@ body.lang-vi .font-pixel-body {
   min-height: 2.25rem;
   border: 2px solid var(--game-ink);
   border-radius: 0;
-  font-family: 'Pixelify Sans', 'Space Mono', monospace;
+  font-family: 'Chakra Petch', 'Space Mono', monospace;
   font-size: .75rem;
   font-weight: 700;
   letter-spacing: .03em;
@@ -2525,7 +2984,7 @@ body.lang-vi .font-pixel-body {
 .game-turn-banner__eyebrow,
 .game-loading-state__eyebrow { margin: 0 0 .1rem; color: var(--game-muted); font-family: 'Space Mono', monospace; font-size: .62rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .game-turn-banner__title,
-.game-loading-state__title { margin: 0; font-family: 'Pixelify Sans', 'Anybody', sans-serif; font-size: clamp(.95rem, 1.7vw, 1.25rem); font-weight: 700; line-height: 1.05; text-transform: uppercase; }
+.game-loading-state__title { margin: 0; font-family: 'Chakra Petch', 'Anybody', sans-serif; font-size: clamp(.95rem, 1.7vw, 1.25rem); font-weight: 700; line-height: 1.05; text-transform: uppercase; }
 .game-turn-banner__description { margin: 0; color: var(--game-muted); font-size: .75rem; font-weight: 700; line-height: 1.4; }
 
 .game-opponent-rail {
@@ -2537,7 +2996,7 @@ body.lang-vi .font-pixel-body {
   border-bottom: 0;
   background: #efe0bf;
 }
-.game-opponent-rail__label { display: grid; min-width: 4.5rem; place-content: center; padding: .4rem .6rem; border-right: 1px dashed rgba(36, 25, 20, .38); font-family: 'Pixelify Sans', monospace; text-transform: uppercase; }
+.game-opponent-rail__label { display: grid; min-width: 4.5rem; place-content: center; padding: .4rem .6rem; border-right: 1px dashed rgba(36, 25, 20, .38); font-family: 'Chakra Petch', monospace; text-transform: uppercase; }
 .game-opponent-rail__label span { font-size: .72rem; font-weight: 700; }
 .game-opponent-rail__label small { color: var(--game-brand); font-size: .65rem; text-align: center; }
 .game-opponent-rail__scroller { display: flex; min-width: 0; align-items: center; gap: .4rem; overflow-x: auto; padding: .35rem .6rem; scrollbar-width: thin; }
@@ -2555,15 +3014,15 @@ body.lang-vi .font-pixel-body {
   text-align: left;
   transition: background-color 120ms ease, border-color 120ms ease, transform 120ms ease;
 }
-.game-opponent-seat__portrait { display: grid; width: 2.65rem; height: 2.65rem; place-items: center; overflow: hidden; border: 2px solid var(--game-ink); background: var(--game-brand); color: white; font-family: 'Pixelify Sans', monospace; font-size: 1.05rem; image-rendering: pixelated; clip-path: polygon(6px 0, calc(100% - 6px) 0, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 0 calc(100% - 6px), 0 6px); }
+.game-opponent-seat__portrait { display: grid; width: 2.65rem; height: 2.65rem; place-items: center; overflow: hidden; border: 2px solid var(--game-ink); background: var(--game-brand); color: white; font-family: 'Chakra Petch', monospace; font-size: 1.05rem; image-rendering: pixelated; clip-path: polygon(6px 0, calc(100% - 6px) 0, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 0 calc(100% - 6px), 0 6px); }
 .game-opponent-seat__portrait img { width: 100%; height: 100%; object-fit: cover; }
 .game-opponent-seat__identity { min-width: 0; }
 .game-opponent-seat__identity strong,
 .game-opponent-seat__identity small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.game-opponent-seat__identity strong { font-family: 'Pixelify Sans', monospace; font-size: .82rem; }
+.game-opponent-seat__identity strong { font-family: 'Chakra Petch', monospace; font-size: .82rem; }
 .game-opponent-seat__identity small { color: var(--game-muted); font-family: 'Space Mono', monospace; font-size: .62rem; }
 .game-opponent-seat__turn,
-.game-opponent-seat__alert { align-self: start; padding: .15rem .3rem; border: 1px solid var(--game-ink); background: var(--game-turn); font-family: 'Pixelify Sans', monospace; font-size: .58rem; text-transform: uppercase; }
+.game-opponent-seat__alert { align-self: start; padding: .15rem .3rem; border: 1px solid var(--game-ink); background: var(--game-turn); font-family: 'Chakra Petch', monospace; font-size: .58rem; text-transform: uppercase; }
 .game-opponent-seat__alert { background: var(--game-brand); color: white; }
 .game-opponent-seat--active { border-color: var(--game-ink); background: var(--game-turn); box-shadow: var(--game-shadow-small); transform: translateY(-1px); }
 .game-opponent-seat--targetable { cursor: pointer; border-style: dashed; border-color: var(--game-brand); }
@@ -2612,11 +3071,11 @@ body.lang-vi .font-pixel-body {
   color: #f7e8c5;
   clip-path: polygon(8px 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px), 0 8px);
 }
-.game-table-core__status p { margin: 0; font-family: 'Pixelify Sans', monospace; font-size: .82rem; font-weight: 700; text-align: center; }
+.game-table-core__status p { margin: 0; font-family: 'Chakra Petch', monospace; font-size: .82rem; font-weight: 700; text-align: center; }
 .game-table-core__status button { padding: .2rem .45rem; border: 1px solid var(--game-turn); background: transparent; color: var(--game-turn); font-family: 'Space Mono', monospace; font-size: .62rem; }
 .game-pixel-spark { width: .55rem; height: .55rem; flex: 0 0 auto; background: var(--game-turn); box-shadow: 4px 0 0 -2px #fff1b1, -4px 0 0 -2px #fff1b1, 0 4px 0 -2px #fff1b1, 0 -4px 0 -2px #fff1b1; }
 .game-table-core__piles { position: relative; z-index: 2; display: flex; align-items: center; justify-content: center; gap: clamp(1.75rem, 4vw, 3.5rem); transform: scale(1.08); }
-.game-table-core__flow { display: grid; width: 2rem; height: 2rem; place-items: center; border: 1px solid rgba(247, 232, 197, .7); background: rgba(14, 18, 17, .72); color: var(--game-turn); font-family: 'Pixelify Sans', monospace; font-size: 1.5rem; box-shadow: 2px 2px 0 #0e1211; }
+.game-table-core__flow { display: grid; width: 2rem; height: 2rem; place-items: center; border: 1px solid rgba(247, 232, 197, .7); background: rgba(14, 18, 17, .72); color: var(--game-turn); font-family: 'Chakra Petch', monospace; font-size: 1.5rem; box-shadow: 2px 2px 0 #0e1211; }
 .game-table-pile { filter: drop-shadow(0 10px 12px rgba(0, 0, 0, .25)); }
 .game-pile { display: flex; flex-direction: column; align-items: center; gap: .45rem; }
 .game-pile__label {
@@ -2624,7 +3083,7 @@ body.lang-vi .font-pixel-body {
   border: 1px solid rgba(247, 232, 197, .5);
   background: #111716;
   color: #f7e8c5;
-  font-family: 'Pixelify Sans', monospace;
+  font-family: 'Chakra Petch', monospace;
   font-size: .68rem;
   font-weight: 700;
   letter-spacing: .06em;
@@ -2662,22 +3121,22 @@ body.lang-vi .font-pixel-body {
 .game-pile__layer--three { transform: translate(12px, 12px); opacity: .6; }
 .game-pile__layer--four { transform: translate(16px, 16px); opacity: .42; }
 .game-pile__face-up { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
-.game-pile__back { position: absolute; inset: .55rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .5rem; border: 2px dashed rgba(255, 247, 223, .42); background: #b82d28; font-family: 'Pixelify Sans', monospace; font-size: .66rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.game-pile__back { position: absolute; inset: .55rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .5rem; border: 2px dashed rgba(255, 247, 223, .42); background: #b82d28; font-family: 'Chakra Petch', monospace; font-size: .66rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .game-pile__back--protector { inset: 0; border: 2px solid #0e1211; background: transparent; }
 .game-pile__back svg { width: 3rem; height: 3rem; fill: currentColor; filter: drop-shadow(2px 2px 0 #0e1211); }
 .game-pile__protector { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
 .game-pile__count { position: absolute; top: -.7rem; right: -.7rem; z-index: 5; display: grid; min-width: 2rem; height: 2rem; place-items: center; padding-inline: .25rem; border: 2px solid #f7e8c5; border-radius: 0; background: #111716; color: white; font-family: 'Space Mono', monospace; font-size: .65rem; font-weight: 800; box-shadow: 2px 2px 0 #0e1211; }
-.game-pile__hint { max-width: 8.5rem; border: 0; background: transparent; color: #9ca7a3; font-family: 'Pixelify Sans', monospace; font-size: .6rem; font-weight: 700; line-height: 1.2; text-align: center; text-transform: uppercase; }
+.game-pile__hint { max-width: 8.5rem; border: 0; background: transparent; color: #9ca7a3; font-family: 'Chakra Petch', monospace; font-size: .6rem; font-weight: 700; line-height: 1.2; text-align: center; text-transform: uppercase; }
 .game-pile__hint--active { color: var(--game-turn); }
 .game-pile__history { cursor: pointer; text-decoration: underline; text-underline-offset: .16rem; }
 .game-pile__history:hover:not(:disabled) { color: #f7e8c5; }
 .game-pile__history:disabled { cursor: not-allowed; opacity: .45; text-decoration: none; }
 .game-pile__discard-card { cursor: pointer; transition: transform 140ms steps(2, end); }
 .game-pile__discard-card:hover { transform: translateY(-3px); }
-.game-pile__empty { display: grid; place-items: center; border: 2px dashed rgba(247, 232, 197, .34); background: rgba(247, 232, 197, .06); color: rgba(247, 232, 197, .5); font-family: 'Pixelify Sans', monospace; font-size: .7rem; font-weight: 700; text-transform: uppercase; box-shadow: 3px 3px 0 #0e1211; clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px); }
+.game-pile__empty { display: grid; place-items: center; border: 2px dashed rgba(247, 232, 197, .34); background: rgba(247, 232, 197, .06); color: rgba(247, 232, 197, .5); font-family: 'Chakra Petch', monospace; font-size: .7rem; font-weight: 700; text-transform: uppercase; box-shadow: 3px 3px 0 #0e1211; clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px); }
 #discard-pile-element { position: relative; }
 .game-pile__combo-prompt { position: absolute; inset: 0; z-index: 6; display: grid; place-items: center; padding: .5rem; border: 3px solid var(--game-turn); border-radius: 2px; background: rgba(165, 47, 41, .82); color: white; text-align: center; }
-.game-pile__combo-prompt span { padding: .28rem .45rem; border: 2px solid #0e1211; background: var(--game-turn); color: #0e1211; font-family: 'Pixelify Sans', monospace; font-size: .62rem; font-weight: 700; text-transform: uppercase; box-shadow: 2px 2px 0 #0e1211; }
+.game-pile__combo-prompt span { padding: .28rem .45rem; border: 2px solid #0e1211; background: var(--game-turn); color: #0e1211; font-family: 'Chakra Petch', monospace; font-size: .62rem; font-weight: 700; text-transform: uppercase; box-shadow: 2px 2px 0 #0e1211; }
 .game-direction-mark { position: absolute; inset: 50% auto auto 50%; z-index: 0; width: 18rem; height: 18rem; opacity: .06; transform: translate(-50%, -50%); }
 .game-direction-mark span { display: grid; width: 100%; height: 100%; place-items: center; font: 900 16rem/1 var(--font-headline), sans-serif; }
 .game-direction-mark--pulse { animation: game-direction-pop 450ms steps(4, end); }
@@ -2689,9 +3148,9 @@ body.lang-vi .font-pixel-body {
 .game-player-dock__identity small,
 .game-player-dock__identity strong { display: block; text-align: left; }
 .game-player-dock__identity small { color: var(--game-muted); font-size: .58rem; text-transform: uppercase; }
-.game-player-dock__identity strong { max-width: 6rem; overflow: hidden; font-family: 'Pixelify Sans', monospace; font-size: .8rem; text-overflow: ellipsis; white-space: nowrap; }
+.game-player-dock__identity strong { max-width: 6rem; overflow: hidden; font-family: 'Chakra Petch', monospace; font-size: .8rem; text-overflow: ellipsis; white-space: nowrap; }
 .game-player-dock__identity b { margin-left: auto; padding: .2rem .4rem; border: 1px solid var(--game-ink); background: var(--game-turn); font-family: 'Space Mono', monospace; font-size: .58rem; }
-.game-player-dock__sprite { position: relative; display: grid !important; width: 2rem; height: 2rem; place-items: center; border: 2px solid var(--game-ink); background: var(--game-brand); color: white; font-family: 'Pixelify Sans', monospace; }
+.game-player-dock__sprite { position: relative; display: grid !important; width: 2rem; height: 2rem; place-items: center; border: 2px solid var(--game-ink); background: var(--game-brand); color: white; font-family: 'Chakra Petch', monospace; }
 .game-player-dock__avatar { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .game-player-dock__frame { position: absolute; inset: -.42rem; z-index: 2; width: calc(100% + .84rem); height: calc(100% + .84rem); object-fit: contain; pointer-events: none; }
 .game-hand { display: flex; min-width: 0; flex-direction: column; gap: .25rem; padding: .45rem .7rem 0; background: var(--game-paper); transition: background-color 160ms ease, box-shadow 160ms ease; }
@@ -2700,7 +3159,7 @@ body.lang-vi .font-pixel-body {
 .game-hand__toolbar { display: flex; min-height: 2.25rem; align-items: center; justify-content: space-between; gap: .75rem; padding-bottom: .35rem; border-bottom: 1px dashed rgba(36, 25, 20, .35); }
 .game-hand__summary,
 .game-hand__actions { display: flex; align-items: center; gap: .45rem; }
-.game-hand__summary > span:first-child { font-family: 'Pixelify Sans', monospace; font-size: .82rem; font-weight: 700; text-transform: uppercase; }
+.game-hand__summary > span:first-child { font-family: 'Chakra Petch', monospace; font-size: .82rem; font-weight: 700; text-transform: uppercase; }
 .game-hand__count,
 .game-hand__state { padding: .18rem .38rem; border: 1px solid var(--game-ink); background: var(--game-paper-deep); font-family: 'Space Mono', monospace; font-size: .58rem; font-weight: 800; }
 .game-hand--turn .game-hand__state { background: var(--game-turn); }
@@ -2708,7 +3167,7 @@ body.lang-vi .font-pixel-body {
 .game-hand__cards { display: flex; min-width: 0; max-width: 100%; cursor: grab; touch-action: pan-x; user-select: none; overflow-x: auto; padding: 2.25rem 1rem .75rem; scrollbar-width: thin; scroll-snap-type: x proximity; }
 .game-hand__cards > * { scroll-snap-align: center; }
 .game-hand__cards:active { cursor: grabbing; }
-.game-hand__empty { display: grid; min-height: 9rem; place-items: center; border: 2px dashed rgba(36, 25, 20, .45); background: rgba(255, 255, 255, .24); color: var(--game-muted); font-family: 'Pixelify Sans', monospace; font-size: .8rem; text-transform: uppercase; }
+.game-hand__empty { display: grid; min-height: 9rem; place-items: center; border: 2px dashed rgba(36, 25, 20, .45); background: rgba(255, 255, 255, .24); color: var(--game-muted); font-family: 'Chakra Petch', monospace; font-size: .8rem; text-transform: uppercase; }
 .game-card--hand-strip {
   width: 6.8rem;
   height: 9.8rem;
@@ -2760,9 +3219,9 @@ body.lang-vi .font-pixel-body {
 .game-activity-drawer__header p,
 .game-activity-drawer__header h2 { margin: 0; }
 .game-activity-drawer__header p { color: var(--game-brand); font-family: 'Space Mono', monospace; font-size: .58rem; font-weight: 800; text-transform: uppercase; }
-.game-activity-drawer__header h2 { font-family: 'Pixelify Sans', monospace; font-size: 1.25rem; text-transform: uppercase; }
+.game-activity-drawer__header h2 { font-family: 'Chakra Petch', monospace; font-size: 1.25rem; text-transform: uppercase; }
 .game-activity-tabs { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 2px solid var(--game-ink); }
-.game-activity-tabs button { min-height: 2.8rem; border: 0; border-right: 1px dashed rgba(36, 25, 20, .4); background: transparent; color: var(--game-muted); font-family: 'Pixelify Sans', monospace; font-size: .9rem; font-weight: 700; }
+.game-activity-tabs button { min-height: 2.8rem; border: 0; border-right: 1px dashed rgba(36, 25, 20, .4); background: transparent; color: var(--game-muted); font-family: 'Chakra Petch', monospace; font-size: .9rem; font-weight: 700; }
 .game-activity-tabs button:last-child { border-right: 0; }
 .game-activity-tabs button[aria-selected='true'] { background: var(--game-brand); color: white; box-shadow: inset 0 -4px 0 var(--game-turn); }
 .game-activity-panel { display: grid; min-height: 0; grid-template-rows: minmax(0, 1fr) auto; }
@@ -2772,12 +3231,12 @@ body.lang-vi .font-pixel-body {
 .game-chat-message { max-width: 88%; align-self: flex-start; padding: .55rem .65rem; border-left: 3px solid var(--game-brand); background: #eee0c2; }
 .game-chat-message--mine { align-self: flex-end; border-right: 3px solid var(--game-brand); border-left: 0; background: #f3d9a6; }
 .game-chat-message header { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
-.game-chat-message strong { font-family: 'Pixelify Sans', monospace; font-size: .72rem; }
+.game-chat-message strong { font-family: 'Chakra Petch', monospace; font-size: .72rem; }
 .game-chat-message time { color: var(--game-muted); font-family: 'Space Mono', monospace; font-size: .52rem; }
 .game-chat-message p { margin: .25rem 0 0; font-size: .76rem; font-weight: 600; line-height: 1.45; }
 .game-activity-empty { display: grid; min-height: 12rem; place-items: center; align-content: center; gap: .25rem; padding: 1rem; border: 2px dashed rgba(36, 25, 20, .28); color: var(--game-muted); text-align: center; }
-.game-activity-empty span { color: var(--game-brand); font-family: 'Pixelify Sans', monospace; font-size: 1.5rem; }
-.game-activity-empty strong { color: var(--game-ink); font-family: 'Pixelify Sans', monospace; }
+.game-activity-empty span { color: var(--game-brand); font-family: 'Chakra Petch', monospace; font-size: 1.5rem; }
+.game-activity-empty strong { color: var(--game-ink); font-family: 'Chakra Petch', monospace; }
 .game-activity-empty p { max-width: 15rem; margin: 0; font-size: .72rem; }
 .game-chat-composer { position: relative; padding: .65rem; border-top: 2px solid var(--game-ink); background: var(--game-paper-deep); }
 .game-chat-composer form { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: .4rem; }
@@ -2892,7 +3351,7 @@ body.lang-vi .font-pixel-body {
 .game-chat-message p { color: #2d211b; }
 .game-chat-message time { color: #624e40; }
 .game-chat-message { position: relative; padding-left: 2.9rem; }
-.game-chat-message__avatar { position: absolute; top: .55rem; left: .55rem; display: grid; width: 1.8rem; height: 1.8rem; place-items: center; border: 2px solid var(--game-ink); background: var(--game-brand); color: white; font-family: 'Pixelify Sans', monospace; font-size: .62rem; }
+.game-chat-message__avatar { position: absolute; top: .55rem; left: .55rem; display: grid; width: 1.8rem; height: 1.8rem; place-items: center; border: 2px solid var(--game-ink); background: var(--game-brand); color: white; font-family: 'Chakra Petch', monospace; font-size: .62rem; }
 .game-chat-message--mine { padding-right: 2.9rem; padding-left: .65rem; }
 .game-chat-message--mine .game-chat-message__avatar { right: .55rem; left: auto; background: var(--game-turn); color: var(--game-ink); }
 .game-activity-drawer { width: min(22.5rem, calc(100vw - 2rem)); }
@@ -3093,7 +3552,7 @@ body.lang-vi .font-pixel-body {
   border: 2px solid #0e1211;
   background: var(--game-brand, #d9383a);
   color: #ffffff;
-  font-family: 'Pixelify Sans', monospace;
+  font-family: 'Chakra Petch', monospace;
   font-size: 1.1rem;
   image-rendering: pixelated;
 }
@@ -3121,7 +3580,7 @@ body.lang-vi .font-pixel-body {
   background: #e11d48;
   color: #ffffff;
   border: 2px solid #0e1211;
-  font-family: 'Pixelify Sans', monospace;
+  font-family: 'Chakra Petch', monospace;
   font-size: 0.7rem;
   font-weight: 700;
   box-shadow: 2px 2px 0 #0e1211;
@@ -3168,7 +3627,7 @@ body.lang-vi .font-pixel-body {
   border: 0.08rem solid rgba(255, 232, 209, 0.72);
   color: #ffe8d1;
   content: 'BK';
-  font-family: 'Pixelify Sans', monospace;
+  font-family: 'Chakra Petch', monospace;
   font-size: 0.55rem;
   font-weight: 800;
 }
@@ -3198,7 +3657,7 @@ body.lang-vi .font-pixel-body {
 }
 
 .game-opponent-seat__hand-count strong {
-  font-family: 'Pixelify Sans', monospace;
+  font-family: 'Chakra Petch', monospace;
   font-size: 0.78rem;
 }
 
@@ -3217,7 +3676,7 @@ body.lang-vi .font-pixel-body {
 }
 
 .game-opponent-seat__identity strong {
-  font-family: 'Pixelify Sans', monospace;
+  font-family: 'Chakra Petch', monospace;
   font-size: 0.88rem;
   color: #f7e8c5;
   line-height: 1.1;
@@ -3304,7 +3763,7 @@ body.lang-vi .font-pixel-body {
 
 .turn-status-banner__text {
   margin: 0;
-  font-family: 'Pixelify Sans', monospace;
+  font-family: 'Chakra Petch', monospace;
   font-size: 0.9rem;
   font-weight: 700;
   text-align: center;
@@ -3385,7 +3844,7 @@ body.lang-vi .font-pixel-body {
   border: 1px solid rgba(250, 204, 21, 0.6);
   background: rgba(14, 18, 17, 0.9);
   color: var(--game-turn, #facc15);
-  font-family: 'Pixelify Sans', monospace;
+  font-family: 'Chakra Petch', monospace;
   box-shadow: 2px 2px 0 #0e1211;
 }
 

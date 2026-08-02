@@ -6,6 +6,9 @@ const tournamentParticipantSchema = new mongoose.Schema(
     tournamentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tournament', required: true, index: true },
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     registrationDate: { type: Date, default: Date.now },
+    withdrawnAt: { type: Date },
+    forfeitCount: { type: Number, default: 0, min: 0 },
+    lastMatchStatus: { type: String, enum: ['pending', 'completed', 'forfeit'] },
     finalRank: { type: Number },
     score: { type: Number, default: 0 },
     status: {
@@ -17,6 +20,7 @@ const tournamentParticipantSchema = new mongoose.Schema(
     paymentStatus: { type: String, enum: ['processing', 'paid', 'failed', 'refunded'], default: 'processing' },
     paymentRequestId: { type: String },
     refundRequestId: { type: String },
+    refundStatus: { type: String, enum: ['pending', 'processing', 'completed', 'failed'], default: 'pending' },
     refundedAt: { type: Date },
     paidAt: { type: Date },
     registeredBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

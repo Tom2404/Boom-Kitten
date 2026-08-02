@@ -9,8 +9,13 @@ const {
   createTournamentPayoutPreview,
   executeTournamentPayout,
 } = require('./admin/tournamentService');
+const {
+  TOURNAMENT_FORMAT,
+  TOURNAMENT_MATCH_GRACE_MS,
+  TOURNAMENT_PLACEMENT_POINTS,
+} = require('../utils/tournamentRules');
 
-const PLACEMENT_POINTS = Object.freeze({ 1: 5, 2: 3, 3: 1, 4: 0 });
+const PLACEMENT_POINTS = TOURNAMENT_PLACEMENT_POINTS;
 
 function identity(participant, seed) {
   const user = participant.userId || {};
@@ -22,7 +27,7 @@ function identity(participant, seed) {
   };
 }
 
-function scheduledMatch(tournamentId, stage, number, participants, status = 'blocked') {
+function scheduledMatch(tournamentId, stage, number, participants, status = 'blocked', scheduledAt = null, graceMs = TOURNAMENT_MATCH_GRACE_MS) {
   const id = `${stage}-m${number}`;
   return {
     id,
@@ -31,6 +36,9 @@ function scheduledMatch(tournamentId, stage, number, participants, status = 'blo
     participants,
     status,
     roomCode: null,
+    scheduledAt,
+    deadlineAt: scheduledAt ? new Date(new Date(scheduledAt).getTime() + graceMs).toISOString() : null,
+    resultSource: null,
     result: [],
   };
 }
@@ -55,8 +63,9 @@ function buildEightPlayerTournament(tournamentId, participants) {
     matches: Array.from({ length: 5 }, (_, index) => scheduledMatch(tournamentId, 'final', index + 1, [], 'blocked')),
   });
   return {
-    format: 'groups_then_final_v1',
-    scoring: { placementPoints: PLACEMENT_POINTS, tieBreak: ['points', 'wins', 'placementSum', 'seed'] },
+    format: TOURNAMENT_FORMAT,
+    rulesVersion: 1,
+    scoring: { placementPoints: PLACEMENT_POINTS, tieBreak: ['points', 'wins', 'placementSum', 'seed', 'participantId'] },
     participants: seeded,
     rounds,
   };
@@ -120,6 +129,7 @@ function applyTournamentMatchResult(bracketInput, matchReference, placements) {
   const normalized = placements.map((row) => ({
     participantId: String(row.participantId || participantByUser.get(String(row.userId)) || ''),
     placement: Number(row.placement),
+    forfeit: Boolean(row.forfeit),
   }));
   const ids = normalized.map((row) => row.participantId);
   const expected = [...match.participantIds].sort();
@@ -128,7 +138,8 @@ function applyTournamentMatchResult(bracketInput, matchReference, placements) {
   }
   const placementValues = normalized.map((row) => row.placement).sort((a, b) => a - b);
   if (placementValues.some((value, index) => value !== index + 1)) throw new ApiError(422, 'VALIDATION_ERROR', 'Thứ hạng Tournament phải liên tục từ 1.');
-  match.result = normalized.map((row) => ({ ...row, points: PLACEMENT_POINTS[row.placement] ?? 0 }));
+  match.result = normalized.map((row) => ({ ...row, points: PLACEMENT_POINTS[row.placement] ?? 0, forfeit: Boolean(row.forfeit) }));
+  match.resultSource = normalized.some((row) => row.forfeit) ? 'forfeit' : 'game_server';
   match.status = 'completed';
   match.completedAt = new Date().toISOString();
   unlockNextMatch(round, match);
@@ -148,8 +159,28 @@ function applyTournamentMatchResult(bracketInput, matchReference, placements) {
   return {
     bracket,
     replayed: false,
-    scoreDeltas: match.result.map(({ participantId, points }) => ({ participantId, points })),
+    scoreDeltas: match.result.map(({ participantId, points, forfeit }) => ({ participantId, points, forfeit })),
   };
+}
+
+function buildForfeitPlacements(matchInput, connectedParticipantIds = []) {
+  const match = matchInput || {};
+  if (match.status !== 'pending') {
+    if (match.status === 'completed') return [];
+    throw new ApiError(409, 'STATE_CONFLICT', 'Trận Tournament chưa sẵn sàng để xử thua.');
+  }
+  const connected = new Set(connectedParticipantIds.map(String));
+  const participants = [...(match.participants || [])].sort((left, right) => (
+    (left.seed ?? Number.MAX_SAFE_INTEGER) - (right.seed ?? Number.MAX_SAFE_INTEGER)
+    || String(left.participantId).localeCompare(String(right.participantId))
+  ));
+  const joined = participants.filter((person) => connected.has(String(person.participantId)));
+  const absent = participants.filter((person) => !connected.has(String(person.participantId)));
+  return [...joined, ...absent].map((person, index) => ({
+    participantId: String(person.participantId),
+    placement: index + 1,
+    forfeit: absent.includes(person),
+  }));
 }
 
 function tournamentStandings(bracket) {
@@ -160,9 +191,10 @@ function tournamentStandings(bracket) {
   if (!allCompleted) return totals.map((row) => ({ ...row, finalRank: undefined }));
   const qualifierIds = new Set(finalRound.matches[0].participantIds);
   const finalists = scoreTable(finalRound.matches, [...qualifierIds]);
+  const seedById = new Map(bracket.participants.map((person) => [person.participantId, person.seed]));
   const eliminated = groupRounds
     .flatMap((round) => scoreTable(round.matches, round.matches[0].participantIds).filter((row) => !qualifierIds.has(row.participantId)))
-    .sort((left, right) => right.points - left.points || right.wins - left.wins || left.placementSum - right.placementSum || left.participantId.localeCompare(right.participantId));
+    .sort((left, right) => right.points - left.points || right.wins - left.wins || left.placementSum - right.placementSum || (seedById.get(left.participantId) ?? Number.MAX_SAFE_INTEGER) - (seedById.get(right.participantId) ?? Number.MAX_SAFE_INTEGER) || left.participantId.localeCompare(right.participantId));
   const rankedIds = [...finalists, ...eliminated].map((row) => row.participantId);
   const totalById = new Map(totals.map((row) => [row.participantId, row]));
   return rankedIds.map((participantId, index) => ({ ...totalById.get(participantId), finalRank: index + 1 }));
@@ -193,7 +225,7 @@ async function ensureTournamentMatchRoom({
   const password = crypto.randomUUID();
   const room = rooms.createRoom(
     host.userId,
-    { edition: 'original', maxPlayers: 4, betAmount: 0, gameMode: 'tournament', password },
+    { edition: 'original', maxPlayers: 4, betAmount: 0, gameMode: 'tournament', password, reconnectGraceMs: TOURNAMENT_MATCH_GRACE_MS },
     profileFor(host),
   );
   room.tournamentId = String(tournamentId);
@@ -249,12 +281,26 @@ async function recordTournamentMatchResult({
     if (!tournament) return recordTournamentMatchResult({ matchReference, placements, TournamentModel, ParticipantModel, autoPayout });
   }
   const standings = tournamentStandings(tournament.bracket);
-  await ParticipantModel.bulkWrite(standings.map((row) => ({
-    updateOne: {
-      filter: { _id: row.participantId, tournamentId: tournament._id },
-      update: { $set: { score: row.points, ...(row.finalRank && { finalRank: row.finalRank, status: row.finalRank === 1 ? 'winner' : 'eliminated' }) } },
-    },
-  })));
+  if (!applied.replayed) {
+    const completedMatch = findMatch(tournament.bracket, matchReference)?.match;
+    const resultById = new Map((completedMatch?.result || []).map((row) => [String(row.participantId), row]));
+    await ParticipantModel.bulkWrite(standings.map((row) => {
+      const matchResult = resultById.get(String(row.participantId));
+      return {
+        updateOne: {
+          filter: { _id: row.participantId, tournamentId: tournament._id },
+          update: {
+            $set: {
+              score: row.points,
+              ...(matchResult && { lastMatchStatus: matchResult.forfeit ? 'forfeit' : 'completed' }),
+              ...(row.finalRank && { finalRank: row.finalRank, status: row.finalRank === 1 ? 'winner' : 'eliminated' }),
+            },
+            ...(matchResult?.forfeit && { $inc: { forfeitCount: 1 } }),
+          },
+        },
+      };
+    }));
+  }
   if (tournament.status === 'completed' && tournament.payoutState !== 'completed') {
     try {
       await autoPayout(tournament);
@@ -272,4 +318,5 @@ module.exports = {
   ensureTournamentMatchRoom,
   recordTournamentMatchResult,
   tournamentStandings,
+  buildForfeitPlacements,
 };

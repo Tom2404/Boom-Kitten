@@ -33,6 +33,17 @@ test('keeps a disconnected player in the active room until the reconnect deadlin
   }
 });
 
+test('Tournament rooms use the five-minute reconnect grace policy', () => {
+  const room = createRoom('tournament-host', { gameMode: 'tournament', reconnectGraceMs: 5 * 60 * 1000 }, 'Host');
+  try {
+    assert.equal(room.reconnectGraceMs, 5 * 60 * 1000);
+    const player = markPlayerDisconnected(room.code, 'tournament-host', 123);
+    assert.equal(player.reconnectDeadline, 123);
+  } finally {
+    forceCloseRoom(room.code);
+  }
+});
+
 test('restores a player at the deadline but rejects a reconnect after it', () => {
   const room = createRoom('host', {}, 'Host');
 

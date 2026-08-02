@@ -103,6 +103,6 @@ test('records Tournament placements through the shared match completion lifecycl
   });
   assert.deepEqual(resultPayload, {
     matchReference: 'cup-1:group-a-m1',
-    placements: [{ userId: 'user-1', placement: 1 }, { userId: 'user-2', placement: 2 }],
+    placements: [{ userId: 'user-1', placement: 1, forfeit: false }, { userId: 'user-2', placement: 2, forfeit: false }],
   });
 });

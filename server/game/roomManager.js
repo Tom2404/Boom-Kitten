@@ -3,6 +3,7 @@ const { createDeck, dealCards } = require('./deck');
 
 const rooms = new Map();
 const RECONNECT_GRACE_MS = 60_000;
+const MAX_RECONNECT_GRACE_MS = 15 * 60 * 1000;
 const VALID_EDITIONS = new Set(['original', '2_player', 'zombie', 'barking', 'good_vs_evil', 'imploding', 'streaking']);
 const { validateStake } = require('../services/wagerService');
 
@@ -76,6 +77,9 @@ function createRoom(hostId, options = {}, profile = 'Guest') {
     betAmount,
     edition,
     gameMode: ['matchmaking', 'tournament'].includes(options.gameMode) ? options.gameMode : 'custom',
+    reconnectGraceMs: Number.isSafeInteger(Number(options.reconnectGraceMs))
+      ? Math.min(Math.max(Number(options.reconnectGraceMs), RECONNECT_GRACE_MS), MAX_RECONNECT_GRACE_MS)
+      : RECONNECT_GRACE_MS,
     createdAt: new Date(),
     updatedAt: new Date(),
     gameState: null,
@@ -301,12 +305,13 @@ function disconnectPlayer(roomCode, userId) {
   return leaveRoom(roomCode, userId);
 }
 
-function markPlayerDisconnected(roomCode, userId, reconnectDeadline = Date.now() + RECONNECT_GRACE_MS) {
+function markPlayerDisconnected(roomCode, userId, reconnectDeadline) {
   const room = rooms.get(roomCode);
   const player = room?.players.find((candidate) => candidate.userId === userId);
   if (!player || player.forfeited) return null;
+  const deadline = reconnectDeadline ?? Date.now() + (room.reconnectGraceMs || RECONNECT_GRACE_MS);
   player.connectionStatus = 'reconnecting';
-  player.reconnectDeadline = reconnectDeadline;
+  player.reconnectDeadline = deadline;
   touchRoom(room);
   return player;
 }
@@ -334,6 +339,7 @@ function findRoomByUser(userId) {
 
 module.exports = {
   RECONNECT_GRACE_MS,
+  MAX_RECONNECT_GRACE_MS,
   createRoom,
   joinRoom,
   leaveRoom,

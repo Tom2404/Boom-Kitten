@@ -104,7 +104,8 @@ export function AlterFutureModal({
   const submit = () => {
     if (isSubmitting) return;
     setIsSubmitting(true);
-    onConfirm(order.map((card) => card.id));
+    // The server validates and applies the submitted card objects by id.
+    onConfirm(order);
   };
 
   return (

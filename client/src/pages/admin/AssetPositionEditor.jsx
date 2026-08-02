@@ -8,7 +8,7 @@ import {
 import { Alert, Button, inputClass } from './ui.jsx';
 
 const frameClass = {
-  protector: 'aspect-[2/3] max-w-48',
+  protector: 'aspect-[5/7] max-w-48',
   avatar_frame: 'aspect-square max-w-64',
   field: 'aspect-video max-w-full',
 };

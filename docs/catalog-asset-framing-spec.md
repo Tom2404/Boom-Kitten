@@ -11,6 +11,10 @@ Success means an Admin can drag or use keyboard-accessible controls to position
 a Protector, Avatar Frame, or Field inside its real target aspect ratio without
 editing the source file.
 
+The canonical target ratios are Protector `5:7`, Avatar Frame `1:1`, and Field
+`16:9`. Wardrobe previews and the Admin framing viewport must use these same
+ratios.
+
 ## Tech Stack
 
 - React 18 and Tailwind CSS in `client/`.
@@ -80,6 +84,7 @@ immediate Admin load/fit feedback and runtime-consistent framing.
 - Pointer drag, zoom slider, X/Y range inputs, and reset update the preview.
 - Saved transforms survive create/edit and are applied to Field, Protector, and
   Avatar Frame runtime renderers.
+- Protector previews use a 5:7 frame in both Wardrobe and Catalog Admin.
 - Server/client tests and the client production build pass.
 
 ## Open Questions

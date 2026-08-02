@@ -7,16 +7,23 @@ const { publicTournament, registerPlayer, withdrawPlayer } = require('../service
 const { ensureTournamentMatchRoom } = require('../services/tournamentLifecycleService');
 
 const router = express.Router();
+const tournamentsEnabled = process.env.TOURNAMENTS_ENABLED !== 'false';
+const requireTournamentOperations = (_req, res, next) => {
+  if (!tournamentsEnabled) return res.status(503).json({ success: false, code: 'FEATURE_UNAVAILABLE', message: 'Tournament đang tạm dừng nhận thao tác mới.' });
+  return next();
+};
 
 router.get('/', async (req, res, next) => {
   try {
-    const status = ['registration', 'active', 'completed'].includes(req.query.status) ? req.query.status : { $in: ['registration', 'active'] };
+    const status = ['registration', 'active', 'completed', 'cancelled'].includes(req.query.status) ? req.query.status : { $in: ['registration', 'active', 'completed', 'cancelled'] };
     const tournaments = await Tournament.find({ status }).sort({ startTime: 1, _id: 1 }).limit(100).lean();
     return res.json({ success: true, data: tournaments.map(publicTournament) });
   } catch (error) {
     return next(error);
   }
 });
+
+router.get('/rules', (_req, res) => res.json({ success: true, data: require('../utils/tournamentRules').TOURNAMENT_RULES }));
 
 router.get('/:id', authMiddleware, async (req, res, next) => {
   try {
@@ -52,7 +59,7 @@ router.get('/:id', authMiddleware, async (req, res, next) => {
   }
 });
 
-router.post('/:id/matches/room', authMiddleware, async (req, res, next) => {
+router.post('/:id/matches/room', authMiddleware, requireTournamentOperations, async (req, res, next) => {
   try {
     const matchReference = String(req.body?.matchReference || '').trim();
     if (!matchReference || matchReference.length > 180) return res.status(422).json({ message: 'matchReference is required' });
@@ -63,7 +70,7 @@ router.post('/:id/matches/room', authMiddleware, async (req, res, next) => {
   }
 });
 
-router.post('/:id/register', authMiddleware, async (req, res, next) => {
+router.post('/:id/register', authMiddleware, requireTournamentOperations, async (req, res, next) => {
   try {
     const requestId = String(req.body?.requestId || req.get('idempotency-key') || '').trim();
     if (!requestId || requestId.length > 120) return res.status(422).json({ message: 'requestId is required' });
@@ -74,7 +81,7 @@ router.post('/:id/register', authMiddleware, async (req, res, next) => {
   }
 });
 
-router.post('/:id/withdraw', authMiddleware, async (req, res, next) => {
+router.post('/:id/withdraw', authMiddleware, requireTournamentOperations, async (req, res, next) => {
   try {
     const requestId = String(req.body?.requestId || req.get('idempotency-key') || '').trim();
     if (!requestId || requestId.length > 120) return res.status(422).json({ message: 'requestId is required' });
