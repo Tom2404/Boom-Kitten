@@ -9,6 +9,14 @@ export const ADMIN_NAV_GROUPS = [
     ],
   },
   {
+    id: 'safety',
+    vi: 'An toàn',
+    en: 'Safety',
+    items: [
+      { id: 'moderation', permission: 'moderation.read', icon: 'shield_person', vi: ['Kiểm duyệt', 'Báo cáo và xử lý'], en: ['Moderation', 'Reports and triage'] },
+    ],
+  },
+  {
     id: 'resources',
     vi: 'Tài nguyên',
     en: 'Resources',

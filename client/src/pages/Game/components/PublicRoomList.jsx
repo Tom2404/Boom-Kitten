@@ -115,7 +115,7 @@ export default function PublicRoomList() {
                         {renderEditionBadge(room.edition)}
                       </td>
                       <td className="py-4 px-6 text-center font-black text-[#ff5722]">
-                        {room.betAmount || 50}
+                        {room.betAmount ?? 50}
                       </td>
                       <td className="py-4 px-6 text-center">
                         <div className="flex flex-col items-center justify-center">

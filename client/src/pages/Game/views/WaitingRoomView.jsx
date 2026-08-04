@@ -1,13 +1,19 @@
 import React from 'react';
 import { useGameContext } from '../GameContext.jsx';
+import { getAssetTransformStyle } from '../../../utils/shopEquipment.js';
+import { useSocket } from '../../../hooks/useSocket.js';
 
 export default function WaitingRoomView() {
+  const socket = useSocket();
+  const [friends, setFriends] = React.useState([]);
+  const [inviteStatus, setInviteStatus] = React.useState('');
   const props = useGameContext();
   const {
     CheckIcon,
     CoinIcon,
     CrownIcon,
     LogoutIcon,
+    PRESET_AVATARS,
     copied,
     copyIcon,
     doorIcon,
@@ -38,6 +44,22 @@ export default function WaitingRoomView() {
     toggleReady,
     updateRoomSettings,
   } = props;
+
+  React.useEffect(() => {
+    const token = localStorage.getItem('accessToken');
+    if (!token || roomState.status !== 'waiting') return undefined;
+    let cancelled = false;
+    fetch(`${import.meta.env.VITE_API_URL ?? 'http://localhost:5000'}/api/users/me/friends`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((response) => response.ok ? response.json() : [])
+      .then((data) => { if (!cancelled) setFriends(Array.isArray(data) ? data : []); })
+      .catch(() => { if (!cancelled) setFriends([]); });
+    return () => { cancelled = true; };
+  }, [roomState.status]);
+
+  const inviteFriend = (friend) => {
+    socket.emit('room:invite', { roomCode: roomState.code, friendId: friend._id });
+    setInviteStatus(`Đã gửi lời mời tới ${friend.username}.`);
+  };
 
   if (roomState.status === 'waiting') {
     return (
@@ -102,10 +124,30 @@ export default function WaitingRoomView() {
                     className={`bg-white border-4 p-3 flex items-center gap-4 shadow-[inset_-3px_-3px_0_rgba(0,0,0,0.05),4px_4px_0_rgba(0,0,0,0.2)] relative transition-transform ${isMe ? 'border-[var(--pop-amber)] scale-[1.02]' : 'border-[var(--pop-black)] hover:scale-[1.02]'}`}
                   >
                     <div
-                      className="w-[50px] h-[50px] bg-[#ddd] border-2 border-[var(--pop-black)] flex justify-center items-center font-pop-display font-black text-2xl uppercase shrink-0"
+                      className="relative w-[50px] h-[50px] bg-[#ddd] border-2 border-[var(--pop-black)] flex justify-center items-center font-pop-display font-black text-2xl uppercase shrink-0"
                       style={{ backgroundColor: getAvatarBgColor(player.username || player.userId) }}
                     >
-                      {player.username ? player.username.slice(0, 2) : player.userId.slice(0, 2)}
+                      <span>
+                        {PRESET_AVATARS[player.avatar]
+                          || (player.username ? player.username.slice(0, 2) : player.userId.slice(0, 2))}
+                      </span>
+                      {player.avatar && !PRESET_AVATARS[player.avatar] && (
+                        <img
+                          src={player.avatar}
+                          alt=""
+                          className="absolute inset-0 h-full w-full object-cover"
+                          onError={(event) => event.currentTarget.remove()}
+                        />
+                      )}
+                      {player.avatarFrame?.assetUrl && (
+                        <img
+                          src={player.avatarFrame.assetUrl}
+                          alt=""
+                          style={getAssetTransformStyle(player.avatarFrame.assetTransform)}
+                          className="absolute inset-[-7px] z-10 h-[calc(100%+14px)] w-[calc(100%+14px)] object-contain pointer-events-none"
+                          onError={(event) => event.currentTarget.remove()}
+                        />
+                      )}
                     </div>
 
                     <div className="flex-1 overflow-hidden">
@@ -147,6 +189,16 @@ export default function WaitingRoomView() {
 
             {/* Sidebar */}
             <div className="waiting-room-sidebar flex-[1] flex flex-col gap-4 content-start">
+              <div className="bg-white border-4 border-[var(--pop-black)] p-4 shadow-[4px_4px_0_rgba(0,0,0,0.2)]">
+                <h3 className="font-pop-display font-black text-sm uppercase border-b-2 border-[var(--pop-black)] pb-2">Mời bạn bè</h3>
+                {inviteStatus && <p className="mt-2 text-xs font-bold text-[var(--pop-green)]" role="status">{inviteStatus}</p>}
+                <div className="mt-3 grid max-h-40 gap-2 overflow-y-auto">
+                  {friends.length === 0 ? <p className="text-xs font-bold text-[var(--pop-black)]/60">Không có bạn bè để mời.</p> : friends.map((friend) => {
+                    const inRoom = roomState.players.some((player) => String(player.userId) === String(friend._id));
+                    return <button key={friend._id} type="button" disabled={inRoom || !friend.isOnline} onClick={() => inviteFriend(friend)} className="flex items-center justify-between border-2 border-[var(--pop-black)] bg-[var(--pop-cream)] px-3 py-2 text-left text-xs font-black disabled:opacity-45"><span className="truncate">{PRESET_AVATARS[friend.avatar] || '🐱'} {friend.username}</span><span>{inRoom ? 'Trong phòng' : friend.isOnline ? 'Mời' : 'Offline'}</span></button>;
+                  })}
+                </div>
+              </div>
 
               {/* Cài đặt phòng */}
               <div className="bg-white border-4 border-[var(--pop-black)] p-4 shadow-[4px_4px_0_rgba(0,0,0,0.2)]">
@@ -184,7 +236,7 @@ export default function WaitingRoomView() {
                     <span className="flex items-center gap-1">
                       <CoinIcon className="w-4 h-4 text-[var(--pop-amber)]" /> Cược:
                     </span>
-                    <strong className="text-[var(--pop-amber)] text-lg font-black" style={{ textShadow: '1px 1px 0 var(--pop-black)' }}>{roomState.betAmount || 50}</strong>
+                    <strong className="text-[var(--pop-amber)] text-lg font-black" style={{ textShadow: '1px 1px 0 var(--pop-black)' }}>{roomState.betAmount ?? 50}</strong>
                   </div>
                 </div>
               </div>

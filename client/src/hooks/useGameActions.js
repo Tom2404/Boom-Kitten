@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from 'react';
+
 export function useGameActions({
   socket,
   roomState,
@@ -21,6 +23,30 @@ export function useGameActions({
   setDigDeeperRequest,
   setArmageddonRequest,
 }) {
+  const [isDrawPending, setIsDrawPending] = useState(false);
+  const drawPendingRef = useRef(false);
+  const drawTimeoutRef = useRef(null);
+
+  const unlockDraw = () => {
+    drawPendingRef.current = false;
+    setIsDrawPending(false);
+    if (drawTimeoutRef.current) window.clearTimeout(drawTimeoutRef.current);
+    drawTimeoutRef.current = null;
+  };
+
+  useEffect(() => {
+    const onDrawFinished = () => {
+      if (drawPendingRef.current) unlockDraw();
+    };
+    socket.on('game:cardDrawn', onDrawFinished);
+    socket.on('error', onDrawFinished);
+    return () => {
+      socket.off('game:cardDrawn', onDrawFinished);
+      socket.off('error', onDrawFinished);
+      if (drawTimeoutRef.current) window.clearTimeout(drawTimeoutRef.current);
+    };
+  }, [socket]);
+
   const getActiveInteractionId = (type) => (
     activeInteractionRequest?.type === type ? activeInteractionRequest.interactionId : undefined
   );
@@ -34,6 +60,7 @@ export function useGameActions({
   };
 
   const leaveRoom = () => {
+    unlockDraw();
     socket.emit('room:leave');
     setRoomState(null);
     setGameState(null);
@@ -67,11 +94,15 @@ export function useGameActions({
   };
 
   const drawCard = () => {
-    socket.emit('game:drawCard');
+    if (drawPendingRef.current) return;
+    drawPendingRef.current = true;
+    setIsDrawPending(true);
+    drawTimeoutRef.current = window.setTimeout(unlockDraw, 5000);
+    socket.emit('game:drawCard', {}, () => unlockDraw());
   };
 
   const playCard = (cardType, targetPlayerId = null, options = null) => {
-    socket.emit('game:playCard', { cardType, targetPlayerId, options });
+    socket.emit('game:playCard', { cardType, targetPlayerId, options }, () => {});
   };
 
   const playNope = (originalEventId) => {
@@ -172,6 +203,7 @@ export function useGameActions({
     toggleReady,
     updateRoomSettings,
     kickPlayer,
+    isDrawPending,
     drawCard,
     playCard,
     playNope,

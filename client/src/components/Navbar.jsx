@@ -1,6 +1,16 @@
 import React from 'react';
 import { useLanguage } from '../context/LanguageContext.jsx';
-import { PixelHomeIcon, PixelPlayIcon, PixelTrophyIcon, PixelShopIcon, PixelProfileIcon, PixelStarIcon } from './PixelIcons.jsx';
+import {
+  PixelHomeIcon,
+  PixelPlayIcon,
+  PixelProfileIcon,
+  PixelFriendsIcon,
+  PixelLeaderboardIcon,
+  PixelShopIcon,
+  PixelStarIcon,
+  PixelTrophyIcon,
+  PixelWardrobeIcon,
+} from './PixelIcons.jsx';
 import { isAdminRole } from '../utils/adminRoles.js';
 
 /**
@@ -28,6 +38,8 @@ export default function Navbar({ page, setPage, isLoggedIn, userRole, handleLogo
 
   const [regHover, setRegHover] = React.useState(false);
   const [regActive, setRegActive] = React.useState(false);
+  const [mobileOpen, setMobileOpen] = React.useState(false);
+  const mobileMenuButtonRef = React.useRef(null);
 
   // Smooth scroll to home top or specific elements
   const scrollToSection = (id) => {
@@ -40,6 +52,24 @@ export default function Navbar({ page, setPage, isLoggedIn, userRole, handleLogo
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     }, 50);
+  };
+
+  const navigationItems = [
+    { page: 'Home', label: t('home'), Icon: PixelHomeIcon },
+    { page: 'Game', label: t('arena'), Icon: PixelPlayIcon },
+    { page: 'Tournaments', label: 'Tournament', Icon: PixelTrophyIcon },
+    { page: 'Leaderboard', label: language === 'en' ? 'Top 20' : 'Xếp hạng', Icon: PixelLeaderboardIcon },
+    { page: 'Mission', label: t('mission'), Icon: PixelStarIcon },
+    { page: 'Shop', label: t('shop'), Icon: PixelShopIcon },
+    { page: 'Wardrobe', label: t('wardrobe'), Icon: PixelWardrobeIcon, authenticated: true },
+    { page: 'Friends', label: language === 'en' ? 'Friends' : 'Bạn bè', Icon: PixelFriendsIcon, authenticated: true },
+    { page: 'Profile', label: t('profile'), Icon: PixelProfileIcon, authenticated: true },
+  ].filter((item) => !item.authenticated || isLoggedIn);
+
+  const navigateTo = (targetPage) => {
+    setMobileOpen(false);
+    if (targetPage === 'Home') scrollToSection('hero');
+    else setPage(targetPage);
   };
 
   // Lang Switcher Button pop art style
@@ -127,7 +157,15 @@ export default function Navbar({ page, setPage, isLoggedIn, userRole, handleLogo
   }
 
   return (
-    <nav className="sticky top-0 w-full h-[60px] bg-[var(--pop-black)] border-b-2 border-white/10 z-50 select-none">
+    <nav
+      className="sticky top-0 w-full h-[60px] bg-[var(--pop-black)] border-b-2 border-white/10 z-50 select-none"
+      onKeyDown={(event) => {
+        if (event.key === 'Escape' && mobileOpen) {
+          setMobileOpen(false);
+          mobileMenuButtonRef.current?.focus();
+        }
+      }}
+    >
       <div className="max-w-7xl mx-auto h-full px-2 sm:px-4 md:px-12 flex justify-between items-center">
         
         {/* LOGO */}
@@ -145,77 +183,21 @@ export default function Navbar({ page, setPage, isLoggedIn, userRole, handleLogo
         </div>
 
         {/* NAVIGATION LINKS (Unified with core game routes) */}
-        <div className="hidden lg:flex items-center gap-6 font-pop-body text-xs font-bold">
-          <button 
-            onClick={() => scrollToSection('hero')}
-            className={`flex items-center gap-1.5 uppercase tracking-wider transition-all duration-200 border-b-2 py-1 px-1 cursor-pointer
-              ${page === 'Home' 
-                ? 'text-white border-[var(--pop-red)] font-black translate-y-[-1px]' 
-                : 'text-[#888] border-transparent hover:text-white hover:border-white/40'}`}
-          >
-            <PixelHomeIcon size={12} className={page === 'Home' ? 'text-[var(--pop-red)]' : 'text-neutral-500'} />
-            {t('home')}
-          </button>
-          
-          {!isAdmin && (
-            <button 
-              onClick={() => setPage('Game')}
-              className={`flex items-center gap-1.5 uppercase tracking-wider transition-all duration-200 border-b-2 py-1 px-1 cursor-pointer
-                ${page === 'Game' 
-                  ? 'text-white border-[var(--pop-red)] font-black translate-y-[-1px]' 
-                  : 'text-[#888] border-transparent hover:text-white hover:border-white/40'}`}
-            >
-              <PixelPlayIcon size={12} className={page === 'Game' ? 'text-[var(--pop-red)]' : 'text-neutral-500'} />
-              {t('arena')}
-            </button>
-          )}
-          
-          {!isAdmin && (
-            <>
+        <div className="hidden lg:flex items-center gap-2 xl:gap-6 font-pop-body text-xs font-bold">
+          {!isAdmin && navigationItems.map(({ page: targetPage, label, Icon }) => {
+            const active = page === targetPage;
+            return (
               <button
-                onClick={() => setPage('Tournaments')}
-                className={`flex items-center gap-1.5 uppercase tracking-wider transition-all duration-200 border-b-2 py-1 px-1 cursor-pointer ${page === 'Tournaments' ? 'text-white border-[var(--pop-red)] font-black' : 'text-[#888] border-transparent hover:text-white'}`}
+                key={targetPage}
+                type="button"
+                onClick={() => navigateTo(targetPage)}
+                className={`flex items-center gap-1.5 uppercase tracking-wider transition-all duration-200 border-b-2 py-1 px-1 cursor-pointer ${active ? 'text-white border-[var(--pop-red)] font-black translate-y-[-1px]' : 'text-[#888] border-transparent hover:text-white hover:border-white/40'}`}
               >
-                <PixelTrophyIcon size={12} className={page === 'Tournaments' ? 'text-[var(--pop-red)]' : 'text-neutral-500'} />
-                Tournament
+                <Icon size={12} className={active ? 'text-[var(--pop-red)]' : 'text-neutral-500'} />
+                {label}
               </button>
-
-              <button 
-                onClick={() => setPage('Mission')}
-                className={`flex items-center gap-1.5 uppercase tracking-wider transition-all duration-200 border-b-2 py-1 px-1 cursor-pointer
-                  ${page === 'Mission' 
-                    ? 'text-white border-[var(--pop-red)] font-black translate-y-[-1px]' 
-                    : 'text-[#888] border-transparent hover:text-white hover:border-white/40'}`}
-              >
-                <PixelStarIcon size={12} className={page === 'Mission' ? 'text-[var(--pop-red)]' : 'text-neutral-500'} />
-                {t('mission')}
-              </button>
-
-              <button 
-                onClick={() => setPage('Shop')}
-                className={`flex items-center gap-1.5 uppercase tracking-wider transition-all duration-200 border-b-2 py-1 px-1 cursor-pointer
-                  ${page === 'Shop' 
-                    ? 'text-white border-[var(--pop-red)] font-black translate-y-[-1px]' 
-                    : 'text-[#888] border-transparent hover:text-white hover:border-white/40'}`}
-              >
-                <PixelShopIcon size={12} className={page === 'Shop' ? 'text-[var(--pop-red)]' : 'text-neutral-500'} />
-                {t('shop')}
-              </button>
-
-              {isLoggedIn && (
-                <button 
-                  onClick={() => setPage('Profile')}
-                  className={`flex items-center gap-1.5 uppercase tracking-wider transition-all duration-200 border-b-2 py-1 px-1 cursor-pointer
-                    ${page === 'Profile' 
-                      ? 'text-white border-[var(--pop-red)] font-black translate-y-[-1px]' 
-                      : 'text-[#888] border-transparent hover:text-white hover:border-white/40'}`}
-                >
-                  <PixelProfileIcon size={12} className={page === 'Profile' ? 'text-[var(--pop-red)]' : 'text-neutral-500'} />
-                  {t('profile')}
-                </button>
-              )}
-            </>
-          )}
+            );
+          })}
           
           {isLoggedIn && isAdmin && (
             <button 
@@ -233,6 +215,19 @@ export default function Navbar({ page, setPage, isLoggedIn, userRole, handleLogo
 
         {/* ACTIONS: Lang, Login/Register/Logout, Admin */}
         <div className="flex items-center gap-2 sm:gap-4 shrink-0 font-pop-accent text-xs">
+          {!isAdmin && (
+            <button
+              ref={mobileMenuButtonRef}
+              type="button"
+              className="lg:hidden flex h-9 w-9 items-center justify-center border-2 border-white bg-[var(--pop-black)] text-white shadow-[2px_2px_0_var(--pop-red)]"
+              aria-expanded={mobileOpen}
+              aria-controls="player-mobile-navigation"
+              aria-label={language === 'en' ? 'Open navigation' : 'Mở điều hướng'}
+              onClick={() => setMobileOpen((open) => !open)}
+            >
+              <span className="material-symbols-outlined text-xl" aria-hidden="true">{mobileOpen ? 'close' : 'menu'}</span>
+            </button>
+          )}
           
           {/* Admin badge if role is admin */}
           {isLoggedIn && isAdmin && (
@@ -307,6 +302,29 @@ export default function Navbar({ page, setPage, isLoggedIn, userRole, handleLogo
         </div>
 
       </div>
+      {mobileOpen && !isAdmin && (
+        <div
+          id="player-mobile-navigation"
+          className="lg:hidden absolute left-2 right-2 top-[calc(100%+2px)] grid grid-cols-2 gap-2 border-3 border-[var(--pop-black)] bg-[var(--pop-cream)] p-3 shadow-[5px_5px_0_var(--pop-black)] font-pop-accent"
+          aria-label={language === 'en' ? 'Player navigation' : 'Điều hướng người chơi'}
+        >
+          {navigationItems.map(({ page: targetPage, label, Icon }) => {
+            const active = page === targetPage;
+            return (
+              <button
+                key={targetPage}
+                type="button"
+                onClick={() => navigateTo(targetPage)}
+                aria-current={active ? 'page' : undefined}
+                className={`flex min-h-11 items-center gap-2 border-2 border-[var(--pop-black)] px-3 py-2 text-left text-[10px] font-black uppercase shadow-[2px_2px_0_var(--pop-black)] ${active ? 'bg-[var(--pop-red)] text-white' : 'bg-white text-[var(--pop-black)]'}`}
+              >
+                <Icon size={13} aria-hidden="true" />
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </nav>
   );
 }

@@ -176,7 +176,7 @@ function resolveZombieRevive(gameState, targetPlayerId, insertPosition = 0) {
   const target = targetPlayerId ? getPlayer(gameState, targetPlayerId) : null;
   const activator = getPlayer(gameState, gameState.pendingZombie.playerId);
 
-  if (target && !target.alive && activator && activator.alive) {
+  if (target && !target.alive && !target.forfeited && activator && activator.alive) {
     target.alive = true;
     gameState.activePlayerIds = gameState.players.filter((p) => p.alive).map((p) => p.userId);
     
@@ -401,7 +401,7 @@ function playCard(gameState, playerId, cardType, targetPlayerId, options = {}) {
   }
 
   if (checkType === 'feed_the_dead' || checkType === 'grave_robber') {
-    const deadPlayers = gameState.players.filter(p => !p.alive);
+    const deadPlayers = gameState.players.filter(p => !p.alive && !p.forfeited);
     if (deadPlayers.length === 0) return null;
   }
 
@@ -520,7 +520,7 @@ function resolveGraveRobber(gameState, deadPlayerId, cardId) {
     gameState.pendingGraveRobber.responses[deadPlayerId] = card;
   }
 
-  const deadWithCards = gameState.players.filter((p) => !p.alive && p.hand.length > 0);
+  const deadWithCards = gameState.players.filter((p) => !p.alive && !p.forfeited && p.hand.length > 0);
   const allDone = deadWithCards.every((p) => gameState.pendingGraveRobber.responses[p.userId]);
 
   if (allDone) {

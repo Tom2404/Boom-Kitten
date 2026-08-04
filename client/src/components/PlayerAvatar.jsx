@@ -2,7 +2,11 @@ import React from 'react';
 import { formatCardName } from '../utils/cardHelpers.js';
 import { getCardImageUrl } from '../utils/cardSkins.js';
 import { useLanguage } from '../context/LanguageContext.jsx';
-import { getPlayerStatus } from '../utils/gameRoomUi.js';
+import {
+  getPlayerStatus,
+  getReconnectRemainingSeconds,
+} from '../utils/gameRoomUi.js';
+import { getAssetTransformStyle, getProtectorStackSize } from '../utils/shopEquipment.js';
 
 const PRESET_AVATARS = {
   angry_kitten: '😿',
@@ -26,9 +30,41 @@ export default function PlayerAvatar({
   compact = false,
 }) {
   const { t } = useLanguage();
-  const { userId, username, alive, handCount, avatar, activeAvatarFrame, markedCards, pendingTakeFrom } = player;
+  const {
+    userId,
+    username,
+    alive,
+    connectionStatus = 'connected',
+    reconnectDeadline,
+    forfeited = false,
+    handCount,
+    avatar,
+    avatarFrame,
+    protector,
+    activeAvatarFrame,
+    markedCards,
+    pendingTakeFrom,
+  } = player;
+  const avatarFrameUrl = avatarFrame?.assetUrl;
+  const protectorUrl = protector?.assetUrl;
+  const protectorStackSize = getProtectorStackSize(handCount);
   const visibleMarkedCards = markedCards?.slice(0, 3) ?? [];
   const hiddenMarkedCount = Math.max((markedCards?.length ?? 0) - visibleMarkedCards.length, 0);
+  const [now, setNow] = React.useState(Date.now());
+
+  React.useEffect(() => {
+    if (connectionStatus !== 'reconnecting' || !reconnectDeadline) return undefined;
+    setNow(Date.now());
+    const interval = setInterval(() => setNow(Date.now()), 1_000);
+    return () => clearInterval(interval);
+  }, [connectionStatus, reconnectDeadline]);
+
+  const reconnectSeconds = getReconnectRemainingSeconds(reconnectDeadline, now);
+  const connectionCopy = forfeited
+    ? 'đã bị xử thua'
+    : connectionStatus === 'reconnecting'
+      ? `mất kết nối, còn ${reconnectSeconds} giây`
+      : null;
 
   const handleSelect = () => {
     if (isTargetable && onSelectTarget) {
@@ -43,6 +79,8 @@ export default function PlayerAvatar({
       : username?.slice(0, 2).toUpperCase() || '?';
     const playerStatus = getPlayerStatus({
       alive,
+      connectionStatus,
+      forfeited,
       isCurrentTurn,
       isTargetable,
       isSelectedTarget,
@@ -55,9 +93,11 @@ export default function PlayerAvatar({
         id={`player-avatar-${userId}`}
         data-vfx-anchor={`player-${userId}`}
         onClick={handleSelect}
-        className={`game-opponent-seat ${isCurrentTurn ? 'game-opponent-seat--active' : ''} ${isTargetable ? 'game-opponent-seat--targetable' : ''} ${isSelectedTarget ? 'game-opponent-seat--selected' : ''} ${!alive ? 'game-opponent-seat--out' : ''}`}
+        className={`game-opponent-seat ${isCurrentTurn ? 'game-opponent-seat--active' : ''} ${isTargetable ? 'game-opponent-seat--targetable' : ''} ${isSelectedTarget ? 'game-opponent-seat--selected' : ''} ${connectionStatus === 'reconnecting' ? 'game-opponent-seat--reconnecting' : ''} ${!alive ? 'game-opponent-seat--out' : ''}`}
         data-player-status={playerStatus}
-        aria-label={isTargetable ? `${isSelectedTarget ? 'Bỏ chọn' : 'Chọn'} ${username || userId} làm mục tiêu` : undefined}
+        aria-label={isTargetable
+          ? `${isSelectedTarget ? 'Bỏ chọn' : 'Chọn'} ${username || userId} làm mục tiêu, ${handCount ?? 0} lá bài`
+          : `${username || userId}, ${connectionCopy || (alive ? `${handCount ?? 0} lá bài` : 'đã nổ')}`}
         aria-pressed={isTargetable ? Boolean(isSelectedTarget) : undefined}
       >
         <span className="game-opponent-seat__portrait" aria-hidden="true">
@@ -66,12 +106,53 @@ export default function PlayerAvatar({
           ) : (
             <span>{alive ? avatarContent : 'RIP'}</span>
           )}
-          {alive && <span className="game-opponent-seat__badge">{handCount ?? 0}</span>}
+          {alive && avatarFrameUrl && (
+            <img
+              className="game-opponent-seat__frame"
+              src={avatarFrameUrl}
+              alt=""
+              style={getAssetTransformStyle(avatarFrame?.assetTransform)}
+              onError={(event) => event.currentTarget.remove()}
+            />
+          )}
         </span>
+        {alive && protectorStackSize > 0 && (
+          <span className="game-opponent-seat__hand" aria-hidden="true">
+            <span className="game-opponent-seat__cards">
+              {Array.from({ length: protectorStackSize }, (_, index) => (
+                <span
+                  key={index}
+                  className="game-opponent-seat__card"
+                  style={{ '--protector-index': index }}
+                >
+                  {protectorUrl && (
+                    <img
+                      src={protectorUrl}
+                      alt=""
+                      style={getAssetTransformStyle(protector?.assetTransform)}
+                      onError={(event) => event.currentTarget.remove()}
+                    />
+                  )}
+                </span>
+              ))}
+            </span>
+            <span className="game-opponent-seat__hand-count">
+              <strong>{handCount ?? 0}</strong>
+              <small>Lá</small>
+            </span>
+          </span>
+        )}
         <span className="game-opponent-seat__identity">
           <strong>{username || userId}</strong>
-          <small>{alive ? (isCurrentTurn ? 'Đang lượt' : 'Chờ') : edition === 'zombie' ? 'Zombie' : 'Đã nổ'}</small>
+          <small>
+            {connectionCopy || (alive
+              ? (isCurrentTurn ? 'Đang lượt' : 'Chờ')
+              : edition === 'zombie' && !forfeited ? 'Zombie' : 'Đã nổ')}
+          </small>
         </span>
+        {connectionStatus === 'reconnecting' && !forfeited && (
+          <span className="game-opponent-seat__alert">Còn {reconnectSeconds}s</span>
+        )}
         {isWaitingBK && alive && <span className="game-opponent-seat__alert">Sủa</span>}
         {pendingTakeFrom && alive && <span className="game-opponent-seat__alert">Bị cướp</span>}
         {visibleMarkedCards.length > 0 && (
@@ -152,9 +233,17 @@ export default function PlayerAvatar({
           {alive ? (
             <>
               {/* Avatar Frame (if any) */}
-              {activeAvatarFrame && (
+              {avatarFrameUrl ? (
+                <img
+                  className="absolute inset-[-8px] z-10 h-[calc(100%+16px)] w-[calc(100%+16px)] object-contain pointer-events-none"
+                  src={avatarFrameUrl}
+                  alt=""
+                  style={getAssetTransformStyle(avatarFrame?.assetTransform)}
+                  onError={(event) => event.currentTarget.remove()}
+                />
+              ) : activeAvatarFrame ? (
                 <div className="absolute inset-[-6px] rounded-full border-4 border-yellow-400 animate-spin-slow pointer-events-none z-10" />
-              )}
+              ) : null}
               
               {/* Profile Image / Initials */}
               <div className="h-full w-full rounded-full flex items-center justify-center text-xl font-headline font-black bg-primary-fixed border-2 border-on-surface overflow-hidden shadow-inner">
@@ -204,6 +293,20 @@ export default function PlayerAvatar({
   
         {/* Dynamic Status Badge */}
         {(() => {
+          if (forfeited) {
+            return (
+              <span className="mt-2 px-2 py-0.5 bg-red-700 text-white border-2 border-slate-900 rounded-none text-[9px] font-headline font-black uppercase tracking-wider shadow-[1.5px_1.5px_0px_0px_#0f0f0f]">
+                Xử thua
+              </span>
+            );
+          }
+          if (connectionStatus === 'reconnecting') {
+            return (
+              <span className="mt-2 px-2 py-0.5 bg-amber-500 text-slate-950 border-2 border-slate-900 rounded-none text-[9px] font-headline font-black uppercase tracking-wider shadow-[1.5px_1.5px_0px_0px_#0f0f0f]" role="status">
+                Mất kết nối · {reconnectSeconds}s
+              </span>
+            );
+          }
           if (!alive) {
             return (
               <span className="mt-2 px-2 py-0.5 bg-[#4b5563] text-white border-2 border-slate-900 rounded-none text-[9px] font-headline font-black uppercase tracking-wider shadow-[1.5px_1.5px_0px_0px_#0f0f0f]">

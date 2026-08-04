@@ -9,6 +9,8 @@
     "migration:admin-roles:apply": "node scripts/migrate-admin-roles.js --apply",
     "migration:gems:dry-run": "node scripts/migrate-gems-to-coins.js",
     "migration:gems:apply": "node scripts/migrate-gems-to-coins.js --apply",
+    "migration:cosmetics:dry-run": "node scripts/migrate-cosmetic-inventory.js",
+    "migration:cosmetics:apply": "node scripts/migrate-cosmetic-inventory.js --apply",
     "start": "node index.js",
     "dev": "node --watch index.js"
   },
@@ -23,7 +25,8 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.10.0",
+    "mongoose": "^8.24.2",
+    "nodemailer": "^9.0.3",
     "socket.io": "^4.8.1"
   }
 }

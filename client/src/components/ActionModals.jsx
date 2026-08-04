@@ -9,6 +9,9 @@ import { CARD_THEMES } from './Card.jsx';
 import { OverlayPortal } from './ui/OverlayPortal.jsx';
 import { getDefusePositionProgress, getGameMotionTransition } from '../pages/Game/gameMotion.js';
 
+export { default as FavorRequestModal } from './game-modals/FavorRequestModal.jsx';
+export { AlterFutureModal, SeeFutureModal } from './game-modals/FutureModals.jsx';
+
 // ==========================================
 // NEO-BRUTALIST MODAL WRAPPER (WITH TIMING CURVES)
 // ==========================================
@@ -48,59 +51,12 @@ export function BrutalModal({ children, isOpen, onClose, maxWidth = 'max-w-xl', 
 }
 
 // ==========================================
-// 3. FAVOR REQUEST MODAL
-// ==========================================
-export function FavorRequestModal({ fromPlayerId, fromPlayerName, hand, onRespond }) {
-  const [selectedId, setSelectedId] = useState(null);
-
-  return (
-    <BrutalModal isOpen={true} onClose={() => {}} maxWidth="max-w-3xl">
-      {(closeModal) => (
-        <>
-          <div className="text-center">
-            <h3 className="text-2xl font-headline font-black text-primary uppercase">Bị Xin Bài! (Favor Request)</h3>
-            <p className="text-xs font-bold text-slate-500 mt-1">
-              Người chơi <strong className="text-slate-950 uppercase">{fromPlayerName || fromPlayerId}</strong> đã đánh lá Favor nhắm vào bạn. Hãy chọn 1 lá để trao cho họ.
-            </p>
-          </div>
-
-          <div className="flex-1 overflow-x-auto flex gap-4 pb-4 pt-6 justify-start md:justify-center max-w-full custom-scrollbar px-4">
-            {hand.map((card) => {
-              const isSelected = selectedId === card.id;
-              return (
-                <div
-                  key={card.id}
-                  onClick={() => setSelectedId(card.id)}
-                  className="transform transition-transform cursor-pointer flex-shrink-0"
-                >
-                  <Card type={card.type} skinIndex={card.skinIndex ?? 0} selected={isSelected} />
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="flex justify-center mt-2">
-            <button
-              onClick={() => closeModal(() => onRespond(selectedId))}
-              disabled={!selectedId}
-              className={`btn-detonator px-8 py-3 rounded-none font-headline font-black uppercase text-sm
-                ${!selectedId ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
-            >
-              Gửi Lá Bài Đã Chọn
-            </button>
-          </div>
-        </>
-      )}
-    </BrutalModal>
-  );
-}
-
-// ==========================================
 // 4. NOPE COUNTDOWN DISPLAY
 // ==========================================
 export function NopeCountdown({ 
   eventId, 
   timeoutMs, 
+  expiresAt,
   hasNopeCard, 
   onPlayNope, 
   onPass, 
@@ -117,23 +73,18 @@ export function NopeCountdown({
   const { t } = useLanguage();
 
   useEffect(() => {
-    setTimeLeft(timeoutMs);
-  }, [eventId, timeoutMs]);
-
-  useEffect(() => {
+    const deadline = expiresAt || Date.now() + timeoutMs;
     const step = 50;
+    const update = () => setTimeLeft(Math.max(0, deadline - Date.now()));
+    update();
     const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= step) {
-          clearInterval(timer);
-          return 0;
-        }
-        return prev - step;
-      });
+      const remaining = Math.max(0, deadline - Date.now());
+      setTimeLeft(remaining);
+      if (remaining === 0) clearInterval(timer);
     }, step);
 
     return () => clearInterval(timer);
-  }, [eventId, timeoutMs]);
+  }, [eventId, expiresAt, timeoutMs]);
 
   const percentage = (timeLeft / timeoutMs) * 100;
   const isCanceled = nopeCount % 2 === 1;
@@ -145,7 +96,7 @@ export function NopeCountdown({
     'see_the_future_1', 'see_the_future_3', 'see_the_future_5', 'see_the_future_3_now', 'reveal_the_future',
     'alter_the_future_3', 'alter_the_future_5', 'alter_the_future_3_now',
     'favor', 'garbage', 'pot_luck',
-    'shuffle', 'shuffle_now',
+    'shuffle', 'shuffle_now', 'reverse',
     'swap_top_and_bottom_now',
     'feed_the_dead',
     'grave_robber',
@@ -269,137 +220,6 @@ export function NopeCountdown({
         </div>
       </div>
     </OverlayPortal>
-  );
-}
-
-// ==========================================
-// 1. SEE THE FUTURE MODAL
-// ==========================================
-export function SeeFutureModal({ cards, onClose }) {
-  if (!cards) return null;
-
-  return (
-    <OverlayPortal>
-      <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 backdrop-blur-open-anim bg-black/70 animate-fade-in">
-        <div className="w-full max-w-xl bg-[#141918] border-4 border-[#0e1211] shadow-[8px_8px_0px_0px_#0e1211] text-[#f7e8c5] p-6 md:p-8 flex flex-col items-center gap-5 text-center font-mono">
-          {/* Header */}
-          <div className="border-b-2 border-dashed border-[#283430] pb-3 w-full">
-            <h3 className="text-xl md:text-2xl font-black text-amber-400 uppercase tracking-wider flex items-center justify-center gap-2">
-              <span className="w-3 h-3 bg-amber-400 inline-block shadow-[2px_2px_0px_#0e1211]" />
-              TIÊN TRI (SEE THE FUTURE)
-              <span className="w-3 h-3 bg-amber-400 inline-block shadow-[2px_2px_0px_#0e1211]" />
-            </h3>
-            <p className="text-xs font-bold text-gray-300 mt-2 leading-relaxed">
-              Đây là <strong>{cards.length}</strong> lá bài trên cùng bộ bài bốc (từ trái qua phải - từ trên xuống dưới).
-            </p>
-          </div>
-
-          {/* Cards Container */}
-          <div className="flex gap-4 sm:gap-6 justify-center items-center py-4 flex-wrap w-full">
-            {cards.map((card, index) => (
-              <div key={card.id || index} className="relative flex flex-col items-center group pt-3">
-                <span className="absolute -top-1 left-1/2 transform -translate-x-1/2 z-20 bg-amber-400 text-[#0e1211] font-black text-[10px] px-3 py-0.5 border border-[#0e1211] shadow-[2px_2px_0px_0px_#0e1211] uppercase tracking-wider">
-                  THỨ {index + 1}
-                </span>
-                <div className="transform hover:scale-105 transition-transform duration-100 shadow-[4px_4px_0px_0px_#0e1211] border-2 border-[#0e1211] rounded-xl overflow-hidden">
-                  <Card type={card.type} skinIndex={card.skinIndex ?? 0} disabled={true} />
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Retro Action Button */}
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-8 py-3 bg-rose-600 hover:bg-rose-700 active:translate-y-1 text-white font-black text-xs md:text-sm uppercase tracking-widest border-2 border-[#0e1211] shadow-[4px_4px_0px_0px_#0e1211] cursor-pointer transition-all"
-          >
-            XONG, TÔI ĐÃ NHỚ
-          </button>
-        </div>
-      </div>
-    </OverlayPortal>
-  );
-}
-
-// ==========================================
-// 2. ALTER THE FUTURE MODAL
-// ==========================================
-export function AlterFutureModal({ cards, onConfirm }) {
-  if (!cards || cards.length === 0) return null;
-
-  const [order, setOrder] = useState([...cards]);
-
-  const moveLeft = (index) => {
-    if (index === 0) return;
-    const copy = [...order];
-    [copy[index], copy[index - 1]] = [copy[index - 1], copy[index]];
-    setOrder(copy);
-  };
-
-  const moveRight = (index) => {
-    if (index === order.length - 1) return;
-    const copy = [...order];
-    [copy[index], copy[index + 1]] = [copy[index + 1], copy[index]];
-    setOrder(copy);
-  };
-
-  return (
-    <BrutalModal isOpen={true} onClose={() => onConfirm(order.map(c => c.id))} maxWidth="max-w-2xl" theme="dark">
-      {(closeModal) => (
-        <div className="bg-[#141918] border-4 border-[#0e1211] shadow-[6px_6px_0px_0px_#0e1211] text-[#f7e8c5] p-6 md:p-8 flex flex-col items-center gap-5 text-center font-mono w-full">
-          <div className="border-b-2 border-dashed border-[#283430] pb-3 w-full">
-            <h3 className="text-xl md:text-2xl font-black text-amber-400 uppercase tracking-wider flex items-center justify-center gap-2">
-              <span className="w-3 h-3 bg-amber-400 inline-block shadow-[2px_2px_0px_#0e1211]" />
-              ĐỊNH ĐOẠT (ALTER THE FUTURE)
-              <span className="w-3 h-3 bg-amber-400 inline-block shadow-[2px_2px_0px_#0e1211]" />
-            </h3>
-            <p className="text-xs font-bold text-gray-300 mt-1.5">
-              Thay đổi thứ tự 3 lá bài trên cùng bộ bài bốc. Sắp xếp từ trái qua phải (lá đầu tiên nằm bên trái).
-            </p>
-          </div>
-
-          <div className="flex gap-4 sm:gap-6 justify-center items-stretch py-4 flex-wrap w-full">
-            {order.map((card, index) => (
-              <div key={card.id || index} className="flex flex-col items-center gap-3 bg-[#1a2220] border-2 border-[#0e1211] p-3 shadow-[3px_3px_0px_0px_#0e1211]">
-                <span className="text-[10px] font-black text-amber-400 uppercase tracking-wider">
-                  {index === 0 ? 'TRÊN CÙNG (TOP)' : `VỊ TRÍ ${index + 1}`}
-                </span>
-                
-                <Card type={card.type} skinIndex={card.skinIndex ?? 0} disabled={true} />
-                
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => moveLeft(index)}
-                    disabled={index === 0}
-                    className="px-3 py-1 bg-[#25302d] border border-[#0e1211] hover:bg-[#32403c] disabled:opacity-30 text-xs font-bold text-gray-200 transition-all shadow-[1px_1px_0px_0px_#0e1211] active:translate-y-0.5 cursor-pointer"
-                  >
-                    ◀
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => moveRight(index)}
-                    disabled={index === order.length - 1}
-                    className="px-3 py-1 bg-[#25302d] border border-[#0e1211] hover:bg-[#32403c] disabled:opacity-30 text-xs font-bold text-gray-200 transition-all shadow-[1px_1px_0px_0px_#0e1211] active:translate-y-0.5 cursor-pointer"
-                  >
-                    ▶
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <button
-            type="button"
-            onClick={() => closeModal()}
-            className="px-8 py-3 bg-emerald-600 hover:bg-emerald-700 active:translate-y-1 text-white font-black text-xs md:text-sm uppercase tracking-widest border-2 border-[#0e1211] shadow-[4px_4px_0px_0px_#0e1211] cursor-pointer transition-all"
-          >
-            XÁC NHẬN SẮP XẾP
-          </button>
-        </div>
-      )}
-    </BrutalModal>
   );
 }
 

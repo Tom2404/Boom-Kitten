@@ -2,6 +2,8 @@
 const { createDeck, dealCards } = require('./deck');
 
 const rooms = new Map();
+const RECONNECT_GRACE_MS = 60_000;
+const MAX_RECONNECT_GRACE_MS = 15 * 60 * 1000;
 const VALID_EDITIONS = new Set(['original', '2_player', 'zombie', 'barking', 'good_vs_evil', 'imploding', 'streaking']);
 const { validateStake } = require('../services/wagerService');
 
@@ -12,7 +14,17 @@ function makeCode() {
   return code;
 }
 
-function createRoom(hostId, options = {}, username = 'Guest') {
+function normalizePlayerProfile(profile = 'Guest') {
+  const value = typeof profile === 'string' ? { username: profile } : (profile || {});
+  return {
+    username: value.username || 'Guest',
+    avatar: value.avatar || '',
+    avatarFrame: value.avatarFrame || null,
+    protector: value.protector || null,
+  };
+}
+
+function createRoom(hostId, options = {}, profile = 'Guest') {
   let code;
   do {
     code = makeCode();
@@ -44,10 +56,20 @@ function createRoom(hostId, options = {}, username = 'Guest') {
     customExplodingKittens = undefined;
   }
 
+  const hostProfile = normalizePlayerProfile(profile);
   const room = {
     code,
     host: hostId,
-    players: [{ userId: hostId, username, hand: [], alive: true, isReady: true }],
+    players: [{
+      userId: hostId,
+      ...hostProfile,
+      hand: [],
+      alive: true,
+      isReady: true,
+      connectionStatus: 'connected',
+      reconnectDeadline: null,
+      forfeited: false,
+    }],
     maxPlayers,
     maxHandSize: 10,
     status: 'waiting',
@@ -55,6 +77,9 @@ function createRoom(hostId, options = {}, username = 'Guest') {
     betAmount,
     edition,
     gameMode: ['matchmaking', 'tournament'].includes(options.gameMode) ? options.gameMode : 'custom',
+    reconnectGraceMs: Number.isSafeInteger(Number(options.reconnectGraceMs))
+      ? Math.min(Math.max(Number(options.reconnectGraceMs), RECONNECT_GRACE_MS), MAX_RECONNECT_GRACE_MS)
+      : RECONNECT_GRACE_MS,
     createdAt: new Date(),
     updatedAt: new Date(),
     gameState: null,
@@ -65,14 +90,23 @@ function createRoom(hostId, options = {}, username = 'Guest') {
   return room;
 }
 
-function joinRoom(roomCode, userId, username = 'Guest', password = '') {
+function joinRoom(roomCode, userId, profile = 'Guest', password = '') {
   const room = rooms.get(roomCode);
   if (!room) throw new Error('Không tìm thấy phòng chơi');
   if (room.players.find((p) => p.userId === userId)) return room;
   if (room.players.length >= room.maxPlayers) throw new Error('Phòng chơi đã đầy');
   if (room.status !== 'waiting') throw new Error('Trận đấu đã bắt đầu');
   if (room.password && room.password !== password) throw new Error('Mật khẩu phòng chơi không chính xác');
-  room.players.push({ userId, username, hand: [], alive: true, isReady: false });
+  room.players.push({
+    userId,
+    ...normalizePlayerProfile(profile),
+    hand: [],
+    alive: true,
+    isReady: false,
+    connectionStatus: 'connected',
+    reconnectDeadline: null,
+    forfeited: false,
+  });
   touchRoom(room);
   return room;
 }
@@ -98,6 +132,7 @@ function kickPlayer(roomCode, hostId, targetUserId) {
   if (!room) throw new Error('Không tìm thấy phòng chơi');
   if (room.host !== hostId) throw new Error('Chỉ chủ phòng mới có thể kick người chơi');
   if (room.host === targetUserId) throw new Error('Không thể kick chủ phòng');
+  if (room.status !== 'waiting') throw new Error('Không thể kick người chơi sau khi trận đấu đã bắt đầu');
   room.players = room.players.filter((p) => p.userId !== targetUserId);
   touchRoom(room);
   return room;
@@ -206,6 +241,23 @@ function startGame(roomCode) {
   return room;
 }
 
+function resetRoomForRematch(room) {
+  if (!room || room.status !== 'finished') return null;
+
+  clearTimers(room.gameState);
+  room.status = 'waiting';
+  room.gameState = null;
+  room.players.forEach((player) => {
+    player.hand = [];
+    player.alive = true;
+    player.isReady = player.userId === room.host;
+    player.forfeited = false;
+    player.connectionStatus = 'connected';
+    player.reconnectDeadline = null;
+  });
+  return touchRoom(room);
+}
+
 function getPublicRooms() {
   return [...rooms.values()]
     .filter((room) => room.status === 'waiting')
@@ -253,15 +305,46 @@ function disconnectPlayer(roomCode, userId) {
   return leaveRoom(roomCode, userId);
 }
 
+function markPlayerDisconnected(roomCode, userId, reconnectDeadline) {
+  const room = rooms.get(roomCode);
+  const player = room?.players.find((candidate) => candidate.userId === userId);
+  if (!player || player.forfeited) return null;
+  const deadline = reconnectDeadline ?? Date.now() + (room.reconnectGraceMs || RECONNECT_GRACE_MS);
+  player.connectionStatus = 'reconnecting';
+  player.reconnectDeadline = deadline;
+  touchRoom(room);
+  return player;
+}
+
+function markPlayerConnected(roomCode, userId, now = Date.now()) {
+  const room = rooms.get(roomCode);
+  const player = room?.players.find((candidate) => candidate.userId === userId);
+  if (!player || player.forfeited) return null;
+  if (
+    player.connectionStatus === 'reconnecting'
+    && Number.isFinite(player.reconnectDeadline)
+    && now > player.reconnectDeadline
+  ) {
+    return null;
+  }
+  player.connectionStatus = 'connected';
+  player.reconnectDeadline = null;
+  touchRoom(room);
+  return player;
+}
+
 function findRoomByUser(userId) {
   return [...rooms.values()].find((room) => room.players.some((p) => p.userId === userId));
 }
 
 module.exports = {
+  RECONNECT_GRACE_MS,
+  MAX_RECONNECT_GRACE_MS,
   createRoom,
   joinRoom,
   leaveRoom,
   startGame,
+  resetRoomForRematch,
   getPublicRooms,
   getRoomState,
   getOperationalRooms,
@@ -269,6 +352,8 @@ module.exports = {
   touchRoom,
   forceCloseRoom,
   disconnectPlayer,
+  markPlayerConnected,
+  markPlayerDisconnected,
   findRoomByUser,
   kickPlayer,
   toggleReady,

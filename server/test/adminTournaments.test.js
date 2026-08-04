@@ -10,6 +10,7 @@ const {
   transitionTournament,
   validateTournamentInput,
 } = require('../services/admin/tournamentService');
+const { buildTournamentRefundPreview } = require('../services/admin/tournamentRefundService');
 
 function queryResult(rows) {
   return { populate() { return this; }, sort() { return this; }, lean: async () => rows };
@@ -21,8 +22,23 @@ test('tournament input validates times, fees, capacity, and prize values at the 
     prizePool: { coins: 1000 }, cosmeticRewards: [{ rank: 1, type: 'skin', itemId: 'champion' }], startTime: '2026-07-25T12:00:00Z', registrationClosesAt: '2026-07-25T11:00:00Z',
   }, new Date('2026-07-22T00:00:00Z'));
   assert.equal(input.maxParticipants, 8);
+  assert.equal(input.format, 'groups_then_final_v1');
+  assert.equal(input.matchGraceMinutes, 5);
   assert.equal(input.startTime.toISOString(), '2026-07-25T12:00:00.000Z');
+  assert.throws(() => validateTournamentInput({ name: 'Bad grace', matchGraceMinutes: 6, startTime: '2026-07-25T12:00:00Z' }, new Date('2026-07-22T00:00:00Z')), (error) => error.code === 'VALIDATION_ERROR');
   assert.throws(() => validateTournamentInput({ name: 'Bad', entryFee: -1, startTime: 'invalid' }), (error) => error.code === 'VALIDATION_ERROR');
+});
+
+test('refund preview totals only paid entries for a cancelled Tournament', () => {
+  const preview = buildTournamentRefundPreview(
+    { _id: 't1', status: 'cancelled' },
+    [
+      { paymentStatus: 'paid', entryFeePaid: 75 },
+      { paymentStatus: 'refunded', entryFeePaid: 75 },
+      { paymentStatus: 'paid', entryFeePaid: 25 },
+    ],
+  );
+  assert.deepEqual(preview, { tournamentId: 't1', recipients: 2, totalCoins: 100 });
 });
 
 test('tournament state machine allows only approved forward transitions', () => {

@@ -59,6 +59,33 @@ test('does not create a duplicate if an existing lifecycle record was already co
   assert.equal(creates, 0);
 });
 
+test('completes registered player history without storing an invalid guest winner', async () => {
+  let update;
+  await completeMatchHistory({
+    GameHistoryModel: {
+      findOneAndUpdate: async (_filter, mutation) => {
+        update = mutation;
+        return { _id: 'history-guest-winner', status: 'completed' };
+      },
+    },
+    room: {
+      code: 'GUEST1',
+      analyticsHistoryId: 'history-guest-winner',
+      startedAt: new Date('2027-02-01T10:00:00Z'),
+      gameState: { discardPile: [] },
+    },
+    validPlayers: [{ userId: 'registered-loser', rank: 2, result: 'lose' }],
+    winnerId: undefined,
+    now: new Date('2027-02-01T10:01:00Z'),
+  });
+
+  assert.equal(update.$set.status, 'completed');
+  assert.equal(Object.hasOwn(update.$set, 'winner'), false);
+  assert.deepEqual(update.$set.players, [
+    { userId: 'registered-loser', rank: 2, result: 'lose' },
+  ]);
+});
+
 test('records Tournament placements through the shared match completion lifecycle', async () => {
   let resultPayload;
   await completeMatchHistory({
@@ -76,6 +103,6 @@ test('records Tournament placements through the shared match completion lifecycl
   });
   assert.deepEqual(resultPayload, {
     matchReference: 'cup-1:group-a-m1',
-    placements: [{ userId: 'user-1', placement: 1 }, { userId: 'user-2', placement: 2 }],
+    placements: [{ userId: 'user-1', placement: 1, forfeit: false }, { userId: 'user-2', placement: 2, forfeit: false }],
   });
 });

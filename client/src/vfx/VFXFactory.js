@@ -5,7 +5,6 @@ import {
   getFxScale,
   isReducedMotion,
 } from './PrimitiveEffects';
-import { soundManager } from './SoundManager';
 import { VFX_ASSETS } from './config/vfxAssets';
 
 const COLORS = {
@@ -13,6 +12,7 @@ const COLORS = {
   cyan: 0x38bdf8,
   red: 0xef233c,
   orange: 0xf97316,
+  green: 0x22c55e,
 };
 
 const getCenter = () => ({
@@ -112,7 +112,28 @@ export const VFXFactory = {
       isReducedMotion() ? 0 : 22,
       0.26,
     ), '-=0.72');
-    timeline.call(() => soundManager.play('sfx_explosion'), [], 0);
+    return timeline;
+  },
+
+  createDefuse(vfxManager) {
+    const timeline = gsap.timeline();
+    const center = getCenter();
+    const scale = getFxScale();
+    timeline.add(PrimitiveEffects.PixelRing(vfxManager, center, {
+      color: COLORS.green,
+      radius: 92 * scale,
+      thickness: 8 * scale,
+      duration: 0.42,
+      alpha: 0.9,
+    }));
+    timeline.add(PrimitiveEffects.PixelBurst(vfxManager, center, {
+      color: COLORS.green,
+      count: isReducedMotion() ? 8 : 20,
+      distance: (isReducedMotion() ? 60 : 150) * scale,
+      size: 9 * scale,
+      duration: 0.48,
+      shape: 'square',
+    }), '-=0.3');
     return timeline;
   },
 
@@ -122,11 +143,50 @@ export const VFXFactory = {
       x: window.innerWidth / 2,
       y: window.innerHeight - 120,
     };
-    const start = {
-      x: window.innerWidth / 2,
-      y: window.innerHeight / 2 - 40,
-    };
+    const deckElement = document.getElementById('deck-pile-element');
+    const deckRect = deckElement?.getBoundingClientRect();
+    const start = deckRect ? {
+      x: deckRect.left + deckRect.width / 2,
+      y: deckRect.top + deckRect.height / 2,
+    } : getCenter();
     const scale = getFxScale();
+
+    if (deckElement && deckRect) {
+      const cardBack = deckElement.cloneNode(true);
+      cardBack.removeAttribute('id');
+      cardBack.setAttribute('aria-hidden', 'true');
+      cardBack.style.cssText += `
+        position: fixed;
+        left: ${deckRect.left}px;
+        top: ${deckRect.top}px;
+        width: ${deckRect.width}px;
+        height: ${deckRect.height}px;
+        margin: 0;
+        pointer-events: none;
+        z-index: 9998;
+        transform-origin: center;
+      `;
+      document.body.appendChild(cardBack);
+      timeline.eventCallback('onInterrupt', () => cardBack.remove());
+
+      const destinationX = target.x - start.x;
+      const destinationY = target.y - start.y;
+      if (isReducedMotion()) {
+        gsap.set(cardBack, { x: destinationX, y: destinationY, scale: 0.92, opacity: 0 });
+        timeline.to(cardBack, { opacity: 0.85, scale: 1, duration: 0.12 }, 0);
+      } else {
+        timeline.to(cardBack, {
+          x: destinationX,
+          y: destinationY,
+          scale: 0.82,
+          rotation: 4,
+          duration: 0.3,
+          ease: 'power2.out',
+        }, 0);
+      }
+      timeline.to(cardBack, { opacity: 0, scale: 0.72, duration: 0.12 }, 0.32);
+      timeline.call(() => cardBack.remove(), [], 0.45);
+    }
 
     timeline.add(PrimitiveEffects.createPixelTrail(vfxManager, start, target, {
       color: COLORS.cyan,
@@ -135,7 +195,7 @@ export const VFXFactory = {
       size: 7 * scale,
       duration: isReducedMotion() ? 0.12 : 0.34,
       spread: 44 * scale,
-    }));
+    }), 0);
     timeline.add(PrimitiveEffects.PixelRing(vfxManager, target, {
       color: COLORS.cyan,
       radius: 52 * scale,

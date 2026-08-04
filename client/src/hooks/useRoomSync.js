@@ -1,21 +1,25 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAnimationSocketEvents } from './useAnimationSocketEvents.js';
 import { useGameLogEvents } from './useGameLogEvents.js';
+import { createGameResultState } from '../pages/Game/gameMotion.js';
 
 export function useRoomSync({
   socket,
+  initialRoom = null,
   t,
   setStatusMessage,
   clearResolvedInteractions,
   setNowCardToast,
 }) {
-  const [roomState, setRoomState] = useState(null);
-  const [gameState, setGameState] = useState(null);
+  const [roomState, setRoomState] = useState(initialRoom);
+  const [gameState, setGameState] = useState(initialRoom?.gameState ?? null);
   const [privateHand, setPrivateHand] = useState([]);
+  const [privateHandSourceEventId, setPrivateHandSourceEventId] = useState(null);
   const [gameEnded, setGameEnded] = useState(null);
   const [chatMessages, setChatMessages] = useState([]);
   const [actionLog, setActionLog] = useState([]);
   const [connectionState, setConnectionState] = useState(socket.connected ? 'connected' : 'connecting');
+  const [localReconnectDeadline, setLocalReconnectDeadline] = useState(null);
 
   const roomStateRef = useRef(roomState);
   const gameStateRef = useRef(gameState);
@@ -72,11 +76,13 @@ export function useRoomSync({
       setRoomState(room);
       if (room) {
         setGameState(room.gameState);
-        if (room.status === 'waiting') {
+        if (room.status === 'playing') {
           setGameEnded(null);
         }
       } else {
         setGameState(null);
+        setGameEnded(null);
+        setPrivateHandSourceEventId(null);
       }
     };
 
@@ -85,29 +91,30 @@ export function useRoomSync({
       clearResolvedInteractions(publicGameState);
     };
 
-    const onPrivateHand = ({ cards }) => {
+    const onPrivateHand = ({ cards, sourceEventId = null }) => {
       setPrivateHand(cards);
+      setPrivateHandSourceEventId(sourceEventId);
     };
 
     const onGameEnded = ({ winnerId, rankings, wager }) => {
-      setGameEnded({ winnerId, rankings, wager });
+      setPrivateHandSourceEventId(null);
+      setGameEnded(createGameResultState({
+        winnerId,
+        rankings,
+        wager,
+        snapshot: gameStateRef.current,
+      }));
       setStatusMessage(t('log_game_ended', { winner: getUsername(winnerId) }));
-
-      setRoomState((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          status: 'waiting',
-          players: prev.players.map(p => ({ ...p, isReady: p.userId === prev.host })),
-        };
-      });
+      socket.emit('room:playAgain');
     };
 
     const onRoomKicked = ({ message }) => {
       alert(message);
       setRoomState(null);
       setGameState(null);
+      setGameEnded(null);
       setPrivateHand([]);
+      setPrivateHandSourceEventId(null);
     };
 
     const onChatMessage = (msg) => {
@@ -118,8 +125,16 @@ export function useRoomSync({
       setStatusMessage(t('log_error', { message }));
     };
 
-    const onConnect = () => setConnectionState('connected');
-    const onDisconnect = () => setConnectionState('reconnecting');
+    const onConnect = () => {
+      setConnectionState('connected');
+      setLocalReconnectDeadline(null);
+    };
+    const onDisconnect = () => {
+      setConnectionState('reconnecting');
+      setLocalReconnectDeadline(
+        Date.now() + (roomStateRef.current?.reconnectGraceMs ?? 60_000),
+      );
+    };
     const onConnectError = () => setConnectionState('error');
 
     socket.on('room:updated', onRoomUpdated);
@@ -132,6 +147,9 @@ export function useRoomSync({
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
     socket.on('connect_error', onConnectError);
+    if (initialRoom?.status === 'playing' && socket.connected) {
+      socket.emit('room:join', { roomCode: initialRoom.code });
+    }
 
     return () => {
       socket.off('room:updated', onRoomUpdated);
@@ -153,6 +171,7 @@ export function useRoomSync({
     gameState,
     setGameState,
     privateHand,
+    privateHandSourceEventId,
     setPrivateHand,
     gameEnded,
     setGameEnded,
@@ -160,5 +179,6 @@ export function useRoomSync({
     actionLog,
     setActionLog,
     connectionState,
+    localReconnectDeadline,
   };
 }

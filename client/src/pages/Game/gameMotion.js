@@ -4,6 +4,56 @@ export const getGameMotionTransition = (reducedMotion = false) => (
     : { type: 'spring', stiffness: 260, damping: 24, mass: 0.8 }
 );
 
+export const GAME_RESULT_DURATION_MS = 10_000;
+
+export function createBoundedEventGate(limit = 160) {
+  const ids = new Set();
+
+  return {
+    accept(id) {
+      if (!id) return true;
+      if (ids.has(id)) return false;
+      ids.add(id);
+      while (ids.size > limit) ids.delete(ids.values().next().value);
+      return true;
+    },
+    clear() {
+      ids.clear();
+    },
+    get size() {
+      return ids.size;
+    },
+  };
+}
+
+export function findCorrelatedDrawCard(previousCards, nextCards, sourceEventId, expectedEventId) {
+  if (!sourceEventId || sourceEventId !== expectedEventId) return null;
+  const previousIds = new Set((previousCards || []).map((card) => card.id));
+  return (nextCards || []).find((card) => !previousIds.has(card.id)) || null;
+}
+
+export function createGameResultState({
+  winnerId,
+  rankings,
+  wager,
+  snapshot,
+  now = Date.now(),
+}) {
+  return {
+    winnerId,
+    rankings: Array.isArray(rankings) ? rankings : [],
+    wager: wager ?? null,
+    snapshot: snapshot ?? null,
+    dismissAt: now + GAME_RESULT_DURATION_MS,
+    dismissed: false,
+  };
+}
+
+export function getGameResultRemainingSeconds(deadline, now = Date.now()) {
+  if (!Number.isFinite(deadline)) return 0;
+  return Math.max(0, Math.ceil((deadline - now) / 1000));
+}
+
 export function createTimeoutGroup(
   scheduleTimeout = globalThis.setTimeout.bind(globalThis),
   cancelTimeout = globalThis.clearTimeout.bind(globalThis),

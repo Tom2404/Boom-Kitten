@@ -11,6 +11,7 @@ const {
   sanitizeActiveInteractionForPublic,
 } = require('../game/interactions/interactionPolicy');
 const {
+  createEventId,
   createPresentationId,
   ensurePresentationId,
   isNopeableAction,
@@ -22,10 +23,12 @@ const {
   getInteractionEventName,
 } = require('./interactionEvents');
 const {
+  RECONNECT_GRACE_MS,
   createRoom,
   joinRoom,
   leaveRoom,
   startGame,
+  resetRoomForRematch,
   getPublicRooms,
   getRoomState,
   findRoomByUser,
@@ -33,6 +36,8 @@ const {
   toggleReady,
   updateRoomSettings,
   touchRoom,
+  markPlayerConnected,
+  markPlayerDisconnected,
 } = require('../game/roomManager');
 const { getRuntimeLiveOpsConfig } = require('../services/admin/liveOpsService');
 const {
@@ -52,9 +57,12 @@ const {
   eliminatePlayer,
 } = require('../game/gameLogic');
 const User = require('../models/User');
+const Friendship = require('../models/Friendship');
+const { toPlayerPresentation } = require('../services/shopEquipmentService');
+const { assertCanInviteFriend } = require('../services/friendshipService');
 const findUserByIdSafe = async (id) => {
   if (mongoose.connection.readyState !== 1) return null;
-  return await User.findById(id);
+  return await User.findById(id).populate('equippedCosmetics.avatarFrame equippedCosmetics.protector');
 };
 const Transaction = require('../models/Transaction');
 const Quest = require('../models/Quest');
@@ -62,20 +70,39 @@ const UserQuestProgress = require('../models/UserQuestProgress');
 const { calculateMatchmakingChanges } = require('../utils/matchmakingCalculator');
 const { applyMatchmakingRating, shouldUpdateMatchmakingRating } = require('../utils/matchmakingRating');
 const { completeMatchHistory, startMatchHistory } = require('../services/matchLifecycleService');
-const { lockWager, markWagerReview, refundWager, settleWager } = require('../services/wagerLedgerService');
+const { lockWager, markWagerReview, settleWager } = require('../services/wagerLedgerService');
 
-async function refundCancelledRoomWager(room, reason) {
-  if (!room || room.betAmount <= 0 || !room.wagerReference) return;
-  try {
-    await refundWager({
-      roomCode: room.code,
-      reference: room.wagerReference,
-      requestId: `refund:${room.wagerReference}`,
-      reason,
-    });
-  } catch (error) {
-    await markWagerReview({ reference: room.wagerReference, reason: `Refund failed: ${error.message}` });
-    console.error(`Wager refund failed for ${room.code}:`, error);
+const reconnectTimers = new Map();
+const roomInviteGrants = new Map();
+
+function roomInviteKey(roomCode, userId) {
+  return `${roomCode}:${userId}`;
+}
+
+function consumeRoomInviteGrant(roomCode, userId, now = Date.now()) {
+  const key = roomInviteKey(roomCode, userId);
+  const expiresAt = roomInviteGrants.get(key) || 0;
+  roomInviteGrants.delete(key);
+  return expiresAt > now;
+}
+
+function reconnectTimerKey(roomCode, userId) {
+  return `${roomCode}:${userId}`;
+}
+
+function clearReconnectTimer(roomCode, userId) {
+  const key = reconnectTimerKey(roomCode, userId);
+  const timer = reconnectTimers.get(key);
+  if (timer) clearTimeout(timer);
+  reconnectTimers.delete(key);
+}
+
+function clearRoomReconnectTimers(roomCode) {
+  const prefix = `${roomCode}:`;
+  for (const [key, timer] of reconnectTimers) {
+    if (!key.startsWith(prefix)) continue;
+    clearTimeout(timer);
+    reconnectTimers.delete(key);
   }
 }
 
@@ -153,7 +180,13 @@ function sanitizePublicGameState(gameState) {
     players: gameState.players.map((player) => ({
       userId: player.userId,
       username: player.username,
+      avatar: player.avatar || '',
+      avatarFrame: player.avatarFrame || null,
+      protector: player.protector || null,
       alive: player.alive,
+      connectionStatus: player.connectionStatus || 'connected',
+      reconnectDeadline: player.reconnectDeadline ?? null,
+      forfeited: !!player.forfeited,
       handCount: player.hand.length,
       markedCards: player.hand
         .filter((c) => c.marked)
@@ -183,6 +216,7 @@ function sanitizeRoom(room) {
   if (!room) return null;
   return {
     ...room,
+    reconnectGraceMs: room.reconnectGraceMs || RECONNECT_GRACE_MS,
     gameState: room.gameState ? sanitizePublicGameState(room.gameState) : room.gameState,
     password: undefined,
   };
@@ -198,17 +232,33 @@ function getPrivateHandCards(player) {
     : player.hand;
 }
 
-function sendHands(io, room) {
+function sendHands(io, room, { sourceEventId, recipientId } = {}) {
   room.gameState.players.forEach((player) => {
-    io.to(`user:${player.userId}`).emit('game:privateHand', { cards: getPrivateHandCards(player) });
+    io.to(`user:${player.userId}`).emit('game:privateHand', {
+      cards: getPrivateHandCards(player),
+      ...(sourceEventId && player.userId === recipientId ? { sourceEventId } : {}),
+    });
   });
 }
 
+function sendPlayerSnapshot(socket, room, userId) {
+  if (!room.gameState) return;
+  socket.emit('game:stateUpdate', {
+    publicGameState: sanitizePublicGameState(room.gameState),
+  });
+  const player = room.gameState.players.find((candidate) => candidate.userId === userId);
+  if (player) socket.emit('game:privateHand', { cards: getPrivateHandCards(player) });
+  const resumedRequest = buildReconnectInteractionRequest(room.gameState, userId);
+  if (resumedRequest) socket.emit('interaction:request', resumedRequest);
+}
+
 async function finalizeGame(io, room) {
+  if (!room?.gameState || room.status === 'finished') return;
   const winnerId = checkWinCondition(room.gameState);
   if (!winnerId) return;
 
   room.status = 'finished';
+  clearRoomReconnectTimers(room.code);
   emitRoomUpdated(io.to(room.code), room);
 
   const rankings = room.gameState.players.map((player) => {
@@ -219,7 +269,7 @@ async function finalizeGame(io, room) {
       : (elimIndex >= 0 
           ? room.gameState.players.length - elimIndex 
           : room.gameState.players.length);
-    return { userId: player.userId, placement, result: isWinner ? 'win' : 'lose' };
+    return { userId: player.userId, placement, result: isWinner ? 'win' : 'lose', forfeit: Boolean(player.forfeited) };
   }).sort((a, b) => a.placement - b.placement);
 
   const matchmakingRatingChanges = {};
@@ -341,14 +391,15 @@ async function finalizeGame(io, room) {
           matchmakingRatingBefore,
           matchmakingRatingAfter,
           matchmakingRatingChange,
+          forfeit: Boolean(entry.forfeit),
         };
       });
 
-    if (validWinner && validPlayers.length > 0) {
+    if (validPlayers.length > 0) {
       await completeMatchHistory({
         room,
         validPlayers,
-        winnerId,
+        winnerId: validWinner ? winnerId : undefined,
       });
     }
   } catch (err) {
@@ -365,6 +416,17 @@ module.exports = function registerGameSocket(io) {
     if (cardType.startsWith('combo_')) return cardType.toUpperCase();
     if (cardType === 'zombie_resolved' || cardType === 'defuse_resolved') return cardType.toUpperCase();
     return cardType.toUpperCase();
+  }
+
+  function emitTurnChanged(room, previousPlayerId) {
+    const gameState = room.gameState;
+    io.to(room.code).emit('game:turnChanged', {
+      eventId: createEventId('turn'),
+      previousPlayerId,
+      currentPlayerId: gameState.players[gameState.currentPlayerIndex]?.userId,
+      drawsRequired: gameState.drawsRequired,
+      playDirection: gameState.playDirection ?? 1,
+    });
   }
 
   function broadcastActionResolved(room, action, result) {
@@ -401,6 +463,7 @@ module.exports = function registerGameSocket(io) {
     const timeoutMs = getNowWindowTimeout();
     const presentationId = ensurePresentationId(action);
     action.timeoutMs = timeoutMs;
+    action.expiresAt = Date.now() + timeoutMs;
     action.passedPlayers = [];
     action.responseOwnerId = getNopeResponseOwnerId(action);
     room.gameState.pendingAction = action;
@@ -409,6 +472,7 @@ module.exports = function registerGameSocket(io) {
       eventId: action.eventId,
       presentationId,
       timeoutMs,
+      expiresAt: action.expiresAt,
       cardType: action.cardType,
       actingPlayerId: action.playerId,
       responseOwnerId: action.responseOwnerId,
@@ -474,10 +538,7 @@ module.exports = function registerGameSocket(io) {
 
     if (action.type === 'defuse_completed') {
       broadcastActionResolved(room, action, 'RESOLVED');
-      io.to(room.code).emit('game:turnChanged', {
-        currentPlayerId: gameState.players[gameState.currentPlayerIndex]?.userId,
-        drawsRequired: gameState.drawsRequired,
-      });
+      emitTurnChanged(room, action.playerId);
       io.to(room.code).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(gameState) });
       sendHands(io, room);
       await finalizeGame(io, room);
@@ -511,15 +572,16 @@ module.exports = function registerGameSocket(io) {
     if (action.timerId) {
       clearTimeout(action.timerId);
     }
+    const remainingMs = Math.max(0, (action.expiresAt || (Date.now() + (action.timeoutMs || 3000))) - Date.now());
     action.timerId = setTimeout(async () => {
       if (!room.gameState || !room.gameState.pendingAction || room.gameState.pendingAction.eventId !== eventId) return;
       await resolvePendingActionEarly(room, eventId);
-    }, action.timeoutMs || 3000);
+    }, remainingMs);
   }
 
   function startNowOnlyWindow(room, resolvedAction) {
     const timeoutMs = 3000;
-    const eventId = `${Date.now()}-${Math.random()}`;
+    const eventId = createEventId('now-window');
     const pendingNow = {
       eventId,
       timeoutMs,
@@ -583,6 +645,7 @@ module.exports = function registerGameSocket(io) {
     const needsDeadTarget = cardType === 'feed_the_dead';
     return gameState.players.filter((player) => (
       player.userId !== playerId
+      && !player.forfeited
       && (needsDeadTarget ? !player.alive : player.alive)
     ));
   }
@@ -613,7 +676,7 @@ module.exports = function registerGameSocket(io) {
 
     // Create pendingAction and start Nope timer
     const actualCardType = comboSize ? `combo_${comboSize}` : cardType;
-    const eventId = `${Date.now()}-${Math.random()}`;
+    const eventId = createEventId('action');
     const action = {
       eventId,
       presentationId,
@@ -629,7 +692,7 @@ module.exports = function registerGameSocket(io) {
     startActionWindow(room, action);
   }
 
-  async function handlePlayerDisconnectFallback(room, userId) {
+  async function forfeitPlayer(room, userId) {
     const gameState = room.gameState;
     if (!gameState) return;
 
@@ -639,7 +702,14 @@ module.exports = function registerGameSocket(io) {
     const p = gameState.players.find(p => p.userId === userId);
     if (!p || !p.alive) return;
 
+    p.forfeited = true;
+    p.connectionStatus = 'connected';
+    p.reconnectDeadline = null;
     eliminatePlayer(gameState, userId);
+    if (p.hand.length > 0) {
+      gameState.discardPile.push(...p.hand);
+      p.hand = [];
+    }
 
     // If there is an active interaction, trigger an interaction timeout
     // to auto-resolve or cancel it based on the interaction rules.
@@ -677,6 +747,78 @@ module.exports = function registerGameSocket(io) {
     await afterGameStateChanged(room, innerPlayersBefore, innerTurnBefore);
   }
 
+  async function forfeitAndLeave(roomCode, userId, socketToLeave = null) {
+    const roomBefore = getRoomState(roomCode);
+    if (!roomBefore) return null;
+    clearReconnectTimer(roomCode, userId);
+
+    const gamePlayer = roomBefore.gameState?.players.find((player) => player.userId === userId);
+    if (roomBefore.status === 'playing' && gamePlayer?.alive) {
+      await forfeitPlayer(roomBefore, userId);
+    }
+
+    const room = leaveRoom(roomCode, userId);
+    socketToLeave?.leave(roomCode);
+    if (room) emitRoomUpdated(io.to(roomCode), room);
+    return room;
+  }
+
+  function scheduleReconnectForfeit(room, userId) {
+    const graceMs = room.reconnectGraceMs || RECONNECT_GRACE_MS;
+    const deadline = Date.now() + graceMs;
+    const player = markPlayerDisconnected(room.code, userId, deadline);
+    if (!player) return;
+
+    clearReconnectTimer(room.code, userId);
+    const key = reconnectTimerKey(room.code, userId);
+    const run = async () => {
+      const currentRoom = getRoomState(room.code);
+      const currentPlayer = currentRoom?.players.find((candidate) => candidate.userId === userId);
+      const gamePlayer = currentRoom?.gameState?.players.find((candidate) => candidate.userId === userId);
+      const activeSockets = io.sockets.adapter.rooms.get(`user:${userId}`);
+
+      if (
+        !currentRoom
+        || currentRoom.status !== 'playing'
+        || !currentPlayer
+        || !gamePlayer?.alive
+        || currentPlayer.connectionStatus !== 'reconnecting'
+        || currentPlayer.reconnectDeadline !== deadline
+        || currentPlayer.forfeited
+        || activeSockets?.size > 0
+      ) {
+        clearReconnectTimer(room.code, userId);
+        return;
+      }
+      if (Date.now() <= deadline) {
+        reconnectTimers.set(key, setTimeout(run, deadline - Date.now() + 1));
+        return;
+      }
+
+      reconnectTimers.delete(key);
+      const username = currentPlayer.username || userId;
+      await forfeitAndLeave(room.code, userId);
+      io.to(room.code).emit('chat:message', {
+        userId: 'system',
+        username: 'Hệ Thống',
+        text: `${username} đã bị xử thua do quá thời gian kết nối lại.`,
+        timestamp: new Date().toISOString(),
+      });
+    };
+
+    reconnectTimers.set(key, setTimeout(run, graceMs + 1));
+    emitRoomUpdated(io.to(room.code), room);
+    io.to(room.code).emit('game:stateUpdate', {
+      publicGameState: sanitizePublicGameState(room.gameState),
+    });
+    io.to(room.code).emit('chat:message', {
+      userId: 'system',
+      username: 'Hệ Thống',
+      text: `${player.username || userId} mất kết nối và có 60 giây để quay lại.`,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
   async function resolveBarkingKittenSocket(room, playerId, targetPlayerId) {
     const gameState = room.gameState;
     const playersBefore = gameState.players.map(p => ({ userId: p.userId, alive: p.alive }));
@@ -706,7 +848,7 @@ module.exports = function registerGameSocket(io) {
       const currentPendingZombie = gameState.pendingZombie;
       setTimeout(async () => {
         if (room.gameState && room.gameState.pendingZombie && room.gameState.pendingZombie === currentPendingZombie) {
-          const firstDead = room.gameState.players.find((p) => !p.alive);
+          const firstDead = room.gameState.players.find((p) => !p.alive && !p.forfeited);
           const revivedPlayerId = firstDead ? firstDead.userId : null;
           const randomPos = Math.floor(Math.random() * (room.gameState.deck.length + 1));
           const clairvoyancePlayerId = room.gameState.pendingZombie.clairvoyancePlayerId;
@@ -753,7 +895,7 @@ module.exports = function registerGameSocket(io) {
     return false;
   }
 
-  async function afterGameStateChanged(room, playersBefore, turnBefore) {
+  async function afterGameStateChanged(room, playersBefore, turnBefore, drawContext = {}) {
     const gameState = room.gameState;
     if (!gameState) return;
     touchRoom(room);
@@ -762,7 +904,11 @@ module.exports = function registerGameSocket(io) {
     playersBefore.forEach((pBefore) => {
       const pAfter = gameState.players.find((p) => p.userId === pBefore.userId);
       if (pBefore.alive && pAfter && !pAfter.alive) {
-        io.to(room.code).emit('game:exploded', { playerId: pBefore.userId });
+        io.to(room.code).emit('game:exploded', {
+          eventId: createEventId('explosion'),
+          drawEventId: drawContext.drawEventId,
+          playerId: pBefore.userId,
+        });
       }
     });
 
@@ -771,66 +917,83 @@ module.exports = function registerGameSocket(io) {
 
     // If turn index changed and no pending defuse/zombie block, notify client
     const turnAfter = gameState.currentPlayerIndex;
-    if (turnBefore !== turnAfter && !pendingHandled) {
-      io.to(room.code).emit('game:turnChanged', {
-        currentPlayerId: gameState.players[gameState.currentPlayerIndex]?.userId,
-        drawsRequired: gameState.drawsRequired,
-      });
+    const directionChanged = drawContext.playDirectionBefore !== undefined
+      && drawContext.playDirectionBefore !== (gameState.playDirection ?? 1);
+    if ((turnBefore !== turnAfter || directionChanged) && !pendingHandled) {
+      emitTurnChanged(room, gameState.players[turnBefore]?.userId);
     }
 
     io.to(room.code).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(gameState) });
-    sendHands(io, room);
+    sendHands(io, room, {
+      sourceEventId: drawContext.drawEventId,
+      recipientId: drawContext.recipientId,
+    });
     await finalizeGame(io, room);
   }
 
   async function executeDraw(room, playerId) {
     const gameState = room.gameState;
-    const beforeAlive = gameState.players.find((p) => p.userId === playerId)?.alive;
+    const drawEventId = createEventId('draw');
+    const playersBefore = gameState.players.map((player) => ({
+      userId: player.userId,
+      alive: player.alive,
+    }));
+    const handIdsBefore = new Map(gameState.players.map((player) => [
+      player.userId,
+      new Set(player.hand.map((card) => card.id)),
+    ]));
     const turnBefore = gameState.currentPlayerIndex;
-    io.to(room.code).emit('game:cardDrawn', { playerId });
-
+    const playDirectionBefore = gameState.playDirection ?? 1;
     const topCard = gameState.deck[gameState.deck.length - 1];
-    let drewKitten = (topCard?.type === 'exploding_kitten' || topCard?.type === 'imploding_kitten' || topCard?.type === 'devilcat') ? topCard.type : null;
-
-    // Suppress drawing alert if protected by Streaking Kitten
-    if (drewKitten === 'exploding_kitten') {
-      const pObj = gameState.players.find((p) => p.userId === playerId);
-      if (pObj) {
-        const streakingCount = pObj.hand.filter((c) => c.type === 'streaking_kitten').length;
-        const explodingCount = pObj.hand.filter((c) => c.type === 'exploding_kitten').length;
-        if (explodingCount < streakingCount) {
-          drewKitten = null; // Do not alert room
-        }
-      }
-    }
-
-    if (drewKitten) {
-      const pObj = gameState.players.find((p) => p.userId === playerId);
-      const username = pObj ? pObj.username : playerId;
-      io.to(room.code).emit('game:drewKitten', { playerId, username, cardType: drewKitten });
-    }
 
     drawCard(gameState, playerId, false, (pId) => {
       updateQuestProgress(pId, 'defuse_kitten', 1);
     });
 
-    const playersBefore = [{ userId: playerId, alive: beforeAlive }];
-
-    // Check if player exploded immediately (no defuse, no zombie revival)
-    const pAfter = gameState.players.find((p) => p.userId === playerId);
-    if (pAfter && !pAfter.alive) {
-      await afterGameStateChanged(room, playersBefore, turnBefore);
-      return;
+    let drawnCard = null;
+    let recipientId = null;
+    for (const player of gameState.players) {
+      drawnCard = player.hand.find((card) => !handIdsBefore.get(player.userId)?.has(card.id));
+      if (drawnCard) {
+        recipientId = player.userId;
+        break;
+      }
     }
 
-    // If player needs to defuse/revive
-    if (gameState.pendingDefuse || gameState.pendingZombie) {
-      await afterGameStateChanged(room, [{ userId: playerId, alive: true }], gameState.currentPlayerIndex);
-      return;
+    const explodedPlayer = playersBefore.find((before) => {
+      const after = gameState.players.find((player) => player.userId === before.userId);
+      return before.alive && after && !after.alive;
+    });
+    const pendingPlayerId = gameState.pendingDefuse?.playerId || gameState.pendingZombie?.playerId;
+    if (gameState.pendingDefuse) gameState.pendingDefuse.drawEventId = drawEventId;
+    if (gameState.pendingZombie) gameState.pendingZombie.drawEventId = drawEventId;
+    recipientId ||= pendingPlayerId || explodedPlayer?.userId || playerId;
+
+    io.to(room.code).emit('game:cardDrawn', {
+      eventId: drawEventId,
+      playerId,
+      recipientId,
+    });
+
+    const pendingCard = gameState.pendingDefuse?.card || gameState.pendingZombie?.card;
+    const dangerousCardType = pendingCard?.type || (explodedPlayer ? topCard?.type : null);
+    if (dangerousCardType) {
+      const recipient = gameState.players.find((player) => player.userId === recipientId);
+      io.to(room.code).emit('game:drewKitten', {
+        eventId: createEventId('kitten'),
+        drawEventId,
+        playerId: recipientId,
+        username: recipient?.username || recipientId,
+        cardType: dangerousCardType,
+      });
     }
 
-    // Normal draw: immediately transition turn
-    await afterGameStateChanged(room, playersBefore, turnBefore);
+    await afterGameStateChanged(room, playersBefore, turnBefore, {
+      drawEventId,
+      recipientId,
+      playDirectionBefore,
+    });
+    return drawEventId;
   }
 
   async function runActionEffect(room, action) {
@@ -839,6 +1002,7 @@ module.exports = function registerGameSocket(io) {
 
     const playersBefore = gameState.players.map(p => ({ userId: p.userId, alive: p.alive }));
     const turnBefore = gameState.currentPlayerIndex;
+    const playDirectionBefore = gameState.playDirection ?? 1;
 
     const queue = new EffectQueue();
     const context = new GameContext(gameState, queue);
@@ -902,7 +1066,7 @@ module.exports = function registerGameSocket(io) {
       }, interaction.timeout);
     }
 
-    await afterGameStateChanged(room, playersBefore, turnBefore);
+    await afterGameStateChanged(room, playersBefore, turnBefore, { playDirectionBefore });
   }
   io.use((socket, next) => {
     const rawToken = socket.handshake.auth?.token;
@@ -925,21 +1089,18 @@ module.exports = function registerGameSocket(io) {
     // Auto re-join room if the user was already in one (supports tab switching and reconnection)
     const activeRoom = findRoomByUser(userId);
     if (activeRoom) {
-      socket.join(activeRoom.code);
-      setTimeout(() => {
-        emitRoomUpdated(io.to(activeRoom.code), activeRoom);
-        if (activeRoom.gameState) {
-          socket.emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(activeRoom.gameState) });
-          const player = activeRoom.gameState.players.find((p) => p.userId === userId);
-          if (player) {
-            socket.emit('game:privateHand', { cards: getPrivateHandCards(player) });
-          }
-          const resumedRequest = buildReconnectInteractionRequest(activeRoom.gameState, userId);
-          if (resumedRequest) {
-            socket.emit('interaction:request', resumedRequest);
-          }
-        }
-      }, 200);
+      const roomPlayer = markPlayerConnected(activeRoom.code, userId);
+      if (!roomPlayer) {
+        void forfeitAndLeave(activeRoom.code, userId);
+      } else {
+        clearReconnectTimer(activeRoom.code, userId);
+        socket.join(activeRoom.code);
+        setTimeout(() => {
+          if (getRoomState(activeRoom.code) !== activeRoom) return;
+          emitRoomUpdated(io.to(activeRoom.code), activeRoom);
+          sendPlayerSnapshot(socket, activeRoom, userId);
+        }, 200);
+      }
     }
     const ensureLeaveOtherRooms = async (targetRoomCode) => {
       const activeRooms = [...socket.rooms].filter((r) => r.length === 6 && r !== targetRoomCode);
@@ -954,8 +1115,10 @@ module.exports = function registerGameSocket(io) {
         const pName = player ? player.username : userId;
         const wasPlaying = roomBefore?.status === 'playing';
 
-        const room = leaveRoom(rCode, userId);
-        socket.leave(rCode);
+        const room = wasPlaying
+          ? await forfeitAndLeave(rCode, userId, socket)
+          : leaveRoom(rCode, userId);
+        if (!wasPlaying) socket.leave(rCode);
         if (room) {
           emitRoomUpdated(io.to(rCode), room);
           io.to(rCode).emit('chat:message', {
@@ -964,13 +1127,6 @@ module.exports = function registerGameSocket(io) {
             text: `Người chơi ${pName} đã rời phòng.`,
             timestamp: new Date().toISOString(),
           });
-
-          if (wasPlaying && room.status === 'playing') {
-            await handlePlayerDisconnectFallback(room, userId);
-          }
-        }
-        if (wasPlaying && (!room || room.status !== 'playing')) {
-          await refundCancelledRoomWager(roomBefore, 'Match cancelled after player left');
         }
       }
     };
@@ -985,11 +1141,11 @@ module.exports = function registerGameSocket(io) {
         if (liveOps.config.maintenanceMode) throw new Error('Hệ thống đang bảo trì. Tạm thời không thể tạo phòng mới.');
         if (getPublicRooms().length >= liveOps.config.maxActiveRooms) throw new Error('Hệ thống đã đạt giới hạn phòng đang hoạt động. Vui lòng thử lại sau.');
         await ensureLeaveOtherRooms(null);
-        let username = socket.user?.username ?? `Guest-${guestId.slice(6, 11)}`;
+        let playerProfile = { username: socket.user?.username ?? `Guest-${guestId.slice(6, 11)}` };
         if (socket.user?.id) {
           const dbUser = await findUserByIdSafe(socket.user.id);
           if (dbUser) {
-            username = dbUser.username;
+            playerProfile = toPlayerPresentation(dbUser, playerProfile.username);
             const requestedBet = parseInt(betAmount, 10);
             const actualBet = !isNaN(requestedBet) && requestedBet >= 0 ? requestedBet : 50;
             if (dbUser.coins < actualBet) {
@@ -1003,7 +1159,7 @@ module.exports = function registerGameSocket(io) {
             throw new Error('Tài khoản Khách chỉ có thể tạo phòng chơi miễn phí (Cược = 0)');
           }
         }
-        const room = createRoom(userId, { password, edition, maxPlayers, betAmount, gameMode, customDefuses, customExplodingKittens }, username);
+        const room = createRoom(userId, { password, edition, maxPlayers, betAmount, gameMode, customDefuses, customExplodingKittens }, playerProfile);
         socket.join(room.code);
         emitRoomUpdated(io.to(room.code), room);
       } catch (error) {
@@ -1012,18 +1168,32 @@ module.exports = function registerGameSocket(io) {
     });
 
     socket.on('room:join', async ({ roomCode, password }) => {
-      if (!socket.user) {
-        socket.emit('error', { code: 'AUTH_REQUIRED', message: 'Bạn cần đăng nhập để tham gia phòng.' });
-        return;
-      }
       try {
-        await ensureLeaveOtherRooms(roomCode);
-        let username = socket.user?.username ?? `Guest-${guestId.slice(6, 11)}`;
         const roomBefore = getRoomState(roomCode);
+        if (roomBefore?.players.some((player) => player.userId === userId)) {
+          const player = markPlayerConnected(roomCode, userId);
+          if (!player) {
+            await forfeitAndLeave(roomCode, userId, socket);
+            throw new Error('Đã quá thời gian kết nối lại trận đấu');
+          }
+          clearReconnectTimer(roomCode, userId);
+          socket.join(roomCode);
+          emitRoomUpdated(io.to(roomCode), roomBefore);
+          sendPlayerSnapshot(socket, roomBefore, userId);
+          return;
+        }
+
+        if (!socket.user) {
+          socket.emit('error', { code: 'AUTH_REQUIRED', message: 'Bạn cần đăng nhập để tham gia phòng.' });
+          return;
+        }
+
+        await ensureLeaveOtherRooms(roomCode);
+        let playerProfile = { username: socket.user?.username ?? `Guest-${guestId.slice(6, 11)}` };
         if (socket.user?.id) {
           const dbUser = await findUserByIdSafe(socket.user.id);
           if (dbUser) {
-            username = dbUser.username;
+            playerProfile = toPlayerPresentation(dbUser, playerProfile.username);
             if (roomBefore && dbUser.coins < roomBefore.betAmount) {
               throw new Error('Không đủ GoldCoin để vào phòng');
             }
@@ -1033,9 +1203,30 @@ module.exports = function registerGameSocket(io) {
             throw new Error('Tài khoản Khách chỉ có thể tham gia phòng chơi miễn phí (Cược = 0)');
           }
         }
-        const room = joinRoom(roomCode, userId, username, password);
+        const invited = consumeRoomInviteGrant(roomCode, userId);
+        const room = joinRoom(roomCode, userId, playerProfile, invited ? roomBefore?.password : password);
         socket.join(room.code);
         emitRoomUpdated(io.to(room.code), room);
+        sendPlayerSnapshot(socket, room, userId);
+      } catch (error) {
+        socket.emit('error', { message: error.message });
+      }
+    });
+
+    socket.on('room:invite', async ({ roomCode, friendId } = {}) => {
+      try {
+        if (!socket.user || !mongoose.Types.ObjectId.isValid(friendId)) throw new Error('Lời mời không hợp lệ.');
+        const room = getRoomState(roomCode);
+        await assertCanInviteFriend({ inviterId: userId, friendId, room, FriendshipModel: Friendship });
+        const expiresAt = Date.now() + 2 * 60 * 1000;
+        roomInviteGrants.set(roomInviteKey(roomCode, friendId), expiresAt);
+        io.to(`user:${friendId}`).emit('room:invitation', {
+          roomCode,
+          inviterId: userId,
+          inviterUsername: socket.user.username,
+          expiresAt,
+        });
+        socket.emit('room:inviteSent', { friendId, roomCode });
       } catch (error) {
         socket.emit('error', { message: error.message });
       }
@@ -1122,8 +1313,10 @@ module.exports = function registerGameSocket(io) {
         const pName = player ? player.username : userId;
         const wasPlaying = roomBefore?.status === 'playing';
 
-        const room = leaveRoom(roomCode, userId);
-        socket.leave(roomCode);
+        const room = wasPlaying
+          ? await forfeitAndLeave(roomCode, userId, socket)
+          : leaveRoom(roomCode, userId);
+        if (!wasPlaying) socket.leave(roomCode);
         emitRoomUpdated(socket, null);
         if (room) {
           emitRoomUpdated(io.to(roomCode), room);
@@ -1133,13 +1326,6 @@ module.exports = function registerGameSocket(io) {
             text: `Người chơi ${pName} đã rời phòng.`,
             timestamp: new Date().toISOString(),
           });
-
-          if (wasPlaying && room.status === 'playing') {
-            await handlePlayerDisconnectFallback(room, userId);
-          }
-        }
-        if (wasPlaying && (!room || room.status !== 'playing')) {
-          await refundCancelledRoomWager(roomBefore, 'Match cancelled after player left');
         }
       }
     });
@@ -1147,12 +1333,7 @@ module.exports = function registerGameSocket(io) {
     socket.on('room:playAgain', () => {
       const activeRoom = findRoomByUser(userId);
       if (activeRoom && activeRoom.status === 'finished') {
-        activeRoom.status = 'waiting';
-        activeRoom.gameState = null;
-        activeRoom.players.forEach((p) => {
-          p.hand = [];
-          p.alive = true;
-        });
+        resetRoomForRematch(activeRoom);
         emitRoomUpdated(io.to(activeRoom.code), activeRoom);
         io.to(activeRoom.code).emit('chat:message', {
           userId: 'system',
@@ -1170,37 +1351,22 @@ module.exports = function registerGameSocket(io) {
           const activeRoom = findRoomByUser(userId);
           if (activeRoom) {
             const player = activeRoom.players.find((p) => p.userId === userId);
-            const pName = player ? player.username : userId;
-            const wasPlaying = activeRoom.status === 'playing';
-            const room = leaveRoom(activeRoom.code, userId);
-            if (room) {
-              emitRoomUpdated(io.to(activeRoom.code), room);
-              if (wasPlaying && room.status === 'waiting') {
-                io.to(activeRoom.code).emit('chat:message', {
-                  userId: 'system',
-                  username: 'Hệ Thống',
-                  text: `Trận đấu bị hủy do người chơi ${pName} đã thoát hoặc mất kết nối.`,
-                  timestamp: new Date().toISOString(),
-                });
-              } else {
-                io.to(activeRoom.code).emit('chat:message', {
-                  userId: 'system',
-                  username: 'Hệ Thống',
-                  text: `Người chơi ${pName} đã rời phòng hoặc mất kết nối.`,
-                  timestamp: new Date().toISOString(),
-                });
-
-                if (wasPlaying && room.status === 'playing') {
-                  await handlePlayerDisconnectFallback(room, userId);
-                }
-              }
-            }
-            if (wasPlaying && (!room || room.status !== 'playing')) {
-              await refundCancelledRoomWager(activeRoom, 'Match cancelled after disconnect');
+            const gamePlayer = activeRoom.gameState?.players.find((p) => p.userId === userId);
+            if (activeRoom.status === 'playing' && gamePlayer?.alive) {
+              scheduleReconnectForfeit(activeRoom, userId);
+            } else {
+              const room = leaveRoom(activeRoom.code, userId);
+              if (room) emitRoomUpdated(io.to(activeRoom.code), room);
+              io.to(activeRoom.code).emit('chat:message', {
+                userId: 'system',
+                username: 'Hệ Thống',
+                text: `Người chơi ${player?.username || userId} đã rời phòng hoặc mất kết nối.`,
+                timestamp: new Date().toISOString(),
+              });
             }
           }
         }
-      }, 5000);
+      }, 0);
     });
 
     socket.on('game:start', async ({ roomCode } = {}) => {
@@ -1260,12 +1426,25 @@ module.exports = function registerGameSocket(io) {
       }
     });
 
-    socket.on('game:playCard', async ({ cardType, targetPlayerId, options }) => {
+    socket.on('game:playCard', async (request = {}, acknowledge) => {
+      const { cardType, targetPlayerId, options } = request || {};
+      let acknowledged = false;
+      const respond = (payload) => {
+        if (acknowledged || typeof acknowledge !== 'function') return;
+        acknowledged = true;
+        acknowledge(payload);
+      };
       try {
         const roomCode = [...socket.rooms].find((room) => room.length === 6);
-        if (!roomCode) return;
+        if (!roomCode) {
+          respond({ ok: false, error: 'Room not found' });
+          return;
+        }
         const room = getRoomState(roomCode);
-        if (!room?.gameState) return;
+        if (!room?.gameState) {
+          respond({ ok: false, error: 'Game not found' });
+          return;
+        }
 
         const state = room.gameState;
         const queue = new EffectQueue();
@@ -1276,14 +1455,19 @@ module.exports = function registerGameSocket(io) {
 
         if (!result.success) {
           socket.emit('error', { message: result.error });
+          respond({ ok: false, error: result.error });
           return;
         }
 
         let finalTargetPlayerId = payload.finalTargetPlayerId;
         const actualCardType = payload.actualCardType;
 
-        if (!actualCardType) return; // Invalid play
+        if (!actualCardType) {
+          respond({ ok: false, error: 'Invalid card play' });
+          return;
+        }
         const presentationId = createPresentationId();
+        respond({ ok: true, presentationId });
 
         if (state.pendingNowOnlyWindow && actualCardType.endsWith('_now')) {
           clearNowOnlyWindow(room, state.pendingNowOnlyWindow.eventId);
@@ -1394,7 +1578,7 @@ module.exports = function registerGameSocket(io) {
           const isNowCardActual = actualCardType.endsWith('_now');
           const oldPending = isNowCardActual ? room.gameState.pendingAction : null;
 
-          const eventId = `${Date.now()}-${Math.random()}`;
+          const eventId = createEventId('action');
           const action = {
             eventId,
             presentationId,
@@ -1410,16 +1594,24 @@ module.exports = function registerGameSocket(io) {
         }
       } catch (error) {
         socket.emit('error', { message: error.message });
+        respond({ ok: false, error: error.message });
       }
     });
 
 
-    socket.on('game:drawCard', async () => {
+    socket.on('game:drawCard', async (request, acknowledge) => {
+      const respond = typeof request === 'function' ? request : acknowledge;
       try {
         const roomCode = [...socket.rooms].find((room) => room.length === 6);
-        if (!roomCode) return;
+        if (!roomCode) {
+          respond?.({ ok: false, error: 'Room not found' });
+          return;
+        }
         const room = getRoomState(roomCode);
-        if (!room?.gameState) return;
+        if (!room?.gameState) {
+          respond?.({ ok: false, error: 'Game not found' });
+          return;
+        }
 
         const state = room.gameState;
         const queue = new EffectQueue();
@@ -1430,13 +1622,16 @@ module.exports = function registerGameSocket(io) {
 
         if (!result.success) {
           socket.emit('error', { message: result.error });
+          respond?.({ ok: false, error: result.error });
           return;
         }
 
         // Execute the draw immediately — no pre-draw intervention window
-        await executeDraw(room, userId);
+        const eventId = await executeDraw(room, userId);
+        respond?.({ ok: true, eventId });
       } catch (error) {
         socket.emit('error', { message: error.message });
+        respond?.({ ok: false, error: error.message });
       }
     });
 
@@ -1489,7 +1684,7 @@ module.exports = function registerGameSocket(io) {
 
       const [nopeCard] = player.hand.splice(nopeIdx, 1);
       room.gameState.discardPile.push(nopeCard);
-      const nopeCardActionId = `nope-${userId}-${Date.now()}-${Math.random()}`;
+      const nopeCardActionId = createEventId(`nope-${userId}`);
       io.to(roomCode).emit('game:cardPlayed', {
         playerId: userId,
         cardType: 'nope',
@@ -1507,7 +1702,7 @@ module.exports = function registerGameSocket(io) {
       pending.responseOwnerId = userId;
       updateQuestProgress(userId, 'nope_card', 1);
 
-      const newEventId = `${Date.now()}-${Math.random()}`;
+      const newEventId = createEventId('nope-window');
       pending.eventId = newEventId;
       startNopeWindow(room, pending);
     });
@@ -1676,7 +1871,7 @@ module.exports = function registerGameSocket(io) {
         }
 
         // Queue the combo for Nope resolution before running its effect.
-        const eventId = `${Date.now()}-${Math.random()}`;
+        const eventId = createEventId('action');
         const action = {
           eventId,
           presentationId,
@@ -1705,7 +1900,12 @@ module.exports = function registerGameSocket(io) {
 
       // Validate target (must be dead for feed_the_dead, alive for others)
       const isFeed = pending.cardType === 'feed_the_dead';
-      const target = room.gameState.players.find(p => p.userId === targetPlayerId && (isFeed ? !p.alive : p.alive) && p.userId !== userId);
+      const target = room.gameState.players.find(p => (
+        p.userId === targetPlayerId
+        && !p.forfeited
+        && (isFeed ? !p.alive : p.alive)
+        && p.userId !== userId
+      ));
       if (!target) return;
 
       resolveTargetSelect(room, targetPlayerId);
@@ -1851,7 +2051,7 @@ module.exports = function registerGameSocket(io) {
       io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
       sendHands(io, room);
       // Open a reaction window after zombie revive completed
-      const eventId = `${Date.now()}-${Math.random()}`;
+      const eventId = createEventId('action');
       const presentationId = createPresentationId();
       io.to(roomCode).emit('game:cardPlayedPending', {
         actionId: presentationId,
@@ -1886,7 +2086,7 @@ module.exports = function registerGameSocket(io) {
       io.to(roomCode).emit('game:stateUpdate', { publicGameState: sanitizePublicGameState(room.gameState) });
       sendHands(io, room);
       // Open a reaction window after defuse completed
-      const eventId = `${Date.now()}-${Math.random()}`;
+      const eventId = createEventId('action');
       const presentationId = createPresentationId();
       io.to(roomCode).emit('game:cardPlayedPending', {
         actionId: presentationId,
@@ -2028,3 +2228,5 @@ module.exports = function registerGameSocket(io) {
     });
   });
 };
+
+module.exports.sanitizePublicGameState = sanitizePublicGameState;

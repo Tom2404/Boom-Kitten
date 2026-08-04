@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 
 const {
   applyTournamentMatchResult,
+  buildForfeitPlacements,
   buildEightPlayerTournament,
   tournamentStandings,
 } = require('../services/tournamentLifecycleService');
@@ -18,6 +19,7 @@ function participants() {
 test('eight-player schedule deterministically creates two groups, three matches per group, and five finals', () => {
   const bracket = buildEightPlayerTournament('cup-1', participants());
   assert.equal(bracket.format, 'groups_then_final_v1');
+  assert.deepEqual(bracket.scoring.tieBreak, ['points', 'wins', 'placementSum', 'seed', 'participantId']);
   assert.deepEqual(bracket.rounds.map((round) => round.matches.length), [3, 3, 5]);
   assert.deepEqual(bracket.rounds[0].matches[0].participantIds, ['participant-1', 'participant-3', 'participant-5', 'participant-7']);
   assert.deepEqual(bracket.rounds[1].matches[0].participantIds, ['participant-2', 'participant-4', 'participant-6', 'participant-8']);
@@ -57,4 +59,17 @@ test('five completed finals produce stable ranks for all eight players', () => {
   const standings = tournamentStandings(bracket);
   assert.equal(standings.length, 8);
   assert.deepEqual(standings.map((row) => row.finalRank), [1, 2, 3, 4, 5, 6, 7, 8]);
+});
+
+test('forfeit placements put connected players first and absent players last by seed', () => {
+  const bracket = buildEightPlayerTournament('cup-1', participants());
+  const match = bracket.rounds[0].matches[0];
+  const placements = buildForfeitPlacements(match, ['participant-5', 'participant-1']);
+
+  assert.deepEqual(placements, [
+    { participantId: 'participant-1', placement: 1, forfeit: false },
+    { participantId: 'participant-5', placement: 2, forfeit: false },
+    { participantId: 'participant-3', placement: 3, forfeit: true },
+    { participantId: 'participant-7', placement: 4, forfeit: true },
+  ]);
 });

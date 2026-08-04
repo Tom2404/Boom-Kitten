@@ -27,6 +27,7 @@ export default function Login({ setPage }) {
     try {
       const res = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
@@ -37,9 +38,6 @@ export default function Login({ setPage }) {
       }
 
       setToken(data.accessToken);
-      if (data.refreshToken) {
-        localStorage.setItem('refreshToken', data.refreshToken);
-      }
 
       setIsError(false);
       setMessage(t('login_success'));
@@ -109,6 +107,14 @@ export default function Login({ setPage }) {
           className="w-full mt-4 py-3.5 bg-[var(--pop-red)] text-white font-pop-accent font-black uppercase text-base border-3 border-[var(--pop-black)] shadow-[4px_4px_0_var(--pop-black)] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0_var(--pop-black)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[0_0_0_transparent] transition-all cursor-pointer"
         >
           {t('login_btn')}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setPage('ForgotPassword')}
+          className="text-center text-xs font-pop-accent font-black uppercase text-[var(--pop-red)] underline-offset-4 hover:underline"
+        >
+          Quên mật khẩu?
         </button>
 
         <p className="text-center text-xs font-pop-body font-bold text-[var(--pop-black)]/60 mt-2">

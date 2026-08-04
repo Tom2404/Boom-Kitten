@@ -22,6 +22,8 @@ export default function GameTableCore({
   opponents,
   pendingCombo5,
   playDirection,
+  protectorUrl,
+  protectorTransform,
   reversePulse,
   selectedTargetId,
   interactionState,
@@ -83,6 +85,8 @@ export default function GameTableCore({
             isMyTurn={isMyTurn}
             disabled={isDrawDisabled}
             compact
+            protectorUrl={protectorUrl}
+            protectorTransform={protectorTransform}
           />
         </div>
 

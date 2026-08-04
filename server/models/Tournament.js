@@ -1,10 +1,13 @@
 // Tournament schema defines competitive brackets, entry costs, and reward configurations.
 const mongoose = require('mongoose');
+const { TOURNAMENT_FORMAT, TOURNAMENT_MAX_PARTICIPANTS } = require('../utils/tournamentRules');
 
 const tournamentSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
     description: { type: String },
+    format: { type: String, enum: [TOURNAMENT_FORMAT], default: TOURNAMENT_FORMAT },
+    rulesVersion: { type: Number, default: 1, min: 1 },
     entryFee: { type: Number, default: 50 },
     prizePool: {
       coins: { type: Number, default: 500 },
@@ -14,9 +17,14 @@ const tournamentSchema = new mongoose.Schema(
       type: { type: String, required: true, enum: ['skin', 'emote', 'avatar_frame'] },
       itemId: { type: String, required: true },
     }],
-    maxParticipants: { type: Number, default: 16, min: 2, max: 128 },
+    maxParticipants: { type: Number, default: TOURNAMENT_MAX_PARTICIPANTS, min: TOURNAMENT_MAX_PARTICIPANTS, max: TOURNAMENT_MAX_PARTICIPANTS },
     registeredCount: { type: Number, default: 0, min: 0 },
+    registrationOpensAt: { type: Date },
     registrationClosesAt: { type: Date },
+    matchGraceMinutes: { type: Number, default: 5, min: 1, max: 30 },
+    refundState: { type: String, enum: ['not_required', 'pending', 'processing', 'completed', 'failed'], default: 'not_required' },
+    cancelReason: { type: String },
+    publishedAt: { type: Date },
     stateVersion: { type: Number, default: 0, min: 0 },
     bracket: { type: mongoose.Schema.Types.Mixed },
     payoutState: { type: String, enum: ['pending', 'previewed', 'processing', 'completed', 'failed'], default: 'pending' },

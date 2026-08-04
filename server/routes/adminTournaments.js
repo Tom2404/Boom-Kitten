@@ -15,6 +15,8 @@ const {
   transitionTournament,
   validateTournamentInput,
 } = require('../services/admin/tournamentService');
+const { createTournamentRefundPreview, refundCancelledTournamentEntries } = require('../services/admin/tournamentRefundService');
+const AuditLog = require('../models/AuditLog');
 const { ApiError } = require('../utils/apiResponse');
 
 const router = express.Router();
@@ -47,6 +49,8 @@ router.get('/', requireAdminPermission('tournaments.read'), async (req, res, nex
     const limit = Math.min(50, Math.max(1, Number.parseInt(req.query.limit, 10) || 20));
     const filter = {};
     if (['registration', 'active', 'completed', 'cancelled'].includes(req.query.status)) filter.status = req.query.status;
+    if (['pending', 'previewed', 'processing', 'completed', 'failed'].includes(req.query.payoutState)) filter.payoutState = req.query.payoutState;
+    if (['not_required', 'pending', 'processing', 'completed', 'failed'].includes(req.query.refundState)) filter.refundState = req.query.refundState;
     if (req.query.search) filter.name = { $regex: String(req.query.search).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&').slice(0, 120), $options: 'i' };
     const [items, total] = await Promise.all([
       Tournament.find(filter).sort({ startTime: -1, _id: -1 }).skip((page - 1) * limit).limit(limit).lean(),
@@ -68,13 +72,22 @@ router.get('/:id', requireAdminPermission('tournaments.read'), async (req, res, 
   } catch (error) { return next(error); }
 });
 
+router.get('/:id/audit', requireAdminPermission('tournaments.read'), async (req, res, next) => {
+  try {
+    assertId(req.params.id, 'tournamentId');
+    const logs = await AuditLog.find({ targetId: String(req.params.id), targetType: { $in: ['tournament', 'tournament_participant'] } })
+      .sort({ createdAt: -1, _id: -1 }).limit(100).lean();
+    return res.json({ success: true, data: logs });
+  } catch (error) { return next(error); }
+});
+
 router.post('/', requireAdminPermission('tournaments.write'), requireAdminMutationContext(), async (req, res, next) => {
   try {
     return await sendMutation(req, res, {
       operation: 'tournament.create', payload: req.body, statusCode: 201,
       execute: async () => {
         const input = validateTournamentInput(req.body);
-        const tournament = await Tournament.create({ ...input, status: 'registration', createdBy: req.admin.id });
+        const tournament = await Tournament.create({ ...input, status: 'registration', publishedAt: new Date(), createdBy: req.admin.id });
         await createAdminAudit({ actor: req.admin, action: 'TOURNAMENT_CREATED', target: { type: 'tournament', id: String(tournament._id) }, before: null, after: tournament.toObject(), reason: req.adminMutation.reason, request: { ...requestContext(req), operationRequestId: req.adminMutation.requestId } });
         return tournament;
       },
@@ -113,7 +126,7 @@ router.post('/:id/participants', requireAdminPermission('tournaments.write'), re
   } catch (error) { return next(error); }
 });
 
-router.patch('/:id/participants/:participantId', requireAdminPermission('tournaments.write'), requireAdminMutationContext(), async (req, res, next) => {
+router.patch('/:id/participants/:participantId', requireAdminPermission('tournaments.override'), requireAdminMutationContext(), async (req, res, next) => {
   try {
     assertId(req.params.id, 'tournamentId');
     assertId(req.params.participantId, 'participantId');
@@ -129,7 +142,7 @@ router.patch('/:id/participants/:participantId', requireAdminPermission('tournam
         if (!before) throw new ApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy người tham gia.');
         const participant = await TournamentParticipant.findOneAndUpdate({ _id: before._id, tournamentId: req.params.id, __v: Number(req.body.expectedVersion) }, { $set: { score }, $inc: { __v: 1 } }, { new: true, runValidators: true });
         if (!participant) throw new ApiError(409, 'STATE_CONFLICT', 'Điểm vừa thay đổi. Hãy tải lại.');
-        await createAdminAudit({ actor: req.admin, action: 'TOURNAMENT_PARTICIPANT_SCORE_UPDATED', target: { type: 'tournament_participant', id: String(participant._id) }, before: { score: before.score, version: before.__v }, after: { score: participant.score, version: participant.__v }, reason: req.adminMutation.reason, request: { ...requestContext(req), operationRequestId: req.adminMutation.requestId } });
+        await createAdminAudit({ actor: req.admin, action: 'TOURNAMENT_PARTICIPANT_SCORE_OVERRIDDEN', target: { type: 'tournament_participant', id: String(participant._id) }, before: { score: before.score, version: before.__v }, after: { score: participant.score, version: participant.__v, resultSource: 'admin_override' }, reason: req.adminMutation.reason, request: { ...requestContext(req), operationRequestId: req.adminMutation.requestId } });
         return participant;
       },
     });
@@ -162,6 +175,33 @@ router.post('/:id/payouts', requireAdminPermission('tournaments.payout'), requir
     return await sendMutation(req, res, {
       operation: 'tournament.payout.execute', payload: { tournamentId: req.params.id, expectedVersion: req.body.expectedVersion, previewToken: req.body.previewToken },
       execute: () => executeTournamentPayout({ actor: req.admin, tournamentId: req.params.id, expectedVersion: req.body.expectedVersion, previewToken: req.body.previewToken, mutation: req.adminMutation, request: requestContext(req) }),
+    });
+  } catch (error) { return next(error); }
+});
+
+router.post('/:id/refunds/preview', requireAdminPermission('tournaments.refund'), requireAdminMutationContext(), async (req, res, next) => {
+  try {
+    assertId(req.params.id, 'tournamentId');
+    return await sendMutation(req, res, {
+      operation: 'tournament.refund.preview', payload: { tournamentId: req.params.id },
+      execute: () => createTournamentRefundPreview({ TournamentModel: Tournament, tournamentId: req.params.id }),
+    });
+  } catch (error) { return next(error); }
+});
+
+router.post('/:id/refunds/retry', requireAdminPermission('tournaments.refund'), requireAdminMutationContext(), async (req, res, next) => {
+  try {
+    assertId(req.params.id, 'tournamentId');
+    return await sendMutation(req, res, {
+      operation: 'tournament.refund.retry', payload: { tournamentId: req.params.id },
+      execute: async () => {
+        const result = await refundCancelledTournamentEntries({
+          tournamentId: req.params.id,
+          requestId: req.adminMutation.requestId,
+        });
+        await createAdminAudit({ actor: req.admin, action: 'TOURNAMENT_REFUNDS_RETRIED', target: { type: 'tournament', id: String(req.params.id) }, before: null, after: result, reason: req.adminMutation.reason, request: { ...requestContext(req), operationRequestId: req.adminMutation.requestId } });
+        return result;
+      },
     });
   } catch (error) { return next(error); }
 });

@@ -19,6 +19,7 @@ test('tournament create payload is Coin-only and normalizes cosmetic rewards', (
   }, 'req-1');
   assert.equal(payload.name, 'July Cup');
   assert.equal(payload.entryFee, 50);
+  assert.equal(payload.maxParticipants, 8);
   assert.deepEqual(payload.prizePool, { coins: 500 });
   assert.deepEqual(payload.cosmeticRewards, [{ rank: 1, type: 'skin', itemId: 'champion-cat' }]);
   assert.equal('minEloRequired' in payload, false);

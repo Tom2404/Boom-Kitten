@@ -7,3 +7,7 @@ registerCoreVFX(animationManager);
 animationManager.register('DRAW_CARD', (event, vfxManager) => {
   return VFXFactory.createDrawCard(vfxManager, event.metadata);
 });
+
+animationManager.register('CARD_DEFUSE', (_event, vfxManager) => {
+  return VFXFactory.createDefuse(vfxManager);
+});

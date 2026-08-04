@@ -16,8 +16,12 @@ const adminSavedViewRoutes = require('./routes/adminSavedViews');
 const adminTournamentRoutes = require('./routes/adminTournaments');
 const tournamentRoutes = require('./routes/tournaments');
 const liveOpsRoutes = require('./routes/liveOps');
+const reportRoutes = require('./routes/reports');
+const adminModerationRoutes = require('./routes/adminModeration');
+const leaderboardRoutes = require('./routes/leaderboard');
 const errorHandler = require('./middleware/errorHandler');
 const requestContext = require('./middleware/requestContext');
+const securityHeaders = require('./middleware/securityHeaders');
 const registerGameSocket = require('./sockets/gameSocket');
 const { startAnnouncementScheduler } = require('./services/admin/announcementService');
 
@@ -52,16 +56,21 @@ const io = new Server(server, {
 });
 
 app.set('io', io);
+app.disable('x-powered-by');
 
 app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
-app.use(express.json());
+app.use(securityHeaders);
+app.use(express.json({ limit: '100kb' }));
 app.use(requestContext);
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 app.use('/api/auth', authRoutes);
+app.use('/api/leaderboard', leaderboardRoutes);
+app.use('/api/reports', reportRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/shop', shopRoutes);
+app.use('/api/admin/moderation', adminModerationRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/admin/saved-views', adminSavedViewRoutes);
 app.use('/api/admin/tournaments', adminTournamentRoutes);
@@ -78,14 +87,22 @@ const MONGO_URI = process.env.MONGO_URI;
 async function start() {
   if (!MONGO_URI) throw new Error('Missing MONGO_URI in environment');
   await mongoose.connect(MONGO_URI);
-  startAnnouncementScheduler({ io });
-  server.listen(PORT, () => {
-    // Startup log for local development visibility.
-    process.stdout.write(`Server listening on http://localhost:${PORT}\n`);
+  // HTTP listen failures are emitted asynchronously, so bridge them into start().
+  await new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(PORT, () => {
+      server.off('error', reject);
+      resolve();
+    });
   });
+  startAnnouncementScheduler({ io });
+  process.stdout.write(`Server listening on http://localhost:${PORT}\n`);
 }
 
 start().catch((error) => {
-  process.stderr.write(`${error.message}\n`);
+  const message = error.code === 'EADDRINUSE'
+    ? `Port ${PORT} is already in use. Stop the existing server process or set a different PORT.`
+    : error.message;
+  process.stderr.write(`${message}\n`);
   process.exit(1);
 });

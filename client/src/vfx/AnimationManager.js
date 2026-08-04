@@ -15,6 +15,10 @@ class AnimationManager {
 
   enqueue(event) {
     const normalizedEvent = normalizeVFXEvent(event);
+    if (typeof document !== 'undefined' && document.hidden && normalizedEvent.priority === VFX_PRIORITY.LOW) return;
+    if (normalizedEvent.priority === VFX_PRIORITY.INTERRUPT) {
+      this.cancelDecorativeAnimations();
+    }
     this.queue.enqueue(normalizedEvent);
   }
 
@@ -38,6 +42,14 @@ class AnimationManager {
       active.cancel();
       this.activeAnimations.delete(animId);
     }
+  }
+
+  cancelDecorativeAnimations() {
+    this.activeAnimations.forEach((entry, animId) => {
+      if (entry.priority === VFX_PRIORITY.INTERRUPT) return;
+      entry.cancel();
+      this.activeAnimations.delete(animId);
+    });
   }
 
   clear() {
@@ -91,10 +103,12 @@ class AnimationManager {
     return new Promise((resolve) => {
       let settled = false;
       let result = null;
+      let failsafeId = null;
 
       const finish = () => {
         if (settled) return;
         settled = true;
+        if (failsafeId) globalThis.clearTimeout(failsafeId);
         this.activeAnimations.delete(event.animId);
         resolve();
       };
@@ -120,7 +134,11 @@ class AnimationManager {
         return;
       }
 
-      this.activeAnimations.set(event.animId, { cancel, result });
+      this.activeAnimations.set(event.animId, { cancel, result, priority: event.priority });
+      failsafeId = globalThis.setTimeout(() => {
+        console.warn(`[AnimationManager] Animation timed out: ${event.animKey}`);
+        cancel();
+      }, 4000);
 
       if (result && typeof result.then === 'function') {
         result.then(finish).catch((error) => {

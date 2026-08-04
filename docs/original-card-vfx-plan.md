@@ -1,5 +1,11 @@
 # Implementation Plan: Original Edition Card VFX
 
+> **Superseded (2026-08-03):** Normal action cards now use the shared
+> `CardPlayPresentationController` presentation. This document remains as
+> historical context only; it must not be used to add separate VFX for Attack,
+> Skip, Reverse, Shuffle, Favor, or other normal actions. Special VFX remain
+> limited to terminal/stateful moments such as confirmed explosion and Defuse.
+
 ## Overview
 
 Build polished card-specific visual effects for the Original Edition cards by extending the existing PixiJS/GSAP VFX system. `Skip.mp4` is treated as a visual reference only; the production path should prefer procedural VFX built from Pixi graphics, sprites, particles, transforms, opacity, screen shake, and camera primitives. Video assets remain an optional fallback for effects that cannot be recreated convincingly with code.

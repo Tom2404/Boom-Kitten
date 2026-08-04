@@ -14,6 +14,9 @@ const ADMIN_PERMISSIONS = [
   'quests.write',
   'tournaments.read',
   'tournaments.write',
+  'tournaments.refund',
+  'moderation.read',
+  'moderation.write',
 ];
 
 const ROLE_PERMISSIONS = {
@@ -21,6 +24,7 @@ const ROLE_PERMISSIONS = {
   super_admin: [
     ...ADMIN_PERMISSIONS,
     'players.role.write',
+    'tournaments.override',
     'tournaments.payout',
   ],
 };

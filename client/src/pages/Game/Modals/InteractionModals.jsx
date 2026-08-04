@@ -86,6 +86,8 @@ export default function InteractionModals(props) {
 {alterFutureRequest && alterFutureRequest.active && (
   <AlterFutureModal
     cards={alterFutureRequest.cards}
+    expiresAt={alterFutureRequest.expiresAt}
+    timeoutMs={alterFutureRequest.timeoutMs}
     onConfirm={respondAlterFuture}
   />
 )}
@@ -96,6 +98,8 @@ export default function InteractionModals(props) {
     fromPlayerId={favorRequest.fromPlayerId}
     fromPlayerName={gameState?.players?.find((p) => p.userId === favorRequest.fromPlayerId)?.username}
     hand={privateHand}
+    expiresAt={favorRequest.expiresAt}
+    timeoutMs={favorRequest.timeoutMs}
     onRespond={respondFavor}
   />
 )}
@@ -104,6 +108,7 @@ export default function InteractionModals(props) {
   <NopeCountdown
     eventId={nopeWindow.eventId}
     timeoutMs={nopeWindow.timeoutMs}
+    expiresAt={nopeWindow.expiresAt}
     hasNopeCard={hasNopeCard}
     onPlayNope={() => playNope(nopeWindow.eventId)}
     onPass={() => passNope(nopeWindow.eventId)}

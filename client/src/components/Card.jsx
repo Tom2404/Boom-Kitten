@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { createPortal } from 'react-dom';
 import { getCardImageUrl } from '../utils/cardSkins.js';
 import { useLanguage } from '../context/LanguageContext.jsx';
+import CardDetailDialog from './CardDetailDialog.jsx';
 
 const CARD_THEMES = {
   defuse: {
@@ -330,7 +330,17 @@ const CARD_THEMES = {
   },
 };
 
-export default function Card({ type, skinIndex = 0, selected, onClick, disabled, marked, compact = false, hideInfo = false }) {
+export default function Card({
+  type,
+  skinIndex = 0,
+  selected,
+  onClick,
+  disabled,
+  marked,
+  compact = false,
+  hideInfo = false,
+  presentation = 'default',
+}) {
   const { t } = useLanguage();
   const theme = CARD_THEMES[type] || {
     name: type,
@@ -349,60 +359,122 @@ export default function Card({ type, skinIndex = 0, selected, onClick, disabled,
 
   const cardImageUrl = getCardImageUrl(type, skinIndex);
 
-  const sizeClass = compact ? 'h-36 w-28' : 'h-44 w-32';
-  const imageClass = compact ? 'h-24 w-24' : 'h-32 w-32';
+  const isHandStrip = presentation === 'hand-strip';
+  const sizeClass = isHandStrip ? 'game-card--hand-strip' : (compact ? 'h-36 w-28' : 'h-44 w-32');
+  const imageClass = isHandStrip ? 'game-card__hand-image' : (compact ? 'h-24 w-24' : 'h-32 w-32');
   const iconClass = compact ? 'text-4xl' : 'text-5xl';
   const descBoxClass = compact ? 'min-h-[38px] p-1 px-1.5' : 'min-h-[44px] p-1.5 px-2';
+  const isSelectable = Boolean(onClick) && !disabled;
+  const selectionClass = isHandStrip
+    ? (selected ? 'game-card--hand-strip-selected' : '')
+    : (selected
+      ? '-translate-y-6 scale-105 filter drop-shadow-[0_0_12px_rgba(234,179,8,0.8)]'
+      : (isSelectable
+        ? 'hover:-translate-y-2 hover:scale-102 hover:filter hover:drop-shadow-[0_0_6px_rgba(255,255,255,0.4)]'
+        : ''));
+
+  const getNeonStyle = (cardType) => {
+    if (cardType === 'defuse' || cardType === 'cat_watermelon') {
+      return {
+        border: 'border-[#ccff00]',
+        glow: 'shadow-[0_0_12px_rgba(204,255,0,0.75)]',
+        headerBg: 'bg-[#ccff00]',
+        headerText: 'text-black',
+      };
+    }
+    if (cardType === 'nope') {
+      return {
+        border: 'border-[#ff3355]',
+        glow: 'shadow-[0_0_12px_rgba(255,51,85,0.75)]',
+        headerBg: 'bg-[#ff3355]',
+        headerText: 'text-white',
+      };
+    }
+    if (['skip', 'super_skip', 'reverse', 'attack', 'attack_2x', 'favor', 'draw_from_bottom', 'draw_from_the_bottom'].includes(cardType)) {
+      return {
+        border: 'border-[#00d8ff]',
+        glow: 'shadow-[0_0_12px_rgba(0,216,255,0.75)]',
+        headerBg: 'bg-[#00d8ff]',
+        headerText: 'text-black',
+      };
+    }
+    if (['alter_the_future_3', 'see_the_future_3', 'see_the_future_1', 'see_the_future_5', 'garbage_collection', 'curse_of_the_cat_butt', 'catomic_bomb'].includes(cardType)) {
+      return {
+        border: 'border-[#bd00ff]',
+        glow: 'shadow-[0_0_12px_rgba(189,0,255,0.75)]',
+        headerBg: 'bg-[#bd00ff]',
+        headerText: 'text-white',
+      };
+    }
+    if (cardType === 'cat_beard' || cardType === 'personal_attack') {
+      return {
+        border: 'border-[#ff7700]',
+        glow: 'shadow-[0_0_12px_rgba(255,119,0,0.75)]',
+        headerBg: 'bg-[#ff7700]',
+        headerText: 'text-black',
+      };
+    }
+    if (cardType === 'cat_potato' || cardType === 'godcat' || cardType === 'streaking_kitten') {
+      return {
+        border: 'border-[#ffaa00]',
+        glow: 'shadow-[0_0_12px_rgba(255,170,0,0.75)]',
+        headerBg: 'bg-[#ffaa00]',
+        headerText: 'text-black',
+      };
+    }
+    return {
+      border: 'border-[#00d8ff]',
+      glow: 'shadow-[0_0_10px_rgba(0,216,255,0.6)]',
+      headerBg: 'bg-[#00d8ff]',
+      headerText: 'text-black',
+    };
+  };
+
+  const neon = getNeonStyle(type);
 
   return (
     <>
       <div
-        onClick={!disabled ? onClick : undefined}
-        role={onClick && !disabled ? 'button' : undefined}
-        tabIndex={onClick && !disabled ? 0 : undefined}
-        aria-pressed={onClick && !disabled ? Boolean(selected) : undefined}
-        aria-label={onClick && !disabled ? `${selected ? 'Bỏ chọn' : 'Chọn'} ${cardName}` : undefined}
-        onKeyDown={onClick && !disabled ? (event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            onClick();
-          }
-        } : undefined}
-        onDoubleClick={!disabled ? (e) => {
-          e.stopPropagation();
-          setIsDetailOpen(true);
-        } : undefined}
-        className={`relative ${sizeClass} cursor-pointer rounded-xl overflow-visible transition-all duration-100 select-none flex flex-col justify-between bg-transparent
-          ${selected ? '-translate-y-6 scale-105 filter drop-shadow-[0_0_12px_rgba(234,179,8,0.8)]' : 'hover:-translate-y-2 hover:scale-102 hover:filter hover:drop-shadow-[0_0_6px_rgba(255,255,255,0.4)]'}
-          ${disabled ? 'opacity-40 cursor-not-allowed pointer-events-none' : ''}
+        className={`relative ${sizeClass} rounded-xl overflow-visible transition-all duration-100 select-none flex flex-col justify-between bg-transparent
+          ${selectionClass}
+          ${isSelectable ? 'cursor-pointer' : 'cursor-default'}
           ${marked ? 'rounded-xl ring-4 ring-rose-500/90 drop-shadow-[0_0_12px_rgba(244,63,94,0.55)]' : ''}`}
       >
-        {selected && (
-          <div className="absolute inset-[-12px] rounded-2xl bg-gradient-to-r from-yellow-400 via-amber-300 to-yellow-500 opacity-60 filter blur-lg animate-pulse pointer-events-none z-[-1]" />
+        {onClick && (
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={onClick}
+            onDoubleClick={(event) => {
+              event.stopPropagation();
+              setIsDetailOpen(true);
+            }}
+            aria-pressed={isSelectable ? Boolean(selected) : undefined}
+            aria-label={`${selected ? t('card_deselect') : t('card_select')} ${cardName}`}
+            className="absolute inset-0 z-20 rounded-xl bg-transparent focus:outline-none focus-visible:ring-4 focus-visible:ring-sky-400 disabled:cursor-default"
+          />
         )}
-        {marked && (
-          <span className="absolute -top-3 -left-2.5 z-30 bg-rose-500 text-white font-headline font-black text-[9px] px-2.5 py-1 rounded-full border-2 border-on-surface shadow-[1px_1px_0px_0px_#1a1c1c] uppercase tracking-wider animate-pulse flex items-center gap-1">
-            <span>{t('card_marked')}</span>
-          </span>
-        )}
-        {/* Info button */}
         {!hideInfo && (
           <button
             type="button"
-            onClick={(e) => {
-              e.stopPropagation();
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation();
               setIsDetailOpen(true);
             }}
-            aria-label={`${t('card_detail_title')}: ${cardName}`}
-            className="absolute top-1 right-1 z-20 material-symbols-outlined text-[16px] leading-none text-slate-300 bg-slate-900/80 hover:bg-slate-900 p-1 rounded-md hover:scale-105 transition-transform cursor-pointer shadow-sm border border-white/30"
-            title={t('card_detail_title')}
+            className="absolute right-1 top-1 z-30 border-2 border-slate-950 bg-[#f8edcf] px-1.5 py-0.5 font-mono text-[8px] font-black uppercase text-slate-950 shadow-[2px_2px_0_#241914] hover:bg-amber-300 focus:outline-none focus-visible:ring-4 focus-visible:ring-sky-400"
+            aria-label={`${t('card_info')}: ${cardName}`}
           >
-            info
+            {t('card_info')}
           </button>
         )}
-
-        {/* Main Image Area - filling the middle */}
-        <div className="flex-grow flex items-center justify-center p-1 relative min-h-[90px] w-full">
+        {selected && !isHandStrip && (
+          <div className="absolute inset-[-12px] rounded-2xl bg-gradient-to-r from-yellow-400 via-amber-300 to-yellow-500 opacity-60 filter blur-lg animate-pulse pointer-events-none z-[-1]" />
+        )}
+        <div className={isHandStrip
+          ? 'game-card__hand-art'
+          : 'flex-grow flex items-center justify-center p-1 relative min-h-[90px] w-full'}
+        >
           {cardImageUrl && !imageError ? (
             <img 
               src={cardImageUrl}
@@ -418,92 +490,32 @@ export default function Card({ type, skinIndex = 0, selected, onClick, disabled,
         </div>
 
         {/* Description box at the bottom */}
-        <div className={`bg-slate-900/90 text-white ${descBoxClass} flex flex-col justify-center rounded-2xl border-2 border-slate-700 shadow-[2px_2px_0px_0px_#1a1c1c] z-10 w-[95%] mx-auto mb-1`}>
-          <div className="text-[9px] font-headline font-black uppercase tracking-wide truncate text-yellow-300 text-center mb-0.5">
-            {cardName}
+        {!isHandStrip && (
+          <div className={`bg-slate-900/90 text-white ${descBoxClass} flex flex-col justify-center rounded-2xl border-2 border-slate-700 shadow-[2px_2px_0px_0px_#1a1c1c] z-10 w-[95%] mx-auto mb-1`}>
+            <div className="text-[9px] font-headline font-black uppercase tracking-wide truncate text-yellow-300 text-center mb-0.5">
+              {cardName}
+            </div>
+            <div className="text-[7.5px] leading-tight font-sans font-bold text-center line-clamp-2 text-slate-300">
+              {cardDesc}
+            </div>
           </div>
-          <div className="text-[7.5px] leading-tight font-sans font-bold text-center line-clamp-2 text-slate-300">
-            {cardDesc}
-          </div>
-        </div>
+        )}
       </div>
 
-      {/* Detail Modal */}
-      {isDetailOpen && createPortal(
-        <div 
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-4 animate-fade-in text-slate-900"
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsDetailOpen(false);
-          }}
-        >
-          <div 
-            className="w-full max-w-sm bg-white border-4 border-on-surface shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] rounded-3xl p-6 flex flex-col items-center gap-6 text-center"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="w-full flex justify-between items-center border-b-4 border-on-surface pb-3">
-              <h3 className="text-xl font-headline font-black text-on-surface uppercase flex items-center gap-2">
-                <span>{theme.icon}</span> {cardName}
-              </h3>
-              <button 
-                onClick={() => setIsDetailOpen(false)}
-                className="text-xl font-black hover:scale-110 transition-transform text-on-surface"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className={`w-40 h-56 rounded-2xl border-3 border-on-surface shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] flex flex-col justify-between p-4 ${theme.color}`}>
-              <div className="flex justify-between items-center">
-                <span className="text-xs font-headline font-black uppercase">{cardName}</span>
-                <span className="text-lg">{theme.icon}</span>
-              </div>
-              <div className="flex justify-center items-center">
-                {cardImageUrl && !imageError ? (
-                  <img 
-                    src={cardImageUrl}
-                    alt={cardName}
-                    className="h-28 w-28 object-contain drop-shadow"
-                  />
-                ) : (
-                  <span className="text-6xl">{theme.icon}</span>
-                )}
-              </div>
-              <div className="h-6"></div>
-            </div>
-
-            <div className="bg-slate-50 border-3 border-on-surface rounded-2xl p-4 w-full shadow-[3px_3px_0px_0px_rgba(26,28,28,1)] text-left">
-              <span className="text-[10px] font-headline font-black text-primary uppercase tracking-widest block mb-1">
-                {t('card_function')}
-              </span>
-              <p className="text-xs font-sans font-bold leading-relaxed text-on-surface">
-                {cardDesc}
-              </p>
-            </div>
-
-            {onClick && (
-              <button
-                onClick={() => {
-                  onClick();
-                  setIsDetailOpen(false);
-                }}
-                className={`w-full py-3 rounded-xl font-headline font-black uppercase text-sm border-2 border-on-surface shadow-[2px_2px_0px_0px_#1a1c1c] mb-2
-                  ${selected ? 'bg-rose-500 text-white hover:bg-rose-600' : 'bg-yellow-400 text-slate-950 hover:bg-yellow-500'}`}
-              >
-                {selected ? t('card_deselect') : t('card_select')}
-              </button>
-            )}
-
-            <button
-              onClick={() => setIsDetailOpen(false)}
-              className="btn-detonator w-full py-3 rounded-xl font-headline font-black uppercase text-sm"
-            >
-              {t('button_close')} ✕
-            </button>
-          </div>
-        </div>,
-        document.body
-      )}
+      <CardDetailDialog
+        canSelect={isSelectable}
+        cardDesc={cardDesc}
+        cardImageUrl={cardImageUrl}
+        cardName={cardName}
+        imageError={imageError}
+        isOpen={isDetailOpen}
+        onClose={() => setIsDetailOpen(false)}
+        onImageError={() => setImageError(true)}
+        onSelect={onClick}
+        selected={Boolean(selected)}
+        t={t}
+        theme={theme}
+      />
     </>
   );
 }
