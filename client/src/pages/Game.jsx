@@ -9,10 +9,8 @@ import PlayerAvatar, { PRESET_AVATARS } from '../components/PlayerAvatar.jsx';
 import PlayerHand from '../components/PlayerHand.jsx';
 import DeckPile from '../components/DeckPile.jsx';
 import DiscardPile from '../components/DiscardPile.jsx';
-import Card, { CARD_THEMES } from '../components/Card.jsx';
 import { getCardImageUrl } from '../utils/cardSkins.js';
 import { isAdminRole } from '../utils/adminRoles.js';
-import gsap from 'gsap';
 import { ImageButton } from '../components/ui/ImageButton.jsx';
 import fishboneIcon from '../assets/ui/icons/fishbone.png';
 import idRoomImg from '../assets/ui/icons/IDRoom.png';
@@ -68,8 +66,13 @@ import GameEndedOverlay from './Game/Modals/GameEndedOverlay.jsx';
 import EliminatedPlayerOverlay from './Game/Modals/EliminatedPlayerOverlay.jsx';
 import { GameProvider } from './Game/GameContext.jsx';
 import { animationManager } from '../vfx/AnimationManager.js';
+import { soundManager } from '../vfx/SoundManager.js';
 import { VFX_PRIORITY } from '../vfx/VFXEventAdapter.js';
-import { createTimeoutGroup } from './Game/gameMotion.js';
+import {
+  createBoundedEventGate,
+  createTimeoutGroup,
+  findCorrelatedDrawCard,
+} from './Game/gameMotion.js';
 import { shouldShowEliminationOverlay } from '../utils/gameRoomUi.js';
 
 /**
@@ -226,230 +229,6 @@ function PlayModeCard({
           {buttonText}
         </span>
       </button>
-    </div>
-  );
-}
-
-function FlyingCard({ id, type, cardType, startPos, endPos, centerPos, onComplete, playerName }) {
-  const elementRef = useRef(null);
-  const [isAtCenter, setIsAtCenter] = useState(false);
-  const { t, language } = useLanguage();
-
-  useEffect(() => {
-    if (!elementRef.current) return;
-
-    if (type === 'draw') {
-      // Set initial state for draw
-      gsap.set(elementRef.current, {
-        x: startPos.x - 64, // center horizontally (w-32 is 128px)
-        y: startPos.y - 88, // center vertically (h-44 is 176px)
-        scale: 0.2,
-        opacity: 0,
-        rotation: 90,
-      });
-
-      // Animate draw to end position
-      gsap.to(elementRef.current, {
-        x: endPos.x - 64,
-        y: endPos.y - 88,
-        scale: 1,
-        opacity: 1,
-        rotation: 0,
-        duration: 0.55,
-        ease: 'power2.out',
-        onComplete: () => {
-          gsap.to(elementRef.current, {
-            opacity: 0,
-            scale: 0.8,
-            duration: 0.15,
-            onComplete,
-          });
-        },
-      });
-    } else {
-      // Create timeline for multi-stage play animation
-      const tl = gsap.timeline({
-        onComplete: () => {
-          onComplete();
-        }
-      });
-
-      // 1. Initial set at start position (hand/avatar)
-      tl.set(elementRef.current, {
-        x: startPos.x - 64,
-        y: startPos.y - 88,
-        scale: 0.2,
-        opacity: 0,
-        rotation: 0,
-      });
-
-      // 2. Fly to center and zoom in
-      const targetCenter = centerPos || { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-      tl.to(elementRef.current, {
-        x: targetCenter.x - 64,
-        y: targetCenter.y - 88,
-        scale: 1.3,
-        opacity: 1,
-        rotation: 0,
-        duration: 0.3,
-        ease: 'power2.out',
-        onComplete: () => {
-          setIsAtCenter(true);
-        },
-      });
-
-      // 3. Hover float effect in center (0.5s)
-      tl.to(elementRef.current, {
-        y: targetCenter.y - 88 - 8,
-        yoyo: true,
-        repeat: 1,
-        duration: 0.25,
-        ease: 'sine.inOut',
-      });
-
-      // 4. Fly to discard pile and shrink
-      tl.to(elementRef.current, {
-        x: endPos.x - 64,
-        y: endPos.y - 88,
-        scale: 1.0,
-        rotation: Math.random() * 30 - 15,
-        duration: 0.35,
-        ease: 'power2.inOut',
-        onStart: () => {
-          setIsAtCenter(false);
-        },
-      });
-
-      // 5. Fade out at discard pile
-      tl.to(elementRef.current, {
-        opacity: 0,
-        scale: 1.1,
-        duration: 0.1,
-      });
-    }
-  }, [startPos, endPos, centerPos, type, onComplete]);
-
-  if (type === 'draw') {
-    return (
-      <div
-        ref={elementRef}
-        className="absolute pointer-events-none z-[9999]"
-        style={{ width: '128px', height: '176px' }}
-      >
-        <div className="h-full w-full rounded-xl border-3 border-on-surface bg-primary-container flex items-center justify-center p-3 select-none shadow-xl">
-          <div className="absolute inset-1.5 border-2 border-dashed border-on-primary-container/30 rounded-lg flex flex-col items-center justify-center">
-            <svg className="w-10 h-10 text-on-primary-container/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="5" y="3" width="14" height="18" rx="2" ry="2" />
-              <path d="M12 8v8M8 12h8" strokeDasharray="2 2" />
-            </svg>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const theme = CARD_THEMES[cardType] || { name: cardType, icon: '🃏', color: 'bg-slate-300 text-slate-950' };
-  const nameKey = `card_${cardType}_name`;
-  const cardName = t(nameKey) !== nameKey ? t(nameKey) : theme.name;
-
-  const getGlowColor = () => {
-    if (cardType === 'defuse') return 'rgba(16, 185, 129, 0.6)'; // emerald
-    if (cardType === 'nope') return 'rgba(244, 63, 94, 0.6)'; // rose
-    if (cardType?.startsWith('attack')) return 'rgba(249, 115, 22, 0.6)'; // orange
-    if (cardType === 'skip') return 'rgba(56, 189, 248, 0.6)'; // sky
-    if (cardType === 'super_skip') return 'rgba(129, 140, 248, 0.6)'; // indigo
-    if (cardType?.startsWith('see_the_future')) return 'rgba(168, 85, 247, 0.6)'; // fuchsia/purple
-    if (cardType?.startsWith('alter_the_future')) return 'rgba(244, 114, 182, 0.6)'; // pink
-    if (cardType === 'shuffle') return 'rgba(245, 158, 11, 0.6)'; // amber
-    if (cardType === 'draw_from_bottom') return 'rgba(20, 184, 166, 0.6)'; // teal
-    if (cardType === 'favor') return 'rgba(234, 179, 8, 0.6)'; // yellow
-    if (cardType === 'zombie_kitten') return 'rgba(34, 197, 94, 0.6)'; // green
-    return 'rgba(100, 116, 139, 0.6)'; // slate fallback
-  };
-  const glowColor = getGlowColor();
-
-  return (
-    <div
-      ref={elementRef}
-      className="absolute pointer-events-none z-[9999]"
-      style={{ width: '128px', height: '176px' }}
-    >
-      {/* Glow Effect behind the card */}
-      {isAtCenter && (
-        <div
-          className="absolute inset-[-60px] rounded-full filter blur-xl opacity-80 animate-pulse pointer-events-none z-[-1]"
-          style={{
-            background: `radial-gradient(circle, ${glowColor} 0%, transparent 70%)`
-          }}
-        />
-      )}
-
-      {/* The actual Card component */}
-      <div className="scale-90 shadow-2xl relative select-none">
-        <Card type={cardType} disabled={false} hideInfo={true} />
-      </div>
-    </div>
-  );
-}
-
-function ParticleExplosion({ startPos, onComplete }) {
-  const containerRef = useRef(null);
-
-  useEffect(() => {
-    if (!containerRef.current) return;
-
-    const particles = containerRef.current.children;
-    for (let i = 0; i < particles.length; i++) {
-      const p = particles[i];
-      const angle = Math.random() * Math.PI * 2;
-      const distance = 40 + Math.random() * 100;
-      const targetX = Math.cos(angle) * distance;
-      const targetY = Math.sin(angle) * distance;
-
-      gsap.set(p, {
-        x: 0,
-        y: 0,
-        scale: 0.5 + Math.random() * 1.5,
-        opacity: 1,
-        backgroundColor: ['#ef4444', '#f59e0b', '#fbbf24', '#ff4500'][Math.floor(Math.random() * 4)],
-      });
-
-      gsap.to(p, {
-        x: targetX,
-        y: targetY,
-        opacity: 0,
-        scale: 0.1,
-        duration: 0.8 + Math.random() * 0.4,
-        ease: 'power3.out',
-      });
-    }
-
-    const timer = setTimeout(onComplete, 1200);
-    return () => clearTimeout(timer);
-  }, [onComplete]);
-
-  const particleArray = Array.from({ length: 20 });
-
-  return (
-    <div
-      ref={containerRef}
-      className="absolute pointer-events-none z-[9999]"
-      style={{
-        left: `${startPos.x}px`,
-        top: `${startPos.y}px`,
-      }}
-    >
-      {particleArray.map((_, idx) => (
-        <div
-          key={idx}
-          className="absolute rounded-full"
-          style={{
-            width: '12px',
-            height: '12px',
-            transform: 'translate(-50%, -50%)',
-          }}
-        />
-      ))}
     </div>
   );
 }
@@ -782,6 +561,7 @@ export default function Game({ setPage, initialRoom = null }) {
     roomState,
     gameState,
     privateHand,
+    privateHandSourceEventId,
     nopeWindow,
     nopeResult,
     nowCardToast,
@@ -813,6 +593,7 @@ export default function Game({ setPage, initialRoom = null }) {
     toggleReady,
     updateRoomSettings,
     kickPlayer,
+    isDrawPending,
     drawCard,
     playCard,
     playNope,
@@ -841,8 +622,7 @@ export default function Game({ setPage, initialRoom = null }) {
   } = useGame({ initialRoom });
 
   const [reversePulse, setReversePulse] = React.useState(false);
-  const previousTurnPlayerIdRef = React.useRef(null);
-  const hasInitializedTurnRef = React.useRef(false);
+  const confirmedDirectionRef = React.useRef(null);
   const vfxTimersRef = React.useRef(null);
   if (!vfxTimersRef.current) vfxTimersRef.current = createTimeoutGroup();
 
@@ -909,32 +689,41 @@ export default function Game({ setPage, initialRoom = null }) {
   }, []);
 
   useEffect(() => {
-    const currentPlayerId = gameState?.players?.[gameState?.currentPlayerIndex]?.userId;
-    if (!currentPlayerId || !myUser?.id) return;
+    const onVisibilityChange = () => {
+      if (!document.hidden) return;
+      animationManager.cancelDecorativeAnimations();
+      cardPlayPresentation.snapActive();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, []);
 
-    if (!hasInitializedTurnRef.current) {
-      previousTurnPlayerIdRef.current = currentPlayerId;
-      hasInitializedTurnRef.current = true;
-      return;
-    }
+  useEffect(() => {
+    if (!socket || !myUser?.id) return undefined;
+    const onTurnChanged = ({ eventId, currentPlayerId, playDirection }) => {
+      if (eventId && !eventGateRef.current.accept(`turn:${eventId}`)) return;
+      if (Number.isFinite(playDirection) && confirmedDirectionRef.current !== playDirection) {
+        confirmedDirectionRef.current = playDirection;
+        setReversePulse(true);
+        vfxTimersRef.current.schedule(() => setReversePulse(false), 500);
+      }
+      setLiveAnnouncement(`Turn: ${currentPlayerId}. Direction: ${playDirection === -1 ? 'counter-clockwise' : 'clockwise'}.`);
+      if (currentPlayerId === myUser.id) {
+        animationManager.enqueue({
+          animId: eventId,
+          animKey: 'ENV_TURN_TRANSITION',
+          priority: VFX_PRIORITY.HIGH,
+          metadata: { isMyTurn: true, label: 'YOUR TURN' },
+        });
+      }
+    };
+    socket.on('game:turnChanged', onTurnChanged);
+    return () => socket.off('game:turnChanged', onTurnChanged);
+  }, [socket, myUser?.id]);
 
-    const previousPlayerId = previousTurnPlayerIdRef.current;
-    const isTurnChanged = previousPlayerId !== currentPlayerId;
-    const isMyTurn = currentPlayerId === myUser.id;
-
-    if (isTurnChanged && isMyTurn) {
-      animationManager.enqueue({
-        animKey: 'ENV_TURN_TRANSITION',
-        priority: 'HIGH',
-        metadata: {
-          isMyTurn: true,
-          label: 'YOUR TURN',
-        },
-      });
-    }
-
-    previousTurnPlayerIdRef.current = currentPlayerId;
-  }, [gameState?.currentPlayerIndex, myUser?.id]);
+  useEffect(() => {
+    confirmedDirectionRef.current = gameState?.playDirection ?? 1;
+  }, [roomState?.code]);
 
   const editionsList = [
     'original',
@@ -1003,40 +792,33 @@ export default function Game({ setPage, initialRoom = null }) {
   // For bet chip press animation
   const [pressedChip, setPressedChip] = useState(null);
   const [revealCard, setRevealCard] = useState(null);
+  const [drawRevealQueue, setDrawRevealQueue] = useState([]);
   const prevHandRef = useRef([]);
+  const pendingDrawEventsRef = useRef(new Map());
+  const eventGateRef = useRef(null);
+  if (!eventGateRef.current) eventGateRef.current = createBoundedEventGate(160);
   const [rightPanelTab, setRightPanelTab] = useState('chat');
+  const [liveAnnouncement, setLiveAnnouncement] = useState('');
 
   const [localClairvoyance, setLocalClairvoyance] = useState(null);
   const [drewKittenAlert, setDrewKittenAlert] = useState(null);
-  const [nopeAlert, setNopeAlert] = useState(null);
   const [isRedFlashActive, setIsRedFlashActive] = useState(false);
-  const [isImplodingActive, setIsImplodingActive] = useState(false);
   const [zombieFog, setZombieFog] = useState(false);
 
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
+  const [soundMuted, setSoundMuted] = useState(soundManager.isMuted);
+  const [soundVolume, setSoundVolume] = useState(soundManager.volume);
   const prevMessagesLength = useRef(chatMessages.length);
 
-  // Initialize game sounds
-  const playSfx = (type) => {
-    try {
-      if (type === 'ting') {
-        const audio = new window.Audio('/sounds/ting.mp3');
-        audio.volume = 0.5;
-        audio.play().catch(() => { });
-      }
-    } catch (err) { }
+  const toggleSound = () => {
+    soundManager.toggleMute();
+    setSoundMuted(soundManager.isMuted);
   };
 
-  const prevReadyCountRef = useRef(0);
-  useEffect(() => {
-    if (roomState?.status === 'waiting') {
-      const currentReadyCount = roomState.players.filter(p => p.isReady).length;
-      if (currentReadyCount > prevReadyCountRef.current) {
-        playSfx('ting');
-      }
-      prevReadyCountRef.current = currentReadyCount;
-    }
-  }, [roomState?.players, roomState?.status]);
+  const changeSoundVolume = (value) => {
+    soundManager.setVolume(value);
+    setSoundVolume(soundManager.volume);
+  };
 
   useEffect(() => {
     if (isSidebarOpen && rightPanelTab === 'chat') {
@@ -1223,20 +1005,84 @@ export default function Game({ setPage, initialRoom = null }) {
   }, [clairvoyanceReveal]);
 
   useEffect(() => {
-    if (
-      prevHandRef.current.length > 0 &&
-      privateHand.length === prevHandRef.current.length + 1 &&
-      gameState
-    ) {
-      const newCard = privateHand.find(
-        (card) => !prevHandRef.current.some((prevCard) => prevCard.id === card.id)
-      );
-      if (newCard) {
-        setRevealCard({ type: newCard.type, skinIndex: newCard.skinIndex ?? 0 });
-      }
+    const pendingDraw = pendingDrawEventsRef.current.get(privateHandSourceEventId);
+    const newCard = findCorrelatedDrawCard(
+      prevHandRef.current,
+      privateHand,
+      privateHandSourceEventId,
+      pendingDraw?.eventId,
+    );
+    if (newCard) {
+      setDrawRevealQueue((queue) => [...queue, {
+        eventId: privateHandSourceEventId,
+        type: newCard.type,
+        skinIndex: newCard.skinIndex ?? 0,
+      }]);
     }
+    if (privateHandSourceEventId) pendingDrawEventsRef.current.delete(privateHandSourceEventId);
     prevHandRef.current = privateHand;
-  }, [privateHand, gameState]);
+  }, [privateHand, privateHandSourceEventId]);
+
+  useEffect(() => {
+    if (revealCard || drawRevealQueue.length === 0) return;
+    setRevealCard(drawRevealQueue[0]);
+    setDrawRevealQueue((queue) => queue.slice(1));
+  }, [drawRevealQueue, revealCard]);
+
+  useEffect(() => {
+    const pendingDanger = gameState?.pendingDefuse || gameState?.pendingZombie;
+    if (!pendingDanger) {
+      setIsRedFlashActive(false);
+      setDrewKittenAlert(null);
+      return;
+    }
+    const player = gameState.players?.find(({ userId }) => userId === pendingDanger.playerId);
+    setIsRedFlashActive(true);
+    setDrewKittenAlert({
+      active: true,
+      playerName: player?.username || pendingDanger.playerId,
+      cardType: pendingDanger.card?.type || 'exploding_kitten',
+    });
+  }, [gameState?.pendingDefuse?.drawEventId, gameState?.pendingZombie?.drawEventId]);
+
+  useEffect(() => {
+    eventGateRef.current.clear();
+    pendingDrawEventsRef.current.clear();
+    setDrawRevealQueue([]);
+    setRevealCard(null);
+    cardPlayPresentation.clearAll();
+    animationManager.clear();
+  }, [roomState?.code, roomState?.status]);
+
+  useEffect(() => {
+    const pending = gameState?.pendingAction;
+    const stableId = pending?.presentationId || pending?.eventId;
+    if (!stableId || !pending?.expiresAt || pending.expiresAt <= Date.now()) return;
+    if (cardPlayPresentation.has(stableId)) return;
+
+    eventGateRef.current.accept(`pending:${stableId}`);
+    cardPlayPresentation.showPending({
+      actionId: stableId,
+      cardType: pending.cardType,
+      displayCardType: pending.displayCardType || pending.cardType,
+      playerId: pending.playerId,
+      targetPlayerId: pending.targetPlayerId,
+      sourceElementId: pending.playerId === myUser?.id
+        ? 'player-hand-container'
+        : `player-avatar-${pending.playerId}`,
+      canBeNoped: true,
+      restoreAtCenter: true,
+      title: String(pending.cardType || '').replace(/_/g, ' '),
+    });
+
+    for (let index = 0; index < (pending.nopeCount || 0); index += 1) {
+      cardPlayPresentation.addNope(stableId, {
+        nopeActionId: `${stableId}:restored-nope:${index}`,
+        playerId: pending.responseOwnerId,
+        sourceElementId: `player-avatar-${pending.responseOwnerId}`,
+      });
+    }
+  }, [gameState?.pendingAction?.presentationId, gameState?.pendingAction?.eventId, myUser?.id]);
 
   const handleLeaveConfirm = () => {
     if (gameState) {
@@ -1379,8 +1225,6 @@ export default function Game({ setPage, initialRoom = null }) {
     }
   }, [roomState]);
 
-  const [numPlayAnims, setNumPlayAnims] = useState(0);
-  const [nopeStamp, setNopeStamp] = useState(null);
   const mainContainerRef = useRef(null);
 
   // ── Card-centric presentation tracking ────────────────────────────────────
@@ -1401,8 +1245,15 @@ export default function Game({ setPage, initialRoom = null }) {
   };
 
   // Flying Draw Card animation
-  const playDrawCard = (playerId) => {
-    animationManager.enqueue({ animKey: 'DRAW_CARD', targetId: playerId, metadata: { targetId: playerId } });
+  const playDrawCard = (recipientId) => {
+    const targetId = recipientId === myUser?.id
+      ? 'player-hand-container'
+      : `player-avatar-${recipientId}`;
+    animationManager.enqueue({
+      animKey: 'DRAW_CARD',
+      targetId,
+      metadata: { recipientId, targetId },
+    });
   };
 
   // Screen Shake Wrapper Helper
@@ -1414,19 +1265,21 @@ export default function Game({ setPage, initialRoom = null }) {
     });
   };
 
-  // Ref to deduplicate VFX for the same resolved actionId
-  const playedResolvedVfxIds = React.useRef(new Set());
-
   useEffect(() => {
     if (!socket) return;
 
-    const handleCardDrawn = ({ playerId }) => {
+    const handleCardDrawn = ({ eventId, playerId, recipientId = playerId }) => {
+      if (eventId && !eventGateRef.current.accept(`draw:${eventId}`)) return;
+      if (eventId && recipientId === myUser?.id) {
+        pendingDrawEventsRef.current.set(eventId, { eventId, recipientId });
+        vfxTimersRef.current.schedule(() => pendingDrawEventsRef.current.delete(eventId), 2000);
+      }
       // Keep the draw feedback on the shared VFX pipeline. The server emits
       // this event before mutating the private hand, so it is safe for every
       // client to show the flight while only the drawing player sees the card
       // reveal from the private-hand diff below.
       const queueDrawEffect = () => {
-        playDrawCard(playerId);
+        playDrawCard(recipientId);
       };
 
       if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
@@ -1478,6 +1331,8 @@ export default function Game({ setPage, initialRoom = null }) {
       canBeNoped,
     }) => {
       const stableId = presentationId || actionId;
+      if (stableId && !eventGateRef.current.accept(`pending:${stableId}`)) return;
+      setLiveAnnouncement(`${playerId} played ${cardType}.`);
       const effectiveType = displayCardType || sourceCardType || cardType;
       cardPlayPresentation.showPending({
         actionId: stableId,
@@ -1503,6 +1358,7 @@ export default function Game({ setPage, initialRoom = null }) {
     const handleCardPlayed = ({ playerId, cardType, cardActionId, sourceCardId, presentationId, skinIndex }) => {
       if (cardType === 'nope' && presentationId) {
         const nopeActionId = cardActionId || `nope-${playerId}-${Date.now()}-${Math.random()}`;
+        if (!eventGateRef.current.accept(`nope:${nopeActionId}`)) return;
         cardPlayPresentation.addNope(presentationId, {
           nopeActionId,
           playerId,
@@ -1525,16 +1381,10 @@ export default function Game({ setPage, initialRoom = null }) {
       nopeCount,
     }) => {
       const stableId = presentationId || actionId;
-      if (stableId && playedResolvedVfxIds.current.has(stableId)) return;
-      if (stableId) playedResolvedVfxIds.current.add(stableId);
-
-      // Clean up old IDs to avoid unbounded Set growth
-      if (playedResolvedVfxIds.current.size > 80) {
-        const entries = [...playedResolvedVfxIds.current];
-        entries.slice(0, 40).forEach((id) => playedResolvedVfxIds.current.delete(id));
-      }
+      if (stableId && !eventGateRef.current.accept(`resolved:${stableId}`)) return;
 
       const isCancelled = result === 'CANCELLED' || (nopeCount && nopeCount % 2 === 1);
+      setLiveAnnouncement(isCancelled ? `${cardType} was Noped.` : `${cardType} resolved.`);
       if (stableId && cardPlayPresentation.has(stableId)) {
         cardPlayPresentation.resolve(
           stableId,
@@ -1544,41 +1394,37 @@ export default function Game({ setPage, initialRoom = null }) {
 
       if (isCancelled) return;
 
-      if (cardType === 'reverse') {
-        setReversePulse(true);
-        vfxTimersRef.current.schedule(() => setReversePulse(false), 500);
-      }
-
-    };
-
-    const handleDrewKitten = ({ playerId, username, cardType }) => {
-      triggerScreenShake('heavy');
-
-      if (cardType === 'imploding_kitten') {
-        setIsImplodingActive(true);
-        vfxTimersRef.current.schedule(() => {
-          setIsImplodingActive(false);
-        }, 2500);
-      } else {
-        setIsRedFlashActive(true);
-        animationManager.enqueue({
-          animKey: 'CARD_EXPLODING_KITTEN',
-          priority: VFX_PRIORITY.INTERRUPT,
-          metadata: { playerId, cardType },
-        });
-        vfxTimersRef.current.schedule(() => {
-          setIsRedFlashActive(false);
-        }, 1500);
-      }
-
-      setDrewKittenAlert({ active: true, playerName: username, cardType });
-      vfxTimersRef.current.schedule(() => {
+      if (cardType === 'defuse_resolved' || cardType === 'zombie_resolved') {
+        setLiveAnnouncement('The kitten was defused.');
+        setIsRedFlashActive(false);
         setDrewKittenAlert(null);
-      }, 1500);
+        animationManager.enqueue({
+          animKey: 'CARD_DEFUSE',
+          priority: VFX_PRIORITY.HIGH,
+          metadata: { playerId: myUser?.id },
+        });
+      }
+
     };
 
-    const handleExploded = ({ playerId }) => {
-      triggerScreenShake('heavy');
+    const handleDrewKitten = ({ eventId, playerId, username, cardType }) => {
+      if (eventId && !eventGateRef.current.accept(`kitten:${eventId}`)) return;
+      setIsRedFlashActive(true);
+      setDrewKittenAlert({ active: true, playerName: username, cardType });
+      setLiveAnnouncement(`${username || playerId} drew ${cardType}.`);
+    };
+
+    const handleExploded = ({ eventId, drawEventId, playerId }) => {
+      if (eventId && !eventGateRef.current.accept(`explosion:${eventId}`)) return;
+      setIsRedFlashActive(false);
+      setDrewKittenAlert(null);
+      setLiveAnnouncement(`${playerId} was eliminated.`);
+      animationManager.enqueue({
+        animId: eventId,
+        animKey: 'EXPLOSION',
+        priority: VFX_PRIORITY.INTERRUPT,
+        metadata: { drawEventId, playerId },
+      });
 
       const targetId = playerId === myUser?.id ? 'player-hand-container' : `player-avatar-${playerId}`;
       const targetEl = document.getElementById(targetId);
@@ -1871,6 +1717,9 @@ export default function Game({ setPage, initialRoom = null }) {
     SelectTargetModal,
     SmileIcon,
     SoundIcon,
+    liveAnnouncement,
+    soundMuted,
+    soundVolume,
     ZombieReviveModal,
     actionLog,
     alterFutureRequest,
@@ -1885,6 +1734,7 @@ export default function Game({ setPage, initialRoom = null }) {
     digDeeperRequest,
     discardCard,
     drawCard,
+    isDrawPending,
     drewKittenAlert,
     equippedCosmetics: userProfile?.equipped || {},
     errorToast,
@@ -1898,19 +1748,15 @@ export default function Game({ setPage, initialRoom = null }) {
     graveRobberRequest,
     handleLeaveConfirm,
     hasUnreadMessages,
-    isImplodingActive,
     isRedFlashActive,
     isSidebarOpen,
     leaveRoom,
     localClairvoyance,
     mainContainerRef,
     myUser,
-    nopeAlert,
     nopeResult,
-    nopeStamp,
     nopeWindow,
     nowCardToast,
-    numPlayAnims,
     flyingCardActionId,
     setFlyingCardActionId,
     passNope,
@@ -1949,6 +1795,8 @@ export default function Game({ setPage, initialRoom = null }) {
     setRevealCard,
     setRightPanelTab,
     setSeeTheFutureCards,
+    toggleSound,
+    changeSoundVolume,
     t,
     zombieFog,
     zombieRequest,

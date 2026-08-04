@@ -5,9 +5,10 @@ import CustomDialog from '../components/CustomDialog.jsx';
 import { CoinIcon } from '../components/CoinDisplay.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { getAssetTransformStyle } from '../utils/shopEquipment.js';
+import { endAuthSession } from '../utils/authSession.js';
 
-export default function Profile() {
-  const { t } = useLanguage();
+export default function Profile({ setPage }) {
+  const { language, t } = useLanguage();
   const [profile, setProfile] = useState(null);
   const [username, setUsername] = useState('');
   const [avatar, setAvatar] = useState('');
@@ -15,6 +16,10 @@ export default function Profile() {
   const [isError, setIsError] = useState(false);
   const [history, setHistory] = useState([]);
   const [quests, setQuests] = useState([]);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordState, setPasswordState] = useState({ pending: false, message: '', error: false });
   const [dialogState, setDialogState] = useState({
     isOpen: false,
     title: '',
@@ -140,7 +145,7 @@ export default function Profile() {
         body: JSON.stringify({ username, avatar }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || t('profile_update_fail'));
+      if (!res.ok) throw new Error(data.error?.message || data.message || t('profile_update_fail'));
 
       setProfile(data);
       setIsError(false);
@@ -151,16 +156,30 @@ export default function Profile() {
     }
   };
 
-  // Convert custom image upload to base64
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setAvatar(reader.result); // Base64 data URL
-    };
-    reader.readAsDataURL(file);
+  const handleChangePassword = async (event) => {
+    event.preventDefault();
+    if (newPassword !== confirmPassword) {
+      setPasswordState({ pending: false, message: language === 'en' ? 'Password confirmation does not match.' : 'Mật khẩu xác nhận không khớp.', error: true });
+      return;
+    }
+    setPasswordState({ pending: true, message: '', error: false });
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`${API_URL}/api/users/me/change-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error?.message || data.message || 'Không thể đổi mật khẩu.');
+      await endAuthSession();
+      localStorage.removeItem('accessToken');
+      window.dispatchEvent(new Event('auth:changed'));
+      setPasswordState({ pending: false, message: data.message, error: false });
+      setPage('Login');
+    } catch (error) {
+      setPasswordState({ pending: false, message: error.message, error: true });
+    }
   };
 
   if (!profile) {
@@ -191,8 +210,6 @@ export default function Profile() {
             <div className="h-full w-full rounded-none flex items-center justify-center text-3xl font-pop-accent font-black bg-white border-3 border-[var(--pop-black)] overflow-hidden shadow-[3px_3px_0_var(--pop-black)]">
               {avatar && PRESET_AVATARS[avatar] ? (
                 <span className="text-5xl">{PRESET_AVATARS[avatar]}</span>
-              ) : avatar ? (
-                <img src={avatar} alt={username} className="h-full w-full object-cover" />
               ) : (
                 <span>{profile.username.slice(0, 2).toUpperCase()}</span>
               )}
@@ -252,19 +269,21 @@ export default function Profile() {
             </div>
           </div>
 
-          <div className="flex flex-col gap-2 mt-2">
-            <label className="text-xs font-pop-accent font-bold text-[var(--pop-black)] uppercase tracking-wider">{t('profile_choose_avatar')}</label>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleImageUpload}
-              className="text-xs text-[var(--pop-black)]/60 font-bold file:mr-4 file:py-2 file:px-4 file:rounded-none file:border-2 file:border-[var(--pop-black)] file:text-xs file:font-pop-accent file:font-black file:bg-white file:text-[var(--pop-black)] file:cursor-pointer hover:file:bg-[var(--pop-cream)]"
-            />
-          </div>
-
           <button type="submit" className="w-full mt-2 py-3 bg-[var(--pop-red)] text-white border-3 border-[var(--pop-black)] shadow-[3px_3px_0_var(--pop-black)] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[4px_4px_0_var(--pop-black)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none font-pop-accent font-black uppercase text-sm cursor-pointer">
             {t('profile_save_btn')}
           </button>
+        </form>
+
+        <form onSubmit={handleChangePassword} className="bg-white border-3 border-[var(--pop-black)] shadow-[5px_5px_0_var(--pop-black)] p-6 flex flex-col gap-4 text-left">
+          <h3 className="text-lg font-pop-display font-black uppercase border-b-3 border-[var(--pop-black)] pb-2">{language === 'en' ? 'Change password' : 'Đổi mật khẩu'}</h3>
+          {passwordState.message && <p className={`border-2 border-[var(--pop-black)] p-3 text-xs font-bold ${passwordState.error ? 'bg-[var(--pop-red)] text-white' : 'bg-[var(--pop-amber)]'}`} role={passwordState.error ? 'alert' : 'status'}>{passwordState.message}</p>}
+          <label htmlFor="profile-current-password" className="text-xs font-black uppercase">{language === 'en' ? 'Current password' : 'Mật khẩu hiện tại'}</label>
+          <input id="profile-current-password" type="password" required value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} className="border-3 border-[var(--pop-black)] px-3 py-2 font-bold shadow-[2px_2px_0_var(--pop-black)]" />
+          <label htmlFor="profile-new-password" className="text-xs font-black uppercase">{language === 'en' ? 'New password' : 'Mật khẩu mới'}</label>
+          <input id="profile-new-password" type="password" minLength="10" maxLength="72" required value={newPassword} onChange={(event) => setNewPassword(event.target.value)} className="border-3 border-[var(--pop-black)] px-3 py-2 font-bold shadow-[2px_2px_0_var(--pop-black)]" />
+          <label htmlFor="profile-confirm-password" className="text-xs font-black uppercase">{language === 'en' ? 'Confirm password' : 'Nhập lại mật khẩu'}</label>
+          <input id="profile-confirm-password" type="password" minLength="10" maxLength="72" required value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} className="border-3 border-[var(--pop-black)] px-3 py-2 font-bold shadow-[2px_2px_0_var(--pop-black)]" />
+          <button type="submit" disabled={passwordState.pending} className="border-3 border-[var(--pop-black)] bg-[var(--pop-black)] px-4 py-3 font-pop-accent font-black uppercase text-white shadow-[3px_3px_0_var(--pop-red)] disabled:opacity-60">{passwordState.pending ? '…' : (language === 'en' ? 'Update password' : 'Cập nhật mật khẩu')}</button>
         </form>
       </div>
 

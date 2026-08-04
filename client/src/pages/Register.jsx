@@ -94,6 +94,9 @@ export default function Register({ setPage }) {
             placeholder="••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            minLength="10"
+            maxLength="72"
+            required
             className="bg-[#FFFFFF] border-3 border-[var(--pop-black)] rounded-none px-4 py-3 text-xs text-[var(--pop-black)] font-bold focus:outline-none focus:bg-[var(--pop-cream)] focus:-translate-y-0.5 focus:-translate-x-0.5 transition-all shadow-[3px_3px_0_var(--pop-black)] focus:shadow-[5px_5px_0_var(--pop-black)]"
           />
         </div>

@@ -29,6 +29,8 @@ The agent should automatically map user intent to skills:
 - API or interface design → `api-and-interface-design`
 - UI work → `frontend-ui-engineering`
 
+For every frontend or UI task, read `DESIGN.md` before changing components or styles. It documents the current player, match, Wardrobe, and Admin visual territories and is the frontend design source of truth.
+
 ### Lifecycle Mapping (Implicit Commands)
 
 OpenCode does not support slash commands like `/spec` or `/plan`.

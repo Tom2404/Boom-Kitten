@@ -1,4 +1,4 @@
-import { VFX_PRIORITY } from './VFXEventAdapter';
+import { VFX_PRIORITY } from './VFXEventAdapter.js';
 
 export class VFXQueue {
   constructor(worker) {
@@ -55,7 +55,6 @@ export class VFXQueue {
 
   clear() {
     this.queue = [];
-    this.isRunning = false;
   }
 
   async runLowPriority(task) {

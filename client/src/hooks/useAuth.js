@@ -9,10 +9,12 @@ export function useAuth() {
       accessToken,
       setToken: (token) => {
         localStorage.setItem('accessToken', token);
+        window.dispatchEvent(new Event('auth:changed'));
         setAccessToken(token);
       },
       clearToken: () => {
         localStorage.removeItem('accessToken');
+        window.dispatchEvent(new Event('auth:changed'));
         setAccessToken('');
       },
     }),

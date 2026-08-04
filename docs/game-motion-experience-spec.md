@@ -7,6 +7,10 @@ playing cards, drawing a kitten, using Defuse, and reaching Victory or Defeat.
 Animations must communicate game state without delaying or changing server-owned
 rules.
 
+Reverse is a normal Nopeable action. It changes `playDirection` only after the
+authoritative action resolves; an odd Nope parity cancels it without a temporary
+direction change.
+
 ## Tech Stack
 
 - React 18
@@ -18,7 +22,10 @@ rules.
 ## Commands
 
 - Test: `npm test --prefix client`
+- Server test: `npm test --prefix server`
 - Build: `npm run build --prefix client`
+- VFX validation: `npm run validate:vfx --prefix client`
+- VFX registry validation: `npm run validate:vfx-registry --prefix client`
 - Dev: `npm run dev --prefix client`
 
 ## Project Structure
@@ -58,7 +65,12 @@ second animation owner for an element already controlled by GSAP.
 
 - Always: clean timers/timelines on unmount and honor reduced-motion preferences.
 - Always: keep socket events and game rules authoritative.
-- Ask first: new dependencies, new server events, or replacing GSAP/Pixi.
+- Always: reuse `AnimationManager`, `VFXQueue`, Pixi/GSAP, and
+  `CardPlayPresentationController`; do not add another animation provider or queue.
+- Always: treat `game:drewKitten` as anticipation only. Explosion VFX starts only
+  from `game:exploded`.
+- Always: preserve `presentationId` across card pending, Nope, and resolution.
+- Ask first: new dependencies or replacing GSAP/Pixi.
 - Never: delay a required game response solely to finish decorative animation.
 - Never: animate the same DOM element concurrently with Framer Motion and GSAP.
 
@@ -70,18 +82,36 @@ second animation owner for an element already controlled by GSAP.
 - Kitten and explosion events provide distinct, targeted feedback.
 - Defuse clearly communicates neutralization and reinsertion without changing the
   response contract.
+- Reverse opens a Nope window and changes direction exactly once only when it
+  resolves.
+- Local draws correlate public and private events; Favor/combo hand gains do not
+  trigger draw reveal.
+- Duplicate socket events do not create duplicate presentation or audio.
+- Reconnect restores pending presentation without replaying an old flight.
 - Victory and Defeat use distinct staged presentations with accessible controls.
 - Rapid events, leaving a room, and reduced-motion mode do not leave stale UI.
 - Client tests and production build pass.
 
 ## Approved Implementation Order
 
-1. Shared motion configuration and draw reveal.
-2. Card play feedback and resolved-card accents.
-3. Kitten/explosion and Defuse sequences.
-4. Victory/Defeat choreography.
-5. Cleanup, reduced-motion audit, full verification.
+1. Nope rules, identifiers, acknowledgements, and ownership.
+2. Correlated draw reveal and shared card presentation.
+3. Kitten anticipation, explosion, Defuse, Nope, and reconnect restoration.
+4. Turn direction, queue priority, and lifecycle cleanup.
+5. Accessibility, audio guards, legacy cleanup, and full verification.
+
+## Additive Socket Contract
+
+- `game:drawCard` acknowledgement: `{ ok, eventId?, error? }`.
+- `game:playCard` acknowledgement: `{ ok, presentationId?, error? }`.
+- `game:cardDrawn`: add `eventId` and `recipientId`, retain `playerId`.
+- `game:privateHand`: add `sourceEventId` for the recipient snapshot caused by a
+  draw.
+- `game:drewKitten` and `game:exploded`: add `eventId` and `drawEventId`, and
+  identify the actual affected player.
+- `game:turnChanged`: add `eventId`, `previousPlayerId`, and `playDirection`.
+- `game:nopeWindow`: add absolute `expiresAt`.
 
 ## Open Questions
 
-None. The user approved the scope and implementation plan on 2026-07-28.
+None. The user approved the final scope and implementation plan on 2026-08-03.

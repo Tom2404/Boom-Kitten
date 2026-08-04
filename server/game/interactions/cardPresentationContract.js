@@ -1,3 +1,5 @@
+const { randomUUID } = require('node:crypto');
+
 let presentationSequence = 0;
 
 const NOPEABLE_ACTIONS = new Set([
@@ -6,7 +8,7 @@ const NOPEABLE_ACTIONS = new Set([
   'see_the_future_1', 'see_the_future_3', 'see_the_future_5', 'see_the_future_3_now', 'reveal_the_future',
   'alter_the_future_3', 'alter_the_future_5', 'alter_the_future_3_now',
   'favor', 'garbage', 'pot_luck',
-  'shuffle', 'shuffle_now',
+  'shuffle', 'shuffle_now', 'reverse',
   'swap_top_and_bottom_now',
   'feed_the_dead',
   'grave_robber',
@@ -20,6 +22,10 @@ function createPresentationId() {
   return `presentation-${Date.now()}-${presentationSequence}`;
 }
 
+function createEventId(kind = 'event') {
+  return `${kind}-${randomUUID()}`;
+}
+
 function ensurePresentationId(action, createId = createPresentationId) {
   if (!action.presentationId) action.presentationId = createId();
   return action.presentationId;
@@ -30,6 +36,7 @@ function isNopeableAction(cardType) {
 }
 
 module.exports = {
+  createEventId,
   createPresentationId,
   ensurePresentationId,
   isNopeableAction,

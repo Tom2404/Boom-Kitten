@@ -5,6 +5,7 @@ import PlayersPanel from './PlayersPanel.jsx';
 import CatalogPanel from './CatalogPanel.jsx';
 import QuestsPanel from './QuestsPanel.jsx';
 import TournamentsPanel from './TournamentsPanel.jsx';
+import ModerationPanel from './ModerationPanel.jsx';
 import { useLanguage } from '../../context/LanguageContext.jsx';
 import { getVisibleAdminNavigation, resolveAdminTab } from './adminNavigation.js';
 import { useAdminApi } from './useAdminApi.js';
@@ -95,6 +96,8 @@ export default function AdminPage({ setPage }) {
         return <QuestsPanel permissions={permissions} />;
       case 'tournaments':
         return <TournamentsPanel permissions={permissions} adminUsername={session.data.admin.username} />;
+      case 'moderation':
+        return <ModerationPanel permissions={permissions} />;
       default:
         return <OverviewPanel onNavigate={navigateToTab} language={language} permissions={permissions} />;
     }

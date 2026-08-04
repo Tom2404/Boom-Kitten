@@ -4,13 +4,36 @@ import assert from 'node:assert/strict';
 import {
   GAME_RESULT_DURATION_MS,
   createGameResultState,
+  createBoundedEventGate,
   createTimeoutGroup,
+  findCorrelatedDrawCard,
   getDrawRevealMotion,
   getDefusePositionProgress,
   getEndgameSequence,
   getGameMotionTransition,
   getGameResultRemainingSeconds,
 } from '../src/pages/Game/gameMotion.js';
+
+test('event gate keeps a bounded ledger and rejects duplicate ids', () => {
+  const gate = createBoundedEventGate(3);
+
+  assert.equal(gate.accept('one'), true);
+  assert.equal(gate.accept('one'), false);
+  assert.equal(gate.accept('two'), true);
+  assert.equal(gate.accept('three'), true);
+  assert.equal(gate.accept('four'), true);
+  assert.equal(gate.accept('one'), true);
+  assert.equal(gate.size, 3);
+});
+
+test('draw reveal requires matching public and private draw event ids', () => {
+  const before = [{ id: 'old', type: 'skip' }];
+  const after = [...before, { id: 'new', type: 'reverse', skinIndex: 2 }];
+
+  assert.equal(findCorrelatedDrawCard(before, after, undefined, 'draw-1'), null);
+  assert.equal(findCorrelatedDrawCard(before, after, 'favor-1', 'draw-1'), null);
+  assert.deepEqual(findCorrelatedDrawCard(before, after, 'draw-1', 'draw-1'), after[1]);
+});
 
 test('draw reveal keeps a readable hold before exiting toward the hand', () => {
   const motion = getDrawRevealMotion(false);

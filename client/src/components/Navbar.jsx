@@ -4,6 +4,8 @@ import {
   PixelHomeIcon,
   PixelPlayIcon,
   PixelProfileIcon,
+  PixelFriendsIcon,
+  PixelLeaderboardIcon,
   PixelShopIcon,
   PixelStarIcon,
   PixelTrophyIcon,
@@ -56,9 +58,11 @@ export default function Navbar({ page, setPage, isLoggedIn, userRole, handleLogo
     { page: 'Home', label: t('home'), Icon: PixelHomeIcon },
     { page: 'Game', label: t('arena'), Icon: PixelPlayIcon },
     { page: 'Tournaments', label: 'Tournament', Icon: PixelTrophyIcon },
+    { page: 'Leaderboard', label: language === 'en' ? 'Top 20' : 'Xếp hạng', Icon: PixelLeaderboardIcon },
     { page: 'Mission', label: t('mission'), Icon: PixelStarIcon },
     { page: 'Shop', label: t('shop'), Icon: PixelShopIcon },
     { page: 'Wardrobe', label: t('wardrobe'), Icon: PixelWardrobeIcon, authenticated: true },
+    { page: 'Friends', label: language === 'en' ? 'Friends' : 'Bạn bè', Icon: PixelFriendsIcon, authenticated: true },
     { page: 'Profile', label: t('profile'), Icon: PixelProfileIcon, authenticated: true },
   ].filter((item) => !item.authenticated || isLoggedIn);
 

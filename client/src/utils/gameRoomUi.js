@@ -1,4 +1,4 @@
-const ACTIVITY_TABS = new Set(['chat', 'log']);
+const ACTIVITY_TABS = new Set(['chat', 'log', 'players']);
 
 export function getHandDockState({ handCount, maxHandSize, isMyTurn }) {
   if (handCount > maxHandSize) return 'danger';

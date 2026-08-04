@@ -6,6 +6,32 @@ export const getGameMotionTransition = (reducedMotion = false) => (
 
 export const GAME_RESULT_DURATION_MS = 10_000;
 
+export function createBoundedEventGate(limit = 160) {
+  const ids = new Set();
+
+  return {
+    accept(id) {
+      if (!id) return true;
+      if (ids.has(id)) return false;
+      ids.add(id);
+      while (ids.size > limit) ids.delete(ids.values().next().value);
+      return true;
+    },
+    clear() {
+      ids.clear();
+    },
+    get size() {
+      return ids.size;
+    },
+  };
+}
+
+export function findCorrelatedDrawCard(previousCards, nextCards, sourceEventId, expectedEventId) {
+  if (!sourceEventId || sourceEventId !== expectedEventId) return null;
+  const previousIds = new Set((previousCards || []).map((card) => card.id));
+  return (nextCards || []).find((card) => !previousIds.has(card.id)) || null;
+}
+
 export function createGameResultState({
   winnerId,
   rankings,

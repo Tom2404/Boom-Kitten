@@ -21,6 +21,7 @@ export default function GameTable(props) {
     equippedCosmetics,
     gameState,
     getStatusDisplay,
+    isDrawPending,
     isMyTurn,
     isOpponentTargetable,
     myUser,
@@ -84,6 +85,7 @@ export default function GameTable(props) {
   const isDrawDisabled = Boolean(
     gameState.pendingFavor
     || gameState.pendingAlter
+    || isDrawPending
     || nopeWindow?.active
     || privateHand.length > (gameState.maxHandSize ?? 10),
   );
@@ -135,6 +137,7 @@ export default function GameTable(props) {
         discardCard={discardCard}
         drawsRequired={gameState.drawsRequired}
         gameState={gameState}
+        isDrawPending={isDrawPending}
         isMyTurn={isMyTurn}
         myUser={myUser}
         player={localPlayer}

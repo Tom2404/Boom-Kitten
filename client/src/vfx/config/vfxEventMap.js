@@ -22,7 +22,7 @@ export function cardTypeToAnimKey(cardType) {
 
 export function gameEventToAnimKey(eventName, payload = {}) {
   if (eventName === 'game:cardDrawn') return 'DRAW_CARD';
-  if (eventName === 'game:drewKitten') return 'CARD_EXPLODING_KITTEN';
+  if (eventName === 'game:drewKitten') return 'ENV_DANGER_MODE_TOGGLE';
   if (eventName === 'game:exploded') return 'EXPLOSION';
   if (eventName === 'game:nopeWindow' || eventName === 'game:nopeResult') return 'CARD_NOPE';
   if (eventName === 'game:turnChanged') return 'ENV_TURN_TRANSITION';

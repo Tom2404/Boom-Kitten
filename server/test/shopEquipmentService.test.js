@@ -31,9 +31,10 @@ test('only V1 cosmetics are purchasable and expired items stay unavailable', () 
   }, new Date('2026-01-02T00:00:00.000Z')), false);
 });
 
-test('cosmetic assets accept HTTPS and same-origin paths only', () => {
-  assert.equal(isSafeAssetUrl('https://cdn.example.com/frame.webp'), true);
+test('cosmetic assets accept only same-origin asset paths', () => {
+  assert.equal(isSafeAssetUrl('https://cdn.example.com/frame.webp'), false);
   assert.equal(isSafeAssetUrl('/assets/cosmetics/frame.webp'), true);
+  assert.equal(isSafeAssetUrl('/vfx/spark.png'), true);
   assert.equal(isSafeAssetUrl('javascript:alert(1)'), false);
   assert.equal(isSafeAssetUrl('data:image/svg+xml;base64,abc'), false);
   assert.equal(isSafeAssetUrl('http://cdn.example.com/frame.webp'), false);
@@ -66,6 +67,13 @@ test('public cosmetic descriptor uses previewUrl and falls back to imageUrl', ()
     type: 'field',
     imageUrl: '/field.webp',
   }).assetUrl, '/field.webp');
+
+  assert.equal(toPublicCosmetic({
+    _id: 'external-1',
+    name: 'External Field',
+    type: 'field',
+    imageUrl: 'https://cdn.example.com/field.webp',
+  }).assetUrl, '');
 });
 
 test('public cosmetic descriptor defaults and clamps asset framing', () => {

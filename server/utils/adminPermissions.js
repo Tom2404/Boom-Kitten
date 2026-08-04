@@ -15,6 +15,8 @@ const ADMIN_PERMISSIONS = [
   'tournaments.read',
   'tournaments.write',
   'tournaments.refund',
+  'moderation.read',
+  'moderation.write',
 ];
 
 const ROLE_PERMISSIONS = {

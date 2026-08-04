@@ -24,12 +24,7 @@ function normalizeAssetTransform(value) {
 function isSafeAssetUrl(value) {
   if (typeof value !== 'string' || !value.trim()) return false;
   const url = value.trim();
-  if (url.startsWith('/')) return !url.startsWith('//');
-  try {
-    return new URL(url).protocol === 'https:';
-  } catch {
-    return false;
-  }
+  return url.startsWith('/') && !url.startsWith('//') && !url.split('/').includes('..');
 }
 
 function isItemAvailableForPurchase(item, now = new Date()) {

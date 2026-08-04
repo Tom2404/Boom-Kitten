@@ -32,13 +32,17 @@ This project serves as a robust template for real-time web gaming, featuring sec
 ### Secure & Scalable Architecture
 
 - **JWT Authentication:** Robust access and refresh token management.
+- **Account Recovery:** Change-password and one-time, 15-minute password-reset flows with optional SMTP delivery.
+- **Safe Profiles:** Editable usernames and server-approved preset avatars.
 - **Room Management:** Players can create, join, and manage custom game rooms.
 - **Private Hands:** Sensitive player data is masked and transmitted securely (`game:privateHand`).
 
 ### Meta-Game Progression
 
 - **Economy System:** In-game currency with transaction logging for match rewards, daily bonuses, and shop purchases.
-- **Leaderboards:** Global player rankings based on ELO or win/loss ratios.
+- **Top 20 Leaderboard:** Public ranking by matchmaking rating, then wins, at `/api/leaderboard`.
+- **Friends:** Search, send/accept/decline requests, remove friends, and invite online friends into waiting rooms without exposing room passwords.
+- **Player Safety:** In-game reports feed an admin moderation inbox with case assignment, notes, priority, and status workflow.
 - **Cosmetics & Emotes:** Real-time chat and in-game emote system to taunt opponents.
 
 ---
@@ -66,13 +70,14 @@ This project serves as a robust template for real-time web gaming, featuring sec
 
 ```text
 Boom-Kitten/
-├── client/          # React frontend (Vite, Tailwind, Framer Motion)
-├── server/          # Express backend (Socket.io, MongoDB, JWT auth)
-│   ├── src/
-│   │   ├── api/     # REST API routes and controllers
-│   │   ├── game/    # Core game logic, deck management, turn system
-│   │   └── sockets/ # WebSocket event handlers
-└── docs/            # Project documentation and assets
+├── client/src/      # React pages, components, contexts, hooks, and UI utilities
+├── client/test/     # Frontend contract and source-level tests
+├── server/routes/   # Express REST routes
+├── server/services/ # Account, social, moderation, game, and admin services
+├── server/sockets/  # Socket.io room and game event handlers
+├── server/models/   # Mongoose models
+├── server/test/     # Backend unit and integration-contract tests
+└── docs/            # Project specifications and documentation
 ```
 
 ---
@@ -105,7 +110,7 @@ cd server
 cp .env.example .env
 ```
 
-*Edit the newly created `.env` file and provide your MongoDB URI, JWT Secrets, and desired ports.*
+Edit the newly created `.env` file and provide your MongoDB URI, JWT secrets, and desired ports. Configure the optional `SMTP_*` values to deliver password-reset links by email; in development the reset link is also returned by the API for local testing.
 
 ### 3. Running the Application
 

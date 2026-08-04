@@ -64,19 +64,16 @@ export default function GameBoardView() {
     graveRobberRequest,
     handleLeaveConfirm,
     hasUnreadMessages,
-    isImplodingActive,
     isRedFlashActive,
     isSidebarOpen,
     leaveRoom,
+    liveAnnouncement,
     localClairvoyance,
     mainContainerRef,
     myUser,
-    nopeAlert,
     nopeResult,
-    nopeStamp,
     nopeWindow,
     nowCardToast,
-    numPlayAnims,
     flyingCardActionId,
     setFlyingCardActionId,
     passNope,
@@ -150,9 +147,7 @@ export default function GameBoardView() {
   const discardMaskCount = flyingCardActionId?.count || 0;
   const displayedDiscardPile = discardMaskCount > 0
     ? gameState.discardPile.slice(0, Math.max(0, gameState.discardPile.length - discardMaskCount))
-    : (gameState.discardPile && numPlayAnims > 0)
-      ? gameState.discardPile.slice(0, Math.max(0, gameState.discardPile.length - numPlayAnims))
-      : (gameState.discardPile || []);
+    : (gameState.discardPile || []);
   const getPlayerDisplayName = (playerId) => {
     if (playerId === myUser.id) return myUser.username || 'Bạn';
     const player =
@@ -180,6 +175,9 @@ export default function GameBoardView() {
 
   return (
     <div ref={mainContainerRef} className="game-room select-none">
+      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {liveAnnouncement}
+      </p>
       {errorToast}
       <CardFocusOverlay onDiscardPileSync={handleDiscardPileSync} />
       <GameHeader />

@@ -108,6 +108,7 @@ export default function InteractionModals(props) {
   <NopeCountdown
     eventId={nopeWindow.eventId}
     timeoutMs={nopeWindow.timeoutMs}
+    expiresAt={nopeWindow.expiresAt}
     hasNopeCard={hasNopeCard}
     onPlayNope={() => playNope(nopeWindow.eventId)}
     onPass={() => passNope(nopeWindow.eventId)}

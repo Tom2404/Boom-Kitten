@@ -42,7 +42,7 @@ function validateCatalogInput(input) {
   const unsafeAssetFields = ['imageUrl', 'previewUrl'].filter((field) => input[field] && !isSafeAssetUrl(input[field]));
   if (unsafeAssetFields.length) {
     throw new ApiError(422, 'VALIDATION_ERROR', 'URL asset không hợp lệ.', {
-      fields: Object.fromEntries(unsafeAssetFields.map((field) => [field, 'Chỉ hỗ trợ HTTPS hoặc đường dẫn cùng origin'])),
+      fields: Object.fromEntries(unsafeAssetFields.map((field) => [field, 'Chỉ hỗ trợ đường dẫn asset nội bộ cùng origin bắt đầu bằng /'])),
     });
   }
 }

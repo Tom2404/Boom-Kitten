@@ -9,6 +9,7 @@ export default function PlayerHandDock({
   drawCard,
   drawsRequired = 1,
   gameState,
+  isDrawPending,
   isMyTurn,
   myUser,
   player,
@@ -84,9 +85,9 @@ export default function PlayerHandDock({
             <button
               type="button"
               onClick={drawCard}
-              disabled={!isTurn}
+              disabled={!isTurn || isDrawPending}
               className={`flex-grow py-2 px-3 rounded-xl font-headline font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-md ${
-                isTurn
+                isTurn && !isDrawPending
                   ? 'bg-[#00c8ff] text-slate-950 hover:bg-[#33d6ff] shadow-[0_0_12px_rgba(0,200,255,0.7)] active:scale-95 cursor-pointer'
                   : 'bg-slate-800 text-slate-400 border border-slate-700 cursor-not-allowed opacity-60'
               }`}

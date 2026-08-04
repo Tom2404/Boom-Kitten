@@ -1,7 +1,6 @@
 import * as PIXI from 'pixi.js';
 import { gsap } from 'gsap';
 import { animationManager } from './AnimationManager';
-import { soundManager } from './SoundManager';
 import { PrimitiveEffects } from './PrimitiveEffects';
 
 animationManager.register('ENV_TURN_TRANSITION', (event, vfxManager) => {
@@ -40,7 +39,6 @@ animationManager.register('ENV_TURN_TRANSITION', (event, vfxManager) => {
   tl.addLabel('cleanup', 1.3);
   tl.set(banner.position, { x: window.innerWidth }, 'anticipation');
   tl.to(banner.position, { x: 0, duration: 0.3, ease: 'power2.out' }, 'anticipation');
-  tl.call(() => soundManager.play('sfx_turn'), null, 'impact');
   tl.to(banner.position, { x: -window.innerWidth, duration: 0.3, ease: 'power2.in' }, 'afterglow');
   tl.call(() => PrimitiveEffects.safeDestroy(banner), null, 'cleanup');
 
@@ -68,7 +66,6 @@ animationManager.register('ENV_DANGER_MODE_TOGGLE', (event, vfxManager) => {
       ease: 'sine.inOut',
     });
 
-    soundManager.play('sfx_danger_heartbeat');
   } else if (!isActive && dangerVignette) {
     gsap.killTweensOf(dangerVignette);
     PrimitiveEffects.safeDestroy(dangerVignette);

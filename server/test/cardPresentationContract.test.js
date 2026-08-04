@@ -4,10 +4,12 @@ const { readFile } = require('node:fs/promises');
 const path = require('node:path');
 
 const {
+  createEventId,
   ensurePresentationId,
   isNopeableAction,
 } = require('../game/interactions/cardPresentationContract');
 const PlayCardInitAction = require('../game/actions/PlayCardInitAction');
+const EffectFactory = require('../game/effects/EffectFactory');
 
 test('keeps one presentation id while Nope rotates the response-window event id', () => {
   const action = { eventId: 'window-1', cardType: 'skip' };
@@ -35,11 +37,67 @@ test('does not replace a presentation id restored from pending game state', () =
   );
 });
 
-test('opens a Nope response window only for cards allowed by the current rules', () => {
+test('creates unique typed socket event ids', () => {
+  const first = createEventId('draw');
+  const second = createEventId('draw');
+
+  assert.match(first, /^draw-/);
+  assert.match(second, /^draw-/);
+  assert.notEqual(first, second);
+});
+
+test('opens a Nope response window for Reverse and other Nopeable actions', () => {
   assert.equal(isNopeableAction('skip'), true);
   assert.equal(isNopeableAction('combo_2'), true);
-  assert.equal(isNopeableAction('reverse'), false);
+  assert.equal(isNopeableAction('reverse'), true);
   assert.equal(isNopeableAction('defuse_resolved'), false);
+});
+
+test('Reverse direction effect changes direction exactly once when executed', () => {
+  const state = { playDirection: 1 };
+  const [effect] = EffectFactory.createEffects('reverse');
+
+  effect.execute({ state });
+  assert.equal(state.playDirection, -1);
+});
+
+test('socket contract exposes acknowledgements and correlated event metadata', async () => {
+  const source = await readFile(path.join(__dirname, '..', 'sockets', 'gameSocket.js'), 'utf8');
+
+  assert.match(source, /game:playCard'[\s\S]*acknowledge/);
+  assert.match(source, /respond\(\{ ok: true, presentationId \}\)/);
+  assert.match(source, /game:drawCard'[\s\S]*respond\?\.\(\{ ok: true, eventId \}\)/);
+  assert.match(source, /game:cardDrawn'[\s\S]*eventId: drawEventId,[\s\S]*recipientId/);
+  assert.match(source, /game:privateHand'[\s\S]*sourceEventId/);
+  assert.match(source, /game:nopeWindow'[\s\S]*expiresAt: action\.expiresAt/);
+  assert.match(source, /game:turnChanged'[\s\S]*previousPlayerId[\s\S]*playDirection/);
+});
+
+test('cancelled Nope parity returns before executing Reverse or any other action effect', async () => {
+  const source = await readFile(path.join(__dirname, '..', 'sockets', 'gameSocket.js'), 'utf8');
+  const resolver = source.slice(
+    source.indexOf('async function resolvePendingActionEarly'),
+    source.indexOf('function setupNopeTimeout'),
+  );
+  const cancelledBranch = resolver.slice(
+    resolver.indexOf('action.nopeCount && action.nopeCount % 2 === 1'),
+    resolver.indexOf("if (action.type === 'defuse_completed')"),
+  );
+
+  assert.match(cancelledBranch, /broadcastActionResolved\(room, action, 'CANCELLED'\)/);
+  assert.match(cancelledBranch, /return;/);
+  assert.doesNotMatch(cancelledBranch, /runActionEffect/);
+});
+
+test('kitten anticipation is emitted before state-change explosion detection', async () => {
+  const source = await readFile(path.join(__dirname, '..', 'sockets', 'gameSocket.js'), 'utf8');
+  const executeDraw = source.slice(
+    source.indexOf('async function executeDraw'),
+    source.indexOf('async function runActionEffect'),
+  );
+
+  assert.ok(executeDraw.indexOf("emit('game:drewKitten'") < executeDraw.indexOf('afterGameStateChanged'));
+  assert.match(source, /game:exploded'[\s\S]*drawEventId: drawContext\.drawEventId/);
 });
 
 test('auto-played Defuse starts a card presentation before it resolves', async () => {

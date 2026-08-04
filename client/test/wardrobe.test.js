@@ -18,7 +18,9 @@ test('registers Wardrobe as an authenticated player destination on desktop and m
 
   assert.match(app, /const Wardrobe = lazy\(\(\) => import\('\.\/pages\/Wardrobe\.jsx'\)\)/);
   assert.match(app, /PAGES[^;]+Wardrobe/);
-  assert.match(app, /\['Game', 'Mission', 'Shop', 'Wardrobe', 'Profile', 'Tournaments'\]/);
+  for (const restrictedPage of ['Wardrobe', 'Friends', 'Leaderboard']) {
+    assert.match(app, new RegExp(`\\['Game'[^\\]]+'${restrictedPage}'[^\\]]+\\]\\.includes\\(page\\)`));
+  }
   assert.match(navbar, /page: 'Wardrobe'[^\n]+authenticated: true/);
   assert.match(navbar, /const active = page === targetPage/);
   assert.match(navbar, /aria-expanded/);

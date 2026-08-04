@@ -7,12 +7,17 @@ import CustomDialog from './components/CustomDialog.jsx';
 import { isAdminRole } from './utils/adminRoles.js';
 import { REQUIRED_VFX_ASSET_URLS } from './vfx/config/vfxAssets.js';
 import { shouldResumeActiveMatch } from './utils/gameRoomUi.js';
+import { endAuthSession, refreshAccessToken } from './utils/authSession.js';
 
 const Login = lazy(() => import('./pages/Login.jsx'));
 const Register = lazy(() => import('./pages/Register.jsx'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword.jsx'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword.jsx'));
 const Lobby = lazy(() => import('./pages/Lobby.jsx'));
 const Game = lazy(() => import('./pages/Game.jsx'));
 const Profile = lazy(() => import('./pages/Profile.jsx'));
+const Friends = lazy(() => import('./pages/Friends.jsx'));
+const Leaderboard = lazy(() => import('./pages/Leaderboard.jsx'));
 const Shop = lazy(() => import('./pages/Shop.jsx'));
 const Wardrobe = lazy(() => import('./pages/Wardrobe.jsx'));
 const Tournaments = lazy(() => import('./pages/Tournaments.jsx'));
@@ -45,7 +50,7 @@ class ErrorBoundary extends Component {
 
 const Mission = lazy(() => import('./pages/Mission.jsx'));
 
-const PAGES = { Home, Login, Register, Lobby, Game, Profile, Shop, Wardrobe, Tournaments, Admin, Mission };
+const PAGES = { Home, Login, Register, ForgotPassword, ResetPassword, Lobby, Game, Profile, Friends, Leaderboard, Shop, Wardrobe, Tournaments, Admin, Mission };
 
 export default function App() {
   const { language, setLanguage, t } = useLanguage();
@@ -69,6 +74,7 @@ export default function App() {
   });
 
   const [page, setPage] = useState(() => {
+    if (new URLSearchParams(window.location.search).has('resetToken')) return 'ResetPassword';
     const token = localStorage.getItem('accessToken');
     if (token) {
       try {
@@ -137,6 +143,39 @@ export default function App() {
   }, [socket]);
 
   useEffect(() => {
+    window.addEventListener('auth:changed', syncAuthState);
+    return () => window.removeEventListener('auth:changed', syncAuthState);
+  }, []);
+
+  useEffect(() => {
+    const token = localStorage.getItem('accessToken') ?? '';
+    if (socket.auth?.token === token) return;
+    socket.auth = { ...socket.auth, token };
+    if (socket.connected && !activeRoom) {
+      socket.disconnect();
+      socket.connect();
+    }
+  }, [activeRoom, isLoggedIn, socket]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const refreshSession = async () => {
+      const accessToken = await refreshAccessToken();
+      if (!accessToken || cancelled) return;
+      localStorage.setItem('accessToken', accessToken);
+      socket.auth = { ...socket.auth, token: accessToken };
+      syncAuthState();
+    };
+
+    void refreshSession();
+    const interval = setInterval(() => { void refreshSession(); }, 12 * 60 * 1000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [socket]);
+
+  useEffect(() => {
     document.documentElement.lang = language;
     if (language === 'vi') {
       document.body.classList.add('lang-vi');
@@ -156,7 +195,7 @@ export default function App() {
 
   // Global access guard for admin role to restrict user-facing routes
   useEffect(() => {
-    if (isAdminRole(userRole) && ['Game', 'Mission', 'Shop', 'Wardrobe', 'Profile', 'Tournaments'].includes(page)) {
+    if (isAdminRole(userRole) && ['Game', 'Mission', 'Shop', 'Wardrobe', 'Profile', 'Friends', 'Leaderboard', 'Tournaments'].includes(page)) {
       setPage('Admin');
     }
   }, [page, userRole]);
@@ -167,6 +206,24 @@ export default function App() {
     message: '',
     onConfirm: null,
   });
+
+  useEffect(() => {
+    const handleRoomInvitation = ({ roomCode, inviterUsername, expiresAt }) => {
+      if (!roomCode || expiresAt <= Date.now()) return;
+      setDialogState({
+        isOpen: true,
+        title: 'Lời mời vào phòng',
+        message: `${inviterUsername || 'Một người bạn'} mời bạn vào phòng ${roomCode}.`,
+        onConfirm: () => {
+          setPage('Game');
+          socket.emit('room:join', { roomCode });
+          setDialogState({ isOpen: false });
+        },
+      });
+    };
+    socket.on('room:invitation', handleRoomInvitation);
+    return () => socket.off('room:invitation', handleRoomInvitation);
+  }, [socket]);
 
   const navigateWithConfirm = (targetPage) => {
     if (activeRoom && (activeRoom.status === 'waiting' || activeRoom.status === 'playing')) {
@@ -195,6 +252,7 @@ export default function App() {
         onConfirm: () => {
           socket.emit('room:leave');
           setActiveRoom(null);
+          void endAuthSession();
           localStorage.removeItem('accessToken');
           localStorage.removeItem('refreshToken');
           setIsLoggedIn(false);
@@ -204,6 +262,7 @@ export default function App() {
         },
       });
     } else {
+      void endAuthSession();
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       setIsLoggedIn(false);

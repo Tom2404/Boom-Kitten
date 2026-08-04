@@ -83,6 +83,18 @@ export const PixelProfileIcon = ({ className = '', size = 14 }) => (
   </svg>
 );
 
+export const PixelFriendsIcon = ({ className = '', size = 14 }) => (
+  <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor" className={className} aria-hidden="true">
+    <path d="M3 2h4v4H3V2Zm6 1h3v3H9V3ZM1 8h8v6H1V8Zm9 0h5v5h-5V8Z" />
+  </svg>
+);
+
+export const PixelLeaderboardIcon = ({ className = '', size = 14 }) => (
+  <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor" className={className} aria-hidden="true">
+    <path d="M1 9h4v6H1V9Zm5-8h4v14H6V1Zm5 5h4v9h-4V6Z" />
+  </svg>
+);
+
 export const PixelStarIcon = ({ className = '', size = 12 }) => (
   <svg 
     width={size} 

@@ -6,7 +6,7 @@ import {
   resolveAdminTab,
 } from '../src/pages/admin/adminNavigation.js';
 
-test('exposes only overview, users, resources, and tournaments', () => {
+test('exposes overview, users, moderation, resources, and tournaments', () => {
   const groups = getVisibleAdminNavigation([
     'dashboard.read',
     'players.read',
@@ -18,10 +18,10 @@ test('exposes only overview, users, resources, and tournaments', () => {
     'incidents.read',
   ]);
 
-  assert.deepEqual(groups.map((group) => group.id), ['manage', 'resources', 'competition']);
+  assert.deepEqual(groups.map((group) => group.id), ['manage', 'safety', 'resources', 'competition']);
   assert.deepEqual(
     groups.flatMap((group) => group.items.map((item) => item.id)),
-    ['overview', 'players', 'catalog', 'quests', 'tournaments'],
+    ['overview', 'players', 'moderation', 'catalog', 'quests', 'tournaments'],
   );
 });
 

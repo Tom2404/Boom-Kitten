@@ -1,4 +1,4 @@
-import { cardTypeToAnimKey, gameEventToAnimKey } from './config/vfxEventMap';
+import { cardTypeToAnimKey, gameEventToAnimKey } from './config/vfxEventMap.js';
 
 export const VFX_PRIORITY = {
   LOW: 'LOW',

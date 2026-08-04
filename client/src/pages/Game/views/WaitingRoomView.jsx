@@ -1,8 +1,12 @@
 import React from 'react';
 import { useGameContext } from '../GameContext.jsx';
 import { getAssetTransformStyle } from '../../../utils/shopEquipment.js';
+import { useSocket } from '../../../hooks/useSocket.js';
 
 export default function WaitingRoomView() {
+  const socket = useSocket();
+  const [friends, setFriends] = React.useState([]);
+  const [inviteStatus, setInviteStatus] = React.useState('');
   const props = useGameContext();
   const {
     CheckIcon,
@@ -40,6 +44,22 @@ export default function WaitingRoomView() {
     toggleReady,
     updateRoomSettings,
   } = props;
+
+  React.useEffect(() => {
+    const token = localStorage.getItem('accessToken');
+    if (!token || roomState.status !== 'waiting') return undefined;
+    let cancelled = false;
+    fetch(`${import.meta.env.VITE_API_URL ?? 'http://localhost:5000'}/api/users/me/friends`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((response) => response.ok ? response.json() : [])
+      .then((data) => { if (!cancelled) setFriends(Array.isArray(data) ? data : []); })
+      .catch(() => { if (!cancelled) setFriends([]); });
+    return () => { cancelled = true; };
+  }, [roomState.status]);
+
+  const inviteFriend = (friend) => {
+    socket.emit('room:invite', { roomCode: roomState.code, friendId: friend._id });
+    setInviteStatus(`Đã gửi lời mời tới ${friend.username}.`);
+  };
 
   if (roomState.status === 'waiting') {
     return (
@@ -169,6 +189,16 @@ export default function WaitingRoomView() {
 
             {/* Sidebar */}
             <div className="waiting-room-sidebar flex-[1] flex flex-col gap-4 content-start">
+              <div className="bg-white border-4 border-[var(--pop-black)] p-4 shadow-[4px_4px_0_rgba(0,0,0,0.2)]">
+                <h3 className="font-pop-display font-black text-sm uppercase border-b-2 border-[var(--pop-black)] pb-2">Mời bạn bè</h3>
+                {inviteStatus && <p className="mt-2 text-xs font-bold text-[var(--pop-green)]" role="status">{inviteStatus}</p>}
+                <div className="mt-3 grid max-h-40 gap-2 overflow-y-auto">
+                  {friends.length === 0 ? <p className="text-xs font-bold text-[var(--pop-black)]/60">Không có bạn bè để mời.</p> : friends.map((friend) => {
+                    const inRoom = roomState.players.some((player) => String(player.userId) === String(friend._id));
+                    return <button key={friend._id} type="button" disabled={inRoom || !friend.isOnline} onClick={() => inviteFriend(friend)} className="flex items-center justify-between border-2 border-[var(--pop-black)] bg-[var(--pop-cream)] px-3 py-2 text-left text-xs font-black disabled:opacity-45"><span className="truncate">{PRESET_AVATARS[friend.avatar] || '🐱'} {friend.username}</span><span>{inRoom ? 'Trong phòng' : friend.isOnline ? 'Mời' : 'Offline'}</span></button>;
+                  })}
+                </div>
+              </div>
 
               {/* Cài đặt phòng */}
               <div className="bg-white border-4 border-[var(--pop-black)] p-4 shadow-[4px_4px_0_rgba(0,0,0,0.2)]">

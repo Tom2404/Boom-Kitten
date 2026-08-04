@@ -9,15 +9,20 @@ export default function GameHeader() {
   const {
     ImageButton,
     SmileIcon,
+    SoundIcon,
+    changeSoundVolume,
     connectionState,
     handleLeaveConfirm,
     hasUnreadMessages,
     isSidebarOpen,
     localReconnectDeadline,
     roomState,
+    soundMuted,
+    soundVolume,
     setIsSidebarOpen,
     setRightPanelTab,
     t,
+    toggleSound,
   } = useGameContext();
   const [now, setNow] = React.useState(Date.now());
 
@@ -71,6 +76,28 @@ export default function GameHeader() {
           <i aria-hidden="true" />
           {connectionLabel}
         </span>
+        <div className="game-room-header__sound" role="group" aria-label="Ã‚m thanh tráº­n Ä‘áº¥u">
+          <button
+            type="button"
+            className="game-pixel-button game-pixel-button--muted"
+            onClick={toggleSound}
+            aria-pressed={soundMuted}
+            aria-label={soundMuted ? 'Báº­t Ã¢m thanh' : 'Táº¯t Ã¢m thanh'}
+          >
+            <SoundIcon aria-hidden="true" />
+            <span>{soundMuted ? 'Táº¯t tiáº¿ng' : 'Ã‚m thanh'}</span>
+          </button>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.1"
+            value={soundVolume}
+            onChange={(event) => changeSoundVolume(event.target.value)}
+            aria-label="Ã‚m lÆ°á»£ng hiá»‡u á»©ng"
+            disabled={soundMuted}
+          />
+        </div>
         <button
           id="game-activity-toggle"
           type="button"

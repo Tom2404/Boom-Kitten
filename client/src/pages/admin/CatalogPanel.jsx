@@ -164,8 +164,8 @@ export default function CatalogPanel({ permissions = [] }) {
             <div className="grid grid-cols-2 gap-3">
               <Field label="GoldCoin"><input className={inputClass} type="number" min="0" value={activeForm.priceCoins} onChange={(event) => setActiveForm({ ...activeForm, priceCoins: event.target.value })} /></Field>
             </div>
-            <Field label="URL hình ảnh"><input className={inputClass} value={activeForm.imageUrl} onChange={(event) => updateAssetSource('imageUrl', event.target.value)} placeholder="https://..." /></Field>
-            <Field label="URL asset trang bị"><input className={inputClass} value={activeForm.previewUrl} onChange={(event) => updateAssetSource('previewUrl', event.target.value)} placeholder="https://... hoặc /assets/..." /></Field>
+            <Field label="Đường dẫn hình ảnh nội bộ"><input className={inputClass} value={activeForm.imageUrl} onChange={(event) => updateAssetSource('imageUrl', event.target.value)} placeholder="/assets/..." /></Field>
+            <Field label="Đường dẫn asset trang bị nội bộ"><input className={inputClass} value={activeForm.previewUrl} onChange={(event) => updateAssetSource('previewUrl', event.target.value)} placeholder="/assets/..." /></Field>
             {previewAssetUrl && supportsFraming && <AssetPositionEditor
               confirmed={fitConfirmed}
               onChange={(assetTransform) => setActiveForm({ ...activeForm, assetTransform })}

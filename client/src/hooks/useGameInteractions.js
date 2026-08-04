@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getInteractionRequestState } from '../utils/gameRoomUi.js';
 import { createInteractionExpiry } from '../utils/gameModalUi.js';
+import { createTimeoutGroup } from '../pages/Game/gameMotion.js';
 
 export function useGameInteractions({ socket, t, setStatusMessage }) {
   const [nopeWindow, setNopeWindow] = useState(null);
@@ -9,6 +10,8 @@ export function useGameInteractions({ socket, t, setStatusMessage }) {
   const [seeTheFutureCards, setSeeTheFutureCards] = useState(null);
   const [activeInteractionRequest, setActiveInteractionRequest] = useState(null);
   const [clairvoyanceReveal, setClairvoyanceReveal] = useState(null);
+  const timersRef = useRef(null);
+  if (!timersRef.current) timersRef.current = createTimeoutGroup();
 
   const setTypedInteractionRequest = (type) => (valueOrUpdater) => {
     setActiveInteractionRequest((prev) => {
@@ -48,6 +51,22 @@ export function useGameInteractions({ socket, t, setStatusMessage }) {
   );
 
   const clearResolvedInteractions = (publicGameState) => {
+    const pendingAction = publicGameState?.pendingAction;
+    if (pendingAction?.expiresAt > Date.now()) {
+      setNopeWindow({
+        eventId: pendingAction.eventId,
+        presentationId: pendingAction.presentationId,
+        timeoutMs: pendingAction.timeoutMs,
+        expiresAt: pendingAction.expiresAt,
+        active: true,
+        cardType: pendingAction.cardType,
+        actingPlayerId: pendingAction.playerId,
+        responseOwnerId: pendingAction.responseOwnerId || pendingAction.playerId,
+        targetPlayerId: pendingAction.targetPlayerId,
+        nopeCount: pendingAction.nopeCount ?? 0,
+        isNowOnly: false,
+      });
+    }
     if (publicGameState && !publicGameState.pendingAction && !publicGameState.pendingNowOnlyWindow) {
       setNopeWindow(null);
       setStatusMessage(prev => {
@@ -97,12 +116,13 @@ export function useGameInteractions({ socket, t, setStatusMessage }) {
   };
 
   useEffect(() => {
-    const onNopeWindow = ({ eventId, timeoutMs, cardType, actingPlayerId, responseOwnerId, targetPlayerId, nopeCount }) => {
-      setNopeWindow({ eventId, timeoutMs, active: true, cardType, actingPlayerId, responseOwnerId: responseOwnerId || actingPlayerId, targetPlayerId, nopeCount: nopeCount ?? 0, isNowOnly: false });
+    const onNopeWindow = ({ eventId, presentationId, timeoutMs, expiresAt, cardType, actingPlayerId, responseOwnerId, targetPlayerId, nopeCount }) => {
+      const deadline = expiresAt || createInteractionExpiry(timeoutMs);
+      setNopeWindow({ eventId, presentationId, timeoutMs, expiresAt: deadline, active: true, cardType, actingPlayerId, responseOwnerId: responseOwnerId || actingPlayerId, targetPlayerId, nopeCount: nopeCount ?? 0, isNowOnly: false });
       setStatusMessage(t('status_waiting_nope'));
-      setTimeout(() => {
+      timersRef.current.schedule(() => {
         setNopeWindow(prev => prev?.eventId === eventId ? { ...prev, active: false } : prev);
-      }, timeoutMs);
+      }, Math.max(0, deadline - Date.now()));
     };
 
     const onNowOnlyWindow = ({ eventId, timeoutMs, resolvedCardType, actingPlayerId }) => {
@@ -117,7 +137,7 @@ export function useGameInteractions({ socket, t, setStatusMessage }) {
         isNowOnly: true,
       });
       setStatusMessage('Đang chờ Now...');
-      setTimeout(() => {
+      timersRef.current.schedule(() => {
         setNopeWindow(prev => prev?.eventId === eventId ? { ...prev, active: false } : prev);
       }, timeoutMs);
     };
@@ -132,7 +152,7 @@ export function useGameInteractions({ socket, t, setStatusMessage }) {
 
     const onNopeResult = ({ canceled, cardType, actingPlayerId, nopeCount }) => {
       setNopeResult({ canceled, cardType, actingPlayerId, nopeCount, timestamp: Date.now() });
-      setTimeout(() => setNopeResult(null), 2500);
+      timersRef.current.schedule(() => setNopeResult(null), 2500);
     };
 
     const onSeeTheFuture = ({ cards }) => {
@@ -250,7 +270,7 @@ export function useGameInteractions({ socket, t, setStatusMessage }) {
 
     const onClairvoyanceReveal = ({ cards, targetPlayerId }) => {
       setClairvoyanceReveal({ cards, targetPlayerId });
-      setTimeout(() => setClairvoyanceReveal(null), 5000);
+      timersRef.current.schedule(() => setClairvoyanceReveal(null), 5000);
     };
 
     socket.on('game:nopeWindow', onNopeWindow);
@@ -301,6 +321,7 @@ export function useGameInteractions({ socket, t, setStatusMessage }) {
       socket.off('interaction_request:dig_deeper', onDigDeeperRequest);
       socket.off('interaction_request:armageddon', onArmageddonRequest);
       socket.off('clairvoyance:reveal', onClairvoyanceReveal);
+      timersRef.current.clearAll();
     };
   }, [socket, t, setStatusMessage]);
 

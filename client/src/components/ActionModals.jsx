@@ -56,6 +56,7 @@ export function BrutalModal({ children, isOpen, onClose, maxWidth = 'max-w-xl', 
 export function NopeCountdown({ 
   eventId, 
   timeoutMs, 
+  expiresAt,
   hasNopeCard, 
   onPlayNope, 
   onPass, 
@@ -72,23 +73,18 @@ export function NopeCountdown({
   const { t } = useLanguage();
 
   useEffect(() => {
-    setTimeLeft(timeoutMs);
-  }, [eventId, timeoutMs]);
-
-  useEffect(() => {
+    const deadline = expiresAt || Date.now() + timeoutMs;
     const step = 50;
+    const update = () => setTimeLeft(Math.max(0, deadline - Date.now()));
+    update();
     const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= step) {
-          clearInterval(timer);
-          return 0;
-        }
-        return prev - step;
-      });
+      const remaining = Math.max(0, deadline - Date.now());
+      setTimeLeft(remaining);
+      if (remaining === 0) clearInterval(timer);
     }, step);
 
     return () => clearInterval(timer);
-  }, [eventId, timeoutMs]);
+  }, [eventId, expiresAt, timeoutMs]);
 
   const percentage = (timeLeft / timeoutMs) * 100;
   const isCanceled = nopeCount % 2 === 1;
@@ -100,7 +96,7 @@ export function NopeCountdown({
     'see_the_future_1', 'see_the_future_3', 'see_the_future_5', 'see_the_future_3_now', 'reveal_the_future',
     'alter_the_future_3', 'alter_the_future_5', 'alter_the_future_3_now',
     'favor', 'garbage', 'pot_luck',
-    'shuffle', 'shuffle_now',
+    'shuffle', 'shuffle_now', 'reverse',
     'swap_top_and_bottom_now',
     'feed_the_dead',
     'grave_robber',

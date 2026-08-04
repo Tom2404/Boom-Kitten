@@ -35,6 +35,8 @@ test('allows admins to manage users, resources, and tournaments', () => {
     'quests.write',
     'tournaments.read',
     'tournaments.write',
+    'moderation.read',
+    'moderation.write',
   ]) {
     assert.equal(hasAdminPermission('admin', permission), true, permission);
   }
@@ -42,7 +44,7 @@ test('allows admins to manage users, resources, and tournaments', () => {
 
 test('does not retain permissions for removed admin modules', () => {
   for (const role of ADMIN_ROLES) {
-    for (const permission of ['jobs.read', 'moderation.read', 'incidents.read', 'analytics.read', 'rooms.read', 'audit.read', 'wagers.read', 'live_ops.read', 'announcements.read']) {
+    for (const permission of ['jobs.read', 'incidents.read', 'analytics.read', 'rooms.read', 'audit.read', 'wagers.read', 'live_ops.read', 'announcements.read']) {
       assert.equal(hasAdminPermission(role, permission), false, `${role}: ${permission}`);
     }
   }

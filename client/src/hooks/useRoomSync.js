@@ -14,6 +14,7 @@ export function useRoomSync({
   const [roomState, setRoomState] = useState(initialRoom);
   const [gameState, setGameState] = useState(initialRoom?.gameState ?? null);
   const [privateHand, setPrivateHand] = useState([]);
+  const [privateHandSourceEventId, setPrivateHandSourceEventId] = useState(null);
   const [gameEnded, setGameEnded] = useState(null);
   const [chatMessages, setChatMessages] = useState([]);
   const [actionLog, setActionLog] = useState([]);
@@ -81,6 +82,7 @@ export function useRoomSync({
       } else {
         setGameState(null);
         setGameEnded(null);
+        setPrivateHandSourceEventId(null);
       }
     };
 
@@ -89,11 +91,13 @@ export function useRoomSync({
       clearResolvedInteractions(publicGameState);
     };
 
-    const onPrivateHand = ({ cards }) => {
+    const onPrivateHand = ({ cards, sourceEventId = null }) => {
       setPrivateHand(cards);
+      setPrivateHandSourceEventId(sourceEventId);
     };
 
     const onGameEnded = ({ winnerId, rankings, wager }) => {
+      setPrivateHandSourceEventId(null);
       setGameEnded(createGameResultState({
         winnerId,
         rankings,
@@ -110,6 +114,7 @@ export function useRoomSync({
       setGameState(null);
       setGameEnded(null);
       setPrivateHand([]);
+      setPrivateHandSourceEventId(null);
     };
 
     const onChatMessage = (msg) => {
@@ -166,6 +171,7 @@ export function useRoomSync({
     gameState,
     setGameState,
     privateHand,
+    privateHandSourceEventId,
     setPrivateHand,
     gameEnded,
     setGameEnded,

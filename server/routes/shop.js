@@ -19,6 +19,7 @@ const {
   SHOPPABLE_TYPES,
   equipCosmetic,
   isItemAvailableForPurchase,
+  isSafeAssetUrl,
   purchaseCosmetic,
   resolveUserEquipment,
   toPublicCosmetic,
@@ -142,7 +143,15 @@ router.put('/equipment/:slot', async (req, res, next) => {
 // Admin-only endpoints for managing shop items
 router.get('/catalog', adminMiddleware, requireAdminPermission('catalog.read'), async (_req, res, next) => {
   try {
-    return res.json(await ShopItem.find({}).sort({ sortOrder: 1, createdAt: -1 }));
+    const items = await ShopItem.find({}).sort({ sortOrder: 1, createdAt: -1 });
+    return res.json(items.map((item) => {
+      const value = item.toObject();
+      return {
+        ...value,
+        imageUrl: isSafeAssetUrl(value.imageUrl) ? value.imageUrl.trim() : '',
+        previewUrl: isSafeAssetUrl(value.previewUrl) ? value.previewUrl.trim() : '',
+      };
+    }));
   } catch (error) {
     return next(error);
   }

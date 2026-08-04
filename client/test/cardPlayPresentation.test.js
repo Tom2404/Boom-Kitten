@@ -144,4 +144,19 @@ test('Nope response panel is a compact non-blocking panel anchored to the right'
   assert.match(nopeCountdown, /max-w-\[360px\]/);
   assert.doesNotMatch(nopeCountdown, /fixed inset-0/);
   assert.doesNotMatch(nopeCountdown, /backdrop-blur/);
+  assert.match(nopeCountdown, /'reverse'/);
+  assert.match(nopeCountdown, /expiresAt \|\| Date\.now\(\) \+ timeoutMs/);
+});
+
+test('card flights animate compositor-friendly transforms instead of layout properties', () => {
+  const source = fs.readFileSync(
+    new URL('../src/vfx/CardPlayPresentationController.js', import.meta.url),
+    'utf8',
+  );
+  const gsapLayoutTween = /^\s+(?:left|top|width|height):\s*(?:\(index\)|target|mainRect|arc|discard)/m;
+
+  assert.doesNotMatch(source, gsapLayoutTween);
+  assert.match(source, /\bx:/);
+  assert.match(source, /\by:/);
+  assert.match(source, /\bscale:/);
 });

@@ -94,6 +94,7 @@ export class CardPlayPresentationController {
         this.activeActions = new Map(); // actionId → { state, timeline, elements, nopeStack }
         this.overlayContainer = null;
         this.discardPileCallback = null;
+        this.resizeListening = false;
     }
 
     /**
@@ -102,6 +103,47 @@ export class CardPlayPresentationController {
     init(container, discardPileSyncCallback) {
         this.overlayContainer = container;
         this.discardPileCallback = discardPileSyncCallback;
+        if (!this.resizeListening && typeof window !== 'undefined') {
+            window.addEventListener('resize', () => this._recenterHeldActions());
+            this.resizeListening = true;
+        }
+    }
+
+    _recenterHeldActions() {
+        this.activeActions.forEach((action) => {
+            if (![CARD_PLAY_STATES.PENDING, CARD_PLAY_STATES.RESOLVING].includes(action.state)) return;
+            const viewportMin = Math.min(window.innerWidth, window.innerHeight);
+            const count = action.cloneEntries.length;
+            const focusWidth = count === 1
+                ? Math.max(180, Math.min(280, viewportMin * 0.35))
+                : Math.max(96, Math.min(220, viewportMin * 0.3, (window.innerWidth * 0.9) / (1 + (count - 1) * 0.24)));
+            const focusHeight = focusWidth * 1.4;
+            const fan = getCardFanLayout(count);
+            action.focusScales = action.cloneEntries.map(({ rect }) => focusWidth / Math.max(1, rect.width));
+            action.focusRotations = fan.map(({ rotation }) => rotation);
+            gsap.to(action.elements.baseCards, {
+                x: (index) => window.innerWidth / 2 + fan[index].x * focusWidth - action.cloneEntries[index].startPos.x,
+                y: (index) => window.innerHeight / 2 + fan[index].y * focusHeight - action.cloneEntries[index].startPos.y,
+                scale: (index) => action.focusScales[index],
+                rotation: (index) => fan[index].rotation,
+                duration: 0.15,
+                overwrite: true,
+            });
+
+            const primaryIndex = Math.floor(count / 2);
+            const mainCenterX = window.innerWidth / 2 + fan[primaryIndex].x * focusWidth;
+            const mainCenterY = window.innerHeight / 2 + fan[primaryIndex].y * focusHeight;
+            (action.nopeEntries || []).forEach((entry) => {
+                gsap.to(entry.clone, {
+                    x: mainCenterX + entry.pattern.x + entry.layer * 4 - entry.startPos.x,
+                    y: mainCenterY + entry.pattern.y + entry.layer * 3 - entry.startPos.y,
+                    scale: focusWidth / Math.max(1, entry.rect.width),
+                    rotation: entry.pattern.rotation,
+                    duration: 0.15,
+                    overwrite: true,
+                });
+            });
+        });
     }
 
     _syncDiscardMask(actionId) {
@@ -208,7 +250,11 @@ export class CardPlayPresentationController {
     `;
 
         clone.appendChild(img);
-        return { clone, startPos: { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 } };
+        return {
+            clone,
+            rect,
+            startPos: { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 },
+        };
     }
 
     /**
@@ -222,6 +268,7 @@ export class CardPlayPresentationController {
             displayCards,
             skinIndex = 0,
             sourceElementId,
+            restoreAtCenter = false,
             title = cardType.replace(/_/g, ' ').toUpperCase(),
             description = '',
         } = action;
@@ -256,6 +303,8 @@ export class CardPlayPresentationController {
             state: CARD_PLAY_STATES.IDLE,
             timeline: gsap.timeline(),
             elements: { clone, baseCards },
+            cloneEntries,
+            nopeEntries: [],
             nopeStack: [],
             deferredNopes: [],
             pendingResult: null,
@@ -270,7 +319,7 @@ export class CardPlayPresentationController {
 
         // Transition: IDLE → FLYING_UP
         this._transitionTo(actionId, CARD_PLAY_STATES.FLYING_UP);
-        soundManager.play('sfx_card_whoosh');
+        if (!restoreAtCenter) soundManager.play('sfx_card_whoosh');
 
         // Calculate center position (responsive)
         const centerX = window.innerWidth / 2;
@@ -287,27 +336,37 @@ export class CardPlayPresentationController {
             ));
         const focusHeight = focusWidth * 1.4; // Card aspect ratio
         const fan = getCardFanLayout(baseCards.length);
-        const targetLeft = (index) => centerX - focusWidth / 2 + fan[index].x * focusWidth;
-        const targetTop = (index) => centerY - focusHeight / 2 + fan[index].y * focusHeight;
+        const targetX = (index) => centerX + fan[index].x * focusWidth - cloneEntries[index].startPos.x;
+        const targetY = (index) => centerY + fan[index].y * focusHeight - cloneEntries[index].startPos.y;
+        const focusScales = cloneEntries.map(({ rect }) => focusWidth / Math.max(1, rect.width));
+        actionState.focusScales = focusScales;
+        actionState.focusRotations = fan.map(({ rotation }) => rotation);
 
         // Check reduced motion preference
         const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-        if (prefersReducedMotion) {
+        if (restoreAtCenter) {
+            gsap.set(baseCards, {
+                x: (index) => targetX(index),
+                y: (index) => targetY(index),
+                scale: (index) => focusScales[index],
+                rotation: (index) => fan[index].rotation,
+                opacity: 1,
+            });
+            this._transitionTo(actionId, CARD_PLAY_STATES.PENDING);
+        } else if (prefersReducedMotion) {
             // REDUCED MOTION: Fade-based flow
+            gsap.set(baseCards, {
+                x: (index) => targetX(index),
+                y: (index) => targetY(index),
+                scale: (index) => focusScales[index],
+                rotation: 0,
+                opacity: 0,
+            });
             actionState.timeline
                 .to(baseCards, {
-                    opacity: 0.3,
-                    duration: 0.2,
-                    ease: 'power1.out',
-                })
-                .to(baseCards, {
-                    left: (index) => targetLeft(index),
-                    top: (index) => targetTop(index),
-                    width: focusWidth,
-                    height: focusHeight,
-                    rotation: (index) => fan[index].rotation,
                     opacity: 1,
+                    scale: (index) => focusScales[index],
                     stagger: 0.02,
                     duration: 0.2,
                     ease: 'power2.out',
@@ -319,11 +378,9 @@ export class CardPlayPresentationController {
             // NORMAL: Fly-based flow with curved path
             actionState.timeline
                 .to(baseCards, {
-                    left: (index) => targetLeft(index),
-                    top: (index) => targetTop(index),
-                    width: focusWidth,
-                    height: focusHeight,
-                    scale: 1.0,
+                    x: (index) => targetX(index),
+                    y: (index) => targetY(index),
+                    scale: (index) => focusScales[index],
                     rotation: (index) => fan[index].rotation,
                     stagger: 0.035,
                     duration: 0.3,
@@ -333,7 +390,7 @@ export class CardPlayPresentationController {
                     },
                 })
                 .to(baseCards, {
-                    scale: 1.1,
+                    scale: (index) => focusScales[index] * 1.08,
                     duration: 0.18,
                     ease: 'power1.inOut',
                 }, '-=0.1');
@@ -478,8 +535,11 @@ export class CardPlayPresentationController {
         const pattern = NOPE_STACK_PATTERN[(nopeIndex - 1) % NOPE_STACK_PATTERN.length];
         const layer = Math.floor((nopeIndex - 1) / NOPE_STACK_PATTERN.length);
 
-        const targetX = mainRect.left + pattern.x + (layer * 4);
-        const targetY = mainRect.top + pattern.y + (layer * 3);
+        const targetCenterX = mainRect.left + mainRect.width / 2 + pattern.x + (layer * 4);
+        const targetCenterY = mainRect.top + mainRect.height / 2 + pattern.y + (layer * 3);
+        const targetX = targetCenterX - nopeClone.startPos.x;
+        const targetY = targetCenterY - nopeClone.startPos.y;
+        const targetScale = mainRect.width / Math.max(1, nopeClone.rect.width);
         const rotationAngle = pattern.rotation;
 
         // Animate Nope card flying on top
@@ -487,32 +547,31 @@ export class CardPlayPresentationController {
 
         if (prefersReducedMotion) {
             // Fade in
+            gsap.set(nopeCard, {
+                x: targetX,
+                y: targetY,
+                rotation: 0,
+            });
             gsap.fromTo(nopeCard, {
                 opacity: 0,
-                left: targetX,
-                top: targetY - 15,
-                width: mainRect.width,
-                height: mainRect.height,
+                scale: targetScale * 0.96,
             }, {
                 opacity: 1,
-                left: targetX,
-                top: targetY,
+                scale: targetScale,
                 duration: 0.3,
             });
         } else {
             // Fly in with rotation
             gsap.fromTo(nopeCard, {
-                left: nopeClone.startPos.x - mainRect.width / 2,
-                top: nopeClone.startPos.y - mainRect.height / 2,
-                width: mainRect.width * 0.8,
-                height: mainRect.height * 0.8,
+                x: 0,
+                y: 0,
+                scale: targetScale * 0.8,
                 rotation: -25,
                 opacity: 0,
             }, {
-                left: targetX,
-                top: targetY,
-                width: mainRect.width,
-                height: mainRect.height,
+                x: targetX,
+                y: targetY,
+                scale: targetScale,
                 rotation: rotationAngle,
                 opacity: 1,
                 duration: 0.4,
@@ -523,6 +582,7 @@ export class CardPlayPresentationController {
         // Store Nope element
         if (!action.elements.nopes) action.elements.nopes = [];
         action.elements.nopes.push(nopeCard);
+        action.nopeEntries.push({ ...nopeClone, pattern, layer });
     }
 
     /**
@@ -590,8 +650,8 @@ export class CardPlayPresentationController {
 
         gsap.timeline()
             .to(baseCards || clone, {
-                scale: resolutionMotion.scale,
-                rotation: resolutionMotion.rotation,
+                scale: (index) => (action.focusScales?.[index] || 1) * resolutionMotion.scale,
+                rotation: (index) => (action.focusRotations?.[index] || 0) + resolutionMotion.rotation,
                 duration: prefersReducedMotion ? 0.01 : 0.18,
                 ease: 'back.out(2)',
             }, 0)
@@ -634,9 +694,26 @@ export class CardPlayPresentationController {
 
         // Collect all cards to animate (main + nopes)
         const allCards = [...(baseCards || [clone]), ...(nopes || [])];
+        const landingTargets = allCards.map((card, index) => {
+            const currentRect = card.getBoundingClientRect();
+            const currentScale = Number(gsap.getProperty(card, 'scale')) || 1;
+            return {
+                x: (Number(gsap.getProperty(card, 'x')) || 0)
+                    + discardX - (currentRect.left + currentRect.width / 2),
+                y: (Number(gsap.getProperty(card, 'y')) || 0)
+                    + discardY - (currentRect.top + currentRect.height / 2),
+                scale: currentScale * (discardRect.width / Math.max(1, currentRect.width)),
+                rotation: -6 + Math.min(index, 4) * 2,
+            };
+        });
 
         if (prefersReducedMotion) {
-            // Fade out
+            gsap.set(allCards, {
+                x: (index) => landingTargets[index].x,
+                y: (index) => landingTargets[index].y,
+                scale: (index) => landingTargets[index].scale,
+                rotation: 0,
+            });
             gsap.to(allCards, {
                 opacity: 0,
                 duration: 0.2,
@@ -651,11 +728,6 @@ export class CardPlayPresentationController {
                 duration: 0.3,
             });
         } else {
-            const currentRect = clone.getBoundingClientRect();
-            const targetLeft = discardX - discardRect.width / 2;
-            const targetTop = discardY - discardRect.height / 2;
-            const arcLeft = (currentRect.left + targetLeft) / 2 + 56;
-            const arcTop = Math.min(currentRect.top, targetTop) - 64;
             const landing = gsap.timeline({
                 onComplete: () => {
                     this._cleanup(actionId);
@@ -663,24 +735,12 @@ export class CardPlayPresentationController {
             });
 
             landing.to(allCards, {
-                keyframes: [
-                    {
-                        left: arcLeft,
-                        top: arcTop,
-                        rotation: 8,
-                        duration: 0.16,
-                        ease: 'power1.out',
-                    },
-                    {
-                        left: targetLeft,
-                        top: targetTop,
-                        width: discardRect.width,
-                        height: discardRect.height,
-                        rotation: -6,
-                        duration: 0.19,
-                        ease: 'power2.in',
-                    },
-                ],
+                x: (index) => landingTargets[index].x,
+                y: (index) => landingTargets[index].y,
+                scale: (index) => landingTargets[index].scale,
+                rotation: (index) => landingTargets[index].rotation,
+                duration: 0.35,
+                ease: 'power2.inOut',
                 stagger: 0.035,
             }, 0);
             landing.call(() => soundManager.play('sfx_card_drop'), [], 0.35);
@@ -745,6 +805,16 @@ export class CardPlayPresentationController {
 
     clear(actionId) {
         this._cleanup(actionId);
+    }
+
+    snapActive() {
+        [...this.activeActions.entries()].forEach(([actionId, action]) => {
+            if (action.state === CARD_PLAY_STATES.FLYING_DOWN) {
+                this._cleanup(actionId);
+                return;
+            }
+            action.timeline?.progress(1);
+        });
     }
 
     /**

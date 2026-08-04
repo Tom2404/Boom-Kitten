@@ -1,5 +1,6 @@
 // User profile and social routes.
 const express = require('express');
+const mongoose = require('mongoose');
 const User = require('../models/User');
 const ShopItem = require('../models/ShopItem');
 const GameHistory = require('../models/GameHistory');
@@ -9,9 +10,16 @@ const Quest = require('../models/Quest');
 const UserQuestProgress = require('../models/UserQuestProgress');
 const authMiddleware = require('../middleware/authMiddleware');
 const { resolveUserEquipment } = require('../services/shopEquipmentService');
+const { changePassword, normalizeProfileUpdate } = require('../services/accountService');
+const { ApiError } = require('../utils/apiResponse');
+const { acceptFriendRequest, declineFriendRequest, sendFriendRequest } = require('../services/friendshipService');
 
 const router = express.Router();
 router.use(authMiddleware);
+
+function assertUserId(id) {
+  if (!mongoose.Types.ObjectId.isValid(id)) throw new ApiError(422, 'VALIDATION_ERROR', 'Người chơi không hợp lệ.');
+}
 
 function isSameDay(a, b) {
   if (!a || !b) return false;
@@ -91,14 +99,29 @@ router.post('/me/daily-reward', async (req, res, next) => {
 
 router.put('/me', async (req, res, next) => {
   try {
-    const { username, avatar, activeSkin } = req.body;
+    const update = normalizeProfileUpdate(req.body);
     const user = await User.findByIdAndUpdate(
       req.user.id,
-      { $set: { username, avatar, activeSkin } },
+      { $set: update },
       { new: true, runValidators: true },
     ).select('-passwordHash');
+    if (!user) return res.status(404).json({ message: 'User not found' });
     const equipped = await resolveUserEquipment(user, ShopItem);
     return res.json({ ...user.toObject(), equipped });
+  } catch (error) {
+    return next(error?.code === 11000 ? new ApiError(409, 'STATE_CONFLICT', 'Tên người chơi đã được sử dụng.') : error);
+  }
+});
+
+router.post('/me/change-password', async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).select('+passwordHash +refreshTokenHash +refreshTokenExpiresAt');
+    await changePassword({
+      user,
+      currentPassword: req.body?.currentPassword,
+      newPassword: req.body?.newPassword,
+    });
+    return res.json({ success: true, message: 'Mật khẩu đã được cập nhật. Hãy đăng nhập lại.' });
   } catch (error) {
     return next(error);
   }
@@ -129,7 +152,7 @@ router.get('/me/friends', async (req, res, next) => {
         { recipient: req.user.id },
       ],
       status: 'accepted',
-    }).populate('requester recipient', 'username avatar');
+    }).populate('requester recipient', 'username avatar isOnline');
 
     const friendsList = friendships.map((f) => {
       const friend = f.requester._id.toString() === req.user.id ? f.recipient : f.requester;
@@ -137,6 +160,7 @@ router.get('/me/friends', async (req, res, next) => {
         _id: friend._id,
         username: friend.username,
         avatar: friend.avatar,
+        isOnline: friend.isOnline,
       };
     });
 
@@ -146,61 +170,78 @@ router.get('/me/friends', async (req, res, next) => {
   }
 });
 
+router.get('/me/friendships', async (req, res, next) => {
+  try {
+    const friendships = await Friendship.find({
+      $or: [{ requester: req.user.id }, { recipient: req.user.id }],
+      status: { $in: ['pending', 'accepted'] },
+    }).populate('requester recipient', 'username avatar isOnline');
+    const result = { friends: [], incoming: [], outgoing: [] };
+    for (const friendship of friendships) {
+      if (!friendship.requester || !friendship.recipient) continue;
+      const isRequester = String(friendship.requester._id) === String(req.user.id);
+      const person = isRequester ? friendship.recipient : friendship.requester;
+      const entry = { _id: person._id, username: person.username, avatar: person.avatar, friendshipId: friendship._id };
+      if (friendship.status === 'accepted') result.friends.push(entry);
+      else if (isRequester) result.outgoing.push(entry);
+      else result.incoming.push(entry);
+    }
+    return res.json(result);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.get('/search', async (req, res, next) => {
+  try {
+    const query = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+    if (query.length < 2 || query.length > 32) return res.json([]);
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const users = await User.find({ _id: { $ne: req.user.id }, role: 'user', deletedAt: null, isBanned: false, username: { $regex: escaped, $options: 'i' } })
+      .select('username avatar')
+      .limit(10)
+      .lean();
+    return res.json(users);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post('/friends/:id/request', async (req, res, next) => {
+  try {
+    assertUserId(req.params.id);
+    const friendship = await sendFriendRequest({ actorId: req.user.id, targetId: req.params.id, UserModel: User, FriendshipModel: Friendship });
+    return res.json({ success: true, status: friendship.status });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post('/friends/:id/accept', async (req, res, next) => {
+  try {
+    assertUserId(req.params.id);
+    await acceptFriendRequest({ actorId: req.user.id, requesterId: req.params.id, FriendshipModel: Friendship });
+    return res.json({ success: true, status: 'accepted' });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post('/friends/:id/decline', async (req, res, next) => {
+  try {
+    assertUserId(req.params.id);
+    await declineFriendRequest({ actorId: req.user.id, requesterId: req.params.id, FriendshipModel: Friendship });
+    return res.json({ success: true, status: 'declined' });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 router.post('/friends/:id', async (req, res, next) => {
   try {
-    const targetId = req.params.id;
-    if (req.user.id === targetId) {
-      return res.status(400).json({ message: 'Cannot add yourself as friend' });
-    }
-
-    let friendship = await Friendship.findOne({
-      $or: [
-        { requester: req.user.id, recipient: targetId },
-        { requester: targetId, recipient: req.user.id },
-      ],
-    });
-
-    if (!friendship) {
-      // Create new pending friendship request
-      await Friendship.create({
-        requester: req.user.id,
-        recipient: targetId,
-        status: 'pending',
-        actionUser: req.user.id,
-      });
-      return res.json({ success: true, message: 'Friend request sent' });
-    }
-
-    if (friendship.status === 'accepted') {
-      return res.json({ success: true, message: 'Already friends' });
-    }
-
-    if (friendship.status === 'pending') {
-      if (friendship.actionUser.toString() === targetId) {
-        // We are accepting their request
-        friendship.status = 'accepted';
-        friendship.actionUser = req.user.id;
-        await friendship.save();
-        return res.json({ success: true, message: 'Friend request accepted' });
-      } else {
-        return res.json({ success: true, message: 'Friend request already pending' });
-      }
-    }
-
-    if (friendship.status === 'declined' || friendship.status === 'blocked') {
-      if (friendship.status === 'blocked' && friendship.actionUser.toString() === targetId) {
-        return res.status(403).json({ message: 'You have been blocked by this user' });
-      }
-      // Re-send request
-      friendship.status = 'pending';
-      friendship.requester = req.user.id;
-      friendship.recipient = targetId;
-      friendship.actionUser = req.user.id;
-      await friendship.save();
-      return res.json({ success: true, message: 'Friend request sent again' });
-    }
-
-    return res.json({ success: true });
+    assertUserId(req.params.id);
+    const friendship = await sendFriendRequest({ actorId: req.user.id, targetId: req.params.id, UserModel: User, FriendshipModel: Friendship });
+    return res.json({ success: true, status: friendship.status });
   } catch (error) {
     return next(error);
   }
@@ -379,11 +420,13 @@ router.post('/me/tournament/enter', async (req, res, next) => {
 router.delete('/friends/:id', async (req, res, next) => {
   try {
     const targetId = req.params.id;
+    assertUserId(targetId);
     await Friendship.findOneAndDelete({
       $or: [
         { requester: req.user.id, recipient: targetId },
         { requester: targetId, recipient: req.user.id },
       ],
+      status: 'accepted',
     });
     return res.json({ success: true, message: 'Friend removed' });
   } catch (error) {

@@ -2,7 +2,7 @@ import React from 'react';
 import { getActivityTabConfig, getFocusLoopIndex } from '../../../utils/gameRoomUi.js';
 import { useGameContext } from '../GameContext.jsx';
 
-const TABS = ['chat', 'log'];
+const TABS = ['chat', 'log', 'players'];
 
 export default function GameSidePanel() {
   const {
@@ -10,8 +10,10 @@ export default function GameSidePanel() {
     actionLog,
     chatMessages,
     connectionState,
+    gameState,
     isSidebarOpen,
     myUser,
+    roomState,
     SmileIcon,
     rightPanelTab,
     sendChatMessage,
@@ -22,6 +24,8 @@ export default function GameSidePanel() {
   const [chatInput, setChatInput] = React.useState('');
   const [isEmoteOpen, setIsEmoteOpen] = React.useState(false);
   const [chatStatus, setChatStatus] = React.useState('idle');
+  const [reportDraft, setReportDraft] = React.useState({ targetPlayerId: '', category: 'harassment', description: '' });
+  const [reportStatus, setReportStatus] = React.useState({ pending: false, message: '', error: false });
   const pendingTimerRef = React.useRef(null);
   const closeButtonRef = React.useRef(null);
   const drawerRef = React.useRef(null);
@@ -77,9 +81,28 @@ export default function GameSidePanel() {
   const handleTabKeyDown = (event, currentTab) => {
     if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
     event.preventDefault();
-    const nextTab = currentTab === 'chat' ? 'log' : 'chat';
+    const currentIndex = TABS.indexOf(currentTab);
+    const nextTab = TABS[(currentIndex + (event.key === 'ArrowRight' ? 1 : TABS.length - 1)) % TABS.length];
     setRightPanelTab(nextTab);
     window.requestAnimationFrame(() => document.getElementById(getActivityTabConfig(nextTab).tabId)?.focus());
+  };
+
+  const reportPlayer = async (event) => {
+    event.preventDefault();
+    setReportStatus({ pending: true, message: '', error: false });
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL ?? 'http://localhost:5000'}/api/reports`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
+        body: JSON.stringify({ ...reportDraft, roomId: roomState?.code }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error?.message || data.message || 'Không thể gửi báo cáo.');
+      setReportDraft({ targetPlayerId: '', category: 'harassment', description: '' });
+      setReportStatus({ pending: false, message: 'Báo cáo đã được gửi tới đội kiểm duyệt.', error: false });
+    } catch (error) {
+      setReportStatus({ pending: false, message: error.message, error: true });
+    }
   };
 
   if (!isSidebarOpen) return null;
@@ -126,7 +149,7 @@ export default function GameSidePanel() {
                 onClick={() => setRightPanelTab(tab)}
                 onKeyDown={(event) => handleTabKeyDown(event, tab)}
               >
-                {tab === 'chat' ? 'Chat' : 'Lịch sử'}
+                {tab === 'chat' ? 'Chat' : tab === 'log' ? 'Lịch sử' : 'Người chơi'}
               </button>
             );
           })}
@@ -208,7 +231,7 @@ export default function GameSidePanel() {
               </form>
             </div>
           </section>
-        ) : (
+        ) : rightPanelTab === 'log' ? (
           <section
             id={activeConfig.panelId}
             className="game-activity-panel"
@@ -230,6 +253,25 @@ export default function GameSidePanel() {
                 </article>
               ))}
             </div>
+          </section>
+        ) : (
+          <section id={activeConfig.panelId} className="game-activity-panel p-4" role="tabpanel" aria-labelledby={activeConfig.tabId}>
+            {reportStatus.message && <p className={`mb-3 border p-3 text-sm ${reportStatus.error ? 'border-red-500 text-red-200' : 'border-emerald-500 text-emerald-200'}`} role={reportStatus.error ? 'alert' : 'status'}>{reportStatus.message}</p>}
+            {!reportDraft.targetPlayerId ? (
+              <div className="grid gap-2">
+                <p className="mb-2 text-sm text-white/70">Chọn người chơi cần báo cáo.</p>
+                {(gameState?.players || []).filter((player) => player.userId !== myUser?.id && !String(player.userId).startsWith('guest-')).map((player) => (
+                  <button key={player.userId} type="button" onClick={() => setReportDraft({ ...reportDraft, targetPlayerId: player.userId })} className="game-pixel-button justify-start">{player.username || player.userId}</button>
+                ))}
+              </div>
+            ) : (
+              <form onSubmit={reportPlayer} className="grid gap-3">
+                <button type="button" onClick={() => setReportDraft({ ...reportDraft, targetPlayerId: '' })} className="text-left text-xs font-bold text-white/70">← Chọn người khác</button>
+                <label className="grid gap-1 text-sm font-bold text-white">Loại vi phạm<select value={reportDraft.category} onChange={(event) => setReportDraft({ ...reportDraft, category: event.target.value })} className="min-h-10 bg-slate-950 p-2"><option value="harassment">Quấy rối</option><option value="cheating">Gian lận</option><option value="inappropriate_name">Tên không phù hợp</option><option value="spam">Spam</option><option value="other">Khác</option></select></label>
+                <label className="grid gap-1 text-sm font-bold text-white">Mô tả<textarea required minLength="10" maxLength="2000" rows="5" value={reportDraft.description} onChange={(event) => setReportDraft({ ...reportDraft, description: event.target.value })} className="bg-slate-950 p-2" /></label>
+                <button type="submit" disabled={reportStatus.pending} className="game-pixel-button game-pixel-button--primary">{reportStatus.pending ? 'Đang gửi…' : 'Gửi báo cáo'}</button>
+              </form>
+            )}
           </section>
         )}
       </aside>
