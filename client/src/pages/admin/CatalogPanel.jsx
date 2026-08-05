@@ -5,8 +5,10 @@ import { formatNumber } from './utils.js';
 import { getAdminPanelAccess } from './adminPanelAccess.js';
 import { buildDeleteAdminPayload, buildRoutineAdminPayload, createAdminOperationRequestId } from './adminMutation.js';
 import { filterCatalog, getCatalogSummary } from './adminListFilters.js';
-import { DEFAULT_ASSET_TRANSFORM, normalizeAssetTransform } from '../../utils/shopEquipment.js';
+import { DEFAULT_ASSET_TRANSFORM, normalizeAssetTransform, resolveAssetUrl } from '../../utils/shopEquipment.js';
 import AssetPositionEditor from './AssetPositionEditor.jsx';
+import AssetUploader from './AssetUploader.jsx';
+import AssetLibraryModal from './AssetLibraryModal.jsx';
 
 const blankItem = { name: '', description: '', type: 'protector', rarity: 'common', priceCoins: 0, imageUrl: '', previewUrl: '', assetTransform: DEFAULT_ASSET_TRANSFORM, isActive: true, sortOrder: 0 };
 const framedTypes = new Set(['protector', 'avatar_frame', 'field']);
@@ -27,6 +29,7 @@ export default function CatalogPanel({ permissions = [] }) {
   const [pendingItemId, setPendingItemId] = useState(null);
   const [assetCheck, setAssetCheck] = useState({ status: 'idle', requiresFraming: false, url: '', type: '' });
   const [fitConfirmed, setFitConfirmed] = useState(false);
+  const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [filters, setFilters] = useState({ search: '', type: '', rarity: '', status: '' });
   const { canWriteCatalog } = getAdminPanelAccess(permissions);
   const summary = useMemo(() => getCatalogSummary(catalog), [catalog]);
@@ -164,8 +167,46 @@ export default function CatalogPanel({ permissions = [] }) {
             <div className="grid grid-cols-2 gap-3">
               <Field label="GoldCoin"><input className={inputClass} type="number" min="0" value={activeForm.priceCoins} onChange={(event) => setActiveForm({ ...activeForm, priceCoins: event.target.value })} /></Field>
             </div>
-            <Field label="Đường dẫn hình ảnh nội bộ"><input className={inputClass} value={activeForm.imageUrl} onChange={(event) => updateAssetSource('imageUrl', event.target.value)} placeholder="/assets/..." /></Field>
-            <Field label="Đường dẫn asset trang bị nội bộ"><input className={inputClass} value={activeForm.previewUrl} onChange={(event) => updateAssetSource('previewUrl', event.target.value)} placeholder="/assets/..." /></Field>
+            <div className="flex items-center justify-between gap-2">
+              <Field label="Tải ảnh lên từ thiết bị (Tự động nén WebP)" className="flex-1">
+                <AssetUploader
+                  category={activeForm.type}
+                  onUploaded={(asset) => {
+                    setActiveForm({
+                      ...activeForm,
+                      imageUrl: asset.fullUrl,
+                      previewUrl: asset.fullUrl,
+                      assetTransform: DEFAULT_ASSET_TRANSFORM,
+                    });
+                    setAssetCheck({ status: 'loading', requiresFraming: false, url: '', type: '' });
+                    setFitConfirmed(false);
+                  }}
+                />
+              </Field>
+            </div>
+            <div className="flex justify-end">
+              <Button type="button" variant="secondary" className="text-xs" onClick={() => setIsLibraryOpen(true)}>
+                🖼️ Mở Thư Viện Asset (Media Library)
+              </Button>
+            </div>
+            <AssetLibraryModal
+              isOpen={isLibraryOpen}
+              activeCategory={activeForm.type}
+              onClose={() => setIsLibraryOpen(false)}
+              onSelect={(asset) => {
+                const targetUrl = asset.variants?.fullUrl || asset.fullUrl;
+                setActiveForm({
+                  ...activeForm,
+                  imageUrl: targetUrl,
+                  previewUrl: targetUrl,
+                  assetTransform: DEFAULT_ASSET_TRANSFORM,
+                });
+                setAssetCheck({ status: 'loading', requiresFraming: false, url: '', type: '' });
+                setFitConfirmed(false);
+              }}
+            />
+            <Field label="Đường dẫn hình ảnh nội bộ"><input className={inputClass} value={activeForm.imageUrl} onChange={(event) => updateAssetSource('imageUrl', event.target.value)} placeholder="/assets/... hoặc /uploads/..." /></Field>
+            <Field label="Đường dẫn asset trang bị nội bộ"><input className={inputClass} value={activeForm.previewUrl} onChange={(event) => updateAssetSource('previewUrl', event.target.value)} placeholder="/assets/... hoặc /uploads/..." /></Field>
             {previewAssetUrl && supportsFraming && <AssetPositionEditor
               confirmed={fitConfirmed}
               onChange={(assetTransform) => setActiveForm({ ...activeForm, assetTransform })}
@@ -197,7 +238,7 @@ export default function CatalogPanel({ permissions = [] }) {
                 <article key={item._id} className="rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4 shadow-[0_1px_2px_rgba(32,35,31,0.03)]">
                   <div className="flex gap-3">
                     <div className="flex h-16 w-16 shrink-0 items-center justify-center border border-[var(--admin-border)] bg-[var(--admin-surface-muted)]">
-                      {item.imageUrl ? <img src={item.imageUrl} alt={item.name} loading="lazy" className="h-14 w-14 object-contain" /> : <span className="text-xs font-bold text-slate-400">No img</span>}
+                      {item.imageUrl ? <img src={resolveAssetUrl(item.imageUrl)} alt={item.name} loading="lazy" className="h-14 w-14 object-contain" /> : <span className="text-xs font-bold text-slate-400">No img</span>}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">

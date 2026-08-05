@@ -3,7 +3,7 @@ import { gsap } from 'gsap';
 import { CoinIcon } from '../components/CoinDisplay.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import CustomDialog from '../components/CustomDialog.jsx';
-import { isOwnedItem } from '../utils/shopEquipment.js';
+import { isOwnedItem, resolveAssetUrl } from '../utils/shopEquipment.js';
 
 export default function Shop({ setPage }) {
   const { t, language } = useLanguage();
@@ -266,7 +266,7 @@ export default function Shop({ setPage }) {
                   </span>
                   {item.imageUrl && (
                     <img
-                      src={item.imageUrl}
+                      src={resolveAssetUrl(item.imageUrl)}
                       alt={item.name}
                       className="absolute inset-0 h-full w-full object-cover"
                       onError={(event) => event.currentTarget.remove()}

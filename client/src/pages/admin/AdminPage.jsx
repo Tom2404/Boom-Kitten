@@ -108,14 +108,17 @@ export default function AdminPage({ setPage }) {
       <a href="#admin-content" className="fixed left-4 top-4 z-50 -translate-y-24 rounded-md bg-[var(--admin-accent)] px-3 py-2 font-semibold text-white focus:translate-y-0">{isEnglish ? 'Skip to admin content' : 'Bỏ qua đến nội dung quản trị'}</a>
       <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6 lg:flex-row">
         <aside className="lg:sticky lg:top-4 lg:w-72 lg:shrink-0 lg:self-start">
-          <div className="rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface)] p-3 shadow-[0_1px_2px_rgba(32,35,31,0.03)]">
-            <div className="border-b border-[var(--admin-border)] px-2 pb-4 pt-1">
-              <p className="flex items-center gap-2 text-xs font-semibold tracking-[0.08em] text-[var(--admin-accent)]">
-                <span className="h-1.5 w-1.5 rounded-full bg-[var(--admin-accent)]" aria-hidden="true" />
-                Boom-Kitten Ops
-              </p>
-              <h1 className="mt-2 text-balance text-xl font-semibold tracking-[-0.03em] text-[var(--admin-text)]">Admin Console</h1>
-              <p className="mt-2 truncate font-mono text-sm font-medium text-[var(--admin-text-muted)]">{session.data.admin.username}</p>
+          <div className="rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
+            <div className="border-b border-[var(--admin-border)] pb-4 pt-1">
+              <div className="flex items-center justify-between">
+                <p className="flex items-center gap-2 text-xs font-bold tracking-[0.08em] text-[var(--admin-accent)]">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[var(--admin-accent)]" aria-hidden="true" />
+                  Boom-Kitten Ops
+                </p>
+                <span className="rounded bg-[var(--admin-surface-muted)] px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[var(--admin-text-muted)]">v2.0</span>
+              </div>
+              <h1 className="mt-2 text-xl font-bold tracking-[-0.03em] text-[var(--admin-text)]">Admin Console</h1>
+              <p className="mt-1 truncate font-mono text-xs font-medium text-[var(--admin-text-muted)]">{session.data.admin.username}</p>
               <div className="mt-2 flex items-center justify-between gap-2 text-xs font-medium text-[var(--admin-text-muted)]">
                 <span>{session.data.admin.role === 'super_admin' ? (isEnglish ? 'Super admin' : 'Quản trị cấp cao') : (isEnglish ? 'Admin' : 'Quản trị viên')}</span>
                 <span>{permissions.length} {isEnglish ? 'capabilities' : 'quyền'}</span>
@@ -125,8 +128,8 @@ export default function AdminPage({ setPage }) {
             <nav className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-1" aria-label={isEnglish ? 'Admin sections' : 'Khu vực quản trị'}>
               {navigation.map((group) => (
                 <section key={group.id} aria-labelledby={`admin-nav-${group.id}`}>
-                  <h2 id={`admin-nav-${group.id}`} className="mb-1 px-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--admin-text-muted)]">{group[language] || group.vi}</h2>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-1">
+                  <h2 id={`admin-nav-${group.id}`} className="mb-1.5 px-2 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--admin-text-muted)]">{group[language] || group.vi}</h2>
+                  <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-1">
                     {group.items.map((item) => {
                       const active = activeTab === item.id;
                       const [label, description] = item[language] || item.vi;
@@ -135,12 +138,14 @@ export default function AdminPage({ setPage }) {
                           key={item.id}
                           type="button"
                           onClick={() => navigateToTab(item.id)}
-                          className={`flex min-h-12 items-center gap-3 rounded-lg border px-3 py-2 text-left transition duration-200 focus:outline-none focus:ring-2 focus:ring-[var(--admin-focus)] focus:ring-offset-2 active:scale-[0.99] ${
-                            active ? 'border-[var(--admin-accent)] bg-[var(--admin-danger-bg)] text-[var(--admin-accent)]' : 'border-transparent text-[var(--admin-text)] hover:border-[var(--admin-border)] hover:bg-[var(--admin-surface-muted)]'
+                          className={`flex min-h-11 items-center gap-3 rounded-xl border px-3 py-2 text-left transition duration-200 focus:outline-none focus:ring-2 focus:ring-[var(--admin-focus)] focus:ring-offset-2 active:scale-[0.99] ${
+                            active
+                              ? 'border-[var(--admin-border-strong)] bg-[var(--admin-surface-muted)] text-[var(--admin-text)] font-semibold shadow-sm'
+                              : 'border-transparent text-[var(--admin-text-muted)] hover:border-[var(--admin-border)] hover:bg-[var(--admin-surface-muted)]/60 hover:text-[var(--admin-text)]'
                           }`}
                           aria-current={active ? 'page' : undefined}
                         >
-                          <span className="material-symbols-outlined text-[20px]" aria-hidden="true">{item.icon}</span>
+                          <span className={`material-symbols-outlined text-[20px] ${active ? 'text-[var(--admin-accent)]' : 'text-[var(--admin-text-muted)]'}`} aria-hidden="true">{item.icon}</span>
                           <span className="min-w-0"><span className="block truncate text-sm font-semibold">{label}</span>
                           <span className="hidden truncate text-xs text-[var(--admin-text-muted)] lg:block">{description}</span></span>
                         </button>
@@ -161,12 +166,19 @@ export default function AdminPage({ setPage }) {
         </aside>
 
         <section id="admin-content" tabIndex="-1" className="min-w-0 flex-1">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] px-4 py-2.5 text-sm text-[var(--admin-text-muted)]">
-            <span className="font-medium">{isEnglish ? 'Session verified against current permissions' : 'Phiên đã xác minh theo quyền hiện hành'}</span>
-            <span className="inline-flex items-center gap-2 font-mono text-xs text-[var(--admin-success-text)]">
-              <span className="h-1.5 w-1.5 rounded-full bg-[var(--admin-success-text)]" aria-hidden="true" />
-              {session.data.admin.role === 'super_admin' ? (isEnglish ? 'Super admin' : 'Quản trị cấp cao') : (isEnglish ? 'Admin' : 'Quản trị viên')}
-            </span>
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--admin-border)] bg-[var(--admin-surface)] px-5 py-3 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+            <div className="flex items-center gap-2 text-xs font-semibold text-[var(--admin-text-muted)]">
+              <span className="material-symbols-outlined text-base text-[var(--admin-accent)]">grid_view</span>
+              <span>Admin Console</span>
+              <span>/</span>
+              <span className="font-bold text-[var(--admin-text)] capitalize">{activeTab}</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="inline-flex items-center gap-2 rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface-muted)] px-3 py-1 text-xs font-semibold text-[var(--admin-text)]">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
+                {session.data.admin.role === 'super_admin' ? (isEnglish ? 'Super admin' : 'Quản trị cấp cao') : (isEnglish ? 'Admin' : 'Quản trị viên')}
+              </span>
+            </div>
           </div>
           {renderPanel()}
         </section>

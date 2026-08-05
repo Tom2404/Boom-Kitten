@@ -4,6 +4,7 @@ import {
   getAssetTransformStyle,
   needsAssetFraming,
   normalizeAssetTransform,
+  resolveAssetUrl,
 } from '../../utils/shopEquipment.js';
 import { Alert, Button, inputClass } from './ui.jsx';
 
@@ -94,7 +95,7 @@ export default function AssetPositionEditor({
         <span className="absolute inset-0 grid place-items-center text-xs font-medium text-[var(--admin-text-muted)]">Đang tải preview…</span>
         <img
           key={`${type}:${url}`}
-          src={url}
+          src={resolveAssetUrl(url)}
           alt=""
           draggable="false"
           className={`absolute inset-0 h-full w-full select-none ${type === 'avatar_frame' ? 'object-contain' : 'object-cover'}`}

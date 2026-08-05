@@ -92,6 +92,7 @@ export default function PlayersPanel({ onNavigate, language = 'vi', permissions 
     window.history.replaceState({}, '', url);
   };
 
+
   const closePlayerDetail = () => {
     setDetailPlayerId(null);
     const url = new URL(window.location.href);
@@ -138,52 +139,57 @@ export default function PlayersPanel({ onNavigate, language = 'vi', permissions 
 
   return (
     <div className="flex flex-col gap-5">
-      <SectionHeader title={en ? 'Player management' : 'Quản lý người chơi'} description={en ? 'Search, filter, and manage Coin wallets, roles, and account status.' : 'Tìm kiếm, lọc, điều chỉnh ví Coin, vai trò và trạng thái tài khoản.'} />
+      <SectionHeader
+        title={en ? 'Player management' : 'Quản lý người chơi'}
+        description={en ? 'Search, filter, and manage Coin wallets, roles, and account status.' : 'Tìm kiếm, lọc, điều chỉnh ví Coin, vai trò và trạng thái tài khoản.'}
+        actions={
+          hasPermission('players.create') && (
+            <Button variant="primary" className="min-h-9 text-xs" onClick={() => setUserCrud({ mode: 'create', user: null })}>
+              <span className="material-symbols-outlined mr-1 text-base" aria-hidden="true">person_add</span>
+              {en ? 'Create user' : 'Tạo người dùng'}
+            </Button>
+          )
+        }
+      />
       {message.text && <Alert tone={message.tone}>{message.text}</Alert>}
-      <SavedViewsBar scope="players" language={language} filters={{ search, role, status, sortBy, sortOrder }} onApply={(saved) => { setSearch(saved.search || ''); setRole(saved.role || ''); setStatus(saved.status || ''); setSortBy(saved.sortBy || 'createdAt'); setSortOrder(saved.sortOrder || 'desc'); setPage(1); }} />
-
-      {(hasPermission('players.create') || hasPermission('economy.adjust')) && (
-        <div className="flex flex-wrap gap-2" aria-label={en ? 'Quick actions' : 'Tác vụ nhanh'}>
-          {hasPermission('players.create') && <Button variant="primary" onClick={() => setUserCrud({ mode: 'create', user: null })}><span className="material-symbols-outlined mr-1 text-lg" aria-hidden="true">person_add</span>{en ? 'Create user' : 'Tạo người dùng'}</Button>}
-          <Button variant="secondary" className="bg-[var(--admin-warning-bg)]" disabled={selected.length !== 1} onClick={() => openModal('currency', players.find((player) => player._id === selected[0]), { currency: 'coin' })}><span className="material-symbols-outlined mr-1 text-lg" aria-hidden="true">paid</span>{en ? 'Adjust Coin' : 'Điều chỉnh Coin'}</Button>
-        </div>
-      )}
 
       <Toolbar>
-        <Field label={en ? 'Search' : 'Tìm kiếm'} >
-          <input className={`${inputClass} md:min-w-64`} type="search" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Username" />
-        </Field>
-        <Field label={en ? 'Role' : 'Vai trò'}>
-          <select className={inputClass} value={role} onChange={(event) => { setRole(event.target.value); setPage(1); }}>
-            <option value="">{en ? 'All' : 'Tất cả'}</option>
-            <option value="user">User</option>
-            <option value="admin">Admin</option>
-            <option value="super_admin">Super admin</option>
-          </select>
-        </Field>
-        <Field label={en ? 'Status' : 'Trạng thái'}>
-          <select className={inputClass} value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}>
-            <option value="">{en ? 'All' : 'Tất cả'}</option>
-            <option value="active">Active</option>
-            <option value="banned">Banned</option>
-            <option value="deleted">{en ? 'Deleted' : 'Đã xóa'}</option>
-          </select>
-        </Field>
-        <Field label={en ? 'Sort by' : 'Sắp xếp'}>
-          <select className={inputClass} value={sortBy} onChange={(event) => { setSortBy(event.target.value); setPage(1); }}>
-            <option value="createdAt">{en ? 'Created date' : 'Ngày tạo'}</option>
-            <option value="username">Username</option>
-            <option value="coins">Coin</option>
-          </select>
-        </Field>
-        <Field label={en ? 'Order' : 'Thứ tự'}>
-          <select className={inputClass} value={sortOrder} onChange={(event) => { setSortOrder(event.target.value); setPage(1); }}>
-            <option value="desc">{en ? 'Descending' : 'Giảm dần'}</option>
-            <option value="asc">{en ? 'Ascending' : 'Tăng dần'}</option>
-          </select>
-        </Field>
-        <Button type="button" variant="primary" onClick={() => loadPlayers()}>Search</Button>
-        <Button type="button" variant="secondary" onClick={resetFilters}>Reset</Button>
+        <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 md:flex md:flex-1 md:items-center">
+          <Field label={en ? 'Search' : 'Tìm kiếm'}>
+            <input className={`${inputClass}`} type="search" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Username or email..." />
+          </Field>
+          <Field label={en ? 'Role' : 'Vai trò'}>
+            <select className={inputClass} value={role} onChange={(event) => { setRole(event.target.value); setPage(1); }}>
+              <option value="">{en ? 'All roles' : 'Tất cả vai trò'}</option>
+              <option value="user">User</option>
+              <option value="admin">Admin</option>
+              <option value="super_admin">Super admin</option>
+            </select>
+          </Field>
+          <Field label={en ? 'Status' : 'Trạng thái'}>
+            <select className={inputClass} value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}>
+              <option value="">{en ? 'All status' : 'Tất cả trạng thái'}</option>
+              <option value="active">Active</option>
+              <option value="banned">Banned</option>
+              <option value="deleted">{en ? 'Deleted' : 'Đã xóa'}</option>
+            </select>
+          </Field>
+          <Field label={en ? 'Sort by' : 'Sắp xếp'}>
+            <select className={inputClass} value={sortBy} onChange={(event) => { setSortBy(event.target.value); setPage(1); }}>
+              <option value="createdAt">{en ? 'Created date' : 'Ngày tạo'}</option>
+              <option value="username">Username</option>
+              <option value="coins">Coin</option>
+            </select>
+          </Field>
+        </div>
+        <div className="flex items-center gap-2 pt-2 md:pt-0">
+          <Button type="button" variant="primary" className="min-h-10 px-4 text-xs" onClick={() => loadPlayers()}>
+            {en ? 'Search' : 'Tìm kiếm'}
+          </Button>
+          <Button type="button" variant="secondary" className="min-h-10 px-3 text-xs" onClick={resetFilters}>
+            {en ? 'Reset' : 'Đặt lại'}
+          </Button>
+        </div>
       </Toolbar>
 
       {loading ? <SkeletonBlock rows={5} /> : players.length === 0 ? (
@@ -191,19 +197,51 @@ export default function PlayersPanel({ onNavigate, language = 'vi', permissions 
       ) : (
         <>
           <div className="hidden lg:block">
-            <DataTable fit columnWidths={['5%', '30%', '12%', '12%', '15%', '16%', '10%']} columns={en ? ['Select', 'Player', 'Role', 'Status', 'Coin wallet', 'Manage', 'Ban'] : ['Chọn', 'Player', 'Vai trò', 'Trạng thái', 'Ví Coin', 'Quản lý', 'Khóa']}>
+            <DataTable fit columnWidths={['35%', '15%', '15%', '18%', '17%']} columns={en ? ['Player', 'Role', 'Status', 'Coin wallet', 'Actions'] : ['Player', 'Vai trò', 'Trạng thái', 'Ví Coin', 'Thao tác']}>
               {players.map((player) => (
                 <tr key={player._id}>
-                  <td className="px-3 py-3"><input className="h-5 w-5 accent-[var(--admin-accent)]" type="radio" name="selected-player" aria-label={`Chọn ${player.username}`} checked={selected.includes(player._id)} onChange={() => toggleSelected(player._id)} /></td>
-                  <td className="px-2 py-2"><div className="flex min-w-0 items-center gap-2">
-                    <AdminAvatar avatar={player.avatar} username={player.username} />
-                    <span className="min-w-0"><button type="button" className="block max-w-full truncate font-semibold text-[var(--admin-accent)] underline decoration-1 underline-offset-2 hover:text-[var(--admin-accent-hover)]" onClick={() => openPlayerDetail(player._id)}>{player.username}</button><small className="block truncate text-xs text-[var(--admin-text-muted)]">{player.email}</small></span>
-                  </div></td>
-                  <td className="px-2 py-2"><StatusBadge tone={player.role === 'admin' ? 'warning' : 'neutral'}>{player.role}</StatusBadge></td>
-                  <td className="px-2 py-2"><StatusBadge tone={player.isBanned ? 'danger' : 'success'}>{player.isBanned ? 'Banned' : 'Active'}</StatusBadge></td>
-                  <td className="px-2 py-2"><span className="flex items-center gap-1 font-semibold text-[var(--admin-warning-text)]"><img src={goldCoinIcon} alt="Coin" className="h-6 w-6 shrink-0 object-contain mix-blend-multiply" />{formatNumber(player.coins)}</span></td>
-                  <td className="px-2 py-2">{canManagePlayer ? <><label className="sr-only" htmlFor={`manage-${player._id}`}>Manage {player.username}</label><select id={`manage-${player._id}`} className={`${inputClass} min-h-10 px-2`} defaultValue="" onChange={(event) => { const type = event.target.value; event.target.value = ''; if (!type) return; if (type === 'edit' || type === 'delete') setUserCrud({ mode: type, user: player }); else openModal(type, player); }}><option value="">Manage…</option>{hasPermission('players.update') && <option value="edit">Edit profile</option>}{hasPermission('economy.adjust') && <option value="currency">Coin</option>}{hasPermission('players.role.write') && <option value="role">Role</option>}{hasPermission('players.delete') && <option value="delete">Soft delete</option>}</select></> : <span aria-label="Read only">—</span>}</td>
-                  <td className="px-2 py-2">{hasPermission('players.status.write') ? <Button className="w-full px-1" variant={player.isBanned ? 'success' : 'danger'} onClick={() => openModal('status', player)}>{player.isBanned ? 'Unban' : 'Ban'}</Button> : <span aria-label="Read only">—</span>}</td>
+                  <td className="px-3 py-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <AdminAvatar avatar={player.avatar} username={player.username} />
+                      <div className="min-w-0">
+                        <button type="button" className="block max-w-full truncate text-left font-bold text-[var(--admin-accent)] hover:underline" onClick={() => openPlayerDetail(player._id)}>
+                          {player.username}
+                        </button>
+                        <small className="block truncate text-xs text-[var(--admin-text-muted)]">{player.email}</small>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-3 py-3"><StatusBadge tone={player.role === 'admin' ? 'warning' : 'neutral'}>{player.role}</StatusBadge></td>
+                  <td className="px-3 py-3"><StatusBadge tone={player.isBanned ? 'danger' : 'success'}>{player.isBanned ? 'Banned' : 'Active'}</StatusBadge></td>
+                  <td className="px-3 py-3">
+                    <span className="inline-flex items-center gap-1 font-mono font-bold text-[var(--admin-text)]">
+                      <img src={goldCoinIcon} alt="Coin" className="h-5 w-5 object-contain mix-blend-multiply" />
+                      {formatNumber(player.coins)}
+                    </span>
+                  </td>
+                  <td className="px-3 py-3">
+                    <div className="flex items-center gap-2">
+                      <select
+                        aria-label={`Action for ${player.username}`}
+                        className={`${inputClass} min-h-9 text-xs px-2`}
+                        defaultValue=""
+                        onChange={(event) => {
+                          const type = event.target.value;
+                          event.target.value = '';
+                          if (!type) return;
+                          if (type === 'edit' || type === 'delete') setUserCrud({ mode: type, user: player });
+                          else openModal(type, player);
+                        }}
+                      >
+                        <option value="">{en ? 'Select action...' : 'Thao tác...'}</option>
+                        {hasPermission('players.update') && <option value="edit">{en ? 'Edit profile' : 'Sửa hồ sơ'}</option>}
+                        {hasPermission('economy.adjust') && <option value="currency">{en ? 'Adjust Coin' : 'Điều chỉnh Coin'}</option>}
+                        {hasPermission('players.role.write') && <option value="role">{en ? 'Change role' : 'Đổi vai trò'}</option>}
+                        {hasPermission('players.status.write') && <option value="status">{player.isBanned ? (en ? 'Unban account' : 'Mở khóa tài khoản') : (en ? 'Ban account' : 'Khóa tài khoản')}</option>}
+                        {hasPermission('players.delete') && <option value="delete">{en ? 'Soft delete' : 'Xóa tài khoản'}</option>}
+                      </select>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </DataTable>
@@ -211,32 +249,36 @@ export default function PlayersPanel({ onNavigate, language = 'vi', permissions 
 
           <div className="grid gap-3 lg:hidden">
             {players.map((player) => (
-              <article key={player._id} className="rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4 shadow-[0_1px_2px_rgba(32,35,31,0.03)]">
+              <article key={player._id} className="rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-3">
-                    <input className="h-5 w-5 shrink-0 accent-[var(--admin-accent)]" type="radio" name="selected-player-mobile" aria-label={`Chọn ${player.username}`} checked={selected.includes(player._id)} onChange={() => toggleSelected(player._id)} />
                     <AdminAvatar avatar={player.avatar} username={player.username} className="h-10 w-10" />
                     <div className="min-w-0">
-                      <button type="button" className="block max-w-full truncate text-left font-semibold text-[var(--admin-accent)] underline decoration-1 underline-offset-2" onClick={() => openPlayerDetail(player._id)}>{player.username}</button>
-                      <p className="truncate font-sans text-sm font-semibold text-[var(--admin-text-muted)]">{player.email}</p>
+                      <button type="button" className="block max-w-full truncate text-left font-bold text-[var(--admin-accent)] hover:underline" onClick={() => openPlayerDetail(player._id)}>{player.username}</button>
+                      <p className="truncate text-xs text-[var(--admin-text-muted)]">{player.email}</p>
                     </div>
                   </div>
                   <StatusBadge tone={player.isBanned ? 'danger' : 'success'}>{player.isBanned ? 'Banned' : 'Active'}</StatusBadge>
                 </div>
-                <dl className="mt-3 grid grid-cols-2 gap-2 text-sm font-semibold text-slate-600">
-                  <div><dt className="text-xs uppercase text-slate-400">Ví Coin</dt><dd className="mt-1 flex items-center gap-1"><img src={goldCoinIcon} alt="Coin" className="h-5 w-5 object-contain mix-blend-multiply" />{formatNumber(player.coins)}</dd></div>
-                  <div><dt className="text-xs uppercase text-slate-400">Số trận</dt><dd>{formatNumber(player.stats?.totalGames)}</dd></div>
+                <dl className="mt-3 grid grid-cols-2 gap-2 text-xs font-semibold text-[var(--admin-text-muted)]">
+                  <div><dt className="uppercase">Ví Coin</dt><dd className="mt-1 flex items-center gap-1 font-mono text-sm font-bold text-[var(--admin-text)]"><img src={goldCoinIcon} alt="Coin" className="h-4 w-4 object-contain mix-blend-multiply" />{formatNumber(player.coins)}</dd></div>
+                  <div><dt className="uppercase">Số trận</dt><dd className="mt-1 font-mono text-sm font-bold text-[var(--admin-text)]">{formatNumber(player.stats?.totalGames)}</dd></div>
                 </dl>
                 <div className="mt-3 flex gap-2">
-                  {canManagePlayer && <select aria-label={`Manage ${player.username}`} className={inputClass} defaultValue="" onChange={(event) => { const type = event.target.value; event.target.value = ''; if (!type) return; if (type === 'edit' || type === 'delete') setUserCrud({ mode: type, user: player }); else openModal(type, player); }}><option value="">Manage…</option>{hasPermission('players.update') && <option value="edit">Edit profile</option>}{hasPermission('economy.adjust') && <option value="currency">Coin</option>}{hasPermission('players.role.write') && <option value="role">Role</option>}{hasPermission('players.delete') && <option value="delete">Soft delete</option>}</select>}
-                  {hasPermission('players.status.write') && <Button variant={player.isBanned ? 'success' : 'danger'} onClick={() => openModal('status', player)}>{player.isBanned ? 'Unban' : 'Ban'}</Button>}
+                  <select aria-label={`Action for ${player.username}`} className={`${inputClass} min-h-9 text-xs`} defaultValue="" onChange={(event) => { const type = event.target.value; event.target.value = ''; if (!type) return; if (type === 'edit' || type === 'delete') setUserCrud({ mode: type, user: player }); else openModal(type, player); }}>
+                    <option value="">{en ? 'Select action...' : 'Thao tác...'}</option>
+                    {hasPermission('players.update') && <option value="edit">{en ? 'Edit profile' : 'Sửa hồ sơ'}</option>}
+                    {hasPermission('economy.adjust') && <option value="currency">{en ? 'Adjust Coin' : 'Điều chỉnh Coin'}</option>}
+                    {hasPermission('players.role.write') && <option value="role">{en ? 'Change role' : 'Đổi vai trò'}</option>}
+                    {hasPermission('players.status.write') && <option value="status">{player.isBanned ? (en ? 'Unban account' : 'Mở khóa tài khoản') : (en ? 'Ban account' : 'Khóa tài khoản')}</option>}
+                    {hasPermission('players.delete') && <option value="delete">{en ? 'Soft delete' : 'Xóa tài khoản'}</option>}
+                  </select>
                 </div>
               </article>
             ))}
           </div>
         </>
       )}
-
       <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
       <PlayerModal modal={modal} setModal={setModal} onClose={closeModal} onSubmit={submitModal} language={language} adminUsername={adminUsername} submitting={submitting} policy={policy} />
       <UserCrudDialog

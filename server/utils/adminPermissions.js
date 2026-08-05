@@ -10,6 +10,9 @@ const ADMIN_PERMISSIONS = [
   'economy.adjust',
   'catalog.read',
   'catalog.write',
+  'asset.read',
+  'asset.write',
+  'asset.delete',
   'quests.read',
   'quests.write',
   'tournaments.read',
@@ -40,6 +43,10 @@ const SUPER_ADMIN_POLICY = Object.freeze({
 });
 
 function normalizeAdminRole(role) {
+  if (!role || typeof role !== 'string') return role;
+  const normalized = role.trim().toLowerCase();
+  if (normalized === 'superadmin' || normalized === 'super_admin') return 'super_admin';
+  if (normalized === 'admin') return 'admin';
   return role;
 }
 

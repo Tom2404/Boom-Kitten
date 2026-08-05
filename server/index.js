@@ -63,6 +63,11 @@ app.use(securityHeaders);
 app.use(express.json({ limit: '100kb' }));
 app.use(requestContext);
 
+const assetRoutes = require('./routes/assets');
+const { STORAGE_ROOT } = require('./services/admin/storageProvider');
+
+app.use('/uploads', express.static(STORAGE_ROOT));
+
 app.get('/health', (_req, res) => res.json({ ok: true }));
 app.use('/api/auth', authRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
@@ -70,6 +75,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/shop', shopRoutes);
+app.use('/api/admin/assets', assetRoutes);
 app.use('/api/admin/moderation', adminModerationRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/admin/saved-views', adminSavedViewRoutes);

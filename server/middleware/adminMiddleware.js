@@ -73,8 +73,25 @@ function requireAdminPermission(permission) {
   };
 }
 
+function requireAnyAdminPermission(...permissions) {
+  return function adminPermissionMiddleware(req, res, next) {
+    const hasAny = permissions.some((p) => req.admin?.permissions?.includes(p));
+    if (!hasAny) {
+      return sendApiError(
+        res,
+        403,
+        'ADMIN_PERMISSION_DENIED',
+        'Bạn không có quyền thực hiện thao tác này.',
+        { details: { permissions }, requestId: req.requestId },
+      );
+    }
+    return next();
+  };
+}
+
 const adminMiddleware = createAdminMiddleware();
 
 module.exports = adminMiddleware;
 module.exports.createAdminMiddleware = createAdminMiddleware;
 module.exports.requireAdminPermission = requireAdminPermission;
+module.exports.requireAnyAdminPermission = requireAnyAdminPermission;

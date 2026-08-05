@@ -64,8 +64,19 @@ export function getEquipmentAction(item, owned = {}) {
     : 'equip';
 }
 
+const API_URL = import.meta.env?.VITE_API_URL ?? 'http://localhost:5000';
+
+export function resolveAssetUrl(url) {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+    return url;
+  }
+  return url.startsWith('/') ? `${API_URL}${url}` : `${API_URL}/${url}`;
+}
+
 export function getEquippedAssetUrl(item) {
-  return item?.assetUrl || item?.previewUrl || item?.imageUrl || '';
+  const url = item?.assetUrl || item?.previewUrl || item?.imageUrl || '';
+  return resolveAssetUrl(url);
 }
 
 export function getProtectorStackSize(handCount) {
