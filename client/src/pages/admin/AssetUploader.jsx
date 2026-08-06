@@ -90,7 +90,7 @@ export default function AssetUploader({ category = 'misc', onUploaded, disabled 
         }}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
-        className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-4 text-center transition-colors ${
+        className={`flex flex-col items-center justify-center rounded-lg border border-dashed p-4 text-center transition-colors ${
           dragOver
             ? 'border-[var(--admin-primary,#2563eb)] bg-blue-50/50'
             : 'border-[var(--admin-border,#cbd5e1)] bg-[var(--admin-surface-muted,#f8fafc)]'
