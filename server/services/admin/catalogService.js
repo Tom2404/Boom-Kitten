@@ -47,10 +47,11 @@ function validateCatalogInput(input) {
   }
 }
 
-async function createCatalogItem({ CatalogModel = ShopItem, audit = createAdminAudit, actor, input, mutation, request = {} }) {
+async function createCatalogItem({ CatalogModel = ShopItem, AuditLogModel, audit = createAdminAudit, actor, input, mutation, request = {} }) {
   validateCatalogInput(input);
   const item = await CatalogModel.create(selectCatalogFields(input, { defaults: true }));
   await audit({
+    AuditLogModel,
     actor,
     action: 'CATALOG_ITEM_CREATED',
     target: { type: 'shop_item', id: String(item._id) },
