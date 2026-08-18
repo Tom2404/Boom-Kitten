@@ -175,7 +175,15 @@ export default function Shop({ setPage }) {
           </div>
           <button 
             onClick={() => {
-              alert(t('shop_get_more_alert'));
+              setDialogState({
+                isOpen: true,
+                title: t('shop_get_more') || 'Nạp thêm Xu',
+                message: t('shop_get_more_alert'),
+                isConfirm: false,
+                confirmText: 'ĐÃ HIỂU',
+                onConfirm: () => setDialogState({ isOpen: false }),
+                onCancel: () => setDialogState({ isOpen: false }),
+              });
             }}
             className="bg-[var(--pop-red)] border-2 border-[var(--pop-black)] text-white text-[10px] font-pop-accent font-black uppercase px-3.5 py-1.5 rounded-none shadow-[2px_2px_0_var(--pop-black)] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[3px_3px_0_var(--pop-black)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all cursor-pointer"
           >
@@ -344,6 +352,24 @@ export default function Shop({ setPage }) {
           </p>
           <div className="inline-block self-start bg-[var(--pop-amber)] border-2 border-[var(--pop-black)] text-[var(--pop-black)] text-[9px] font-pop-accent font-black uppercase px-2 py-1 tracking-wider -rotate-2 mt-1 shadow-[1.5px_1.5px_0px_0px_var(--pop-black)]">
             {t('shop_promo_discount')}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Weekend Chaos Bundle Promo Banner */}
+      <div className="bg-[var(--pop-red)] border-3 border-[var(--pop-black)] rounded-none p-6 md:p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 shadow-[6px_6px_0_var(--pop-black)] text-white text-left relative overflow-hidden mt-6 w-full">
+        <div className="flex flex-col gap-3 max-w-xl z-10">
+          <h2 className="font-pop-display font-black text-2xl md:text-3xl uppercase tracking-wider text-white">
+            {t('shop_promo_title')}
+          </h2>
+          <p className="text-xs md:text-sm font-medium text-red-100 leading-relaxed">
+            {t('shop_promo_desc')}
+          </p>
+          <div className="inline-block self-start bg-[var(--pop-amber)] border-2 border-[var(--pop-black)] text-[var(--pop-black)] text-[9px] font-pop-accent font-black uppercase px-2 py-1 tracking-wider -rotate-2 mt-1 shadow-[1.5px_1.5px_0px_0px_var(--pop-black)]">
+            {t('shop_promo_discount')}
           </div>
         </div>
 
@@ -352,7 +378,17 @@ export default function Shop({ setPage }) {
             $9.99
           </span>
           <button 
-            onClick={() => alert(t('shop_payment_maintenance_alert'))}
+            onClick={() => {
+              setDialogState({
+                isOpen: true,
+                title: t('shop_promo_title') || 'Thông báo gói ưu đãi',
+                message: t('shop_payment_maintenance_alert'),
+                isConfirm: false,
+                confirmText: 'ĐÃ HIỂU',
+                onConfirm: () => setDialogState({ isOpen: false }),
+                onCancel: () => setDialogState({ isOpen: false }),
+              });
+            }}
             className="bg-white border-3 border-[var(--pop-black)] text-[var(--pop-black)] font-pop-accent font-black text-xs uppercase px-6 py-3 rounded-none shadow-[3px_3px_0_var(--pop-black)] hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all text-center cursor-pointer"
           >
             {t('shop_promo_buy')}
@@ -368,7 +404,7 @@ export default function Shop({ setPage }) {
         isOpen={dialogState.isOpen}
         title={dialogState.title}
         message={dialogState.message}
-        isConfirm={true}
+        isConfirm={dialogState.isConfirm !== undefined ? dialogState.isConfirm : true}
         confirmText={dialogState.confirmText}
         cancelText={dialogState.cancelText}
         onConfirm={dialogState.onConfirm}
@@ -377,4 +413,3 @@ export default function Shop({ setPage }) {
     </div>
   );
 }
-
