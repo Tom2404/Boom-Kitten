@@ -4445,8 +4445,9 @@ body.lang-vi .font-pixel-body {
 }
 
 .game-card--hand-strip {
-  width: 6.8rem;
+  width: 7.02rem;
   height: 9.8rem;
+  aspect-ratio: 0.716 / 1;
   flex: 0 0 auto;
   overflow: visible;
   border: 0;
@@ -4744,7 +4745,7 @@ body.lang-vi .font-pixel-body {
 
 .game-loading-state__deck {
   width: 4.5rem;
-  aspect-ratio: .7;
+  aspect-ratio: 0.716 / 1;
   border: 3px solid var(--game-ink);
   background: var(--game-brand);
   box-shadow: 5px 5px 0 var(--game-ink);

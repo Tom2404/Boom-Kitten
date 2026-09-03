@@ -119,6 +119,10 @@ export default function Navbar({ page, setPage, isLoggedIn, userRole, handleLogo
 
   // Smooth scroll to home top or specific elements
   const scrollToSection = (id) => {
+    if (isAdmin) {
+      setPage('Admin');
+      return;
+    }
     setPage('Home');
     setTimeout(() => {
       const element = document.getElementById(id);
@@ -133,6 +137,10 @@ export default function Navbar({ page, setPage, isLoggedIn, userRole, handleLogo
   const navigateTo = (targetPage) => {
     setMobileOpen(false);
     setUserMenuOpen(false);
+    if (isAdmin) {
+      setPage('Admin');
+      return;
+    }
     if (targetPage === 'Home') scrollToSection('hero');
     else setPage(targetPage);
   };
@@ -215,7 +223,7 @@ export default function Navbar({ page, setPage, isLoggedIn, userRole, handleLogo
         <div className="mx-auto flex min-h-14 w-full max-w-[1600px] items-center justify-between gap-4 px-4 md:px-6 lg:px-8">
           <button
             type="button"
-            onClick={() => setPage('Home')}
+            onClick={() => setPage('Admin')}
             className="flex items-center gap-2 rounded-md text-left text-[var(--admin-text)] transition-colors hover:text-[var(--admin-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-focus)] focus:ring-offset-2"
           >
             <span className="flex h-8 w-8 items-center justify-center rounded-md bg-[var(--admin-danger-bg)] text-[var(--admin-accent)]" aria-hidden="true">
@@ -339,8 +347,8 @@ export default function Navbar({ page, setPage, isLoggedIn, userRole, handleLogo
             </button>
           )}
 
-          {/* COIN BALANCE PILL (When logged in) */}
-          {isLoggedIn && (
+          {/* COIN BALANCE PILL (When logged in as player) */}
+          {isLoggedIn && !isAdmin && (
             <button
               type="button"
               onClick={() => setPage('Shop')}
@@ -412,71 +420,69 @@ export default function Navbar({ page, setPage, isLoggedIn, userRole, handleLogo
 
                   {/* Quick User Navigation Links */}
                   <div className="grid grid-cols-1 gap-1.5 mb-3 font-pop-accent text-xs">
-                    <button
-                      type="button"
-                      onClick={() => navigateTo('Profile')}
-                      className={`flex items-center gap-2.5 w-full p-2 border-2 text-left font-bold uppercase transition-all ${
-                        page === 'Profile'
-                          ? 'bg-[var(--pop-red)] text-white border-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)]'
-                          : 'bg-white text-[var(--pop-black)] border-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)] hover:bg-[var(--pop-amber)] hover:translate-x-0.5'
-                      }`}
-                    >
-                      <PixelProfileIcon size={14} />
-                      <span>{t('profile')}</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => navigateTo('Wardrobe')}
-                      className={`flex items-center gap-2.5 w-full p-2 border-2 text-left font-bold uppercase transition-all ${
-                        page === 'Wardrobe'
-                          ? 'bg-[var(--pop-red)] text-white border-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)]'
-                          : 'bg-white text-[var(--pop-black)] border-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)] hover:bg-[var(--pop-amber)] hover:translate-x-0.5'
-                      }`}
-                    >
-                      <PixelWardrobeIcon size={14} />
-                      <span>{t('wardrobe')}</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => navigateTo('Friends')}
-                      className={`flex items-center gap-2.5 w-full p-2 border-2 text-left font-bold uppercase transition-all ${
-                        page === 'Friends'
-                          ? 'bg-[var(--pop-red)] text-white border-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)]'
-                          : 'bg-white text-[var(--pop-black)] border-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)] hover:bg-[var(--pop-amber)] hover:translate-x-0.5'
-                      }`}
-                    >
-                      <PixelFriendsIcon size={14} />
-                      <span>{language === 'en' ? 'Friends' : 'Bạn Bè'}</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => navigateTo('Mission')}
-                      className={`flex items-center gap-2.5 w-full p-2 border-2 text-left font-bold uppercase transition-all ${
-                        page === 'Mission'
-                          ? 'bg-[var(--pop-red)] text-white border-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)]'
-                          : 'bg-white text-[var(--pop-black)] border-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)] hover:bg-[var(--pop-amber)] hover:translate-x-0.5'
-                      }`}
-                    >
-                      <PixelStarIcon size={14} />
-                      <span>{t('mission')}</span>
-                    </button>
-
-                    {isAdmin && (
+                    {isAdmin ? (
                       <button
                         type="button"
                         onClick={() => navigateTo('Admin')}
-                        className={`flex items-center gap-2.5 w-full p-2 border-2 text-left font-bold uppercase transition-all ${
-                          page === 'Admin'
-                            ? 'bg-[var(--pop-amber)] text-[var(--pop-black)] border-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)]'
-                            : 'bg-amber-100 text-[var(--pop-black)] border-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)] hover:bg-[var(--pop-amber)]'
-                        }`}
+                        className="flex items-center gap-2.5 w-full p-2 border-2 text-left font-bold uppercase transition-all bg-[var(--pop-amber)] text-[var(--pop-black)] border-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)]"
                       >
                         <span>🛠️</span>
                         <span>{language === 'en' ? 'Admin Panel' : 'Trang Quản Trị'}</span>
                       </button>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => navigateTo('Profile')}
+                          className={`flex items-center gap-2.5 w-full p-2 border-2 text-left font-bold uppercase transition-all ${
+                            page === 'Profile'
+                              ? 'bg-[var(--pop-red)] text-white border-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)]'
+                              : 'bg-white text-[var(--pop-black)] border-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)] hover:bg-[var(--pop-amber)] hover:translate-x-0.5'
+                          }`}
+                        >
+                          <PixelProfileIcon size={14} />
+                          <span>{t('profile')}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => navigateTo('Wardrobe')}
+                          className={`flex items-center gap-2.5 w-full p-2 border-2 text-left font-bold uppercase transition-all ${
+                            page === 'Wardrobe'
+                              ? 'bg-[var(--pop-red)] text-white border-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)]'
+                              : 'bg-white text-[var(--pop-black)] border-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)] hover:bg-[var(--pop-amber)] hover:translate-x-0.5'
+                          }`}
+                        >
+                          <PixelWardrobeIcon size={14} />
+                          <span>{t('wardrobe')}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => navigateTo('Friends')}
+                          className={`flex items-center gap-2.5 w-full p-2 border-2 text-left font-bold uppercase transition-all ${
+                            page === 'Friends'
+                              ? 'bg-[var(--pop-red)] text-white border-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)]'
+                              : 'bg-white text-[var(--pop-black)] border-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)] hover:bg-[var(--pop-amber)] hover:translate-x-0.5'
+                          }`}
+                        >
+                          <PixelFriendsIcon size={14} />
+                          <span>{language === 'en' ? 'Friends' : 'Bạn Bè'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => navigateTo('Mission')}
+                          className={`flex items-center gap-2.5 w-full p-2 border-2 text-left font-bold uppercase transition-all ${
+                            page === 'Mission'
+                              ? 'bg-[var(--pop-red)] text-white border-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)]'
+                              : 'bg-white text-[var(--pop-black)] border-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)] hover:bg-[var(--pop-amber)] hover:translate-x-0.5'
+                          }`}
+                        >
+                          <PixelStarIcon size={14} />
+                          <span>{t('mission')}</span>
+                        </button>
+                      </>
                     )}
                   </div>
 

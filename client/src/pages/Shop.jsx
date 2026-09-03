@@ -246,7 +246,7 @@ export default function Shop({ setPage }) {
             return (
               <div 
                 key={item._id}
-                className="shop-card relative bg-white border-3 border-[var(--pop-black)] rounded-none p-4 flex flex-col justify-between gap-4 shadow-[4px_4px_0_var(--pop-black)] h-84"
+                className="shop-card relative bg-white border-3 border-[var(--pop-black)] rounded-none p-4 flex flex-col justify-between gap-3 shadow-[4px_4px_0_var(--pop-black)] min-h-[22rem] h-auto"
               >
                 {/* Ribbon labels overlay */}
                 {isLegendary && (
@@ -261,24 +261,55 @@ export default function Shop({ setPage }) {
                 )}
 
                 {/* Main Image Illustration */}
-                <div className={`border-2 border-[var(--pop-black)] rounded-none h-36 flex items-center justify-center relative overflow-hidden
+                <div className={`border-2 border-[var(--pop-black)] rounded-none h-44 flex items-center justify-center relative overflow-hidden p-2
                   ${isLegendary 
                     ? 'bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-400' 
                     : isEpic 
                       ? 'bg-gradient-to-br from-rose-50 to-rose-100 border-rose-400' 
                       : 'bg-slate-50'}`}>
-                  <span className="text-5xl" aria-hidden="true">
-                    {item.type === 'protector' && '🂠'}
-                    {item.type === 'avatar_frame' && '🖼️'}
-                    {item.type === 'field' && '⚔️'}
-                  </span>
-                  {item.imageUrl && (
-                    <img
-                      src={resolveAssetUrl(item.imageUrl)}
-                      alt={item.name}
-                      className="absolute inset-0 h-full w-full object-cover"
-                      onError={(event) => event.currentTarget.remove()}
-                    />
+                  {item.type === 'protector' ? (
+                    <div
+                      className="relative h-full max-h-40 rounded-lg overflow-hidden border-2 border-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)] bg-white flex items-center justify-center"
+                      style={{ aspectRatio: '0.716 / 1' }}
+                    >
+                      {item.imageUrl ? (
+                        <img
+                          src={resolveAssetUrl(item.imageUrl)}
+                          alt={item.name}
+                          className="h-full w-full object-contain"
+                          onError={(event) => event.currentTarget.remove()}
+                        />
+                      ) : (
+                        <span className="text-4xl" aria-hidden="true">🂠</span>
+                      )}
+                    </div>
+                  ) : item.type === 'avatar_frame' ? (
+                    <div className="relative h-full max-h-36 aspect-square rounded-full overflow-hidden border-2 border-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)] bg-white flex items-center justify-center p-1">
+                      {item.imageUrl ? (
+                        <img
+                          src={resolveAssetUrl(item.imageUrl)}
+                          alt={item.name}
+                          className="h-full w-full object-contain"
+                          onError={(event) => event.currentTarget.remove()}
+                        />
+                      ) : (
+                        <span className="text-4xl" aria-hidden="true">🖼️</span>
+                      )}
+                    </div>
+                  ) : (
+                    /* Field or other types */
+                    <div className="relative h-full max-h-32 aspect-video rounded-md overflow-hidden border-2 border-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)] bg-slate-900 flex items-center justify-center">
+                      {item.imageUrl ? (
+                        <img
+                          src={resolveAssetUrl(item.imageUrl)}
+                          alt={item.name}
+                          className="h-full w-full object-cover"
+                          onError={(event) => event.currentTarget.remove()}
+                        />
+                      ) : (
+                        <span className="text-4xl" aria-hidden="true">⚔️</span>
+                      )}
+                    </div>
                   )}
                 </div>
 
@@ -334,24 +365,6 @@ export default function Shop({ setPage }) {
                     </button>
                     )}
                   </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Weekend Chaos Bundle Promo Banner */}
-      <div className="bg-[var(--pop-red)] border-3 border-[var(--pop-black)] rounded-none p-6 md:p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 shadow-[6px_6px_0_var(--pop-black)] text-white text-left relative overflow-hidden mt-6 w-full">
-        <div className="flex flex-col gap-3 max-w-xl z-10">
-          <h2 className="font-pop-display font-black text-2xl md:text-3xl uppercase tracking-wider text-white">
-            {t('shop_promo_title')}
-          </h2>
-          <p className="text-xs md:text-sm font-medium text-red-100 leading-relaxed">
-            {t('shop_promo_desc')}
-          </p>
-          <div className="inline-block self-start bg-[var(--pop-amber)] border-2 border-[var(--pop-black)] text-[var(--pop-black)] text-[9px] font-pop-accent font-black uppercase px-2 py-1 tracking-wider -rotate-2 mt-1 shadow-[1.5px_1.5px_0px_0px_var(--pop-black)]">
-            {t('shop_promo_discount')}
                 </div>
               </div>
             );

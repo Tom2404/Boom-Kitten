@@ -10,8 +10,10 @@ export const TYPE_TO_SLOT = Object.freeze(
 
 export const DEFAULT_ASSET_TRANSFORM = Object.freeze({ scale: 1, x: 0, y: 0 });
 
+export const CARD_ASPECT_RATIO = 0.716;
+
 const SLOT_ASPECT_RATIOS = Object.freeze({
-  protector: 5 / 7,
+  protector: 0.716,
   avatar_frame: 1,
   field: 16 / 9,
 });
@@ -100,7 +102,8 @@ export function resolveAssetUrl(url) {
 }
 
 export function getEquippedAssetUrl(item) {
-  return item?.assetUrl || item?.previewUrl || item?.imageUrl || '';
+  const url = item?.assetUrl || item?.previewUrl || item?.imageUrl || '';
+  return resolveAssetUrl(url);
 }
 
 export function getProtectorStackSize(handCount) {

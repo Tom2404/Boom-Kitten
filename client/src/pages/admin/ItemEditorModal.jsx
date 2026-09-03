@@ -496,6 +496,17 @@ export default function ItemEditorModal({
                   {/* Framing Editor & Preview if type supports framing */}
                   {supportsFraming ? (
                     <div className="mt-1">
+                      {formData.type === 'protector' && (
+                        <div className="mb-2 flex items-center justify-between rounded-lg bg-blue-50/70 px-3 py-1.5 border border-blue-200/60">
+                          <span className="text-[11px] font-semibold text-blue-700 flex items-center gap-1.5">
+                            <span className="h-2 w-2 rounded-full bg-blue-500" />
+                            Khung thẻ bài chuẩn (Tỉ lệ 0.716 : 1)
+                          </span>
+                          <span className="text-[10px] font-mono text-blue-600 bg-white px-1.5 py-0.5 rounded border border-blue-200">
+                            Hiển thị toàn bộ thẻ bài
+                          </span>
+                        </div>
+                      )}
                       <AssetPositionEditor
                         confirmed={fitConfirmed}
                         onChange={(assetTransform) => {
