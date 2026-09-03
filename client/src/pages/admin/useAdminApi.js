@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { getAdminToken } from './utils.js';
+import { refreshAccessToken } from '../../utils/authSession.js';
 
 export function useAdminApi() {
   const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:5000';
@@ -7,17 +8,37 @@ export function useAdminApi() {
 
   const request = useCallback(
     async (endpoint, options = {}) => {
-      if (!token) return { ok: false, error: 'No admin token' };
+      let activeToken = getAdminToken();
+      if (!activeToken) return { ok: false, error: 'No admin token' };
 
       try {
-        const response = await fetch(`${apiUrl}${endpoint}`, {
+        let response = await fetch(`${apiUrl}${endpoint}`, {
           ...options,
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${activeToken}`,
             ...(options.headers || {}),
           },
         });
+
+        // If access token expired, transparently refresh session and retry once
+        if (response.status === 401) {
+          const renewedToken = await refreshAccessToken();
+          if (renewedToken) {
+            localStorage.setItem('accessToken', renewedToken);
+            activeToken = renewedToken;
+            window.dispatchEvent(new Event('auth:changed'));
+            response = await fetch(`${apiUrl}${endpoint}`, {
+              ...options,
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${activeToken}`,
+                ...(options.headers || {}),
+              },
+            });
+          }
+        }
+
         const text = await response.text();
         const data = text ? JSON.parse(text) : null;
         return { ok: response.ok, status: response.status, data };
@@ -25,7 +46,7 @@ export function useAdminApi() {
         return { ok: false, error: error.message };
       }
     },
-    [apiUrl, token],
+    [apiUrl],
   );
 
   const download = useCallback(async (endpoint, fallbackName = 'download.csv') => {

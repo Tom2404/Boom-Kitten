@@ -114,8 +114,14 @@ function createAuthRouter({ UserModel = User, sendPasswordResetEmail = deliverPa
 
   router.post('/login', async (req, res, next) => {
   try {
-    const { email, password } = req.body;
-    const user = await UserModel.findOne({ email }).select(REFRESH_TOKEN_FIELDS);
+    const { email, username, password } = req.body;
+    const identifier = (typeof email === 'string' && email ? email : typeof username === 'string' ? username : '').trim();
+    if (!identifier || !password) return res.status(400).json({ message: 'Email or username and password are required' });
+
+    const query = identifier.includes('@')
+      ? { email: identifier.toLowerCase() }
+      : { $or: [{ username: identifier }, { email: identifier.toLowerCase() }] };
+    const user = await UserModel.findOne(query).select(REFRESH_TOKEN_FIELDS);
     if (!user) return res.status(401).json({ message: 'Invalid credentials' });
 
     const restriction = getAccountRestriction(user);

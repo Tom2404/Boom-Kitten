@@ -49,7 +49,7 @@ test('overview pilot avoids saturated cards and heavy retro typography', async (
   const overview = await read('../src/pages/admin/OverviewPanel.jsx');
 
   assert.doesNotMatch(overview, /font-black|border-2|bg-\[#/);
-  assert.match(overview, /var\(--admin-accent-soft\)/);
+  assert.match(overview, /var\(--admin-accent\)/);
 });
 
 test('players pilot uses the shared admin visual language at every breakpoint', async () => {

@@ -4,8 +4,11 @@ const SAFE_OPERATION_REQUEST_ID = /^[A-Za-z0-9._:-]{1,128}$/;
 
 function requireAdminMutationContext({ critical = false, reasonRequired = true } = {}) {
   return function adminMutationContextMiddleware(req, res, next) {
-    const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : '';
-    const operationRequestId = typeof req.body?.requestId === 'string' ? req.body.requestId.trim() : '';
+    const headerReason = typeof req.headers?.['x-admin-reason'] === 'string' ? req.headers['x-admin-reason'].trim() : '';
+    const headerRequestId = typeof req.headers?.['x-operation-request-id'] === 'string' ? req.headers['x-operation-request-id'].trim() : '';
+
+    const reason = (typeof req.body?.reason === 'string' ? req.body.reason.trim() : '') || headerReason;
+    const operationRequestId = (typeof req.body?.requestId === 'string' ? req.body.requestId.trim() : '') || headerRequestId;
     const fields = {};
 
     if (reasonRequired && !reason) fields.reason = 'Bắt buộc';

@@ -24,6 +24,25 @@ function normalizePlayerProfile(profile = 'Guest') {
   };
 }
 
+function normalizeCustomRoomKittens(maxP, reqExploding, reqDefuses) {
+  let cek = parseInt(reqExploding, 10);
+  let cd = parseInt(reqDefuses, 10);
+
+  if (isNaN(cek) || isNaN(cd)) {
+    return { customExplodingKittens: undefined, customDefuses: undefined };
+  }
+
+  // Rule 1: Boom count MUST be >= maxPlayers - 1 (Game Invariant)
+  const minExploding = Math.max(1, maxP - 1);
+  cek = Math.min(Math.max(minExploding, cek), 8);
+
+  // Rule 2: Defuses in Drawpile MUST be strictly less than Boom count (cd < cek)
+  const maxDefuses = Math.max(0, cek - 1);
+  cd = Math.min(Math.max(0, cd), maxDefuses);
+
+  return { customExplodingKittens: cek, customDefuses: cd };
+}
+
 function createRoom(hostId, options = {}, profile = 'Guest') {
   let code;
   do {
@@ -38,23 +57,11 @@ function createRoom(hostId, options = {}, profile = 'Guest') {
   const requestedStake = Number(options.betAmount ?? 0);
   const betAmount = validateStake(requestedStake);
 
-  let customDefuses = parseInt(options.customDefuses, 10);
-  let customExplodingKittens = parseInt(options.customExplodingKittens, 10);
-
-  if (!isNaN(customDefuses) && !isNaN(customExplodingKittens)) {
-    customDefuses = Math.min(Math.max(0, customDefuses), 8);
-    customExplodingKittens = Math.min(Math.max(0, customExplodingKittens), 8);
-    if (customExplodingKittens <= customDefuses) {
-      customExplodingKittens = customDefuses + 1;
-      if (customExplodingKittens > 8) {
-        customExplodingKittens = 8;
-        customDefuses = 7;
-      }
-    }
-  } else {
-    customDefuses = undefined;
-    customExplodingKittens = undefined;
-  }
+  const { customDefuses, customExplodingKittens } = normalizeCustomRoomKittens(
+    maxPlayers,
+    options.customExplodingKittens,
+    options.customDefuses
+  );
 
   const hostProfile = normalizePlayerProfile(profile);
   const room = {
@@ -170,24 +177,13 @@ function updateRoomSettings(roomCode, hostId, newSettings) {
   }
 
   if (newSettings.customDefuses !== undefined || newSettings.customExplodingKittens !== undefined) {
-    let cd = parseInt(newSettings.customDefuses, 10);
-    let cek = parseInt(newSettings.customExplodingKittens, 10);
-    if (!isNaN(cd) && !isNaN(cek)) {
-      cd = Math.min(Math.max(0, cd), 8);
-      cek = Math.min(Math.max(0, cek), 8);
-      if (cek <= cd) {
-        cek = cd + 1;
-        if (cek > 8) {
-          cek = 8;
-          cd = 7;
-        }
-      }
-      room.customDefuses = cd;
-      room.customExplodingKittens = cek;
-    } else {
-      room.customDefuses = undefined;
-      room.customExplodingKittens = undefined;
-    }
+    const { customDefuses, customExplodingKittens } = normalizeCustomRoomKittens(
+      room.maxPlayers,
+      newSettings.customExplodingKittens ?? room.customExplodingKittens,
+      newSettings.customDefuses ?? room.customDefuses
+    );
+    room.customDefuses = customDefuses;
+    room.customExplodingKittens = customExplodingKittens;
   }
 
   // Khi chủ phòng đổi cài đặt, tất cả người chơi khác tự động bị Huỷ sẵn sàng

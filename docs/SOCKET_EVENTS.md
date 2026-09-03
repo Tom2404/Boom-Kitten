@@ -1,6 +1,7 @@
 # Danh Sách Sự Kiện WebSocket (Socket.io Event Specification)
 
-Hệ thống multiplayer của trò chơi **Mèo Nổ** giao tiếp thời gian thực thông qua Socket.io. Dưới đây là đặc tả chi tiết của tất cả các sự kiện Client-to-Server và Server-to-Client.
+Hệ thống multiplayer của trò chơi **Mèo Nổ** giao tiếp thời gian thực thông qua Socket.io.
+> **Lưu ý**: Tất cả các tên sự kiện (Event Names) được định nghĩa tập trung tại file **`shared/events.js`** để đảm bảo tính nhất quán giữa Client và Server.
 
 ---
 

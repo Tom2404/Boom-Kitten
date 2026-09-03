@@ -109,7 +109,7 @@ export function useRoomSync({
     };
 
     const onRoomKicked = ({ message }) => {
-      alert(message);
+      setStatusMessage(message);
       setRoomState(null);
       setGameState(null);
       setGameEnded(null);

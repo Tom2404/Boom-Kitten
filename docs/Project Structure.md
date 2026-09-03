@@ -8,33 +8,36 @@ Tài liệu này quy định chi tiết cấu trúc thư mục, tệp tin và c�
 
 ```text
 exploding-kittens/
-├── client/                 # Mã nguồn Frontend (React 18 + Vite + Tailwind CSS)
+├── shared/                 # Hằng số & Contracts dùng chung (Events, Card Types)
+├── client/                 # Mã nguồn Frontend (React 18 + Vite + Tailwind CSS + Framer/GSAP/Pixi)
 │   ├── src/
 │   │   ├── components/     # Các Component UI tái sử dụng
-│   │   ├── pages/          # Các trang giao diện chính
+│   │   ├── pages/          # Các trang giao diện (Game, Lobby, Wardrobe, Admin, Tournament)
 │   │   ├── hooks/          # Custom React Hooks (Auth, Socket, Game)
-│   │   ├── store/          # Quản lý State toàn cục (Zustand / Context API)
-│   │   ├── utils/          # Hàm tiện ích (Xử lý bài, âm thanh)
-│   │   ├── assets/         # Tài nguyên tĩnh (Hình ảnh, Âm thanh)
+│   │   ├── store/          # Zustand / Context State
+│   │   ├── vfx/            # Pixi.js / GSAP Modular VFX Engine
+│   │   ├── utils/          # Hàm tiện ích (Xử lý bài, trang phục, âm thanh)
 │   │   ├── App.jsx         # Component gốc quản lý Routing/Pages
 │   │   └── main.jsx        # Điểm khởi đầu ứng dụng React
-│   ├── index.html          # File HTML chính
-│   ├── vite.config.js      # Cấu hình Vite
-│   ├── tailwind.config.js  # Cấu hình Tailwind CSS
+│   ├── test/               # ~33 Client Test Files
 │   └── package.json        # Dependencies & Scripts của Client
 │
-├── server/                 # Mã nguồn Backend (Node.js + Express + Socket.io)
-│   ├── game/               # Logic cốt lõi của trò chơi
-│   ├── routes/             # REST API Routes
-│   ├── models/             # Mongoose Database Models
-│   ├── sockets/            # Socket.io Event Handlers
-│   ├── middleware/         # Middleware bảo mật, xác thực & xử lý lỗi
+├── server/                 # Mã nguồn Backend (Node.js + Express + Socket.io + Mongoose)
+│   ├── game/               # ActionDispatcher + EffectEngine & RoomManager
+│   │   ├── actions/        # Action classes (PlayCard, DrawCard, etc.)
+│   │   └── effects/        # Effect primitives & EffectEngine
+│   ├── sockets/            # Socket.io Handlers (Room, Gameplay, Chat, Auth)
+│   ├── routes/             # REST API Routes (Auth, Admin, Tournament, Wager, Shop)
+│   ├── services/           # Service Layer (30+ service files)
+│   ├── models/             # 23 Mongoose Database Models
+│   ├── middleware/         # Middleware xác thực, phân quyền & audit log
+│   ├── test/               # ~50 Server Test Files
 │   ├── index.js            # Điểm khởi chạy Express Server
-│   ├── .env.example        # Bản mẫu cấu hình biến môi trường
 │   └── package.json        # Dependencies & Scripts của Server
 │
-├── .gitignore              # Danh sách tệp tin bỏ qua khi Git commit
-└── README.md               # Hướng dẫn cài đặt và chạy dự án
+├── .github/workflows/      # GitHub Actions CI Workflow (ci.yml)
+├── docs/                   # Tài liệu kiến trúc và dự án
+└── package.json            # Root package configuration
 ```
 
 ---

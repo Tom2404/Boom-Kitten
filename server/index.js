@@ -22,6 +22,7 @@ const leaderboardRoutes = require('./routes/leaderboard');
 const errorHandler = require('./middleware/errorHandler');
 const requestContext = require('./middleware/requestContext');
 const securityHeaders = require('./middleware/securityHeaders');
+const mongoSanitize = require('./middleware/mongoSanitize');
 const registerGameSocket = require('./sockets/gameSocket');
 const { startAnnouncementScheduler } = require('./services/admin/announcementService');
 
@@ -46,11 +47,17 @@ process.on('SIGHUP', () => {
   process.exit(0);
 });
 
+const allowedOrigins = Array.from(new Set([
+  'http://localhost:2404',
+  'http://127.0.0.1:2404',
+  ...(process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',').map((origin) => origin.trim()).filter(Boolean) : []),
+]));
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL,
+    origin: allowedOrigins,
     credentials: true,
   },
 });
@@ -58,10 +65,16 @@ const io = new Server(server, {
 app.set('io', io);
 app.disable('x-powered-by');
 
-app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
+app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(securityHeaders);
 app.use(express.json({ limit: '100kb' }));
+app.use(mongoSanitize);
 app.use(requestContext);
+
+const assetRoutes = require('./routes/assets');
+const { STORAGE_ROOT } = require('./services/admin/storageProvider');
+
+app.use('/uploads', express.static(STORAGE_ROOT));
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 app.use('/api/auth', authRoutes);
@@ -70,6 +83,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/shop', shopRoutes);
+app.use('/api/admin/assets', assetRoutes);
 app.use('/api/admin/moderation', adminModerationRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/admin/saved-views', adminSavedViewRoutes);

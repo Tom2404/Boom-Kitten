@@ -1,22 +1,70 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAdminApi } from './useAdminApi.js';
-import { Alert, Button, ConfirmDialog, EmptyState, Field, inputClass, SectionHeader, SkeletonBlock, StatusBadge, Toolbar } from './ui.jsx';
+import {
+  AdminCard,
+  Alert,
+  Button,
+  ConfirmDialog,
+  DataTable,
+  EmptyState,
+  Field,
+  inputClass,
+  SectionHeader,
+  SkeletonBlock,
+  StatusBadge,
+  Toolbar,
+} from './ui.jsx';
 import { formatNumber } from './utils.js';
 import { getAdminPanelAccess } from './adminPanelAccess.js';
 import { buildDeleteAdminPayload, buildRoutineAdminPayload, createAdminOperationRequestId } from './adminMutation.js';
 import { filterCatalog, getCatalogSummary } from './adminListFilters.js';
-import { DEFAULT_ASSET_TRANSFORM, normalizeAssetTransform } from '../../utils/shopEquipment.js';
+import { DEFAULT_ASSET_TRANSFORM, normalizeAssetTransform, resolveAssetUrl } from '../../utils/shopEquipment.js';
 import AssetPositionEditor from './AssetPositionEditor.jsx';
+import ItemEditorModal from './ItemEditorModal.jsx';
 
-const blankItem = { name: '', description: '', type: 'protector', rarity: 'common', priceCoins: 0, imageUrl: '', previewUrl: '', assetTransform: DEFAULT_ASSET_TRANSFORM, isActive: true, sortOrder: 0 };
+const blankItem = {
+  name: '',
+  description: '',
+  type: 'protector',
+  rarity: 'common',
+  priceCoins: 0,
+  imageUrl: '',
+  previewUrl: '',
+  assetTransform: DEFAULT_ASSET_TRANSFORM,
+  isActive: true,
+  sortOrder: 0,
+};
+
 const framedTypes = new Set(['protector', 'avatar_frame', 'field']);
-const responseMessage = (response, fallback) => response.data?.error?.message || response.data?.message || response.error || fallback;
+const responseMessage = (response, fallback) => {
+  const errorObj = response.data?.error;
+  if (errorObj) {
+    let msg = errorObj.message || 'Lỗi xử lý';
+    if (errorObj.details?.fields) {
+      const fieldDetails = Object.entries(errorObj.details.fields)
+        .map(([field, reason]) => `${field}: ${reason}`)
+        .join('; ');
+      if (!msg.includes(fieldDetails)) {
+        msg = `${msg} [${fieldDetails}]`;
+      }
+    }
+    return msg;
+  }
+  return response.data?.message || response.error || fallback;
+};
+
+const rarityBadgeTones = {
+  common: 'neutral',
+  rare: 'info',
+  epic: 'warning',
+  legendary: 'danger',
+};
 
 export default function CatalogPanel({ permissions = [] }) {
   const { request } = useAdminApi();
   const [catalog, setCatalog] = useState([]);
-  const [form, setForm] = useState(blankItem);
   const [editing, setEditing] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState({ tone: '', text: '' });
@@ -27,7 +75,9 @@ export default function CatalogPanel({ permissions = [] }) {
   const [pendingItemId, setPendingItemId] = useState(null);
   const [assetCheck, setAssetCheck] = useState({ status: 'idle', requiresFraming: false, url: '', type: '' });
   const [fitConfirmed, setFitConfirmed] = useState(false);
+  const [viewMode, setViewMode] = useState('table'); // 'table' | 'grid'
   const [filters, setFilters] = useState({ search: '', type: '', rarity: '', status: '' });
+
   const { canWriteCatalog } = getAdminPanelAccess(permissions);
   const summary = useMemo(() => getCatalogSummary(catalog), [catalog]);
   const visibleCatalog = useMemo(() => filterCatalog(catalog, filters), [catalog, filters]);
@@ -41,18 +91,9 @@ export default function CatalogPanel({ permissions = [] }) {
     setLoading(false);
   };
 
-  useEffect(() => { loadCatalog(); }, [request]);
-
-  const activeForm = editing || form;
-  const setActiveForm = (next) => (editing ? setEditing(next) : setForm(next));
-  const previewAssetUrl = activeForm.previewUrl || activeForm.imageUrl;
-  const supportsFraming = framedTypes.has(activeForm.type);
-
-  const updateAssetSource = (field, value) => {
-    setActiveForm({ ...activeForm, [field]: value, assetTransform: DEFAULT_ASSET_TRANSFORM });
-    setAssetCheck({ status: 'loading', requiresFraming: false, url: '', type: '' });
-    setFitConfirmed(false);
-  };
+  useEffect(() => {
+    loadCatalog();
+  }, [request]);
 
   const toPayload = (item) => ({
     name: item.name,
@@ -67,27 +108,45 @@ export default function CatalogPanel({ permissions = [] }) {
     sortOrder: Number(item.sortOrder),
   });
 
-  const submitItem = async (event) => {
-    event.preventDefault();
+  const handleSaveItem = async (itemData) => {
     if (saving) return;
     setMessage({ tone: '', text: '' });
-    if (!activeForm.name || !activeForm.imageUrl) return setMessage({ tone: 'danger', text: 'Tên vật phẩm và URL hình ảnh là bắt buộc.' });
-    const checkedCurrentAsset = assetCheck.url === previewAssetUrl && assetCheck.type === activeForm.type;
-    if (supportsFraming && (!checkedCurrentAsset || assetCheck.status !== 'ready')) return setMessage({ tone: 'danger', text: 'Asset phải tải thành công như một hình ảnh trước khi lưu.' });
-    if (supportsFraming && assetCheck.requiresFraming && !fitConfirmed) return setMessage({ tone: 'danger', text: 'Hãy căn và xác nhận asset trong khung chuẩn trước khi lưu.' });
+
+    const previewAssetUrl = itemData.previewUrl || itemData.imageUrl;
+    const supportsFraming = framedTypes.has(itemData.type);
+
+    if (!itemData.name || !itemData.imageUrl) {
+      setMessage({ tone: 'danger', text: 'Tên vật phẩm và URL hình ảnh là bắt buộc.' });
+      return;
+    }
+
+    // Framing verification if required
+    if (supportsFraming && assetCheck.requiresFraming && !fitConfirmed) {
+      setMessage({ tone: 'danger', text: 'Hãy căn và xác nhận asset trong khung chuẩn trước khi lưu.' });
+      return;
+    }
+
+    const currentRequestId = createAdminOperationRequestId();
+    setFormRequestId(currentRequestId);
+
     const endpoint = editing ? `/api/shop/items/${editing._id}` : '/api/shop/items';
     setSaving(true);
-    const res = await request(endpoint, { method: editing ? 'PUT' : 'POST', body: JSON.stringify(buildRoutineAdminPayload(toPayload(activeForm), formRequestId)) });
+    const res = await request(endpoint, {
+      method: editing ? 'PUT' : 'POST',
+      body: JSON.stringify(buildRoutineAdminPayload(toPayload(itemData), currentRequestId)),
+    });
     setSaving(false);
+
     if (res.ok) {
-      setMessage({ tone: 'success', text: editing ? 'Đã cập nhật vật phẩm.' : 'Đã thêm vật phẩm mới.' });
-      setForm(blankItem);
+      setMessage({ tone: 'success', text: editing ? 'Đã cập nhật vật phẩm.' : 'Đã thêm vật phẩm mới thành công.' });
+      setIsModalOpen(false);
       setEditing(null);
       setAssetCheck({ status: 'idle', requiresFraming: false, url: '', type: '' });
       setFitConfirmed(false);
       setFormRequestId(createAdminOperationRequestId());
       loadCatalog();
     } else {
+      setFormRequestId(createAdminOperationRequestId());
       setMessage({ tone: 'danger', text: responseMessage(res, 'Không thể lưu vật phẩm.') });
     }
   };
@@ -95,7 +154,12 @@ export default function CatalogPanel({ permissions = [] }) {
   const toggleItem = async (item) => {
     if (pendingItemId) return;
     setPendingItemId(item._id);
-    const res = await request(`/api/shop/items/${item._id}/status`, { method: 'PATCH', body: JSON.stringify(buildRoutineAdminPayload({ isActive: !item.isActive }, createAdminOperationRequestId())) });
+    const res = await request(`/api/shop/items/${item._id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify(
+        buildRoutineAdminPayload({ isActive: !item.isActive }, createAdminOperationRequestId())
+      ),
+    });
     setPendingItemId(null);
     if (res.ok) {
       setMessage({ tone: 'success', text: `Đã ${item.isActive === false ? 'bật' : 'tắt'} ${item.name}.` });
@@ -106,7 +170,10 @@ export default function CatalogPanel({ permissions = [] }) {
   const deleteItem = async () => {
     if (!deleteTarget || !deleteReason.trim() || pendingItemId) return;
     setPendingItemId(deleteTarget._id);
-    const res = await request(`/api/shop/items/${deleteTarget._id}`, { method: 'DELETE', body: JSON.stringify(buildDeleteAdminPayload(deleteReason, deleteRequestId)) });
+    const res = await request(`/api/shop/items/${deleteTarget._id}`, {
+      method: 'DELETE',
+      body: JSON.stringify(buildDeleteAdminPayload(deleteReason, deleteRequestId)),
+    });
     setPendingItemId(null);
     if (res.ok) {
       setMessage({ tone: 'success', text: 'Đã xóa vật phẩm.' });
@@ -115,6 +182,14 @@ export default function CatalogPanel({ permissions = [] }) {
       setDeleteRequestId(createAdminOperationRequestId());
       loadCatalog();
     } else setMessage({ tone: 'danger', text: responseMessage(res, 'Không thể xóa vật phẩm.') });
+  };
+
+  const openCreateModal = () => {
+    setEditing(null);
+    setAssetCheck({ status: 'idle', requiresFraming: false, url: '', type: '' });
+    setFitConfirmed(false);
+    setFormRequestId(createAdminOperationRequestId());
+    setIsModalOpen(true);
   };
 
   const startEditing = (item) => {
@@ -134,95 +209,384 @@ export default function CatalogPanel({ permissions = [] }) {
     setAssetCheck({ status: 'loading', requiresFraming: false, url: '', type: '' });
     setFitConfirmed(true);
     setFormRequestId(createAdminOperationRequestId());
+    setIsModalOpen(true);
   };
 
   return (
     <div className="flex flex-col gap-5">
-      <SectionHeader title="Shop game" description="Quản lý vật phẩm, giá, độ hiếm, ảnh và trạng thái bán trong shop." actions={<Button onClick={loadCatalog}>Làm mới</Button>} />
-      {message.text && <Alert tone={message.tone}>{message.text}</Alert>}
-      {!canWriteCatalog && <Alert tone="info">Chế độ chỉ đọc: bạn có thể xem catalog nhưng không thể thay đổi vật phẩm.</Alert>}
-      <dl className="grid grid-cols-3 gap-3">
-        {[['Tổng vật phẩm', summary.total], ['Đang bán', summary.active], ['Đang tắt', summary.inactive]].map(([label, value]) => <div key={label} className="rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] p-3"><dt className="text-xs font-semibold text-[var(--admin-text-muted)]">{label}</dt><dd className="mt-1 font-mono text-xl font-semibold">{formatNumber(value)}</dd></div>)}
-      </dl>
-      <Toolbar>
-        <Field label="Tìm vật phẩm"><input className={`${inputClass} md:min-w-56`} type="search" value={filters.search} onChange={(event) => setFilters({ ...filters, search: event.target.value })} placeholder="Tên vật phẩm" /></Field>
-        <Field label="Loại"><select className={inputClass} value={filters.type} onChange={(event) => setFilters({ ...filters, type: event.target.value })}><option value="">Tất cả</option><option value="protector">Protector</option><option value="avatar_frame">Khung avatar</option><option value="field">Field</option><option value="skin">Skin (legacy)</option><option value="emote">Emote (legacy)</option></select></Field>
-        <Field label="Độ hiếm"><select className={inputClass} value={filters.rarity} onChange={(event) => setFilters({ ...filters, rarity: event.target.value })}><option value="">Tất cả</option><option value="common">Common</option><option value="rare">Rare</option><option value="epic">Epic</option><option value="legendary">Legendary</option></select></Field>
-        <Field label="Trạng thái"><select className={inputClass} value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value })}><option value="">Tất cả</option><option value="active">Active</option><option value="inactive">Inactive</option></select></Field>
-        <Button type="button" variant="secondary" disabled={!filtersActive} onClick={() => setFilters({ search: '', type: '', rarity: '', status: '' })}>Đặt lại</Button>
-      </Toolbar>
-      <div className={`grid grid-cols-1 gap-5 ${canWriteCatalog ? 'xl:grid-cols-[360px_1fr]' : ''}`}>
-        {canWriteCatalog && <form onSubmit={submitItem} className="rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4 shadow-[0_1px_2px_rgba(32,35,31,0.03)]">
-          <h3 className="font-sans text-base font-semibold text-slate-950">{editing ? 'Sửa vật phẩm' : 'Thêm vật phẩm'}</h3>
-          <div className="mt-4 grid gap-3">
-            <Field label="Tên vật phẩm"><input className={inputClass} value={activeForm.name} onChange={(event) => setActiveForm({ ...activeForm, name: event.target.value })} /></Field>
-            <Field label="Mô tả"><textarea className={inputClass} rows="3" value={activeForm.description} onChange={(event) => setActiveForm({ ...activeForm, description: event.target.value })} /></Field>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Loại"><select className={inputClass} value={activeForm.type} onChange={(event) => updateAssetSource('type', event.target.value)}><option value="protector">Protector</option><option value="avatar_frame">Khung avatar</option><option value="field">Field</option><option value="skin">Skin bài (legacy)</option><option value="emote">Biểu cảm (legacy)</option></select></Field>
-              <Field label="Độ hiếm"><select className={inputClass} value={activeForm.rarity} onChange={(event) => setActiveForm({ ...activeForm, rarity: event.target.value })}><option value="common">Common</option><option value="rare">Rare</option><option value="epic">Epic</option><option value="legendary">Legendary</option></select></Field>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="GoldCoin"><input className={inputClass} type="number" min="0" value={activeForm.priceCoins} onChange={(event) => setActiveForm({ ...activeForm, priceCoins: event.target.value })} /></Field>
-            </div>
-            <Field label="Đường dẫn hình ảnh nội bộ"><input className={inputClass} value={activeForm.imageUrl} onChange={(event) => updateAssetSource('imageUrl', event.target.value)} placeholder="/assets/..." /></Field>
-            <Field label="Đường dẫn asset trang bị nội bộ"><input className={inputClass} value={activeForm.previewUrl} onChange={(event) => updateAssetSource('previewUrl', event.target.value)} placeholder="/assets/..." /></Field>
-            {previewAssetUrl && supportsFraming && <AssetPositionEditor
-              confirmed={fitConfirmed}
-              onChange={(assetTransform) => setActiveForm({ ...activeForm, assetTransform })}
-              onConfirmedChange={setFitConfirmed}
-              onValidationChange={(next) => setAssetCheck({ ...next, url: previewAssetUrl, type: activeForm.type })}
-              type={activeForm.type}
-              url={previewAssetUrl}
-              value={activeForm.assetTransform}
-            />}
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Sort order"><input className={inputClass} type="number" value={activeForm.sortOrder} onChange={(event) => setActiveForm({ ...activeForm, sortOrder: event.target.value })} /></Field>
-              <Field label="Trạng thái"><select className={inputClass} value={activeForm.isActive ? 'true' : 'false'} onChange={(event) => setActiveForm({ ...activeForm, isActive: event.target.value === 'true' })}><option value="true">Active</option><option value="false">Inactive</option></select></Field>
-            </div>
+      {/* Section Header with Primary Add Button */}
+      <SectionHeader
+        title="Shop game & Catalog"
+        description="Quản lý danh mục vật phẩm, trang bị, khung avatar, giá bán Coin và trạng thái hiển thị."
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            {canWriteCatalog && (
+              <Button variant="primary" onClick={openCreateModal} className="shadow-sm">
+                <span className="mr-1 text-base leading-none">＋</span> Thêm vật phẩm
+              </Button>
+            )}
+            <Button variant="secondary" onClick={loadCatalog}>
+              Làm mới
+            </Button>
           </div>
-          <div className="mt-4 flex gap-2">
-            <Button type="submit" variant="primary" className="flex-1" disabled={saving}>{saving ? 'Đang lưu...' : editing ? 'Lưu thay đổi' : 'Thêm vật phẩm'}</Button>
-            {editing && <Button type="button" variant="secondary" onClick={() => { setEditing(null); setFormRequestId(createAdminOperationRequestId()); }}>Hủy</Button>}
-          </div>
-        </form>}
+        }
+      />
 
-        <section>
-          {loading ? <SkeletonBlock rows={5} /> : catalog.length === 0 ? (
-            <EmptyState title="Shop chưa có vật phẩm" description="Thêm vật phẩm đầu tiên bằng form bên trái." />
-          ) : visibleCatalog.length === 0 ? (
-            <EmptyState title="Không có vật phẩm phù hợp" description="Thử đổi hoặc đặt lại bộ lọc." action={<Button variant="secondary" onClick={() => setFilters({ search: '', type: '', rarity: '', status: '' })}>Đặt lại bộ lọc</Button>} />
-          ) : (
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              {visibleCatalog.map((item) => (
-                <article key={item._id} className="rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4 shadow-[0_1px_2px_rgba(32,35,31,0.03)]">
-                  <div className="flex gap-3">
-                    <div className="flex h-16 w-16 shrink-0 items-center justify-center border border-[var(--admin-border)] bg-[var(--admin-surface-muted)]">
-                      {item.imageUrl ? <img src={item.imageUrl} alt={item.name} loading="lazy" className="h-14 w-14 object-contain" /> : <span className="text-xs font-bold text-slate-400">No img</span>}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="font-sans font-semibold text-slate-950">{item.name}</h3>
-                        <StatusBadge tone="neutral">{['skin', 'emote'].includes(item.type) ? `${item.type} · legacy` : item.type}</StatusBadge>
-                        <StatusBadge tone={item.isActive === false ? 'neutral' : 'success'}>{item.isActive === false ? 'Inactive' : 'Active'}</StatusBadge>
-                      </div>
-                      <p className="mt-1 line-clamp-2 text-sm font-semibold text-slate-500">{item.description || 'Chưa có mô tả.'}</p>
-                    </div>
-                  </div>
-                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--admin-border)] pt-3">
-                    <p className="text-sm font-semibold text-slate-700">{formatNumber(item.price?.coins)} Coin</p>
-                    {canWriteCatalog && <div className="flex flex-wrap gap-2">
-                      <Button variant="subtle" disabled={!!pendingItemId} onClick={() => startEditing(item)}>Sửa</Button>
-                      <Button variant="secondary" disabled={!!pendingItemId} onClick={() => toggleItem(item)}>{pendingItemId === item._id ? 'Đang xử lý...' : item.isActive === false ? 'Bật' : 'Tắt'}</Button>
-                      <Button variant="danger" disabled={!!pendingItemId} onClick={() => { setDeleteTarget(item); setDeleteReason(''); setDeleteRequestId(createAdminOperationRequestId()); }}>Xóa</Button>
-                    </div>}
-                  </div>
-                </article>
-              ))}
+      {message.text && <Alert tone={message.tone}>{message.text}</Alert>}
+      {!canWriteCatalog && (
+        <Alert tone="warning">
+          Chế độ chỉ đọc: Tài khoản của bạn hiện không có quyền ghi ('catalog.write') để thêm hoặc sửa vật phẩm. Nếu tài khoản vừa được cấp quyền Quản trị viên, vui lòng Đăng xuất và Đăng nhập lại để làm mới token và phiên làm việc.
+        </Alert>
+      )}
+
+      {/* Summary KPI Cards */}
+      <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {[
+          ['Tổng vật phẩm', summary.total],
+          ['Đang bán (Active)', summary.active],
+          ['Đang tắt (Inactive)', summary.inactive],
+        ].map(([label, value]) => (
+          <div
+            key={label}
+            className="rounded-xl border border-[var(--admin-border)] bg-[var(--admin-surface)] p-3.5 shadow-2xs"
+          >
+            <dt className="text-xs font-semibold text-[var(--admin-text-muted)]">{label}</dt>
+            <dd className="mt-1 font-mono text-2xl font-bold tracking-tight text-[var(--admin-text)]">
+              {formatNumber(value)}
+            </dd>
+          </div>
+        ))}
+      </dl>
+
+      {/* Filter and View Switcher Toolbar */}
+      <Toolbar>
+        <div className="flex flex-1 flex-wrap items-center gap-3">
+          <Field label="Tìm vật phẩm">
+            <input
+              className={`${inputClass} min-w-[200px] md:min-w-56`}
+              type="search"
+              value={filters.search}
+              onChange={(event) => setFilters({ ...filters, search: event.target.value })}
+              placeholder="Nhập tên vật phẩm..."
+            />
+          </Field>
+          <Field label="Loại">
+            <select
+              className={inputClass}
+              value={filters.type}
+              onChange={(event) => setFilters({ ...filters, type: event.target.value })}
+            >
+              <option value="">Tất cả loại</option>
+              <option value="protector">Bọc bài (Protector)</option>
+              <option value="avatar_frame">Khung avatar</option>
+              <option value="field">Bàn đấu (Field)</option>
+              <option value="skin">Skin (legacy)</option>
+              <option value="emote">Emote (legacy)</option>
+            </select>
+          </Field>
+          <Field label="Độ hiếm">
+            <select
+              className={inputClass}
+              value={filters.rarity}
+              onChange={(event) => setFilters({ ...filters, rarity: event.target.value })}
+            >
+              <option value="">Tất cả độ hiếm</option>
+              <option value="common">Common</option>
+              <option value="rare">Rare</option>
+              <option value="epic">Epic</option>
+              <option value="legendary">Legendary</option>
+            </select>
+          </Field>
+          <Field label="Trạng thái">
+            <select
+              className={inputClass}
+              value={filters.status}
+              onChange={(event) => setFilters({ ...filters, status: event.target.value })}
+            >
+              <option value="">Tất cả trạng thái</option>
+              <option value="active">Đang bán (Active)</option>
+              <option value="inactive">Đang tắt (Inactive)</option>
+            </select>
+          </Field>
+          {filtersActive && (
+            <div className="flex items-end self-end pb-0.5">
+              <Button
+                type="button"
+                variant="subtle"
+                onClick={() => setFilters({ search: '', type: '', rarity: '', status: '' })}
+              >
+                Đặt lại
+              </Button>
             </div>
           )}
-        </section>
-      </div>
-      {canWriteCatalog && <ConfirmDialog open={!!deleteTarget} title="Xóa vật phẩm?" description={`Vật phẩm "${deleteTarget?.name}" sẽ bị xóa vĩnh viễn. Nếu đã có người mua, nên tắt thay vì xóa.`} confirmLabel={pendingItemId ? 'Đang xóa...' : 'Xóa'} confirmDisabled={!deleteReason.trim() || !!pendingItemId} onConfirm={deleteItem} onClose={() => { setDeleteTarget(null); setDeleteReason(''); }}><Field label="Lý do ghi audit"><input className={inputClass} value={deleteReason} onChange={(event) => setDeleteReason(event.target.value)} placeholder="Ví dụ: Trùng dữ liệu import" /></Field></ConfirmDialog>}
+        </div>
+
+        {/* View Mode Toggle */}
+        <div className="flex items-center gap-1 self-end rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface-muted)] p-1 text-xs">
+          <button
+            type="button"
+            onClick={() => setViewMode('table')}
+            className={`flex items-center gap-1 rounded-md px-2.5 py-1.5 font-semibold transition-all ${
+              viewMode === 'table'
+                ? 'bg-[var(--admin-surface)] text-[var(--admin-text)] shadow-xs'
+                : 'text-[var(--admin-text-muted)] hover:text-[var(--admin-text)]'
+            }`}
+          >
+            📋 Bảng
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('grid')}
+            className={`flex items-center gap-1 rounded-md px-2.5 py-1.5 font-semibold transition-all ${
+              viewMode === 'grid'
+                ? 'bg-[var(--admin-surface)] text-[var(--admin-text)] shadow-xs'
+                : 'text-[var(--admin-text-muted)] hover:text-[var(--admin-text)]'
+            }`}
+          >
+            ▦ Lưới
+          </button>
+        </div>
+      </Toolbar>
+
+      {/* Main Content Area */}
+      <section>
+        {loading ? (
+          <SkeletonBlock rows={5} />
+        ) : catalog.length === 0 ? (
+          <EmptyState
+            title="Shop chưa có vật phẩm"
+            description="Hãy thêm vật phẩm đầu tiên để người chơi có thể mua sắm trong game."
+            action={
+              canWriteCatalog && (
+                <Button variant="primary" onClick={openCreateModal}>
+                  ＋ Thêm vật phẩm ngay
+                </Button>
+              )
+            }
+          />
+        ) : visibleCatalog.length === 0 ? (
+          <EmptyState
+            title="Không có vật phẩm phù hợp"
+            description="Thử thay đổi từ khóa hoặc đặt lại bộ lọc để xem toàn bộ danh mục."
+            action={
+              <Button variant="secondary" onClick={() => setFilters({ search: '', type: '', rarity: '', status: '' })}>
+                Đặt lại bộ lọc
+              </Button>
+            }
+          />
+        ) : viewMode === 'table' ? (
+          /* TABLE VIEW */
+          <DataTable
+            columns={['Ảnh', 'Tên vật phẩm', 'Loại', 'Độ hiếm', 'Giá Coin', 'Trạng thái', 'Thứ tự', 'Thao tác']}
+          >
+            {visibleCatalog.map((item) => (
+              <tr key={item._id} className="text-sm">
+                <td className="px-4 py-3">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface-muted)]">
+                    {item.imageUrl ? (
+                      <img
+                        src={resolveAssetUrl(item.imageUrl)}
+                        alt={item.name}
+                        loading="lazy"
+                        className="h-10 w-10 object-contain"
+                      />
+                    ) : (
+                      <span className="text-[10px] font-bold text-slate-400">No img</span>
+                    )}
+                  </div>
+                </td>
+                <td className="px-4 py-3 font-medium">
+                  <div className="font-semibold text-slate-950">{item.name}</div>
+                  {item.description && (
+                    <div className="line-clamp-1 max-w-xs text-xs text-slate-500 font-normal">{item.description}</div>
+                  )}
+                </td>
+                <td className="px-4 py-3">
+                  <StatusBadge tone="neutral">
+                    {['skin', 'emote'].includes(item.type) ? `${item.type} (legacy)` : item.type}
+                  </StatusBadge>
+                </td>
+                <td className="px-4 py-3">
+                  <StatusBadge tone={rarityBadgeTones[item.rarity] || 'neutral'}>
+                    {item.rarity || 'common'}
+                  </StatusBadge>
+                </td>
+                <td className="px-4 py-3 font-mono font-semibold text-slate-900">
+                  {formatNumber(item.price?.coins)} Coin
+                </td>
+                <td className="px-4 py-3">
+                  {canWriteCatalog ? (
+                    <button
+                      type="button"
+                      disabled={pendingItemId === item._id}
+                      onClick={() => toggleItem(item)}
+                      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer ${
+                        item.isActive !== false
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                          : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'
+                      }`}
+                    >
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full ${
+                          item.isActive !== false ? 'bg-emerald-500' : 'bg-slate-400'
+                        }`}
+                      />
+                      {item.isActive !== false ? 'Đang bán' : 'Tạm tắt'}
+                    </button>
+                  ) : (
+                    <StatusBadge tone={item.isActive === false ? 'neutral' : 'success'}>
+                      {item.isActive === false ? 'Inactive' : 'Active'}
+                    </StatusBadge>
+                  )}
+                </td>
+                <td className="px-4 py-3 font-mono text-xs text-slate-500">{item.sortOrder || 0}</td>
+                <td className="px-4 py-3">
+                  {canWriteCatalog && (
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        variant="subtle"
+                        className="h-8 px-2.5 text-xs"
+                        disabled={!!pendingItemId}
+                        onClick={() => startEditing(item)}
+                      >
+                        Sửa
+                      </Button>
+                      <Button
+                        variant="danger"
+                        className="h-8 px-2.5 text-xs"
+                        disabled={!!pendingItemId}
+                        onClick={() => {
+                          setDeleteTarget(item);
+                          setDeleteReason('');
+                          setDeleteRequestId(createAdminOperationRequestId());
+                        }}
+                      >
+                        Xóa
+                      </Button>
+                    </div>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </DataTable>
+        ) : (
+          /* GRID VIEW */
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {visibleCatalog.map((item) => (
+              <AdminCard key={item._id} className="flex flex-col p-4">
+                <div className="flex gap-3">
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface-muted)]">
+                    {item.imageUrl ? (
+                      <img
+                        src={resolveAssetUrl(item.imageUrl)}
+                        alt={item.name}
+                        loading="lazy"
+                        className="h-14 w-14 object-contain"
+                      />
+                    ) : (
+                      <span className="text-xs font-bold text-slate-400">No img</span>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <h3 className="font-sans font-semibold text-slate-950 truncate">{item.name}</h3>
+                    </div>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      <StatusBadge tone="neutral">{item.type}</StatusBadge>
+                      <StatusBadge tone={rarityBadgeTones[item.rarity] || 'neutral'}>
+                        {item.rarity}
+                      </StatusBadge>
+                    </div>
+                    <p className="mt-1.5 line-clamp-2 text-xs text-slate-500">{item.description || 'Chưa có mô tả.'}</p>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex flex-1 items-end justify-between border-t border-[var(--admin-border)] pt-3">
+                  <div>
+                    <span className="text-[11px] text-slate-400 font-semibold block">Giá bán</span>
+                    <span className="text-sm font-bold text-slate-900 font-mono">
+                      {formatNumber(item.price?.coins)} Coin
+                    </span>
+                  </div>
+
+                  {canWriteCatalog && (
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        variant="secondary"
+                        className="h-8 px-2 text-xs"
+                        disabled={!!pendingItemId}
+                        onClick={() => toggleItem(item)}
+                      >
+                        {item.isActive !== false ? 'Tắt' : 'Bật'}
+                      </Button>
+                      <Button
+                        variant="subtle"
+                        className="h-8 px-2 text-xs"
+                        disabled={!!pendingItemId}
+                        onClick={() => startEditing(item)}
+                      >
+                        Sửa
+                      </Button>
+                      <Button
+                        variant="danger"
+                        className="h-8 px-2 text-xs"
+                        disabled={!!pendingItemId}
+                        onClick={() => {
+                          setDeleteTarget(item);
+                          setDeleteReason('');
+                          setDeleteRequestId(createAdminOperationRequestId());
+                        }}
+                      >
+                        Xóa
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </AdminCard>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Item Create & Edit Modal */}
+      {canWriteCatalog && (
+        <ItemEditorModal
+          isOpen={isModalOpen}
+          editingItem={editing}
+          onClose={() => {
+            setIsModalOpen(false);
+            setEditing(null);
+          }}
+          onSave={handleSaveItem}
+          saving={saving}
+        />
+      )}
+
+      {/* Delete Confirmation Dialog with Audit Reason */}
+      {canWriteCatalog && (
+        <ConfirmDialog
+          open={!!deleteTarget}
+          title="Xóa vĩnh viễn vật phẩm?"
+          description={`Vật phẩm "${deleteTarget?.name}" sẽ bị xóa vĩnh viễn khỏi cơ sở dữ liệu. Nếu đã có người chơi sở hữu, hệ thống sẽ ngăn chặn việc xóa và khuyên bạn nên Tắt bán.`}
+          confirmLabel={pendingItemId ? 'Đang xóa...' : 'Xác nhận xóa'}
+          confirmDisabled={!deleteReason.trim() || !!pendingItemId}
+          onConfirm={deleteItem}
+          onClose={() => {
+            setDeleteTarget(null);
+            setDeleteReason('');
+          }}
+        >
+          <Field label="Lý do ghi nhật ký Audit (Bắt buộc)">
+            <input
+              className={inputClass}
+              value={deleteReason}
+              onChange={(event) => setDeleteReason(event.target.value)}
+              placeholder="Ví dụ: Xóa vật phẩm trùng lặp hoặc hết hạn sự kiện..."
+              autoFocus
+            />
+          </Field>
+        </ConfirmDialog>
+      )}
     </div>
   );
 }

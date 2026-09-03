@@ -3,7 +3,7 @@ import { gsap } from 'gsap';
 import { CoinIcon } from '../components/CoinDisplay.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import CustomDialog from '../components/CustomDialog.jsx';
-import { isOwnedItem } from '../utils/shopEquipment.js';
+import { isOwnedItem, resolveAssetUrl } from '../utils/shopEquipment.js';
 
 export default function Shop({ setPage }) {
   const { t, language } = useLanguage();
@@ -175,7 +175,15 @@ export default function Shop({ setPage }) {
           </div>
           <button 
             onClick={() => {
-              alert(t('shop_get_more_alert'));
+              setDialogState({
+                isOpen: true,
+                title: t('shop_get_more') || 'Nạp thêm Xu',
+                message: t('shop_get_more_alert'),
+                isConfirm: false,
+                confirmText: 'ĐÃ HIỂU',
+                onConfirm: () => setDialogState({ isOpen: false }),
+                onCancel: () => setDialogState({ isOpen: false }),
+              });
             }}
             className="bg-[var(--pop-red)] border-2 border-[var(--pop-black)] text-white text-[10px] font-pop-accent font-black uppercase px-3.5 py-1.5 rounded-none shadow-[2px_2px_0_var(--pop-black)] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[3px_3px_0_var(--pop-black)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all cursor-pointer"
           >
@@ -238,7 +246,7 @@ export default function Shop({ setPage }) {
             return (
               <div 
                 key={item._id}
-                className="shop-card relative bg-white border-3 border-[var(--pop-black)] rounded-none p-4 flex flex-col justify-between gap-4 shadow-[4px_4px_0_var(--pop-black)] h-84"
+                className="shop-card relative bg-white border-3 border-[var(--pop-black)] rounded-none p-4 flex flex-col justify-between gap-3 shadow-[4px_4px_0_var(--pop-black)] min-h-[22rem] h-auto"
               >
                 {/* Ribbon labels overlay */}
                 {isLegendary && (
@@ -253,24 +261,55 @@ export default function Shop({ setPage }) {
                 )}
 
                 {/* Main Image Illustration */}
-                <div className={`border-2 border-[var(--pop-black)] rounded-none h-36 flex items-center justify-center relative overflow-hidden
+                <div className={`border-2 border-[var(--pop-black)] rounded-none h-44 flex items-center justify-center relative overflow-hidden p-2
                   ${isLegendary 
                     ? 'bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-400' 
                     : isEpic 
                       ? 'bg-gradient-to-br from-rose-50 to-rose-100 border-rose-400' 
                       : 'bg-slate-50'}`}>
-                  <span className="text-5xl" aria-hidden="true">
-                    {item.type === 'protector' && '🂠'}
-                    {item.type === 'avatar_frame' && '🖼️'}
-                    {item.type === 'field' && '⚔️'}
-                  </span>
-                  {item.imageUrl && (
-                    <img
-                      src={item.imageUrl}
-                      alt={item.name}
-                      className="absolute inset-0 h-full w-full object-cover"
-                      onError={(event) => event.currentTarget.remove()}
-                    />
+                  {item.type === 'protector' ? (
+                    <div
+                      className="relative h-full max-h-40 rounded-lg overflow-hidden border-2 border-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)] bg-white flex items-center justify-center"
+                      style={{ aspectRatio: '0.716 / 1' }}
+                    >
+                      {item.imageUrl ? (
+                        <img
+                          src={resolveAssetUrl(item.imageUrl)}
+                          alt={item.name}
+                          className="h-full w-full object-contain"
+                          onError={(event) => event.currentTarget.remove()}
+                        />
+                      ) : (
+                        <span className="text-4xl" aria-hidden="true">🂠</span>
+                      )}
+                    </div>
+                  ) : item.type === 'avatar_frame' ? (
+                    <div className="relative h-full max-h-36 aspect-square rounded-full overflow-hidden border-2 border-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)] bg-white flex items-center justify-center p-1">
+                      {item.imageUrl ? (
+                        <img
+                          src={resolveAssetUrl(item.imageUrl)}
+                          alt={item.name}
+                          className="h-full w-full object-contain"
+                          onError={(event) => event.currentTarget.remove()}
+                        />
+                      ) : (
+                        <span className="text-4xl" aria-hidden="true">🖼️</span>
+                      )}
+                    </div>
+                  ) : (
+                    /* Field or other types */
+                    <div className="relative h-full max-h-32 aspect-video rounded-md overflow-hidden border-2 border-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)] bg-slate-900 flex items-center justify-center">
+                      {item.imageUrl ? (
+                        <img
+                          src={resolveAssetUrl(item.imageUrl)}
+                          alt={item.name}
+                          className="h-full w-full object-cover"
+                          onError={(event) => event.currentTarget.remove()}
+                        />
+                      ) : (
+                        <span className="text-4xl" aria-hidden="true">⚔️</span>
+                      )}
+                    </div>
                   )}
                 </div>
 
@@ -352,7 +391,17 @@ export default function Shop({ setPage }) {
             $9.99
           </span>
           <button 
-            onClick={() => alert(t('shop_payment_maintenance_alert'))}
+            onClick={() => {
+              setDialogState({
+                isOpen: true,
+                title: t('shop_promo_title') || 'Thông báo gói ưu đãi',
+                message: t('shop_payment_maintenance_alert'),
+                isConfirm: false,
+                confirmText: 'ĐÃ HIỂU',
+                onConfirm: () => setDialogState({ isOpen: false }),
+                onCancel: () => setDialogState({ isOpen: false }),
+              });
+            }}
             className="bg-white border-3 border-[var(--pop-black)] text-[var(--pop-black)] font-pop-accent font-black text-xs uppercase px-6 py-3 rounded-none shadow-[3px_3px_0_var(--pop-black)] hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all text-center cursor-pointer"
           >
             {t('shop_promo_buy')}
@@ -368,7 +417,7 @@ export default function Shop({ setPage }) {
         isOpen={dialogState.isOpen}
         title={dialogState.title}
         message={dialogState.message}
-        isConfirm={true}
+        isConfirm={dialogState.isConfirm !== undefined ? dialogState.isConfirm : true}
         confirmText={dialogState.confirmText}
         cancelText={dialogState.cancelText}
         onConfirm={dialogState.onConfirm}
@@ -377,4 +426,3 @@ export default function Shop({ setPage }) {
     </div>
   );
 }
-

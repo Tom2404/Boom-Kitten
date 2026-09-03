@@ -4,6 +4,7 @@ import {
   getAssetTransformStyle,
   needsAssetFraming,
   normalizeAssetTransform,
+  resolveAssetUrl,
 } from '../../utils/shopEquipment.js';
 import { Alert, Button, inputClass } from './ui.jsx';
 
@@ -78,14 +79,19 @@ export default function AssetPositionEditor({
     <section className="grid gap-3" aria-labelledby="asset-framing-title">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h4 id="asset-framing-title" className="text-sm font-semibold text-[var(--admin-text)]">Căn asset trong khung chuẩn</h4>
-          <p className="mt-1 text-xs text-[var(--admin-text-muted)]">Kéo ảnh để đổi vị trí, sau đó chỉnh zoom nếu cần.</p>
+          <h4 id="asset-framing-title" className="text-sm font-semibold text-[var(--admin-text)]">
+            {type === 'protector' ? 'Căn khung thẻ bài (Tỉ lệ chuẩn 0.716 : 1)' : 'Căn asset trong khung chuẩn'}
+          </h4>
+          <p className="mt-1 text-xs text-[var(--admin-text-muted)]">
+            {type === 'protector' ? 'Toàn bộ thẻ bài hiển thị đúng tỉ lệ 0.716 : 1. Kéo để chỉnh vị trí hoặc zoom nếu cần.' : 'Kéo ảnh để đổi vị trí, sau đó chỉnh zoom nếu cần.'}
+          </p>
         </div>
         {state.dimensions && <span className="font-mono text-xs text-[var(--admin-text-muted)]">{state.dimensions}</span>}
       </div>
 
       <div
-        className={`relative mx-auto w-full touch-none cursor-move overflow-hidden border border-[var(--admin-border-strong)] bg-[var(--admin-surface-muted)] ${frameClass[type] || frameClass.protector}`}
+        className={`relative mx-auto w-full touch-none cursor-move overflow-hidden rounded-xl border border-[var(--admin-border-strong)] bg-[var(--admin-surface-muted)] shadow-xs ${frameClass[type] || frameClass.protector}`}
+        style={type === 'protector' ? { aspectRatio: '0.716 / 1', maxWidth: '13rem' } : undefined}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={stopDragging}
@@ -94,7 +100,7 @@ export default function AssetPositionEditor({
         <span className="absolute inset-0 grid place-items-center text-xs font-medium text-[var(--admin-text-muted)]">Đang tải preview…</span>
         <img
           key={`${type}:${url}`}
-          src={url}
+          src={resolveAssetUrl(url)}
           alt=""
           draggable="false"
           className={`absolute inset-0 h-full w-full select-none ${type === 'avatar_frame' ? 'object-contain' : 'object-cover'}`}

@@ -81,10 +81,12 @@ export default function Login({ setPage }) {
         )}
 
         <div className="flex flex-col gap-2">
-          <label className="text-[11px] font-pop-accent font-bold text-[var(--pop-black)] uppercase tracking-wider">{t('email_label')}</label>
+          <label className="text-[11px] font-pop-accent font-bold text-[var(--pop-black)] uppercase tracking-wider">Email hoặc Tên đăng nhập</label>
           <input
-            type="email"
-            placeholder="username@gmail.com"
+            type="text"
+            autoCapitalize="none"
+            autoCorrect="off"
+            placeholder="admin hoặc email@gmail.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="bg-[#FFFFFF] border-3 border-[var(--pop-black)] rounded-none px-4 py-3 text-xs text-[var(--pop-black)] font-bold focus:outline-none focus:bg-[var(--pop-cream)] focus:-translate-y-0.5 focus:-translate-x-0.5 transition-all shadow-[3px_3px_0_var(--pop-black)] focus:shadow-[5px_5px_0_var(--pop-black)]"

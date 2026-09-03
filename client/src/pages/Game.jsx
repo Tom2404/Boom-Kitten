@@ -36,6 +36,7 @@ import {
 } from '../components/ActionModals.jsx';
 import CustomDialog from '../components/CustomDialog.jsx';
 import { CoinIcon } from '../components/CoinDisplay.jsx';
+import PopToastContainer from '../components/ui/PopToast.jsx';
 import {
   CrownIcon,
   CheckCircleIcon,
@@ -653,6 +654,28 @@ export default function Game({ setPage, initialRoom = null }) {
     onConfirm: null,
   });
 
+  const [toasts, setToasts] = useState([]);
+
+  const showToast = React.useCallback(({ type = 'info', title, message, duration = 4000 }) => {
+    const id = Date.now() + Math.random().toString(36).slice(2, 6);
+    setToasts((prev) => [...prev, { id, type, title, message, duration }]);
+  }, []);
+
+  const removeToast = React.useCallback((id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  useEffect(() => {
+    if (statusMessage && statusMessage !== 'Đang chờ can thiệp...') {
+      showToast({
+        type: 'info',
+        title: language === 'vi' ? 'Thông báo' : 'Notice',
+        message: statusMessage,
+      });
+      setStatusMessage(null);
+    }
+  }, [statusMessage, showToast, setStatusMessage, language]);
+
   const isAuthenticated = !!localStorage.getItem('accessToken') && !!myUser && !myUser.id.startsWith('guest-');
 
   const showLoginRequired = (actionType) => {
@@ -928,7 +951,11 @@ export default function Game({ setPage, initialRoom = null }) {
   const handleDailyReward = async () => {
     const token = localStorage.getItem('accessToken');
     if (!token) {
-      alert(language === 'vi' ? 'Vui lòng đăng nhập để nhận thưởng!' : 'Please login to claim reward!');
+      showToast({
+        type: 'warning',
+        title: language === 'vi' ? 'Yêu cầu đăng nhập' : 'Login Required',
+        message: language === 'vi' ? 'Vui lòng đăng nhập để nhận thưởng hàng ngày!' : 'Please login to claim daily reward!',
+      });
       return;
     }
     try {
@@ -938,22 +965,41 @@ export default function Game({ setPage, initialRoom = null }) {
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.message || 'Có lỗi xảy ra');
+        showToast({
+          type: 'warning',
+          title: language === 'vi' ? 'Thông báo' : 'Notice',
+          message: data.message || (language === 'vi' ? 'Bạn đã nhận quà hôm nay rồi!' : 'Already claimed today!'),
+        });
         return;
       }
       const msg = language === 'vi'
-        ? `Nhận thành công ${data.rewardAmount} GoldCoin! (Chuỗi: ${data.consecutiveLoginDays + 1} ngày)`
-        : `Successfully claimed ${data.rewardAmount} GoldCoins! (Streak: ${data.consecutiveLoginDays + 1} days)`;
-      alert(msg);
+        ? `Nhận thành công +${data.rewardAmount} Xu Vàng! (Chuỗi điểm danh: ${data.consecutiveLoginDays + 1} ngày)`
+        : `Successfully claimed +${data.rewardAmount} GoldCoins! (Streak: ${data.consecutiveLoginDays + 1} days)`;
+      showToast({
+        type: 'success',
+        title: language === 'vi' ? 'Điểm danh thành công' : 'Reward Claimed',
+        message: msg,
+      });
       fetchUserProfile();
+      window.dispatchEvent(new Event('balance:updated'));
     } catch (e) {
-      alert(language === 'vi' ? 'Lỗi kết nối' : 'Connection error');
+      showToast({
+        type: 'error',
+        title: language === 'vi' ? 'Lỗi kết nối' : 'Connection Error',
+        message: language === 'vi' ? 'Không thể kết nối máy chủ để nhận quà.' : 'Cannot connect to server.',
+      });
     }
   };
 
   const handleCopyCode = (code) => {
     navigator.clipboard.writeText(code);
     setCopied(true);
+    showToast({
+      type: 'success',
+      title: language === 'vi' ? 'Đã sao chép' : 'Copied',
+      message: language === 'vi' ? `Đã sao chép mã phòng ${code} vào bộ nhớ tạm!` : `Copied room code ${code} to clipboard!`,
+      duration: 3000,
+    });
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -1621,12 +1667,14 @@ export default function Game({ setPage, initialRoom = null }) {
     userProfile,
     visibleEdition,
     voiceChatEnabled,
+    showToast,
   };
 
   if (!roomState) {
     return (
       <GameProvider value={lobbyViewProps}>
         <LobbyView />
+        <PopToastContainer toasts={toasts} onCloseToast={removeToast} />
       </GameProvider>
     );
   }
@@ -1668,6 +1716,7 @@ export default function Game({ setPage, initialRoom = null }) {
     t,
     toggleReady,
     updateRoomSettings,
+    showToast,
   };
 
   // ==========================================
@@ -1677,6 +1726,7 @@ export default function Game({ setPage, initialRoom = null }) {
     return (
       <GameProvider value={waitingRoomViewProps}>
         <WaitingRoomView />
+        <PopToastContainer toasts={toasts} onCloseToast={removeToast} />
       </GameProvider>
     );
   }
@@ -1800,12 +1850,14 @@ export default function Game({ setPage, initialRoom = null }) {
     t,
     zombieFog,
     zombieRequest,
+    showToast,
   };
 
   return (
     <GameProvider value={gameBoardViewProps}>
       <div id="nope-screen-warning-flash" className="nope-screen-flash pointer-events-none" aria-hidden="true" />
       <GameBoardView />
+      <PopToastContainer toasts={toasts} onCloseToast={removeToast} />
     </GameProvider>
   );
 }

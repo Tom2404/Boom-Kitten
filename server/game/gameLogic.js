@@ -83,7 +83,26 @@ function eliminatePlayer(gameState, playerId) {
 
 function checkWinCondition(gameState) {
   const alive = gameState.players.filter((p) => p.alive);
-  return alive.length === 1 ? alive[0].userId : null;
+  if (alive.length === 1) return alive[0].userId;
+  if (gameState.isDepletedWinner) return gameState.isDepletedWinner;
+  return null;
+}
+
+function checkDeckDepletion(gameState) {
+  if (!gameState || (gameState.deck && gameState.deck.length > 0)) return gameState;
+
+  const recyclable = (gameState.discardPile || []).filter(
+    (c) => c.type !== 'exploding_kitten' && c.type !== 'imploding_kitten'
+  );
+  if (recyclable.length > 0) return gameState;
+
+  const alivePlayers = gameState.players.filter((p) => p.alive);
+  if (alivePlayers.length > 1) {
+    gameState.drawsRequired = 0;
+    const winner = alivePlayers.reduce((max, p) => (p.hand.length > max.hand.length ? p : max), alivePlayers[0]);
+    gameState.isDepletedWinner = winner.userId;
+  }
+  return gameState;
 }
 
 // Check if a player's Exploding Kittens exceed their Streaking Kittens, and explode them if so.
@@ -385,6 +404,9 @@ function drawCard(gameState, playerId, fromBottom = false, onDefuse) {
 
 function handleNope(gameState, nopingPlayerId) {
   gameState.lastAction = { ...(gameState.lastAction ?? {}), canceledBy: nopingPlayerId, canceled: true };
+  if (gameState.lastAction?.cardType === 'barking_kitten' && gameState.barkingKittenState) {
+    gameState.barkingKittenState.waitingHolder = null;
+  }
   return gameState;
 }
 
@@ -403,6 +425,12 @@ function playCard(gameState, playerId, cardType, targetPlayerId, options = {}) {
   if (checkType === 'feed_the_dead' || checkType === 'grave_robber') {
     const deadPlayers = gameState.players.filter(p => !p.alive && !p.forfeited);
     if (deadPlayers.length === 0) return null;
+  }
+
+  if (checkType === 'favor') {
+    if (!targetPlayerId) return null;
+    const targetPlayer = getPlayer(gameState, targetPlayerId);
+    if (!targetPlayer || !targetPlayer.alive || targetPlayer.hand.length === 0) return null;
   }
 
   let card;
@@ -692,11 +720,13 @@ function resolveBarkingKittenAction(gameState, playerId, targetPlayerId) {
 
 module.exports = {
   playCard,
+  handleNope,
   resolveBarkingKittenAction,
   drawCard,
   handleCombo,
   validateCombo,
   checkWinCondition,
+  checkDeckDepletion,
   eliminatePlayer,
   resolveZombieRevive,
   resolveDefusePutBack,

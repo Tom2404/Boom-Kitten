@@ -102,7 +102,11 @@ export default function App() {
         const base64Url = token.split('.')[1];
         const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
         const payload = JSON.parse(window.atob(base64));
-        setUserRole(payload.role || 'user');
+        const role = payload.role || 'user';
+        setUserRole(role);
+        if (isAdminRole(role)) {
+          setPage((current) => (current === 'ResetPassword' ? current : 'Admin'));
+        }
       } catch (e) {
         setUserRole('user');
       }
@@ -128,11 +132,10 @@ export default function App() {
     };
 
     const handleRoomUpdated = ({ room }) => {
+      if (isAdminRole(userRole)) return;
       setActiveRoom(room);
       if (shouldResumeActiveMatch(room)) setPage('Game');
     };
-
-    socket.on('server_announcement', handleAnnouncement);
     socket.on('room:updated', handleRoomUpdated);
 
     return () => {
@@ -195,7 +198,7 @@ export default function App() {
 
   // Global access guard for admin role to restrict user-facing routes
   useEffect(() => {
-    if (isAdminRole(userRole) && ['Game', 'Mission', 'Shop', 'Wardrobe', 'Profile', 'Friends', 'Leaderboard', 'Tournaments'].includes(page)) {
+    if (isAdminRole(userRole) && ['Game', 'Mission', 'Shop', 'Wardrobe', 'Profile', 'Friends', 'Leaderboard', 'Tournaments', 'Home', 'Lobby'].includes(page)) {
       setPage('Admin');
     }
   }, [page, userRole]);
@@ -209,7 +212,7 @@ export default function App() {
 
   useEffect(() => {
     const handleRoomInvitation = ({ roomCode, inviterUsername, expiresAt }) => {
-      if (!roomCode || expiresAt <= Date.now()) return;
+      if (isAdminRole(userRole) || !roomCode || expiresAt <= Date.now()) return;
       setDialogState({
         isOpen: true,
         title: 'Lời mời vào phòng',
@@ -223,9 +226,14 @@ export default function App() {
     };
     socket.on('room:invitation', handleRoomInvitation);
     return () => socket.off('room:invitation', handleRoomInvitation);
-  }, [socket]);
+  }, [socket, userRole]);
 
   const navigateWithConfirm = (targetPage) => {
+    if (isAdminRole(userRole) && targetPage !== 'Admin' && targetPage !== 'ResetPassword') {
+      setPage('Admin');
+      return;
+    }
+
     if (activeRoom && (activeRoom.status === 'waiting' || activeRoom.status === 'playing')) {
       setDialogState({
         isOpen: true,

@@ -6,7 +6,7 @@ import {
   getPlayerStatus,
   getReconnectRemainingSeconds,
 } from '../utils/gameRoomUi.js';
-import { getAssetTransformStyle, getProtectorStackSize } from '../utils/shopEquipment.js';
+import { getAssetTransformStyle, getProtectorStackSize, resolveAssetUrl } from '../utils/shopEquipment.js';
 
 const PRESET_AVATARS = {
   angry_kitten: '😿',
@@ -45,8 +45,8 @@ export default function PlayerAvatar({
     markedCards,
     pendingTakeFrom,
   } = player;
-  const avatarFrameUrl = avatarFrame?.assetUrl;
-  const protectorUrl = protector?.assetUrl;
+  const avatarFrameUrl = resolveAssetUrl(avatarFrame?.assetUrl);
+  const protectorUrl = resolveAssetUrl(protector?.assetUrl);
   const protectorStackSize = getProtectorStackSize(handCount);
   const visibleMarkedCards = markedCards?.slice(0, 3) ?? [];
   const hiddenMarkedCount = Math.max((markedCards?.length ?? 0) - visibleMarkedCards.length, 0);

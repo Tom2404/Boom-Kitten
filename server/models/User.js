@@ -81,6 +81,6 @@ const userSchema = new mongoose.Schema(
 );
 
 userSchema.index({ createdAt: 1, _id: 1 });
+userSchema.index({ isOnline: 1, matchmakingRating: 1 });
 
 module.exports = mongoose.model('User', userSchema);
-
