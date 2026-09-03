@@ -22,6 +22,7 @@ const leaderboardRoutes = require('./routes/leaderboard');
 const errorHandler = require('./middleware/errorHandler');
 const requestContext = require('./middleware/requestContext');
 const securityHeaders = require('./middleware/securityHeaders');
+const mongoSanitize = require('./middleware/mongoSanitize');
 const registerGameSocket = require('./sockets/gameSocket');
 const { startAnnouncementScheduler } = require('./services/admin/announcementService');
 
@@ -67,6 +68,7 @@ app.disable('x-powered-by');
 app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(securityHeaders);
 app.use(express.json({ limit: '100kb' }));
+app.use(mongoSanitize);
 app.use(requestContext);
 
 const assetRoutes = require('./routes/assets');

@@ -61,7 +61,29 @@ export default function Wardrobe({ setPage }) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [toast, setToast] = useState(null);
+  const [presets, setPresets] = useState([]);
   const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5000';
+
+  // Load Presets from LocalStorage
+  useEffect(() => {
+    try {
+      const storageKey = `boom_kitten_wardrobe_presets_${profile.username}`;
+      const saved = localStorage.getItem(storageKey);
+      if (saved) setPresets(JSON.parse(saved));
+    } catch {
+      setPresets([]);
+    }
+  }, [profile.username]);
+
+  const savePresetsToStorage = (updated) => {
+    try {
+      const storageKey = `boom_kitten_wardrobe_presets_${profile.username}`;
+      localStorage.setItem(storageKey, JSON.stringify(updated));
+      setPresets(updated);
+    } catch {
+      setPresets(updated);
+    }
+  };
 
   const getRequestError = (data, fallbackKey) => {
     const code = data.error?.code || data.code;
@@ -231,6 +253,96 @@ export default function Wardrobe({ setPage }) {
     performEquipment(action.request);
   };
 
+  // Preset Handlers
+  const handleSavePreset = (name) => {
+    const newPreset = {
+      id: `preset_${Date.now()}`,
+      name,
+      equipped: {
+        protector: getId(wardrobe.equipped.protector) || null,
+        avatarFrame: getId(wardrobe.equipped.avatarFrame) || null,
+        field: getId(wardrobe.equipped.field) || null,
+      },
+      createdAt: Date.now(),
+    };
+    const updated = [newPreset, ...presets];
+    savePresetsToStorage(updated);
+    setToast({
+      id: Date.now(),
+      tone: 'success',
+      message: t('wardrobe_preset_saved_toast', { name }),
+    });
+  };
+
+  const handleApplyPreset = async (preset) => {
+    const token = localStorage.getItem('accessToken');
+    if (!token || pendingItemId) return;
+    setPendingItemId('applying_preset');
+    try {
+      const results = {};
+      for (const { slot } of EQUIPMENT_SLOTS) {
+        const targetItemId = preset.equipped[slot] || null;
+        const currentItemId = getId(wardrobe.equipped[slot]) || null;
+        if (targetItemId !== currentItemId) {
+          const res = await requestJson(`/api/shop/equipment/${slot}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ itemId: targetItemId }),
+          }, 'shop_equipment_update_fail');
+          if (res.equipped) results[slot] = res.equipped[slot];
+        }
+      }
+      setWardrobe((current) => ({
+        ...current,
+        equipped: { ...current.equipped, ...results },
+      }));
+      setToast({
+        id: Date.now(),
+        tone: 'success',
+        message: t('wardrobe_preset_applied_toast', { name: preset.name }),
+      });
+    } catch (error) {
+      setToast({
+        id: Date.now(),
+        tone: 'error',
+        message: error.message || t('shop_equipment_update_fail'),
+      });
+    } finally {
+      setPendingItemId(null);
+    }
+  };
+
+  const handleDeletePreset = (presetId) => {
+    const target = presets.find((p) => p.id === presetId);
+    const updated = presets.filter((p) => p.id !== presetId);
+    savePresetsToStorage(updated);
+    if (target) {
+      setToast({
+        id: Date.now(),
+        tone: 'success',
+        message: t('wardrobe_preset_deleted_toast', { name: target.name }),
+      });
+    }
+  };
+
+  // Randomize Outfit
+  const handleRandomize = () => {
+    const owned = items.filter((i) => i.isOwned);
+    if (!owned.length) return;
+    const byType = { protector: [], avatar_frame: [], field: [] };
+    owned.forEach((item) => {
+      if (byType[item.type]) byType[item.type].push(item);
+    });
+
+    const randomProtector = byType.protector[Math.floor(Math.random() * byType.protector.length)] || null;
+    const randomFrame = byType.avatar_frame[Math.floor(Math.random() * byType.avatar_frame.length)] || null;
+    const randomField = byType.field[Math.floor(Math.random() * byType.field.length)] || null;
+
+    if (randomProtector) applyItem(randomProtector);
+    if (randomFrame) applyItem(randomFrame);
+    if (randomField) applyItem(randomField);
+  };
+
   if (loading) return <WardrobeSkeleton label={t('wardrobe_loading')} />;
 
   if (loadError) {
@@ -244,13 +356,13 @@ export default function Wardrobe({ setPage }) {
   }
 
   return (
-    <div ref={pageRef} className={`wardrobe-shell text-left font-pop-body ${pinnedItem ? 'max-[479px]:pb-24' : ''}`}>
-      <header className="mb-4">
+    <div ref={pageRef} className={`wardrobe-shell text-left font-pop-body max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 ${pinnedItem ? 'max-[479px]:pb-24' : ''}`}>
+      <header className="mb-5 sm:mb-6">
         <h1 className="wardrobe-page-title font-pop-display font-black uppercase leading-none text-white text-stroke-black-3" style={{ textShadow: '3px 3px 0 var(--pop-orange)' }}>{t('wardrobe_title')}</h1>
-        <p className="mt-2 max-w-2xl text-sm font-bold text-[var(--pop-black)]/65">{t('wardrobe_desc')}</p>
+        <p className="mt-2 max-w-2xl text-sm font-bold text-[var(--pop-black)]/70">{t('wardrobe_desc')}</p>
       </header>
 
-      <div className="grid items-start gap-5 lg:grid-cols-[minmax(22rem,38fr)_minmax(0,62fr)]">
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(22rem,38fr)_minmax(0,62fr)]">
         <WardrobePreview
           profile={profile}
           equipped={wardrobe.equipped}
@@ -263,6 +375,11 @@ export default function Wardrobe({ setPage }) {
           onChangeType={changeType}
           onUnequip={unequipItem}
           onShop={() => setPage('Shop')}
+          onRandomize={handleRandomize}
+          presets={presets}
+          onSavePreset={handleSavePreset}
+          onApplyPreset={handleApplyPreset}
+          onDeletePreset={handleDeletePreset}
         />
         <WardrobeInventory
           selectedType={selectedType}

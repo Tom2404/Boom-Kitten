@@ -39,8 +39,8 @@ test('shop item action moves from buy to equip to equipped', () => {
 test('ownership compares stable ids and equipped assets prefer assetUrl', () => {
   assert.equal(isOwnedItem({ _id: 'field-1' }, ['field-1']), true);
   assert.equal(isOwnedItem({ _id: 'field-2' }, ['field-1']), false);
-  assert.equal(getEquippedAssetUrl({ assetUrl: '/runtime.webp', imageUrl: '/thumb.webp' }), '/runtime.webp');
-  assert.equal(getEquippedAssetUrl({ imageUrl: '/thumb.webp' }), '/thumb.webp');
+  assert.equal(getEquippedAssetUrl({ assetUrl: '/runtime.webp', imageUrl: '/thumb.webp' }), 'http://localhost:5000/runtime.webp');
+  assert.equal(getEquippedAssetUrl({ imageUrl: '/thumb.webp' }), 'http://localhost:5000/thumb.webp');
   assert.equal(getEquippedAssetUrl(null), '');
 });
 

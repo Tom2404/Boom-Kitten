@@ -22,6 +22,7 @@ const {
   buildReconnectInteractionRequest,
   getInteractionEventName,
 } = require('./interactionEvents');
+const attachSocketHandlers = require('./handlers');
 const {
   RECONNECT_GRACE_MS,
   createRoom,
@@ -106,6 +107,17 @@ function clearRoomReconnectTimers(roomCode) {
   }
 }
 
+function safeSocketHandler(socket, handler) {
+  return async (...args) => {
+    try {
+      await handler(...args);
+    } catch (error) {
+      console.error(`Socket error on [${socket.id}]:`, error);
+      socket.emit('error', { message: error.message || 'Hệ thống gặp sự cố, vui lòng thử lại.' });
+    }
+  };
+}
+
 async function updateQuestProgress(userId, actionType, count = 1) {
   try {
     if (!userId || userId.startsWith('guest-') || !mongoose.Types.ObjectId.isValid(userId)) return;
@@ -118,26 +130,17 @@ async function updateQuestProgress(userId, actionType, count = 1) {
 
     await Promise.all(
       activeQuests.map(async (quest) => {
-        let progress = await UserQuestProgress.findOne({ userId, questId: quest._id });
-        if (!progress) {
-          progress = await UserQuestProgress.create({
-            userId,
-            questId: quest._id,
-            currentCount: 0,
-            status: 'in_progress',
-            expiresAt: endOfDay,
-          });
-        } else if (progress.expiresAt < now) {
-          progress.currentCount = 0;
-          progress.status = 'in_progress';
-          progress.expiresAt = endOfDay;
-        }
+        const progress = await UserQuestProgress.findOneAndUpdate(
+          { userId, questId: quest._id, expiresAt: { $gte: now }, status: { $ne: 'completed' } },
+          {
+            $inc: { currentCount: count },
+            $setOnInsert: { status: 'in_progress', expiresAt: endOfDay },
+          },
+          { upsert: true, new: true }
+        );
 
-        if (progress.status === 'in_progress') {
-          progress.currentCount += count;
-          if (progress.currentCount >= quest.targetCount) {
-            progress.status = 'completed';
-          }
+        if (progress && progress.currentCount >= quest.targetCount && progress.status !== 'completed') {
+          progress.status = 'completed';
           await progress.save();
         }
       })
@@ -1085,6 +1088,16 @@ module.exports = function registerGameSocket(io) {
     const guestId = socket.handshake.auth?.guestId || `guest-${socket.id}`;
     const userId = socket.user?.id ?? guestId;
     socket.join(`user:${userId}`);
+
+    // Attach modular domain handlers
+    const helpers = {
+      getUserId: (s) => s.user?.id ?? s.handshake.auth?.guestId ?? `guest-${s.id}`,
+      emitRoomUpdated,
+      findUserByIdSafe,
+      toPlayerPresentation,
+      safeSocketHandler,
+    };
+    attachSocketHandlers(io, socket, helpers);
 
     // Auto re-join room if the user was already in one (supports tab switching and reconnection)
     const activeRoom = findRoomByUser(userId);

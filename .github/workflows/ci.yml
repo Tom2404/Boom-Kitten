@@ -1,0 +1,50 @@
+name: Boom-Kitten CI
+
+on:
+  push:
+    branches: [ main, tiny-code, feature/*, fix/* ]
+  pull_request:
+    branches: [ main, tiny-code ]
+
+jobs:
+  test-server:
+    name: Server Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: server/package-lock.json
+      - name: Install Server Dependencies
+        run: npm ci
+        working-directory: server
+      - name: Run Server Tests
+        run: npm test
+        working-directory: server
+
+  test-client:
+    name: Client Tests & Asset Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: client/package-lock.json
+      - name: Install Client Dependencies
+        run: npm ci
+        working-directory: client
+      - name: Run Client Tests
+        run: npm test
+        working-directory: client
+      - name: Validate VFX Assets
+        run: npm run validate:vfx
+        working-directory: client
+      - name: Validate VFX Registry
+        run: npm run validate:vfx-registry
+        working-directory: client
