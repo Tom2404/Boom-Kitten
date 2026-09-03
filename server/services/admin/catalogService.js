@@ -41,8 +41,28 @@ function validateCatalogInput(input) {
   }
   const unsafeAssetFields = ['imageUrl', 'previewUrl'].filter((field) => input[field] && !isSafeAssetUrl(input[field]));
   if (unsafeAssetFields.length) {
-    throw new ApiError(422, 'VALIDATION_ERROR', 'URL asset không hợp lệ.', {
-      fields: Object.fromEntries(unsafeAssetFields.map((field) => [field, 'Chỉ hỗ trợ đường dẫn asset nội bộ cùng origin bắt đầu bằng /'])),
+    const reasons = unsafeAssetFields.map((field) => {
+      const val = String(input[field] || '');
+      let explanation = 'phải bắt đầu bằng dấu gạch chéo "/" (ví dụ: /assets/... hoặc /uploads/...)';
+      if (val.startsWith('http://') || val.startsWith('https://')) {
+        explanation = 'không hỗ trợ link ngoài (http/https), chỉ hỗ trợ đường dẫn nội bộ bắt đầu bằng "/"';
+      } else if (val.startsWith('data:')) {
+        explanation = 'không hỗ trợ chuỗi base64/data URI, vui lòng tải file ảnh lên qua tab "Tải lên"';
+      } else if (val.startsWith('javascript:')) {
+        explanation = 'chứa giao thức không an toàn (javascript:)';
+      } else if (val.startsWith('//')) {
+        explanation = 'không được bắt đầu bằng "//"';
+      } else if (val.split('/').includes('..')) {
+        explanation = 'không được chứa ký tự chuyển thư mục ".."';
+      }
+      return `${field} ("${val}"): ${explanation}`;
+    }).join('; ');
+
+    throw new ApiError(422, 'VALIDATION_ERROR', `URL asset không hợp lệ. Chi tiết: ${reasons}. Hướng dẫn: hãy tải ảnh lên từ máy hoặc nhập đường dẫn nội bộ bắt đầu bằng "/" (ví dụ: /assets/... hoặc /uploads/...).`, {
+      fields: Object.fromEntries(unsafeAssetFields.map((field) => [
+        field,
+        'Chỉ hỗ trợ đường dẫn asset nội bộ cùng origin bắt đầu bằng / (ví dụ: /assets/... hoặc /uploads/)',
+      ])),
     });
   }
 }

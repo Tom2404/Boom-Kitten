@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const Asset = require('../models/Asset');
 const ShopItem = require('../models/ShopItem');
+const authMiddleware = require('../middleware/authMiddleware');
 const adminMiddleware = require('../middleware/adminMiddleware');
 const { requireAdminPermission, requireAnyAdminPermission } = require('../middleware/adminMiddleware');
 const { processAndSaveAsset } = require('../services/admin/assetService');
@@ -15,6 +16,7 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
 });
 
+router.use(authMiddleware);
 router.use(adminMiddleware);
 
 /**

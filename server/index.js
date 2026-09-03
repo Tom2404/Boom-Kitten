@@ -46,11 +46,17 @@ process.on('SIGHUP', () => {
   process.exit(0);
 });
 
+const allowedOrigins = Array.from(new Set([
+  'http://localhost:2404',
+  'http://127.0.0.1:2404',
+  ...(process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',').map((origin) => origin.trim()).filter(Boolean) : []),
+]));
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL,
+    origin: allowedOrigins,
     credentials: true,
   },
 });
@@ -58,7 +64,7 @@ const io = new Server(server, {
 app.set('io', io);
 app.disable('x-powered-by');
 
-app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
+app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(securityHeaders);
 app.use(express.json({ limit: '100kb' }));
 app.use(requestContext);

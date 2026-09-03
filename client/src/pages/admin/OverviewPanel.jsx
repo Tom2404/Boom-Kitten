@@ -206,6 +206,18 @@ export default function OverviewPanel({ onNavigate, language = 'vi', permissions
             <ResourceCard title={en ? 'Quests' : 'Nhiệm vụ'} icon="flag" en={en} action={canOpen('quests.read') ? () => onNavigate('quests') : null} rows={[[en ? 'Active' : 'Hoạt động', resources?.quests?.active], [en ? 'Inactive' : 'Đang tắt', resources?.quests?.inactive]]} />
             <ResourceCard title={en ? 'Tournaments' : 'Giải đấu'} icon="trophy" en={en} action={canOpen('tournaments.read') ? () => onNavigate('tournaments') : null} rows={[[en ? 'Registration' : 'Đăng ký', resources?.tournaments?.registration], [en ? 'Active' : 'Đang diễn ra', resources?.tournaments?.active]]} />
           </div>
+
+          <AdminCard className="bg-[var(--admin-accent-soft)] p-4">
+            <h3 className="font-semibold text-sm text-[var(--admin-text)]">{en ? 'Quick navigation' : 'Điều hướng nhanh'}</h3>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {quickActions.map((item) => (
+                <Button key={item.id} variant="secondary" onClick={() => onNavigate(item.id)}>
+                  <span className="material-symbols-outlined mr-1 text-base" aria-hidden="true">{item.icon}</span>
+                  {en ? item.en : item.vi}
+                </Button>
+              ))}
+            </div>
+          </AdminCard>
         </>
       )}
     </div>

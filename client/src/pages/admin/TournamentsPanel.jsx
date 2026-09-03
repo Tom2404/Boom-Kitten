@@ -299,7 +299,7 @@ function CreateTournamentForm({ form, setForm, onSubmit, busy, onClose }) {
   const updateReward = (index, field, value) => setForm({ ...form, cosmeticRewards: form.cosmeticRewards.map((reward, rewardIndex) => rewardIndex === index ? { ...reward, [field]: value } : reward) });
 
   return (
-    <AdminCard className="relative overflow-hidden border-2 border-amber-400/40 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent p-6 shadow-md">
+    <AdminCard className="relative overflow-hidden border border-amber-400/40 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent p-6 shadow-md">
       <div className="flex items-center justify-between border-b border-amber-300/40 pb-4">
         <div className="flex items-center gap-2.5">
           <span className="grid h-9 w-9 place-items-center rounded-xl bg-amber-500 text-white shadow-sm">
@@ -417,7 +417,7 @@ function TournamentDetail({ detail, auditLogs, canWrite, canOverride, canRefund,
   const { tournament, participants = [] } = detail;
   return (
     <div className="grid gap-6">
-      <AdminCard className="p-6 border-2 border-amber-400/30">
+      <AdminCard className="p-6 border border-amber-400/30">
         <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[var(--admin-border)] pb-4">
           <div>
             <div className="flex items-center gap-2">
@@ -482,7 +482,7 @@ function TournamentDetail({ detail, auditLogs, canWrite, canOverride, canRefund,
       </AdminCard>
 
       {canWrite && tournament.status === 'registration' && (
-        <AdminCard className="p-5 border-l-4 border-l-emerald-500">
+        <AdminCard className="p-5 border-l border-l-emerald-500">
           <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--admin-text-muted)] mb-3">Đăng ký thủ công cho người chơi</h4>
           <form onSubmit={registerParticipant} className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <Field label="Player ID (Mongo ObjectId)">
@@ -528,7 +528,7 @@ function TournamentDetail({ detail, auditLogs, canWrite, canOverride, canRefund,
         {auditLogs.length ? (
           <div className="mt-3 grid gap-2.5">
             {auditLogs.map((log) => (
-              <div key={log._id} className="border-l-2 border-[var(--admin-accent)] bg-[var(--admin-surface-muted)]/40 p-3 rounded-r-lg text-xs">
+              <div key={log._id} className="border-l border-[var(--admin-accent)] bg-[var(--admin-surface-muted)]/40 p-3 rounded-r-lg text-xs">
                 <div className="flex items-center justify-between font-semibold">
                   <span className="font-bold text-[var(--admin-text)]">{log.action}</span>
                   <span className="text-[11px] text-[var(--admin-text-muted)]">{formatDate(log.createdAt)}</span>

@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Button } from './ui.jsx';
+import { refreshAccessToken } from '../../utils/authSession.js';
 
 const API_URL = import.meta.env?.VITE_API_URL ?? 'http://localhost:5000';
 
@@ -29,14 +30,30 @@ export default function AssetUploader({ category = 'misc', onUploaded, disabled 
 
     setUploading(true);
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch(`${API_URL}/api/admin/assets`, {
+      let token = localStorage.getItem('accessToken');
+      let response = await fetch(`${API_URL}/api/admin/assets`, {
         method: 'POST',
         headers: {
           Authorization: token ? `Bearer ${token}` : '',
         },
         body: formData,
       });
+
+      if (response.status === 401) {
+        const renewed = await refreshAccessToken();
+        if (renewed) {
+          localStorage.setItem('accessToken', renewed);
+          token = renewed;
+          window.dispatchEvent(new Event('auth:changed'));
+          response = await fetch(`${API_URL}/api/admin/assets`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+            body: formData,
+          });
+        }
+      }
 
       const data = await response.json();
       setUploading(false);
@@ -90,7 +107,7 @@ export default function AssetUploader({ category = 'misc', onUploaded, disabled 
         }}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
-        className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-4 text-center transition-colors ${
+        className={`flex flex-col items-center justify-center rounded-lg border border-dashed p-4 text-center transition-colors ${
           dragOver
             ? 'border-[var(--admin-primary,#2563eb)] bg-blue-50/50'
             : 'border-[var(--admin-border,#cbd5e1)] bg-[var(--admin-surface-muted,#f8fafc)]'

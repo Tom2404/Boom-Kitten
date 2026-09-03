@@ -16,6 +16,31 @@ const SLOT_ASPECT_RATIOS = Object.freeze({
   field: 16 / 9,
 });
 
+export function isSafeAssetUrl(value) {
+  if (typeof value !== 'string' || !value.trim()) return false;
+  const url = value.trim();
+  return url.startsWith('/') && !url.startsWith('//') && !url.split('/').includes('..');
+}
+
+export function sanitizeAssetUrl(value) {
+  if (!value || typeof value !== 'string') return '';
+  let url = value.trim();
+  try {
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      const parsed = new URL(url);
+      if (parsed.pathname.startsWith('/assets/') || parsed.pathname.startsWith('/uploads/')) {
+        return `${parsed.pathname}${parsed.search}`;
+      }
+    }
+  } catch {
+    // ignore invalid URL strings
+  }
+  if (url.startsWith('assets/') || url.startsWith('uploads/')) {
+    url = `/${url}`;
+  }
+  return url;
+}
+
 function clamp(value, min, max, fallback) {
   const number = Number(value);
   return Number.isFinite(number) ? Math.min(max, Math.max(min, number)) : fallback;
@@ -75,8 +100,7 @@ export function resolveAssetUrl(url) {
 }
 
 export function getEquippedAssetUrl(item) {
-  const url = item?.assetUrl || item?.previewUrl || item?.imageUrl || '';
-  return resolveAssetUrl(url);
+  return item?.assetUrl || item?.previewUrl || item?.imageUrl || '';
 }
 
 export function getProtectorStackSize(handCount) {
