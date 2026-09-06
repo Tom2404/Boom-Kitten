@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "description": "Root package for Boom-Kitten project",
   "scripts": {
+    "test": "npm test --prefix server && npm test --prefix client",
+    "build": "npm run build --prefix client",
     "install:client": "npm install --prefix client",
     "install:server": "npm install --prefix server",
     "install:all": "npm install && npm run install:client && npm run install:server",

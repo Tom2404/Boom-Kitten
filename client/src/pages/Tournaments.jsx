@@ -3,11 +3,12 @@ import { CoinIcon } from '../components/CoinDisplay.jsx';
 import {
   formatCountdown,
   getMatchStatusLabel,
+  getRegistrationBlockReason,
   getTournamentDeadline,
   getTournamentStatusLabel,
   getTournamentStatusTone,
-  isRegistrationAvailable,
 } from './tournamentUi.js';
+import { refreshAccessToken } from '../utils/authSession.js';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5000';
 const requestId = (prefix) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -28,7 +29,7 @@ function statusClass(status) {
 }
 
 export default function Tournaments({ setPage }) {
-  const token = localStorage.getItem('accessToken');
+  const [token, setToken] = useState(() => localStorage.getItem('accessToken'));
   const [items, setItems] = useState([]);
   const [profile, setProfile] = useState(null);
   const [detail, setDetail] = useState(null);
@@ -53,9 +54,24 @@ export default function Tournaments({ setPage }) {
   };
 
   const loadProfile = async () => {
-    if (!token) return;
+    let activeToken = localStorage.getItem('accessToken');
+    if (!activeToken) return;
+    const fetchMe = (bearer) => fetch(`${API_URL}/api/users/me`, { headers: { Authorization: `Bearer ${bearer}` } });
     try {
-      const response = await fetch(`${API_URL}/api/users/me`, { headers: { Authorization: `Bearer ${token}` } });
+      let response = await fetchMe(activeToken);
+      if (response.status === 401) {
+        // Expired access token would otherwise leave the wallet at 0 and mislabel the button.
+        const renewed = await refreshAccessToken();
+        if (!renewed) {
+          setProfile(null);
+          return;
+        }
+        localStorage.setItem('accessToken', renewed);
+        window.dispatchEvent(new Event('auth:changed'));
+        activeToken = renewed;
+        setToken(renewed);
+        response = await fetchMe(renewed);
+      }
       if (response.ok) setProfile(await response.json());
     } catch {
       // Tournament discovery remains available if the wallet request fails.
@@ -129,10 +145,10 @@ export default function Tournaments({ setPage }) {
     return () => window.clearInterval(timer);
   }, []);
 
-  const walletCoins = Number(profile?.coins ?? 0);
+  const walletCoins = profile ? Number(profile.coins ?? 0) : null;
   const registration = detail?.registration;
   const isRegistered = registration?.paymentStatus === 'paid';
-  const canRegister = detail && isRegistrationAvailable(detail.tournament, walletCoins, now);
+  const blockReason = detail ? getRegistrationBlockReason(detail.tournament, walletCoins, now) : 'closed';
 
   return (
     <div className="grid gap-6 font-pop-body lg:grid-cols-[minmax(290px,0.8fr)_minmax(0,1.5fr)]">
@@ -142,7 +158,7 @@ export default function Tournaments({ setPage }) {
             <p className="text-xs font-black uppercase tracking-[0.18em] opacity-55">Competitive mode</p>
             <h1 className="font-pop-display text-3xl font-black uppercase">Tournament</h1>
           </div>
-          {token && <span className="flex items-center gap-1 border-2 border-[var(--pop-black)] bg-[var(--pop-cream)] px-2 py-1 text-xs font-black"><CoinIcon className="h-4 w-4" /> {walletCoins}</span>}
+          {token && <span className="flex items-center gap-1 border-2 border-[var(--pop-black)] bg-[var(--pop-cream)] px-2 py-1 text-xs font-black"><CoinIcon className="h-4 w-4" /> {walletCoins === null ? '…' : walletCoins}</span>}
         </div>
         <p className="mt-2 text-sm font-bold opacity-65">8 người · 2 bảng · Chung kết · Coin và cosmetic độc quyền.</p>
         {(error || message) && <div role={error ? 'alert' : 'status'} className={`mt-4 border-2 border-[var(--pop-black)] p-3 text-sm font-bold ${error ? 'bg-[var(--pop-red)] text-white' : 'bg-[var(--pop-amber)]'}`}>{error || message}</div>}
@@ -157,7 +173,7 @@ export default function Tournaments({ setPage }) {
       <section className="min-w-0 border-3 border-[var(--pop-black)] bg-white p-5 shadow-[5px_5px_0_var(--pop-black)]">
         {detailLoading && <LoadingDetail />}
         {!detailLoading && !detail && <p className="py-16 text-center font-bold opacity-50">Chọn một giải đấu để xem luật, phần thưởng và bảng điểm.</p>}
-        {!detailLoading && detail && <TournamentDetail detail={detail} now={now} canRegister={canRegister} isRegistered={isRegistered} mutating={mutating} onMutate={mutate} onEnter={enterMatch} />}
+        {!detailLoading && detail && <TournamentDetail detail={detail} now={now} blockReason={blockReason} isRegistered={isRegistered} mutating={mutating} onMutate={mutate} onEnter={enterMatch} />}
       </section>
     </div>
   );
@@ -185,7 +201,9 @@ function TournamentCard({ item, now, selected, onOpen }) {
   );
 }
 
-function TournamentDetail({ detail, now, canRegister, isRegistered, mutating, onMutate, onEnter }) {
+const BLOCK_LABEL = { coins: 'Không đủ Coin', full: 'Giải đã đầy', closed: 'Đã đóng đăng ký' };
+
+function TournamentDetail({ detail, now, blockReason, isRegistered, mutating, onMutate, onEnter }) {
   const { tournament, standings = [], nextMatch } = detail;
   const rules = tournament.rules || { groupMatches: 3, finalMatches: 5, matchGraceMinutes: 5, placementPoints: { 1: 5, 2: 3, 3: 1, 4: 0 } };
   return (
@@ -205,7 +223,7 @@ function TournamentDetail({ detail, now, canRegister, isRegistered, mutating, on
       {tournament.status === 'registration' && <div className="mt-4 border-2 border-[var(--pop-black)] bg-[var(--pop-cream)] p-3 text-sm font-bold">Đóng đăng ký: {formatDate(tournament.registrationClosesAt)} · Còn {formatCountdown(tournament.registrationClosesAt || tournament.startTime, now)}</div>}
       {nextMatch && <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-2 border-[var(--pop-black)] bg-[var(--pop-amber)] p-3"><div><p className="text-xs font-black uppercase">Trận kế tiếp · {nextMatch.stage}</p><strong>{nextMatch.id}</strong><p className="text-xs font-bold">Vào phòng để giữ chỗ trong grace period 5 phút.</p></div><button type="button" onClick={onEnter} disabled={!!mutating} className="border-2 border-[var(--pop-black)] bg-[var(--pop-red)] px-4 py-3 text-xs font-black uppercase text-white shadow-[3px_3px_0_var(--pop-black)] disabled:opacity-50">{mutating === 'enter' ? 'Đang vào…' : 'Vào trận'}</button></div>}
 
-      {tournament.status === 'registration' && !isRegistered && <div className="mt-4 flex flex-wrap items-center gap-3"><button type="button" onClick={() => onMutate('register')} disabled={!canRegister || !!mutating} className="border-2 border-[var(--pop-black)] bg-[var(--pop-red)] px-5 py-3 text-xs font-black uppercase text-white shadow-[3px_3px_0_var(--pop-black)] disabled:cursor-not-allowed disabled:opacity-40">{mutating === 'register' ? 'Đang đăng ký…' : canRegister ? 'Đăng ký Tournament' : 'Không đủ Coin'}</button>{!canRegister && <span className="text-xs font-bold opacity-65">Cần {tournament.entryFee} Coin trước khi đóng đăng ký.</span>}</div>}
+      {tournament.status === 'registration' && !isRegistered && <div className="mt-4 flex flex-wrap items-center gap-3"><button type="button" onClick={() => onMutate('register')} disabled={!!blockReason || !!mutating} className="border-2 border-[var(--pop-black)] bg-[var(--pop-red)] px-5 py-3 text-xs font-black uppercase text-white shadow-[3px_3px_0_var(--pop-black)] disabled:cursor-not-allowed disabled:opacity-40">{mutating === 'register' ? 'Đang đăng ký…' : blockReason ? BLOCK_LABEL[blockReason] : 'Đăng ký Tournament'}</button>{blockReason === 'coins' && <span className="text-xs font-bold opacity-65">Cần {tournament.entryFee} Coin trước khi đóng đăng ký.</span>}</div>}
       {isRegistered && <div className="mt-4 flex flex-wrap items-center gap-3"><span className="border-2 border-[var(--pop-black)] bg-[var(--pop-green,#65c18c)] px-3 py-2 text-xs font-black uppercase">Bạn đã đăng ký</span>{tournament.status === 'registration' && <button type="button" onClick={() => onMutate('withdraw')} disabled={!!mutating} className="border-2 border-[var(--pop-black)] bg-white px-4 py-2 text-xs font-black uppercase disabled:opacity-40">{mutating === 'withdraw' ? 'Đang xử lý…' : 'Rút và hoàn Coin'}</button>}</div>}
 
       <RulesPanel rules={rules} rewards={tournament.cosmeticRewards} prizePool={tournament.prizePool?.coins || 0} />

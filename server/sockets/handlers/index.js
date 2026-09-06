@@ -1,12 +1,11 @@
 // Socket Handlers Registry Index
-const registerRoomHandlers = require('./roomHandler');
-const registerSocialHandlers = require('./socialHandler');
+// Only handlers with events NOT already registered in gameSocket.js belong here.
+// room:* and chat/emote events live in gameSocket.js; registering them here too
+// made socket.on append a second listener, firing every room action twice.
 const registerQuestHandlers = require('./questHandler');
 const registerAdminSocketHandlers = require('./adminSocketHandler');
 
 function attachSocketHandlers(io, socket, helpers) {
-  registerRoomHandlers(io, socket, helpers);
-  registerSocialHandlers(io, socket, helpers);
   registerQuestHandlers(io, socket, helpers);
   registerAdminSocketHandlers(io, socket, helpers);
 }

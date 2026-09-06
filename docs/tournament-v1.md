@@ -16,7 +16,16 @@ Grace period của mỗi trận là 5 phút. Người chơi mất kết nối đ
 
 ## Đăng ký và hoàn tiền
 
-User phải đăng nhập, có đủ Coin và đăng ký trong khoảng `registrationOpensAt` đến trước `registrationClosesAt`. Mỗi User chỉ có một participant trong một giải. Rút trước khi đóng đăng ký hoàn 100% entry fee; sau khi giải active thì không được rút. Hủy giải sẽ hoàn tự động tất cả entry fee đã thanh toán.
+User phải đăng nhập, có đủ Coin và đăng ký trong khoảng `registrationOpensAt` đến trước `registrationClosesAt`. Mỗi User chỉ có một participant trong một giải. Rút trước khi đóng đăng ký hoàn 100% entry fee; sau khi giải active thì không được rút. Hủy giải sẽ hoàn tự động tất cả entry fee đã thanh toán — `refundCancelledTournamentEntries` chạy ngay trong lệnh cancel, Admin không cần hoàn tiền thủ công (retry chỉ cần khi `refundState: failed`).
+
+## Vòng đời tự động
+
+Khi `TOURNAMENTS_ENABLED=true`, scheduler trong `server/services/tournamentLifecycleService.js` chạy mỗi 15 giây:
+
+- Tới `startTime`: đủ 8 người đã thanh toán → `active` + dựng bracket; thiếu → `cancelled` và hoàn phí tự động.
+- Trận `pending` quá `deadlineAt`: forfeit theo người đang có mặt trong room, ghi kết quả như trận thường.
+
+Scheduler đổi trạng thái trước khi xử lý nên nhiều instance không xử lý trùng. Tắt flag là tắt toàn bộ automation.
 
 `register`, `withdraw`, `refund` và `payout` đều cần request idempotency. Các mutation của Admin dùng thêm `stateVersion`/`expectedVersion` để tránh ghi đè state mới.
 

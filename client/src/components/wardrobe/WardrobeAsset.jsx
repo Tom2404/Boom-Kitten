@@ -163,7 +163,7 @@ export default function WardrobeAsset({ item, type, alt = '', className = '', de
   const [imgError, setImgError] = useState(false);
   const meta = WARDROBE_ITEM_META[type] || WARDROBE_ITEM_META.protector;
   const assetUrl = getEquippedAssetUrl(item);
-  const fit = type === 'field' ? 'object-cover' : 'object-contain';
+  const fit = type === 'avatar_frame' ? 'object-contain' : 'object-cover';
   const rarity = item?.rarity || 'common';
 
   const shouldRenderImage = assetUrl && !imgError;

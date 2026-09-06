@@ -3,7 +3,7 @@ import { gsap } from 'gsap';
 import { CoinIcon } from '../components/CoinDisplay.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import CustomDialog from '../components/CustomDialog.jsx';
-import { isOwnedItem, resolveAssetUrl } from '../utils/shopEquipment.js';
+import { getAssetTransformStyle, isOwnedItem, resolveAssetUrl } from '../utils/shopEquipment.js';
 
 export default function Shop({ setPage }) {
   const { t, language } = useLanguage();
@@ -272,15 +272,15 @@ export default function Shop({ setPage }) {
                       className="relative h-full max-h-40 rounded-lg overflow-hidden border-2 border-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)] bg-white flex items-center justify-center"
                       style={{ aspectRatio: '0.716 / 1' }}
                     >
-                      {item.imageUrl ? (
+                      <span className="text-4xl select-none" aria-hidden="true">🂠</span>
+                      {item.imageUrl && (
                         <img
                           src={resolveAssetUrl(item.imageUrl)}
                           alt={item.name}
-                          className="h-full w-full object-contain"
+                          className="absolute inset-0 h-full w-full object-cover select-none"
+                          style={getAssetTransformStyle(item.assetTransform)}
                           onError={(event) => event.currentTarget.remove()}
                         />
-                      ) : (
-                        <span className="text-4xl" aria-hidden="true">🂠</span>
                       )}
                     </div>
                   ) : item.type === 'avatar_frame' ? (
@@ -289,7 +289,8 @@ export default function Shop({ setPage }) {
                         <img
                           src={resolveAssetUrl(item.imageUrl)}
                           alt={item.name}
-                          className="h-full w-full object-contain"
+                          className="h-full w-full object-contain select-none"
+                          style={getAssetTransformStyle(item.assetTransform)}
                           onError={(event) => event.currentTarget.remove()}
                         />
                       ) : (
@@ -299,15 +300,15 @@ export default function Shop({ setPage }) {
                   ) : (
                     /* Field or other types */
                     <div className="relative h-full max-h-32 aspect-video rounded-md overflow-hidden border-2 border-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)] bg-slate-900 flex items-center justify-center">
-                      {item.imageUrl ? (
+                      <span className="text-4xl select-none" aria-hidden="true">⚔️</span>
+                      {item.imageUrl && (
                         <img
                           src={resolveAssetUrl(item.imageUrl)}
                           alt={item.name}
-                          className="h-full w-full object-cover"
+                          className="absolute inset-0 h-full w-full object-cover select-none"
+                          style={getAssetTransformStyle(item.assetTransform)}
                           onError={(event) => event.currentTarget.remove()}
                         />
-                      ) : (
-                        <span className="text-4xl" aria-hidden="true">⚔️</span>
                       )}
                     </div>
                   )}

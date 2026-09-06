@@ -68,7 +68,9 @@ test('socket contract exposes acknowledgements and correlated event metadata', a
   assert.match(source, /respond\(\{ ok: true, presentationId \}\)/);
   assert.match(source, /game:drawCard'[\s\S]*respond\?\.\(\{ ok: true, eventId \}\)/);
   assert.match(source, /game:cardDrawn'[\s\S]*eventId: drawEventId,[\s\S]*recipientId/);
-  assert.match(source, /game:privateHand'[\s\S]*sourceEventId/);
+  // sendHands now lives in broadcast/gameStateSync.js
+  const broadcast = await readFile(path.join(__dirname, '..', 'sockets', 'broadcast', 'gameStateSync.js'), 'utf8');
+  assert.match(broadcast, /game:privateHand'[\s\S]*sourceEventId/);
   assert.match(source, /game:nopeWindow'[\s\S]*expiresAt: action\.expiresAt/);
   assert.match(source, /game:turnChanged'[\s\S]*previousPlayerId[\s\S]*playDirection/);
 });

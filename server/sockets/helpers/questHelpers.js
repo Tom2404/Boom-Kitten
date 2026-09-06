@@ -14,26 +14,18 @@ async function updateQuestProgress(userId, actionType, count = 1) {
 
     await Promise.all(
       activeQuests.map(async (quest) => {
-        let progress = await UserQuestProgress.findOne({ userId, questId: quest._id });
-        if (!progress) {
-          progress = await UserQuestProgress.create({
-            userId,
-            questId: quest._id,
-            currentCount: 0,
-            status: 'in_progress',
-            expiresAt: endOfDay,
-          });
-        } else if (progress.expiresAt < now) {
-          progress.currentCount = 0;
-          progress.status = 'in_progress';
-          progress.expiresAt = endOfDay;
-        }
+        // Atomic $inc + upsert: two concurrent socket events must not lose a count.
+        const progress = await UserQuestProgress.findOneAndUpdate(
+          { userId, questId: quest._id, expiresAt: { $gte: now }, status: { $ne: 'completed' } },
+          {
+            $inc: { currentCount: count },
+            $setOnInsert: { status: 'in_progress', expiresAt: endOfDay },
+          },
+          { upsert: true, new: true }
+        );
 
-        if (progress.status === 'in_progress') {
-          progress.currentCount += count;
-          if (progress.currentCount >= quest.targetCount) {
-            progress.status = 'completed';
-          }
+        if (progress && progress.currentCount >= quest.targetCount && progress.status !== 'completed') {
+          progress.status = 'completed';
           await progress.save();
         }
       })

@@ -6,8 +6,9 @@ function roomInviteKey(roomCode, userId) {
 }
 
 function grantRoomInvite(roomCode, userId, ttlMs = 30000) {
-  const key = roomInviteKey(roomCode, userId);
-  roomInviteGrants.set(key, Date.now() + ttlMs);
+  const expiresAt = Date.now() + ttlMs;
+  roomInviteGrants.set(roomInviteKey(roomCode, userId), expiresAt);
+  return expiresAt;
 }
 
 function consumeRoomInviteGrant(roomCode, userId, now = Date.now()) {

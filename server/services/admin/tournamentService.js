@@ -293,7 +293,7 @@ async function transitionTournament({
   if (!before) throw new ApiError(404, 'RESOURCE_NOT_FOUND', 'Không tìm thấy giải đấu.');
   getNextTournamentStatus(before.status, nextStatus);
   const participants = await ParticipantModel.find({ tournamentId, paymentStatus: 'paid' }).populate('userId', 'username').sort({ score: -1, registrationDate: 1, _id: 1 }).lean();
-  if (nextStatus === 'active' && participants.length !== 8) throw new ApiError(409, 'STATE_CONFLICT', 'Format Tournament cần đúng 8 người chơi đã thanh toán.');
+  if (nextStatus === 'active' && participants.length !== 8) throw new ApiError(409, 'STATE_CONFLICT', `Cần đúng 8 người đã thanh toán (hiện ${participants.length}). Chờ đủ hoặc huỷ giải để hoàn phí.`);
   const set = { status: nextStatus };
   if (nextStatus === 'active') {
     const { buildEightPlayerTournament } = require('../tournamentLifecycleService');

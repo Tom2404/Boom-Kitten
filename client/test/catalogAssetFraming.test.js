@@ -44,10 +44,13 @@ test('runtime renderers consume the saved transform for every equipment slot', (
   const waitingRoom = read('../src/pages/Game/views/WaitingRoomView.jsx');
   const handDock = read('../src/pages/Game/components/PlayerHandDock.jsx');
   const resultOverlay = read('../src/pages/Game/Modals/GameEndedOverlay.jsx');
+  const shop = read('../src/pages/Shop.jsx');
 
   assert.match(gameTable, /getFieldTransformStyle/);
   assert.match(deckPile, /getAssetTransformStyle\(protectorTransform\)/);
-  for (const source of [playerAvatar, profile, waitingRoom, handDock, resultOverlay]) {
+  for (const source of [playerAvatar, profile, waitingRoom, handDock, resultOverlay, shop]) {
     assert.match(source, /getAssetTransformStyle/);
   }
+  assert.match(shop, /aspectRatio:\s*'0\.716 \/ 1'/);
+  assert.match(shop, /object-cover/);
 });

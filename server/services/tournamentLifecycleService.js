@@ -9,9 +9,11 @@ const {
   createTournamentPayoutPreview,
   executeTournamentPayout,
 } = require('./admin/tournamentService');
+const { refundCancelledTournamentEntries } = require('./tournamentPlayerService');
 const {
   TOURNAMENT_FORMAT,
   TOURNAMENT_MATCH_GRACE_MS,
+  TOURNAMENT_MAX_PARTICIPANTS,
   TOURNAMENT_PLACEMENT_POINTS,
 } = require('../utils/tournamentRules');
 
@@ -43,7 +45,14 @@ function scheduledMatch(tournamentId, stage, number, participants, status = 'blo
   };
 }
 
-function buildEightPlayerTournament(tournamentId, participants) {
+function markPending(match, now = new Date(), graceMs = TOURNAMENT_MATCH_GRACE_MS) {
+  match.status = 'pending';
+  match.scheduledAt = new Date(now).toISOString();
+  match.deadlineAt = new Date(new Date(now).getTime() + graceMs).toISOString();
+  return match;
+}
+
+function buildEightPlayerTournament(tournamentId, participants, startedAt = new Date()) {
   if (participants.length !== 8) throw new ApiError(409, 'STATE_CONFLICT', 'Format MVP cần đúng 8 người chơi đã thanh toán.');
   const seeded = [...participants]
     .sort((left, right) => new Date(left.registrationDate || 0) - new Date(right.registrationDate || 0) || String(left._id).localeCompare(String(right._id)))
@@ -55,7 +64,7 @@ function buildEightPlayerTournament(tournamentId, participants) {
   const rounds = groups.map((group) => ({
     round: group.id,
     name: group.name,
-    matches: Array.from({ length: 3 }, (_, index) => scheduledMatch(tournamentId, group.id, index + 1, group.participants, index === 0 ? 'pending' : 'blocked')),
+    matches: Array.from({ length: 3 }, (_, index) => scheduledMatch(tournamentId, group.id, index + 1, group.participants, index === 0 ? 'pending' : 'blocked', index === 0 ? new Date(startedAt).toISOString() : null)),
   }));
   rounds.push({
     round: 'final',
@@ -111,7 +120,7 @@ function findMatch(bracket, reference) {
 function unlockNextMatch(round, completedMatch) {
   const index = round.matches.findIndex((match) => match.id === completedMatch.id);
   const next = round.matches[index + 1];
-  if (next?.status === 'blocked') next.status = 'pending';
+  if (next?.status === 'blocked') markPending(next);
 }
 
 function groupQualifiers(bracket) {
@@ -154,7 +163,7 @@ function applyTournamentMatchResult(bracketInput, matchReference, placements) {
       finalMatch.participants = finalPlayers;
       finalMatch.participantIds = finalPlayers.map((person) => person.participantId);
     }
-    if (finalRound.matches[0].status === 'blocked') finalRound.matches[0].status = 'pending';
+    if (finalRound.matches[0].status === 'blocked') markPending(finalRound.matches[0]);
   }
   return {
     bracket,
@@ -311,12 +320,106 @@ async function recordTournamentMatchResult({
   return { tournament, standings, replayed: applied.replayed };
 }
 
+// Claims one tournament whose startTime passed: status flips before any work so a second
+// instance (or a second tick) can never process the same row.
+async function claimDueStart({
+  TournamentModel = Tournament,
+  ParticipantModel = TournamentParticipant,
+  refund = refundCancelledTournamentEntries,
+  now = new Date(),
+} = {}) {
+  const claimed = await TournamentModel.findOneAndUpdate(
+    { status: 'registration', startTime: { $lte: now } },
+    { $set: { status: 'active', startedAt: now }, $inc: { stateVersion: 1 } },
+    { new: true, sort: { startTime: 1, _id: 1 } },
+  );
+  if (!claimed) return null;
+  const participants = await ParticipantModel.find({ tournamentId: claimed._id, paymentStatus: 'paid' }).populate('userId', 'username').lean();
+  if (participants.length === TOURNAMENT_MAX_PARTICIPANTS) {
+    await TournamentModel.findByIdAndUpdate(claimed._id, {
+      $set: { bracket: buildEightPlayerTournament(String(claimed._id), participants, now) },
+      $inc: { stateVersion: 1 },
+    });
+    return { tournamentId: String(claimed._id), status: 'active' };
+  }
+  await TournamentModel.findByIdAndUpdate(claimed._id, {
+    $set: {
+      status: 'cancelled',
+      cancelledAt: now,
+      cancelReason: `Tới giờ bắt đầu nhưng chỉ có ${participants.length}/${TOURNAMENT_MAX_PARTICIPANTS} người đã thanh toán.`,
+      refundState: 'pending',
+    },
+    $inc: { stateVersion: 1 },
+  });
+  await refund({ tournamentId: claimed._id, requestId: `auto-cancel:${claimed._id}`, TournamentModel, ParticipantModel });
+  return { tournamentId: String(claimed._id), status: 'cancelled' };
+}
+
+function connectedParticipantIds(match, rooms) {
+  const room = rooms.getOperationalRoomStates().find((item) => item.tournamentMatchReference === match.matchReference);
+  const online = new Set((room?.players || []).filter((player) => player.connectionStatus !== 'disconnected').map((player) => String(player.userId)));
+  return (match.participants || []).filter((person) => online.has(String(person.userId))).map((person) => person.participantId);
+}
+
+// Claims expired pending matches by clearing their deadline first, then forfeits them.
+// ponytail: a crash between claim and record leaves the match without a deadline (manual admin
+// result needed). Add a claim timestamp sweep when tournaments run unattended for days.
+async function claimExpiredMatch({
+  TournamentModel = Tournament,
+  rooms = roomManager,
+  record = recordTournamentMatchResult,
+  now = new Date(),
+} = {}) {
+  const nowIso = new Date(now).toISOString();
+  const claimed = await TournamentModel.findOneAndUpdate(
+    { status: 'active', 'bracket.rounds.matches.status': 'pending', 'bracket.rounds.matches.deadlineAt': { $lte: nowIso } },
+    { $set: { 'bracket.rounds.$[r].matches.$[m].deadlineAt': null, 'bracket.rounds.$[r].matches.$[m].forfeitClaimedAt': nowIso }, $inc: { stateVersion: 1 } },
+    {
+      new: true,
+      arrayFilters: [
+        { 'r.matches': { $elemMatch: { status: 'pending', deadlineAt: { $lte: nowIso } } } },
+        { 'm.status': 'pending', 'm.deadlineAt': { $lte: nowIso } },
+      ],
+    },
+  );
+  if (!claimed) return null;
+  const matches = allMatches(claimed.bracket || {}).filter((match) => match.status === 'pending' && match.forfeitClaimedAt === nowIso);
+  if (!matches.length) return null;
+  for (const match of matches) {
+    await record({ matchReference: match.matchReference, placements: buildForfeitPlacements(match, connectedParticipantIds(match, rooms)) });
+  }
+  return { tournamentId: String(claimed._id), forfeited: matches.map((match) => match.matchReference) };
+}
+
+function startTournamentScheduler({ intervalMs = 15000 } = {}) {
+  let running = false;
+  const tick = async () => {
+    if (running) return;
+    running = true;
+    try {
+      while (await claimDueStart()) { /* Drain: each claim flips status before work. */ }
+      while (await claimExpiredMatch()) { /* Drain: each claim clears the deadline before work. */ }
+    } catch (error) {
+      process.stderr.write(`Tournament scheduler error: ${error.message}\n`);
+    } finally {
+      running = false;
+    }
+  };
+  tick();
+  const timer = setInterval(tick, intervalMs);
+  timer.unref?.();
+  return () => clearInterval(timer);
+}
+
 module.exports = {
   PLACEMENT_POINTS,
   applyTournamentMatchResult,
   buildEightPlayerTournament,
+  claimDueStart,
+  claimExpiredMatch,
   ensureTournamentMatchRoom,
   recordTournamentMatchResult,
+  startTournamentScheduler,
   tournamentStandings,
   buildForfeitPlacements,
 };

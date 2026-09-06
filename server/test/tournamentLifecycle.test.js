@@ -5,6 +5,7 @@ const {
   applyTournamentMatchResult,
   buildForfeitPlacements,
   buildEightPlayerTournament,
+  claimDueStart,
   tournamentStandings,
 } = require('../services/tournamentLifecycleService');
 
@@ -59,6 +60,51 @@ test('five completed finals produce stable ranks for all eight players', () => {
   const standings = tournamentStandings(bracket);
   assert.equal(standings.length, 8);
   assert.deepEqual(standings.map((row) => row.finalRank), [1, 2, 3, 4, 5, 6, 7, 8]);
+});
+
+test('claimDueStart processes a due tournament once, second run finds nothing', async () => {
+  const now = new Date('2026-02-01T00:00:00Z');
+  const row = { _id: 'cup-1', status: 'registration', startTime: new Date('2026-01-31T23:00:00Z'), stateVersion: 0 };
+  const updates = [];
+  const TournamentModel = {
+    findOneAndUpdate: async (filter, update) => {
+      if (row.status !== filter.status || row.startTime > filter.startTime.$lte) return null;
+      Object.assign(row, update.$set);
+      return { ...row };
+    },
+    findByIdAndUpdate: async (_id, update) => { updates.push(update.$set); Object.assign(row, update.$set); return { ...row }; },
+  };
+  const ParticipantModel = { find: () => ({ populate: () => ({ lean: async () => participants().map((p) => ({ ...p, tournamentId: 'cup-1' })) }) }) };
+
+  const first = await claimDueStart({ TournamentModel, ParticipantModel, now });
+  const second = await claimDueStart({ TournamentModel, ParticipantModel, now });
+
+  assert.deepEqual(first, { tournamentId: 'cup-1', status: 'active' });
+  assert.equal(second, null);
+  assert.equal(updates.length, 1);
+  assert.equal(updates[0].bracket.rounds.length, 3);
+});
+
+test('claimDueStart cancels and refunds when fewer than eight players paid', async () => {
+  const now = new Date('2026-02-01T00:00:00Z');
+  const row = { _id: 'cup-2', status: 'registration', startTime: new Date('2026-01-31T23:00:00Z') };
+  const refunded = [];
+  const TournamentModel = {
+    findOneAndUpdate: async (filter) => (row.status === filter.status ? Object.assign(row, { status: 'active' }) && { ...row } : null),
+    findByIdAndUpdate: async (_id, update) => { Object.assign(row, update.$set); return { ...row }; },
+  };
+  const ParticipantModel = { find: () => ({ populate: () => ({ lean: async () => participants().slice(0, 5) }) }) };
+
+  const result = await claimDueStart({
+    TournamentModel,
+    ParticipantModel,
+    refund: async (args) => refunded.push(args.tournamentId),
+    now,
+  });
+
+  assert.deepEqual(result, { tournamentId: 'cup-2', status: 'cancelled' });
+  assert.equal(row.status, 'cancelled');
+  assert.deepEqual(refunded, ['cup-2']);
 });
 
 test('forfeit placements put connected players first and absent players last by seed', () => {

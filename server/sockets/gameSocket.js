@@ -8,7 +8,6 @@ const { hasBlockingInteraction } = require('../game/interactions/interactionGuar
 const {
   getNopeResponseOwnerId,
   isNopeResponderEligible,
-  sanitizeActiveInteractionForPublic,
 } = require('../game/interactions/interactionPolicy');
 const {
   createEventId,
@@ -19,10 +18,26 @@ const {
 const {
   buildInteractionRequestPayload,
   buildNormalizedInteractionRequest,
-  buildReconnectInteractionRequest,
   getInteractionEventName,
 } = require('./interactionEvents');
 const attachSocketHandlers = require('./handlers');
+const {
+  stripActionTimers,
+  sanitizePublicGameState,
+  sanitizeRoom,
+  emitRoomUpdated,
+  getPrivateHandCards,
+  sendHands,
+  sendPlayerSnapshot,
+} = require('./broadcast/gameStateSync');
+const {
+  grantRoomInvite,
+  consumeRoomInviteGrant,
+  setReconnectTimer,
+  clearReconnectTimer,
+  clearRoomReconnectTimers,
+} = require('./helpers/reconnectHelpers');
+const { updateQuestProgress } = require('./helpers/questHelpers');
 const {
   RECONNECT_GRACE_MS,
   createRoom,
@@ -66,46 +81,10 @@ const findUserByIdSafe = async (id) => {
   return await User.findById(id).populate('equippedCosmetics.avatarFrame equippedCosmetics.protector');
 };
 const Transaction = require('../models/Transaction');
-const Quest = require('../models/Quest');
-const UserQuestProgress = require('../models/UserQuestProgress');
 const { calculateMatchmakingChanges } = require('../utils/matchmakingCalculator');
 const { applyMatchmakingRating, shouldUpdateMatchmakingRating } = require('../utils/matchmakingRating');
 const { completeMatchHistory, startMatchHistory } = require('../services/matchLifecycleService');
 const { lockWager, markWagerReview, settleWager } = require('../services/wagerLedgerService');
-
-const reconnectTimers = new Map();
-const roomInviteGrants = new Map();
-
-function roomInviteKey(roomCode, userId) {
-  return `${roomCode}:${userId}`;
-}
-
-function consumeRoomInviteGrant(roomCode, userId, now = Date.now()) {
-  const key = roomInviteKey(roomCode, userId);
-  const expiresAt = roomInviteGrants.get(key) || 0;
-  roomInviteGrants.delete(key);
-  return expiresAt > now;
-}
-
-function reconnectTimerKey(roomCode, userId) {
-  return `${roomCode}:${userId}`;
-}
-
-function clearReconnectTimer(roomCode, userId) {
-  const key = reconnectTimerKey(roomCode, userId);
-  const timer = reconnectTimers.get(key);
-  if (timer) clearTimeout(timer);
-  reconnectTimers.delete(key);
-}
-
-function clearRoomReconnectTimers(roomCode) {
-  const prefix = `${roomCode}:`;
-  for (const [key, timer] of reconnectTimers) {
-    if (!key.startsWith(prefix)) continue;
-    clearTimeout(timer);
-    reconnectTimers.delete(key);
-  }
-}
 
 function safeSocketHandler(socket, handler) {
   return async (...args) => {
@@ -116,143 +95,6 @@ function safeSocketHandler(socket, handler) {
       socket.emit('error', { message: error.message || 'Hệ thống gặp sự cố, vui lòng thử lại.' });
     }
   };
-}
-
-async function updateQuestProgress(userId, actionType, count = 1) {
-  try {
-    if (!userId || userId.startsWith('guest-') || !mongoose.Types.ObjectId.isValid(userId)) return;
-    const activeQuests = await Quest.find({ actionType, isActive: true });
-    if (!activeQuests || activeQuests.length === 0) return;
-
-    const now = new Date();
-    const endOfDay = new Date();
-    endOfDay.setHours(23, 59, 59, 999);
-
-    await Promise.all(
-      activeQuests.map(async (quest) => {
-        const progress = await UserQuestProgress.findOneAndUpdate(
-          { userId, questId: quest._id, expiresAt: { $gte: now }, status: { $ne: 'completed' } },
-          {
-            $inc: { currentCount: count },
-            $setOnInsert: { status: 'in_progress', expiresAt: endOfDay },
-          },
-          { upsert: true, new: true }
-        );
-
-        if (progress && progress.currentCount >= quest.targetCount && progress.status !== 'completed') {
-          progress.status = 'completed';
-          await progress.save();
-        }
-      })
-    );
-  } catch (err) {
-    console.error('Error updating quest progress:', err);
-  }
-}
-
-function stripActionTimers(action) {
-  if (!action) return null;
-  const { timerId, parentAction, ...safeAction } = action;
-  if (parentAction) {
-    safeAction.parentAction = stripActionTimers(parentAction);
-  }
-  return safeAction;
-}
-
-function sanitizePublicGameState(gameState) {
-  if (!gameState) return null;
-  const copy = {
-    ...gameState,
-    deckCount: gameState.deck.length,
-    deck: undefined,
-    topCard: gameState.deck.length > 0 ? {
-      id: gameState.deck[gameState.deck.length - 1].id,
-      type: gameState.deck[gameState.deck.length - 1].type,
-      faceUp: !!gameState.deck[gameState.deck.length - 1].faceUp,
-    } : null,
-    pendingAction: stripActionTimers(gameState.pendingAction),
-    pendingNowOnlyWindow: gameState.pendingNowOnlyWindow
-      ? {
-          ...gameState.pendingNowOnlyWindow,
-          timerId: undefined,
-          resolvedAction: stripActionTimers(gameState.pendingNowOnlyWindow.resolvedAction),
-        }
-      : null,
-    pendingTargetSelect: gameState.pendingTargetSelect || null,
-    activeInteraction: sanitizeActiveInteractionForPublic(gameState.activeInteraction),
-    players: gameState.players.map((player) => ({
-      userId: player.userId,
-      username: player.username,
-      avatar: player.avatar || '',
-      avatarFrame: player.avatarFrame || null,
-      protector: player.protector || null,
-      alive: player.alive,
-      connectionStatus: player.connectionStatus || 'connected',
-      reconnectDeadline: player.reconnectDeadline ?? null,
-      forfeited: !!player.forfeited,
-      handCount: player.hand.length,
-      markedCards: player.hand
-        .filter((c) => c.marked)
-        .map((c) => ({ id: c.id, type: c.type })),
-    })),
-  };
-
-  if (copy.pendingDigDeeper) {
-    copy.pendingDigDeeper = {
-      ...copy.pendingDigDeeper,
-      firstCard: undefined,
-    };
-  }
-
-  if (copy.pendingArmageddon) {
-    copy.pendingArmageddon = {
-      ...copy.pendingArmageddon,
-      activatorCard: undefined,
-      targetCard: undefined,
-    };
-  }
-
-  return copy;
-}
-
-function sanitizeRoom(room) {
-  if (!room) return null;
-  return {
-    ...room,
-    reconnectGraceMs: room.reconnectGraceMs || RECONNECT_GRACE_MS,
-    gameState: room.gameState ? sanitizePublicGameState(room.gameState) : room.gameState,
-    password: undefined,
-  };
-}
-
-function emitRoomUpdated(target, room) {
-  target.emit('room:updated', { room: sanitizeRoom(room) });
-}
-
-function getPrivateHandCards(player) {
-  return player.blinded
-    ? player.hand.map((c) => ({ id: c.id, skinIndex: c.skinIndex, type: 'hidden', marked: c.marked }))
-    : player.hand;
-}
-
-function sendHands(io, room, { sourceEventId, recipientId } = {}) {
-  room.gameState.players.forEach((player) => {
-    io.to(`user:${player.userId}`).emit('game:privateHand', {
-      cards: getPrivateHandCards(player),
-      ...(sourceEventId && player.userId === recipientId ? { sourceEventId } : {}),
-    });
-  });
-}
-
-function sendPlayerSnapshot(socket, room, userId) {
-  if (!room.gameState) return;
-  socket.emit('game:stateUpdate', {
-    publicGameState: sanitizePublicGameState(room.gameState),
-  });
-  const player = room.gameState.players.find((candidate) => candidate.userId === userId);
-  if (player) socket.emit('game:privateHand', { cards: getPrivateHandCards(player) });
-  const resumedRequest = buildReconnectInteractionRequest(room.gameState, userId);
-  if (resumedRequest) socket.emit('interaction:request', resumedRequest);
 }
 
 async function finalizeGame(io, room) {
@@ -267,11 +109,11 @@ async function finalizeGame(io, room) {
   const rankings = room.gameState.players.map((player) => {
     const isWinner = player.userId === winnerId;
     const elimIndex = room.gameState.eliminatedPlayers ? room.gameState.eliminatedPlayers.indexOf(player.userId) : -1;
-    const placement = isWinner 
-      ? 1 
-      : (elimIndex >= 0 
-          ? room.gameState.players.length - elimIndex 
-          : room.gameState.players.length);
+    const placement = isWinner
+      ? 1
+      : (elimIndex >= 0
+        ? room.gameState.players.length - elimIndex
+        : room.gameState.players.length);
     return { userId: player.userId, placement, result: isWinner ? 'win' : 'lose', forfeit: Boolean(player.forfeited) };
   }).sort((a, b) => a.placement - b.placement);
 
@@ -773,7 +615,6 @@ module.exports = function registerGameSocket(io) {
     if (!player) return;
 
     clearReconnectTimer(room.code, userId);
-    const key = reconnectTimerKey(room.code, userId);
     const run = async () => {
       const currentRoom = getRoomState(room.code);
       const currentPlayer = currentRoom?.players.find((candidate) => candidate.userId === userId);
@@ -794,11 +635,11 @@ module.exports = function registerGameSocket(io) {
         return;
       }
       if (Date.now() <= deadline) {
-        reconnectTimers.set(key, setTimeout(run, deadline - Date.now() + 1));
+        setReconnectTimer(room.code, userId, setTimeout(run, deadline - Date.now() + 1));
         return;
       }
 
-      reconnectTimers.delete(key);
+      clearReconnectTimer(room.code, userId);
       const username = currentPlayer.username || userId;
       await forfeitAndLeave(room.code, userId);
       io.to(room.code).emit('chat:message', {
@@ -809,7 +650,7 @@ module.exports = function registerGameSocket(io) {
       });
     };
 
-    reconnectTimers.set(key, setTimeout(run, graceMs + 1));
+    setReconnectTimer(room.code, userId, setTimeout(run, graceMs + 1));
     emitRoomUpdated(io.to(room.code), room);
     io.to(room.code).emit('game:stateUpdate', {
       publicGameState: sanitizePublicGameState(room.gameState),
@@ -1162,7 +1003,7 @@ module.exports = function registerGameSocket(io) {
             const requestedBet = parseInt(betAmount, 10);
             const actualBet = !isNaN(requestedBet) && requestedBet >= 0 ? requestedBet : 50;
             if (dbUser.coins < actualBet) {
-               throw new Error('Không đủ GoldCoin để tạo phòng cược này');
+              throw new Error('Không đủ GoldCoin để tạo phòng cược này');
             }
           }
         } else {
@@ -1231,8 +1072,7 @@ module.exports = function registerGameSocket(io) {
         if (!socket.user || !mongoose.Types.ObjectId.isValid(friendId)) throw new Error('Lời mời không hợp lệ.');
         const room = getRoomState(roomCode);
         await assertCanInviteFriend({ inviterId: userId, friendId, room, FriendshipModel: Friendship });
-        const expiresAt = Date.now() + 2 * 60 * 1000;
-        roomInviteGrants.set(roomInviteKey(roomCode, friendId), expiresAt);
+        const expiresAt = grantRoomInvite(roomCode, friendId, 2 * 60 * 1000);
         io.to(`user:${friendId}`).emit('room:invitation', {
           roomCode,
           inviterId: userId,
@@ -1394,9 +1234,9 @@ module.exports = function registerGameSocket(io) {
             if (p.userId === roomBefore.host) continue; // host balance was checked when they created/updated the room
 
             if (p.userId.startsWith('guest-') || p.userId.length < 24) {
-               p.isReady = false;
-               hasInsufficient = true;
-               continue;
+              p.isReady = false;
+              hasInsufficient = true;
+              continue;
             }
             try {
               const dbUser = await User.findById(p.userId);
@@ -1410,8 +1250,8 @@ module.exports = function registerGameSocket(io) {
             }
           }
           if (hasInsufficient) {
-             emitRoomUpdated(io.to(targetRoomCode), roomBefore);
-             throw new Error('Một số người chơi không đủ GoldCoin hoặc là tài khoản Khách, đã bị huỷ Sẵn sàng');
+            emitRoomUpdated(io.to(targetRoomCode), roomBefore);
+            throw new Error('Một số người chơi không đủ GoldCoin hoặc là tài khoản Khách, đã bị huỷ Sẵn sàng');
           }
         }
 

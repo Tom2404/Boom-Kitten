@@ -25,6 +25,7 @@ const securityHeaders = require('./middleware/securityHeaders');
 const mongoSanitize = require('./middleware/mongoSanitize');
 const registerGameSocket = require('./sockets/gameSocket');
 const { startAnnouncementScheduler } = require('./services/admin/announcementService');
+const { startTournamentScheduler } = require('./services/tournamentLifecycleService');
 
 dotenv.config();
 
@@ -101,6 +102,12 @@ const MONGO_URI = process.env.MONGO_URI;
 async function start() {
   if (!MONGO_URI) throw new Error('Missing MONGO_URI in environment');
   await mongoose.connect(MONGO_URI);
+  const tournamentsEnabled = process.env.TOURNAMENTS_ENABLED === 'true';
+  if (tournamentsEnabled) {
+    // Tournament money paths run inside transactions, which need a replica set.
+    const hello = await mongoose.connection.db.admin().command({ hello: 1 });
+    if (!hello.setName) process.stderr.write('WARNING: TOURNAMENTS_ENABLED=true but MongoDB is standalone; registration will fail. Use mongodb://127.0.0.1:27017/boomkitten?replicaSet=rs0 and run rs.initiate().\n');
+  }
   // HTTP listen failures are emitted asynchronously, so bridge them into start().
   await new Promise((resolve, reject) => {
     server.once('error', reject);
@@ -110,6 +117,7 @@ async function start() {
     });
   });
   startAnnouncementScheduler({ io });
+  if (tournamentsEnabled) startTournamentScheduler();
   process.stdout.write(`Server listening on http://localhost:${PORT}\n`);
 }
 

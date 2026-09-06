@@ -51,10 +51,19 @@ export function formatCountdown(target, now = Date.now()) {
   return `${String(parts.hours).padStart(2, '0')}:${String(parts.minutes).padStart(2, '0')}:${String(parts.seconds).padStart(2, '0')}`;
 }
 
+// Returns null when registration is allowed, otherwise the blocking reason.
+// `coins === null` means the wallet is unknown (not logged in / profile fetch failed):
+// never claim "not enough Coin" in that case, let the server decide.
+export function getRegistrationBlockReason(tournament, coins = null, now = Date.now()) {
+  if (!tournament || tournament.status !== 'registration') return 'closed';
+  if (new Date(tournament.registrationClosesAt || tournament.startTime).getTime() <= now) return 'closed';
+  if ((tournament.registeredCount || 0) >= (tournament.maxParticipants || 8)) return 'full';
+  if (coins !== null && coins !== undefined && Number(coins) < Number(tournament.entryFee || 0)) return 'coins';
+  return null;
+}
+
 export function isRegistrationAvailable(tournament, coins = null, now = Date.now()) {
-  if (!tournament || tournament.status !== 'registration') return false;
-  if (new Date(tournament.registrationClosesAt || tournament.startTime).getTime() <= now) return false;
-  return coins === null || Number(coins) >= Number(tournament.entryFee || 0);
+  return getRegistrationBlockReason(tournament, coins, now) === null;
 }
 
 export function getNextMatchFromTournament(tournament, participantId) {
