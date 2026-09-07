@@ -156,16 +156,14 @@ export const VFXFactory = {
     const scale = getFxScale();
 
     if (deckElement && deckRect) {
-      // Only our own draw has a face to reveal; opponents' cards stay face down.
-      const revealUrl = metadata.imageUrl || null;
+      // This ghost is the deck-to-hand flight only. The face reveal belongs to
+      // DrawReveal.jsx — one reveal per draw, or they stack on top of each other.
       const ghost = createCardGhost('deck-pile-element', {
         cardType: metadata.cardType || '',
         skinIndex: metadata.skinIndex || 0,
         faceDown: true,
-        imageUrl: revealUrl,
       });
       const { element } = ghost;
-      gsap.set(element, { rotationY: 180 });
       timeline.eventCallback('onInterrupt', () => element.remove());
 
       const targetRect = targetElement?.getBoundingClientRect() || {
@@ -185,25 +183,18 @@ export const VFXFactory = {
           duration: motionDuration(CARD_TIMINGS.deckRecoil),
           yoyo: true,
           repeat: 1,
-        }, '<')
-        // 3. travel
-        .add(flyCardTo(ghost, targetRect, {
-          duration: CARD_TIMINGS.travel,
-          scale: 0.86,
-        }), '>-0.04');
+        }, '<');
 
-      if (revealUrl) {
-        // 4. flip mid-flight, at ~60% of the travel
-        timeline.to(element, {
-          rotationY: 360,
-          duration: motionDuration(CARD_TIMINGS.travel * 0.7),
-          ease: 'power1.inOut',
-        }, `<${CARD_TIMINGS.flipOffset}`);
-      }
+      // 3. travel to the hand
+      timeline.add(flyCardTo(ghost, targetRect, {
+        duration: CARD_TIMINGS.travel,
+        scale: 0.86,
+        arc: 40,
+      }), '>-0.04');
 
-      // 5. settle
+      // 4. settle
       timeline
-        .to(element, { scale: 0.78, rotation: -4, duration: motionDuration(CARD_TIMINGS.settle) }, '-=0.1')
+        .to(element, { scale: 0.78, rotation: -4, duration: motionDuration(CARD_TIMINGS.settle), ease: 'back.out(2)' }, '-=0.1')
         .call(() => soundManager.play('sfx_card_drop'))
         .to(element, { opacity: 0, duration: motionDuration(0.12) })
         .call(() => element.remove());

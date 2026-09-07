@@ -52,9 +52,11 @@ const Mission = lazy(() => import('./pages/Mission.jsx'));
 
 const PAGES = { Home, Login, Register, ForgotPassword, ResetPassword, Lobby, Game, Profile, Friends, Leaderboard, Shop, Wardrobe, Tournaments, Admin, Mission };
 
+const VIEWPORT_FIT_PAGES = new Set(['Leaderboard', 'Tournaments', 'Game']);
+
 export default function App() {
   const { language, setLanguage, t } = useLanguage();
-  
+
   // Initialize state synchronously from token to prevent flashing incorrect UI
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     return !!localStorage.getItem('accessToken');
@@ -68,7 +70,7 @@ export default function App() {
         const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
         const payload = JSON.parse(window.atob(base64));
         return payload.role || 'user';
-      } catch (e) {}
+      } catch (e) { }
     }
     return 'user';
   });
@@ -84,7 +86,7 @@ export default function App() {
         if (isAdminRole(payload.role)) {
           return 'Admin';
         }
-      } catch (e) {}
+      } catch (e) { }
     }
     return 'Home';
   });
@@ -118,13 +120,13 @@ export default function App() {
 
   useEffect(() => {
     syncAuthState();
-    
+
     // Check auth status periodically
     const interval = setInterval(syncAuthState, 2000);
 
     // Setup socket connection and listen for server announcements
     socket.connect();
-    
+
     const handleAnnouncement = (data) => {
       setAnnouncement(data.text);
       // Auto dismiss after 10 seconds
@@ -284,6 +286,8 @@ export default function App() {
   const isInMatch = page === 'Game' && activeRoom !== null;
   const shouldRenderVfx = page === 'Game' && activeRoom?.status === 'playing';
   const isAdminPage = page === 'Admin';
+  // Game-screen pages fit in 100dvh; the in-match board already handles its own sizing.
+  const isViewportFit = VIEWPORT_FIT_PAGES.has(page) && !isInMatch;
 
   if (page === 'Home') {
     return (
@@ -299,11 +303,11 @@ export default function App() {
           </div>
         )}
 
-        <Home 
-          setPage={navigateWithConfirm} 
-          isLoggedIn={isLoggedIn} 
-          userRole={userRole} 
-          handleLogout={handleLogout} 
+        <Home
+          setPage={navigateWithConfirm}
+          isLoggedIn={isLoggedIn}
+          userRole={userRole}
+          handleLogout={handleLogout}
         />
 
         <CustomDialog
@@ -321,7 +325,7 @@ export default function App() {
   return (
     <div className={isAdminPage
       ? 'admin-console min-h-screen bg-[var(--admin-canvas)] text-[var(--admin-text)] flex flex-col selection:bg-[var(--admin-danger-bg)] selection:text-[var(--admin-text)]'
-      : `pop-art-theme min-h-screen ${isInMatch ? 'bg-[#0b0d14]' : 'bg-[var(--pop-cream)]'} text-[var(--pop-black)] flex flex-col selection:bg-[var(--pop-amber)] selection:text-[var(--pop-black)]`
+      : `pop-art-theme min-h-screen ${isViewportFit ? 'viewport-fit-shell ' : ''}${isInMatch ? 'bg-[#0b0d14]' : 'bg-[var(--pop-cream)]'} text-[var(--pop-black)] flex flex-col selection:bg-[var(--pop-amber)] selection:text-[var(--pop-black)]`
     }>
       {/* Floating Server Announcement */}
       {announcement && (
@@ -348,17 +352,17 @@ export default function App() {
 
       {/* Navigation Header */}
       {!isInMatch && (
-        <Navbar 
+        <Navbar
           page={page}
-          setPage={navigateWithConfirm} 
-          isLoggedIn={isLoggedIn} 
-          userRole={userRole} 
-          handleLogout={handleLogout} 
+          setPage={navigateWithConfirm}
+          isLoggedIn={isLoggedIn}
+          userRole={userRole}
+          handleLogout={handleLogout}
         />
       )}
 
       {/* Main Page Area */}
-      <main className={`flex-grow ${isAdminPage ? 'w-full' : isInMatch ? 'p-0 w-full max-w-none' : page === 'Wardrobe' ? 'mx-auto w-full max-w-[1500px] p-3 md:p-6' : 'p-4 md:p-8 max-w-7xl mx-auto w-full'}`}>
+      <main className={`flex-grow ${isAdminPage ? 'w-full' : isInMatch ? 'p-0 w-full max-w-none' : page === 'Wardrobe' ? 'mx-auto w-full max-w-[1500px] p-3 md:p-6' : isViewportFit ? 'p-3 md:p-5 max-w-7xl mx-auto w-full' : 'p-4 md:p-8 max-w-7xl mx-auto w-full'}`}>
         <ErrorBoundary>
           <Suspense fallback={<div className={isAdminPage ? 'py-10 text-center text-sm text-[var(--admin-text-muted)]' : 'font-pop-body text-center py-10'}>Loading...</div>}>
             <Page setPage={setPage} initialRoom={page === 'Game' ? activeRoom : null} />
@@ -367,7 +371,7 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      {!isInMatch && !isAdminPage && (
+      {!isInMatch && !isAdminPage && !isViewportFit && (
         <footer className="w-full border-t-2 border-[var(--pop-black)] py-8 bg-[var(--pop-cream)] mt-auto font-pop-body">
           <div className="max-w-7xl mx-auto px-4 md:px-12 flex flex-col md:flex-row justify-between items-center gap-4 text-center md:text-left">
             <div className="font-pop-display font-black text-xl text-[var(--pop-red)] uppercase tracking-tight">

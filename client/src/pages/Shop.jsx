@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { gsap } from 'gsap';
 import { CoinIcon } from '../components/CoinDisplay.jsx';
+import {
+  PixelCardBackIcon,
+  PixelFrameIcon,
+  PixelFieldIcon,
+  PixelWardrobeIcon,
+  PixelStarIcon,
+} from '../components/PixelIcons.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import CustomDialog from '../components/CustomDialog.jsx';
 import { getAssetTransformStyle, isOwnedItem, resolveAssetUrl } from '../utils/shopEquipment.js';
@@ -80,9 +87,10 @@ export default function Shop({ setPage }) {
 
   useEffect(() => {
     if (!loading && filteredItems.length > 0) {
+      // ponytail: Stagger animation for shop-card appearance on tab switch or load
       gsap.fromTo('.shop-card', 
-        { opacity: 0, y: 30, scale: 0.95 },
-        { opacity: 1, y: 0, scale: 1, duration: 0.5, stagger: 0.08, ease: 'back.out(1.2)' }
+        { opacity: 0, y: 24, scale: 0.96 },
+        { opacity: 1, y: 0, scale: 1, duration: 0.4, stagger: 0.06, ease: 'back.out(1.2)' }
       );
     }
   }, [filteredItems, loading, selectedTab]);
@@ -147,10 +155,16 @@ export default function Shop({ setPage }) {
     return t('shop_desc_fallback');
   };
 
+  const tabs = [
+    { id: 'protector', label: 'Protector', Icon: PixelCardBackIcon },
+    { id: 'avatar_frame', label: 'Avatar Frame', Icon: PixelFrameIcon },
+    { id: 'field', label: 'Field', Icon: PixelFieldIcon },
+  ];
+
   return (
-    <div className="flex flex-col gap-8 select-none text-left font-pop-body">
+    <div className="flex flex-col gap-6 select-none text-left font-pop-body max-w-7xl mx-auto px-2 sm:px-4 py-3">
       {/* Header and Balance Card */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div className="text-left">
           <h1 
             className="font-pop-display font-black text-4xl md:text-6xl text-white uppercase tracking-tight relative leading-none py-1 text-stroke-black-3"
@@ -160,20 +174,26 @@ export default function Shop({ setPage }) {
           >
             {t('shop_title')}
           </h1>
-          <p className="text-xs font-bold text-[var(--pop-black)]/60 mt-2 max-w-lg">
+          <p className="text-xs sm:text-sm font-bold text-slate-800 mt-2 max-w-xl leading-relaxed">
             {t('shop_desc')}
           </p>
         </div>
 
-        {/* Top-Right Stats Card */}
-        <div className="bg-white border-3 border-[var(--pop-black)] px-6 py-3.5 rounded-none flex items-center gap-6 shadow-[5px_5px_0_var(--pop-black)]">
+        {/* Top-Right HUD Battle Badge for Coin Balance */}
+        <div className="bg-white border-3 border-[var(--pop-black)] px-5 py-3 rounded-2xl flex items-center gap-4 shadow-[4px_4px_0_var(--pop-black)]">
           <div className="flex items-center gap-2">
-            <CoinIcon className="w-5 h-5" />
-            <span className="font-pop-accent font-black text-[var(--pop-black)] text-sm">
-              {userBalance.coins.toLocaleString()}
-            </span>
+            <CoinIcon className="w-6 h-6 shrink-0" />
+            <div className="flex flex-col">
+              <span className="font-pixel text-[10px] font-black uppercase text-slate-600 leading-none">
+                {language === 'vi' ? 'Số dư Xu' : 'Coin Balance'}
+              </span>
+              <span className="font-pop-accent font-black text-[var(--pop-black)] text-base sm:text-lg tabular-nums leading-snug">
+                {userBalance.coins.toLocaleString()}
+              </span>
+            </div>
           </div>
           <button 
+            type="button"
             onClick={() => {
               setDialogState({
                 isOpen: true,
@@ -185,7 +205,7 @@ export default function Shop({ setPage }) {
                 onCancel: () => setDialogState({ isOpen: false }),
               });
             }}
-            className="bg-[var(--pop-red)] border-2 border-[var(--pop-black)] text-white text-[10px] font-pop-accent font-black uppercase px-3.5 py-1.5 rounded-none shadow-[2px_2px_0_var(--pop-black)] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[3px_3px_0_var(--pop-black)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all cursor-pointer"
+            className="bg-[var(--pop-red)] border-2 border-[var(--pop-black)] text-white text-xs font-pop-accent font-black uppercase px-4 py-2 rounded-xl shadow-[2px_2px_0_var(--pop-black)] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[3px_3px_0_var(--pop-black)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all cursor-pointer min-h-[38px]"
           >
             {t('shop_get_more')}
           </button>
@@ -193,26 +213,29 @@ export default function Shop({ setPage }) {
       </div>
 
       {/* Tabs Menu */}
-      <div className="flex gap-4 flex-wrap border-b-3 border-dashed border-[var(--pop-black)]/20 pb-4">
-        {[
-          { id: 'protector', label: 'Protector' },
-          { id: 'avatar_frame', label: 'Avatar Frame' },
-          { id: 'field', label: 'Field' },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setSelectedTab(tab.id)}
-            className={`px-6 py-3 border-3 border-[var(--pop-black)] font-pop-accent font-black text-xs uppercase shadow-[4px_4px_0_var(--pop-black)] transition-all rounded-none cursor-pointer
-              ${selectedTab === tab.id 
-                ? 'bg-[var(--pop-red)] text-white translate-x-[2px] translate-y-[2px] shadow-[2px_2px_0_var(--pop-black)]' 
-                : 'bg-white text-[var(--pop-black)] hover:bg-[var(--pop-cream)] hover:translate-y-[-1px]'}`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      <div className="flex gap-3 flex-wrap border-b-3 border-dashed border-[var(--pop-black)]/20 pb-4">
+        {tabs.map((tab) => {
+          const active = selectedTab === tab.id;
+          const TabIcon = tab.Icon;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setSelectedTab(tab.id)}
+              className={`px-5 py-2.5 border-3 border-[var(--pop-black)] font-pop-accent font-black text-xs sm:text-sm uppercase shadow-[3px_3px_0_var(--pop-black)] transition-all rounded-xl cursor-pointer flex items-center gap-2
+                ${active 
+                  ? 'bg-[var(--pop-red)] text-white translate-x-[2px] translate-y-[2px] shadow-[1px_1px_0_var(--pop-black)]' 
+                  : 'bg-white text-[var(--pop-black)] hover:bg-[var(--pop-cream)] hover:translate-y-[-1px]'}`}
+            >
+              <TabIcon size={16} aria-hidden="true" />
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
         <button
+          type="button"
           disabled
-          className="px-6 py-3 border-3 border-dashed border-[var(--pop-black)]/20 bg-[var(--pop-black)]/5 text-[var(--pop-black)]/40 font-pop-accent font-black text-xs uppercase rounded-none cursor-not-allowed"
+          className="px-5 py-2.5 border-3 border-dashed border-[var(--pop-black)]/30 bg-[var(--pop-black)]/5 text-slate-500 font-pop-accent font-black text-xs sm:text-sm uppercase rounded-xl cursor-not-allowed"
         >
           {t('shop_bundles_locked')}
         </button>
@@ -220,8 +243,8 @@ export default function Shop({ setPage }) {
 
       {/* Notification Toast */}
       {message && (
-        <div className={`p-4 rounded-none text-xs font-pop-accent font-bold text-center border-3 border-[var(--pop-black)] shadow-[4px_4px_0_var(--pop-black)]
-          ${isError ? 'bg-[var(--pop-red)] text-white' : 'bg-[var(--pop-amber)] text-[var(--pop-black)]'}`}>
+        <div className={`p-3.5 rounded-xl text-xs sm:text-sm font-pop-accent font-bold text-center border-3 border-[var(--pop-black)] shadow-[4px_4px_0_var(--pop-black)]
+          ${isError ? 'bg-[var(--pop-red)] text-white' : 'bg-amber-300 text-neutral-950'}`}>
           {message}
         </div>
       )}
@@ -230,46 +253,48 @@ export default function Shop({ setPage }) {
       {loading ? (
         <p className="text-center font-pop-accent font-black text-lg py-12 animate-pulse">{t('shop_loading')}</p>
       ) : filteredItems.length === 0 ? (
-        <div className="text-center py-16 bg-white border-3 border-[var(--pop-black)] shadow-[6px_6px_0_var(--pop-black)] rounded-none w-full">
-          <span className="text-5xl">🛒</span>
+        <div className="text-center py-16 bg-white border-3 border-[var(--pop-black)] shadow-[6px_6px_0_var(--pop-black)] rounded-2xl w-full">
+          <span className="text-5xl" role="img" aria-label="cart">🛒</span>
           <p className="font-pop-display font-black uppercase mt-4 text-[var(--pop-black)] text-xl">{t('shop_empty_title')}</p>
-          <p className="text-xs text-[var(--pop-black)]/60 font-bold mt-1">{t('shop_empty_desc')}</p>
+          <p className="text-xs sm:text-sm text-slate-700 font-bold mt-1">{t('shop_empty_desc')}</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8 w-full">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 w-full">
           {filteredItems.map((item) => {
             const owned = isOwnedItem(item, ownedItems.ownedItemIds);
             const isLegendary = item.rarity === 'legendary';
             const isEpic = item.rarity === 'epic';
-            const isHot = item.name.toLowerCase().includes('toxic') || isEpic;
+            const isHot = item.name?.toLowerCase().includes('toxic') || isEpic;
 
             return (
               <div 
                 key={item._id}
-                className="shop-card relative bg-white border-3 border-[var(--pop-black)] rounded-none p-4 flex flex-col justify-between gap-3 shadow-[4px_4px_0_var(--pop-black)] min-h-[22rem] h-auto"
+                className={`shop-card relative bg-white border-3 border-[var(--pop-black)] rounded-2xl p-4 flex flex-col justify-between gap-3 shadow-[4px_4px_0_var(--pop-black)] min-h-[23rem] h-auto transition-all hover:translate-y-[-2px] hover:shadow-[6px_6px_0_var(--pop-black)] ${
+                  isLegendary ? 'border-amber-400 ring-2 ring-amber-300/60' : isEpic ? 'border-purple-400 ring-2 ring-purple-300/50' : ''
+                }`}
               >
                 {/* Ribbon labels overlay */}
                 {isLegendary && (
-                  <div className="absolute top-3 left-[-8px] bg-[var(--pop-amber)] border-2 border-[var(--pop-black)] text-[8px] font-pop-accent font-black px-2 py-0.5 shadow-[2px_2px_0_var(--pop-black)] uppercase tracking-wider -rotate-6 z-10">
-                    {t('shop_legendary')}
+                  <div className="absolute top-3 -left-2 bg-[var(--pop-amber)] border-2 border-[var(--pop-black)] text-[10px] font-pop-accent font-black px-2.5 py-0.5 shadow-[2px_2px_0_var(--pop-black)] uppercase tracking-wider -rotate-6 z-10 rounded-md">
+                    🌟 {t('shop_legendary')}
                   </div>
                 )}
                 {isHot && (
-                  <div className="absolute top-3 right-3 bg-[var(--pop-red)] border-2 border-[var(--pop-black)] text-white text-[8px] font-pop-accent font-black px-2 py-0.5 uppercase tracking-wider z-10">
-                    {t('shop_hot')}
+                  <div className="absolute top-3 right-3 bg-[var(--pop-red)] border-2 border-[var(--pop-black)] text-white text-[10px] font-pop-accent font-black px-2.5 py-0.5 uppercase tracking-wider z-10 rounded-md shadow-[2px_2px_0_var(--pop-black)]">
+                    🔥 {t('shop_hot')}
                   </div>
                 )}
 
-                {/* Main Image Illustration */}
-                <div className={`border-2 border-[var(--pop-black)] rounded-none h-44 flex items-center justify-center relative overflow-hidden p-2
+                {/* Main Image Illustration with Pedestal Framing */}
+                <div className={`border-2 border-[var(--pop-black)] rounded-xl h-44 flex items-center justify-center relative overflow-hidden p-2.5
                   ${isLegendary 
-                    ? 'bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-400' 
+                    ? 'bg-gradient-to-b from-amber-50 via-yellow-100/60 to-amber-200/40' 
                     : isEpic 
-                      ? 'bg-gradient-to-br from-rose-50 to-rose-100 border-rose-400' 
-                      : 'bg-slate-50'}`}>
+                      ? 'bg-gradient-to-b from-purple-50 via-fuchsia-100/60 to-purple-200/40' 
+                      : 'bg-gradient-to-b from-slate-50 to-slate-100'}`}>
                   {item.type === 'protector' ? (
                     <div
-                      className="relative h-full max-h-40 rounded-lg overflow-hidden border-2 border-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)] bg-white flex items-center justify-center"
+                      className="relative h-full max-h-40 rounded-lg overflow-hidden border-2 border-[var(--pop-black)] shadow-[3px_3px_0_var(--pop-black)] bg-white flex items-center justify-center"
                       style={{ aspectRatio: '0.716 / 1' }}
                     >
                       <span className="text-4xl select-none" aria-hidden="true">🂠</span>
@@ -284,7 +309,7 @@ export default function Shop({ setPage }) {
                       )}
                     </div>
                   ) : item.type === 'avatar_frame' ? (
-                    <div className="relative h-full max-h-36 aspect-square rounded-full overflow-hidden border-2 border-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)] bg-white flex items-center justify-center p-1">
+                    <div className="relative h-full max-h-36 aspect-square rounded-full overflow-hidden border-2 border-[var(--pop-black)] shadow-[3px_3px_0_var(--pop-black)] bg-white flex items-center justify-center p-1">
                       {item.imageUrl ? (
                         <img
                           src={resolveAssetUrl(item.imageUrl)}
@@ -299,7 +324,7 @@ export default function Shop({ setPage }) {
                     </div>
                   ) : (
                     /* Field or other types */
-                    <div className="relative h-full max-h-32 aspect-video rounded-md overflow-hidden border-2 border-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)] bg-slate-900 flex items-center justify-center">
+                    <div className="relative h-full max-h-32 aspect-video rounded-lg overflow-hidden border-2 border-[var(--pop-black)] shadow-[3px_3px_0_var(--pop-black)] bg-slate-900 flex items-center justify-center">
                       <span className="text-4xl select-none" aria-hidden="true">⚔️</span>
                       {item.imageUrl && (
                         <img
@@ -316,31 +341,31 @@ export default function Shop({ setPage }) {
 
                 {/* Details Text Content */}
                 <div className="flex-grow flex flex-col justify-start text-left">
-                  <h3 className="font-pop-accent font-black text-sm uppercase text-[var(--pop-black)] truncate">
+                  <h3 className="font-pop-accent font-black text-sm sm:text-base uppercase text-[var(--pop-black)] truncate">
                     {item.name}
                   </h3>
-                  <p className="text-[10px] text-[var(--pop-black)]/60 font-bold mt-1 line-clamp-2 leading-tight">
+                  <p className="text-xs text-slate-700 font-bold mt-1 line-clamp-2 leading-relaxed">
                     {getDescription(item)}
                   </p>
                 </div>
 
                 {/* Price and Buy Footer Row */}
-                <div className="flex justify-between items-center pt-3 border-t border-[var(--pop-black)]/10">
+                <div className="flex justify-between items-center pt-3 border-t border-[var(--pop-black)]/15">
                   {/* Pricing Display */}
-                  <div className="flex gap-2">
+                  <div className="flex items-center gap-1.5">
                     {item.price?.coins > 0 ? (
-                      <span className="font-pop-accent font-black text-[var(--pop-black)] text-xs flex items-center gap-1">
-                        <CoinIcon className="w-4 h-4 text-yellow-500" /> {item.price.coins.toLocaleString()}
+                      <span className="font-pop-accent font-black text-[var(--pop-black)] text-sm sm:text-base flex items-center gap-1 tabular-nums">
+                        <CoinIcon className="w-4 h-4 text-yellow-500 shrink-0" /> {item.price.coins.toLocaleString()}
                       </span>
                     ) : (
-                      <span className="font-pop-accent font-black text-emerald-600 text-xs">{t('shop_free')}</span>
+                      <span className="font-pop-accent font-black text-emerald-700 text-xs sm:text-sm uppercase tracking-wider">{t('shop_free')}</span>
                     )}
                   </div>
 
                   {/* Action Button */}
-                  <div className="flex gap-1.5 items-center">
+                  <div className="flex gap-2 items-center">
                     {owned && (
-                      <span className="bg-emerald-50 border-2 border-emerald-400 text-emerald-700 text-[9px] font-pop-accent font-black px-2 py-0.5 rounded-none">
+                      <span className="bg-emerald-100 border-2 border-emerald-500 text-emerald-900 text-[10px] font-pop-accent font-black px-2.5 py-1 rounded-md uppercase tracking-wider">
                         {t('shop_owned')}
                       </span>
                     )}
@@ -348,19 +373,20 @@ export default function Shop({ setPage }) {
                       <button
                         type="button"
                         onClick={() => setPage('Wardrobe')}
-                        className="bg-[var(--pop-black)] border-2 border-[var(--pop-black)] text-white text-[9px] font-pop-accent font-black uppercase px-2.5 py-1 rounded-none shadow-[2px_2px_0_var(--pop-red)]"
+                        className="bg-[var(--pop-black)] border-2 border-[var(--pop-black)] text-white text-xs font-pop-accent font-black uppercase px-3.5 py-1.5 rounded-lg shadow-[2px_2px_0_var(--pop-red)] hover:bg-neutral-800 hover:scale-105 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer min-h-[36px]"
                       >
-                        {t('wardrobe')}
+                        <PixelWardrobeIcon size={14} className="text-white" />
+                        <span>{t('wardrobe')}</span>
                       </button>
                     ) : (
                     <button
                       type="button"
                       disabled={Boolean(pendingItemId)}
                       onClick={() => handleBuyItem(item._id)}
-                      className={`border-2 border-[var(--pop-black)] text-[9px] font-pop-accent font-black uppercase px-4 py-1.5 rounded-none shadow-[2px_2px_0_var(--pop-black)] hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all cursor-pointer disabled:opacity-50 disabled:shadow-none
+                      className={`border-2 border-[var(--pop-black)] text-xs font-pop-accent font-black uppercase px-4 py-1.5 rounded-lg shadow-[2px_2px_0_var(--pop-black)] hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all cursor-pointer disabled:opacity-50 disabled:shadow-none min-h-[36px]
                         ${isLegendary 
                           ? 'bg-[var(--pop-amber)] text-[var(--pop-black)] hover:bg-yellow-300' 
-                          : 'bg-[var(--pop-red)] text-white hover:bg-red-800'}`}
+                          : 'bg-[var(--pop-red)] text-white hover:bg-red-700'}`}
                     >
                       {pendingItemId === item._id ? t('shop_buying') : t('shop_buy')}
                     </button>
@@ -374,24 +400,25 @@ export default function Shop({ setPage }) {
       )}
 
       {/* Weekend Chaos Bundle Promo Banner */}
-      <div className="bg-[var(--pop-red)] border-3 border-[var(--pop-black)] rounded-none p-6 md:p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 shadow-[6px_6px_0_var(--pop-black)] text-white text-left relative overflow-hidden mt-6 w-full">
-        <div className="flex flex-col gap-3 max-w-xl z-10">
-          <h2 className="font-pop-display font-black text-2xl md:text-3xl uppercase tracking-wider text-white">
+      <div className="bg-[var(--pop-red)] border-3 border-[var(--pop-black)] rounded-2xl p-6 md:p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 shadow-[6px_6px_0_var(--pop-black)] text-white text-left relative overflow-hidden mt-4 w-full">
+        <div className="flex flex-col gap-2.5 max-w-xl z-10">
+          <h2 className="font-pop-display font-black text-2xl md:text-3xl uppercase tracking-wider text-white leading-tight">
             {t('shop_promo_title')}
           </h2>
-          <p className="text-xs md:text-sm font-medium text-red-100 leading-relaxed">
+          <p className="text-xs md:text-sm font-medium text-red-50 leading-relaxed">
             {t('shop_promo_desc')}
           </p>
-          <div className="inline-block self-start bg-[var(--pop-amber)] border-2 border-[var(--pop-black)] text-[var(--pop-black)] text-[9px] font-pop-accent font-black uppercase px-2 py-1 tracking-wider -rotate-2 mt-1 shadow-[1.5px_1.5px_0px_0px_var(--pop-black)]">
+          <div className="inline-block self-start bg-[var(--pop-amber)] border-2 border-[var(--pop-black)] text-[var(--pop-black)] text-[10px] font-pop-accent font-black uppercase px-2.5 py-1 tracking-wider -rotate-2 mt-1 shadow-[2px_2px_0_var(--pop-black)] rounded-md">
             {t('shop_promo_discount')}
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row md:flex-col items-start md:items-end gap-3 z-10">
-          <span className="font-pop-display font-black text-4xl md:text-5xl text-white tracking-tight">
+        <div className="flex flex-col sm:flex-row md:flex-col items-start md:items-end gap-3 z-10 shrink-0">
+          <span className="font-pop-display font-black text-4xl md:text-5xl text-white tracking-tight tabular-nums">
             $9.99
           </span>
           <button 
+            type="button"
             onClick={() => {
               setDialogState({
                 isOpen: true,
@@ -403,7 +430,7 @@ export default function Shop({ setPage }) {
                 onCancel: () => setDialogState({ isOpen: false }),
               });
             }}
-            className="bg-white border-3 border-[var(--pop-black)] text-[var(--pop-black)] font-pop-accent font-black text-xs uppercase px-6 py-3 rounded-none shadow-[3px_3px_0_var(--pop-black)] hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all text-center cursor-pointer"
+            className="bg-white border-3 border-[var(--pop-black)] text-[var(--pop-black)] font-pop-accent font-black text-xs uppercase px-6 py-3 rounded-xl shadow-[3px_3px_0_var(--pop-black)] hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all text-center cursor-pointer min-h-[42px]"
           >
             {t('shop_promo_buy')}
           </button>

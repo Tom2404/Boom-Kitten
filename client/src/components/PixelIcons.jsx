@@ -169,3 +169,79 @@ export const PixelFilterIcon = ({ className = '', size = 14 }) => (
     <path d="M0,0 h8 v2 h-1 v1 h-1 v1 h-1 v4 h-2 v-4 h-1 v-1 h-1 v-1 h-1 z" />
   </svg>
 );
+
+export const PixelCatBombIcon = ({ className = '', size = 32 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    className={className}
+    style={{ shapeRendering: 'crispEdges', display: 'inline-block' }}
+  >
+    {/* Fuse Sparks (Animated/Explosive colors) */}
+    <rect x="15" y="1" width="2" height="2" fill="#FFE600" />
+    <rect x="17" y="2" width="2" height="2" fill="#FF5500" />
+    <rect x="14" y="3" width="2" height="2" fill="#FF0055" />
+    <rect x="13" y="1" width="2" height="2" fill="#FF8800" />
+    <rect x="16" y="0" width="2" height="1" fill="#FFFFFF" />
+
+    {/* Fuse Rope */}
+    <rect x="12" y="3" width="2" height="2" fill="#E0E0E0" />
+    <rect x="11" y="4" width="2" height="2" fill="#9E9E9E" />
+    <rect x="11" y="5" width="2" height="2" fill="#616161" />
+
+    {/* Bomb Metal Cap */}
+    <rect x="9" y="5" width="6" height="2" fill="#1A1C1C" />
+    <rect x="10" y="6" width="4" height="1" fill="#757575" />
+
+    {/* Black Outline for Ears & Body */}
+    <path d="M3 4h4v1H3zm-1 1h2v4H2zm4 0h2v4H6z" fill="#1A1C1C" />
+    <path d="M17 4h4v1h-4zm-1 1h2v4h-2zm4 0h2v4h-2z" fill="#1A1C1C" />
+    <path d="M6 7h12v1H6zm-3 3h2v8H3zm16 0h2v8h-2zm-2 7h2v2h-2zm-12 0h2v2H5zm3 2h8v2H8z" fill="#1A1C1C" />
+
+    {/* Ear Fillings */}
+    <rect x="3" y="5" width="3" height="4" fill="#FF2A3B" />
+    <rect x="4" y="6" width="2" height="2" fill="#FFD166" />
+    <rect x="18" y="5" width="3" height="4" fill="#FF2A3B" />
+    <rect x="18" y="6" width="2" height="2" fill="#FFD166" />
+
+    {/* Bomb Round Red Body Fill */}
+    <rect x="5" y="8" width="14" height="10" fill="#FF2A3B" />
+    <rect x="4" y="9" width="16" height="8" fill="#FF2A3B" />
+    <rect x="7" y="18" width="10" height="1" fill="#FF2A3B" />
+
+    {/* Glossy White 3D Highlight Curve */}
+    <rect x="6" y="9" width="4" height="1" fill="#FFFFFF" />
+    <rect x="5" y="10" width="2" height="2" fill="#FFFFFF" />
+    <rect x="5" y="12" width="1" height="2" fill="#FFCCD5" />
+
+    {/* Glowing Lime Cat Eyes */}
+    <rect x="6" y="12" width="3" height="3" fill="#39FF14" />
+    <rect x="15" y="12" width="3" height="3" fill="#39FF14" />
+    {/* Black Slit Pupils */}
+    <rect x="8" y="12" width="1" height="3" fill="#1A1C1C" />
+    <rect x="15" y="12" width="1" height="3" fill="#1A1C1C" />
+    {/* Eye Sparkle */}
+    <rect x="6" y="12" width="1" height="1" fill="#FFFFFF" />
+    <rect x="17" y="12" width="1" height="1" fill="#FFFFFF" />
+
+    {/* Whiskers */}
+    <rect x="2" y="13" width="3" height="1" fill="#FFFFFF" />
+    <rect x="1" y="15" width="3" height="1" fill="#FFFFFF" />
+    <rect x="19" y="13" width="3" height="1" fill="#FFFFFF" />
+    <rect x="20" y="15" width="3" height="1" fill="#FFFFFF" />
+
+    {/* Cute Pink Cheeks */}
+    <rect x="5" y="15" width="2" height="1" fill="#FF85A1" />
+    <rect x="17" y="15" width="2" height="1" fill="#FF85A1" />
+
+    {/* Nose & Cute Cat Mouth :3 */}
+    <rect x="11" y="14" width="2" height="1" fill="#FFD166" />
+    <rect x="10" y="15" width="1" height="1" fill="#1A1C1C" />
+    <rect x="13" y="15" width="1" height="1" fill="#1A1C1C" />
+    <rect x="11" y="16" width="2" height="1" fill="#1A1C1C" />
+  </svg>
+);
+
+

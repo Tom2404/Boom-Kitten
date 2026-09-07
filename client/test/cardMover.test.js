@@ -57,6 +57,42 @@ test('createCardGhost anchors the clone on the source rect and detaches on remov
     delete globalThis.document;
 });
 
+test('exactly one system owns the draw reveal', async () => {
+    const factory = fs.readFileSync(new URL('../src/vfx/VFXFactory.js', import.meta.url), 'utf8');
+    const { CARD_TIMINGS } = await import('../src/vfx/config/vfxTimings.js');
+    const { getDrawRevealMotion } = await import('../src/pages/Game/gameMotion.js');
+
+    // 600-800ms at a large scale is the floor for recognising a card face.
+    assert.ok(CARD_TIMINGS.revealHold >= 0.5, 'reveal hold too short to read');
+    assert.ok(CARD_TIMINGS.revealScale >= 1.5, 'reveal scale too small to read');
+
+    // DrawReveal.jsx owns the face; the GSAP flight stays face down so the two
+    // never render a reveal at the same time.
+    assert.doesNotMatch(factory, /revealHold|revealScale|imageUrl/);
+    assert.match(factory, /faceDown: true/);
+    assert.ok(getDrawRevealMotion(false).holdMs >= CARD_TIMINGS.revealHold * 1000);
+});
+
+test('the face-down draw flight finishes before the reveal modal lets go', async () => {
+    const { CARD_TIMINGS } = await import('../src/vfx/config/vfxTimings.js');
+    const { getDrawRevealMotion } = await import('../src/pages/Game/gameMotion.js');
+
+    // Both start on the same draw event. If the ghost were still flying after the
+    // modal exits, the player would see the card land twice.
+    const flight = CARD_TIMINGS.anticipation
+        + CARD_TIMINGS.travel
+        + CARD_TIMINGS.settle
+        + 0.12; // fade out
+    assert.ok(
+        flight * 1000 < getDrawRevealMotion(false).holdMs,
+        `flight ${flight * 1000}ms outlives modal hold ${getDrawRevealMotion(false).holdMs}ms`,
+    );
+
+    // Reduced motion collapses the flight but must keep the card readable.
+    assert.ok(getDrawRevealMotion(true).holdMs >= 1000);
+    assert.equal(CARD_TIMINGS.reduced, 0.01);
+});
+
 test('flyCardTo moves ghost center onto target center with compositor-only props', () => {
     const source = fs.readFileSync(new URL('../src/vfx/cardMover.js', import.meta.url), 'utf8');
 

@@ -10,8 +10,10 @@ import {
   PixelStarIcon,
   PixelTrophyIcon,
   PixelWardrobeIcon,
+  PixelCatBombIcon,
 } from './PixelIcons.jsx';
 import { CoinIcon } from './CoinDisplay.jsx';
+import logoPixelCatBomb from '../assets/ui/logo_pixel_cat_bomb.jpg';
 import { isAdminRole } from '../utils/adminRoles.js';
 
 const PRESET_AVATARS = {
@@ -38,6 +40,7 @@ export default function Navbar({ page, setPage, isLoggedIn, userRole, handleLogo
   const [userProfile, setUserProfile] = useState(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [claimableMissionsCount, setClaimableMissionsCount] = useState(0);
 
   // Button hover & active states for tactile mechanical feedback
   const [langHover, setLangHover] = useState(false);
@@ -72,13 +75,47 @@ export default function Navbar({ page, setPage, isLoggedIn, userRole, handleLogo
     }
   };
 
+  // Fetch Mission status to calculate claimable rewards badge
+  const fetchClaimableMissions = async () => {
+    const token = localStorage.getItem('accessToken');
+    if (!token) {
+      setClaimableMissionsCount(0);
+      return;
+    }
+    try {
+      const res = await fetch(`${API_URL}/api/missions`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          const count = data.filter((q) => {
+            const currentCount = q.currentCount || 0;
+            const targetCount = q.targetCount || 1;
+            const isClaimed = q.status === 'claimed';
+            const isCompleted = q.status === 'completed' || (currentCount >= targetCount && !isClaimed);
+            return isCompleted && !isClaimed;
+          }).length;
+          setClaimableMissionsCount(count);
+        }
+      }
+    } catch (e) {
+      // Quiet fail
+    }
+  };
+
   useEffect(() => {
     if (isLoggedIn) {
       fetchUserProfile();
-      const interval = setInterval(fetchUserProfile, 6000);
+      fetchClaimableMissions();
+      const interval = setInterval(() => {
+        fetchUserProfile();
+        fetchClaimableMissions();
+      }, 6000);
       return () => clearInterval(interval);
     } else {
       setUserProfile(null);
+      setClaimableMissionsCount(0);
     }
   }, [isLoggedIn]);
 
@@ -86,18 +123,22 @@ export default function Navbar({ page, setPage, isLoggedIn, userRole, handleLogo
     const handleSync = () => {
       if (localStorage.getItem('accessToken')) {
         fetchUserProfile();
+        fetchClaimableMissions();
       } else {
         setUserProfile(null);
+        setClaimableMissionsCount(0);
       }
     };
 
     window.addEventListener('auth:changed', handleSync);
     window.addEventListener('balance:updated', handleSync);
+    window.addEventListener('missions:updated', handleSync);
     window.addEventListener('storage', handleSync);
 
     return () => {
       window.removeEventListener('auth:changed', handleSync);
       window.removeEventListener('balance:updated', handleSync);
+      window.removeEventListener('missions:updated', handleSync);
       window.removeEventListener('storage', handleSync);
     };
   }, []);
@@ -226,8 +267,8 @@ export default function Navbar({ page, setPage, isLoggedIn, userRole, handleLogo
             onClick={() => setPage('Admin')}
             className="flex items-center gap-2 rounded-md text-left text-[var(--admin-text)] transition-colors hover:text-[var(--admin-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--admin-focus)] focus:ring-offset-2"
           >
-            <span className="flex h-8 w-8 items-center justify-center rounded-md bg-[var(--admin-danger-bg)] text-[var(--admin-accent)]" aria-hidden="true">
-              <span className="material-symbols-outlined text-[20px]">admin_panel_settings</span>
+            <span className="flex h-8 w-8 items-center justify-center rounded-md bg-[var(--admin-danger-bg)] text-[var(--admin-accent)] text-base" aria-hidden="true">
+              ⚙️
             </span>
             <span>
               <span className="block text-sm font-semibold tracking-[-0.01em]">Boom-Kitten</span>
@@ -279,14 +320,19 @@ export default function Navbar({ page, setPage, isLoggedIn, userRole, handleLogo
         {/* ========================================================= */}
         <div
           onClick={() => scrollToSection('hero')}
-          className="flex items-center gap-2.5 cursor-pointer shrink-0 group transition-transform active:scale-95"
+          className="flex items-center gap-2.5 sm:gap-3 cursor-pointer shrink-0 group transition-transform active:scale-95"
         >
-          {/* Red diamond */}
-          <div className="w-[16px] h-[16px] bg-[var(--pop-red)] rotate-45 pop-border-2 border-white shadow-[2px_2px_0_#fff] group-hover:rotate-90 transition-transform duration-300" />
+          {/* High-Impact Pixel Cat Bomb Logo Badge */}
+          <div className="relative w-9 h-9 md:w-10 md:h-10 rounded-xl border-2 border-white bg-gradient-to-b from-[#2a1b18] via-[#1a1c1c] to-[#120d0c] p-0.5 shadow-[2.5px_2.5px_0_var(--pop-amber)] group-hover:shadow-[3.5px_3.5px_0_var(--pop-red)] group-hover:scale-110 transition-all overflow-hidden flex items-center justify-center shrink-0">
+            <PixelCatBombIcon size={30} className="drop-shadow-[0_0_8px_rgba(255,42,59,0.75)]" />
+          </div>
 
-          <span className="font-pop-display text-lg md:text-[22px] tracking-tight uppercase">
-            <span className="text-white font-black">Mèo</span>
-            <span className="text-[var(--pop-red)] font-black ml-1">Nổ</span>
+          <span className="font-pop-display text-xl md:text-2xl tracking-tight uppercase select-none flex items-center">
+            <span className="text-white font-black drop-shadow-[2px_2px_0_#000]">Mèo</span>
+            <span className="text-[var(--pop-amber)] font-black ml-1 drop-shadow-[2px_2px_0_#000] group-hover:text-[var(--pop-red)] transition-colors">Nổ</span>
+            <span className="ml-2 text-[9px] text-[var(--pop-black)] bg-[var(--pop-amber)] font-pixel font-black px-1.5 py-0.5 rounded border border-[var(--pop-black)] shadow-[1.5px_1.5px_0_#000] hidden sm:inline-block leading-none">
+              BOOM
+            </span>
           </span>
         </div>
 
@@ -337,13 +383,26 @@ export default function Navbar({ page, setPage, isLoggedIn, userRole, handleLogo
             <button
               ref={mobileMenuButtonRef}
               type="button"
-              className="lg:hidden flex h-9 w-9 items-center justify-center border-2 border-white bg-[var(--pop-black)] text-white shadow-[2px_2px_0_var(--pop-red)] active:translate-y-0.5"
+              className="lg:hidden relative flex h-9 w-9 items-center justify-center border-2 border-white bg-[var(--pop-black)] text-white shadow-[2px_2px_0_var(--pop-red)] active:translate-y-0.5"
               aria-expanded={mobileOpen}
               aria-controls="player-mobile-navigation"
               aria-label={language === 'en' ? 'Open navigation' : 'Mở điều hướng'}
               onClick={() => setMobileOpen((open) => !open)}
             >
-              <span className="material-symbols-outlined text-xl" aria-hidden="true">{mobileOpen ? 'close' : 'menu'}</span>
+              {mobileOpen ? (
+                <span className="font-pixel font-black text-sm text-[var(--pop-amber)] leading-none" aria-hidden="true">✕</span>
+              ) : (
+                <span className="flex flex-col gap-1 w-4 items-center justify-center" aria-hidden="true">
+                  <span className="w-full h-0.5 bg-white shadow-[0_1px_0_var(--pop-black)]" />
+                  <span className="w-full h-0.5 bg-[var(--pop-amber)] shadow-[0_1px_0_var(--pop-black)]" />
+                  <span className="w-full h-0.5 bg-white shadow-[0_1px_0_var(--pop-black)]" />
+                </span>
+              )}
+              {claimableMissionsCount > 0 && !mobileOpen && (
+                <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] px-0.5 bg-[var(--pop-red)] text-white text-[8px] font-pixel font-black rounded-full border border-[var(--pop-black)] flex items-center justify-center animate-pulse">
+                  {claimableMissionsCount}
+                </span>
+              )}
             </button>
           )}
 
@@ -369,7 +428,7 @@ export default function Navbar({ page, setPage, isLoggedIn, userRole, handleLogo
               <button
                 type="button"
                 onClick={() => setUserMenuOpen((prev) => !prev)}
-                className={`flex items-center gap-2 bg-white text-[var(--pop-black)] border-2 border-[var(--pop-black)] px-2 sm:px-3 py-1 font-pop-accent font-black transition-all cursor-pointer ${
+                className={`relative flex items-center gap-2 bg-white text-[var(--pop-black)] border-2 border-[var(--pop-black)] px-2 sm:px-3 py-1 font-pop-accent font-black transition-all cursor-pointer ${
                   userMenuOpen
                     ? 'shadow-[0_0_0_transparent] translate-x-[2px] translate-y-[2px] bg-[var(--pop-cream)]'
                     : 'shadow-[2px_2px_0_var(--pop-red)] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[3px_3px_0_var(--pop-red)]'
@@ -391,6 +450,16 @@ export default function Navbar({ page, setPage, isLoggedIn, userRole, handleLogo
                 <span className={`text-[10px] transition-transform duration-200 ${userMenuOpen ? 'rotate-180 text-[var(--pop-red)]' : 'text-neutral-600'}`}>
                   ▼
                 </span>
+
+                {/* Claimable Missions Counter Badge */}
+                {claimableMissionsCount > 0 && (
+                  <span
+                    className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 bg-[var(--pop-red)] text-white text-[9px] font-pixel font-black rounded-full border border-[var(--pop-black)] shadow-[1px_1px_0_var(--pop-black)] flex items-center justify-center animate-pulse"
+                    title={language === 'en' ? `${claimableMissionsCount} claimable missions` : `${claimableMissionsCount} nhiệm vụ sẵn sàng nhận`}
+                  >
+                    {claimableMissionsCount}
+                  </span>
+                )}
               </button>
 
               {/* POP-ART USER DROPDOWN CARD */}
@@ -480,7 +549,12 @@ export default function Navbar({ page, setPage, isLoggedIn, userRole, handleLogo
                           }`}
                         >
                           <PixelStarIcon size={14} />
-                          <span>{t('mission')}</span>
+                          <span className="flex-1">{t('mission')}</span>
+                          {claimableMissionsCount > 0 && (
+                            <span className="bg-[var(--pop-red)] text-white text-[10px] font-pixel font-black px-1.5 py-0.5 rounded-full border border-[var(--pop-black)] shadow-[1px_1px_0_var(--pop-black)] animate-pulse">
+                              {claimableMissionsCount}
+                            </span>
+                          )}
                         </button>
                       </>
                     )}
@@ -597,6 +671,7 @@ export default function Navbar({ page, setPage, isLoggedIn, userRole, handleLogo
           <div className="grid grid-cols-2 gap-2 mb-3">
             {navigationItems.map(({ page: targetPage, label, Icon }) => {
               const active = page === targetPage;
+              const isMission = targetPage === 'Mission';
               return (
                 <button
                   key={targetPage}
@@ -608,7 +683,12 @@ export default function Navbar({ page, setPage, isLoggedIn, userRole, handleLogo
                   }`}
                 >
                   <Icon size={14} aria-hidden="true" />
-                  <span className="truncate">{label}</span>
+                  <span className="truncate flex-1">{label}</span>
+                  {isMission && claimableMissionsCount > 0 && (
+                    <span className="bg-[var(--pop-red)] text-white text-[10px] font-pixel font-black px-1.5 py-0.5 rounded-full border border-[var(--pop-black)] shadow-[1px_1px_0_var(--pop-black)] animate-pulse">
+                      {claimableMissionsCount}
+                    </span>
+                  )}
                 </button>
               );
             })}

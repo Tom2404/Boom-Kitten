@@ -380,7 +380,7 @@ export default function WaitingRoomView() {
                       className="bg-white border-[3px] border-[var(--pop-black)] px-3 py-2 text-xl font-black w-full outline-none focus:bg-[var(--pop-cream)] font-pop-display"
                     />
                     <span className="font-pop-accent font-black text-[var(--pop-black)]">
-                      <span className="text-yellow-500 material-symbols-outlined text-3xl drop-shadow-[1px_1px_0_var(--pop-black)]">monetization_on</span>
+                      <CoinIcon className="w-8 h-8 drop-shadow-[1px_1px_0_var(--pop-black)]" />
                     </span>
                   </div>
                 </div>

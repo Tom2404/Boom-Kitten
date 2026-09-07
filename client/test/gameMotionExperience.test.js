@@ -38,7 +38,10 @@ test('draw reveal requires matching public and private draw event ids', () => {
 test('draw reveal keeps a readable hold before exiting toward the hand', () => {
   const motion = getDrawRevealMotion(false);
 
-  assert.equal(motion.holdMs, 1200);
+  // 600-800ms at a large scale is the floor for recognising a card face; the
+  // hold also has to cover the fly-in and fly-out, so it sits well above that.
+  assert.ok(motion.holdMs >= 1200, `hold too short to read: ${motion.holdMs}ms`);
+  assert.ok(motion.card.animate.scale >= 1.5, 'reveal scale too small to read');
   assert.ok(motion.card.initial.y < 0);
   assert.ok(motion.card.exit.y > 0);
   assert.ok(motion.card.animate.scale > motion.card.initial.scale);
@@ -108,8 +111,8 @@ test('timeout groups clear every pending presentation timer on teardown', () => 
     (id) => cleared.push(id),
   );
 
-  timers.schedule(() => {}, 100);
-  timers.schedule(() => {}, 200);
+  timers.schedule(() => { }, 100);
+  timers.schedule(() => { }, 200);
   timers.clearAll();
 
   assert.deepEqual(cleared, [1, 2]);

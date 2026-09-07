@@ -1,5 +1,6 @@
 import React from 'react';
 import { useLanguage } from '../context/LanguageContext.jsx';
+import { PixelCatBombIcon } from './PixelIcons.jsx';
 
 /**
  * Footer component for the homepage.
@@ -43,12 +44,14 @@ export default function Footer({ setPage }) {
           <div className="flex flex-col md:flex-row items-start md:items-center gap-2 md:gap-4">
             <div 
               onClick={scrollToTop} 
-              className="flex items-center gap-2 cursor-pointer"
+              className="flex items-center gap-2.5 cursor-pointer group"
             >
-              <div className="w-[16px] h-[16px] bg-[var(--pop-red)] rotate-45 pop-border-2 border-white" />
-              <span className="font-pop-display text-[28px] tracking-tight uppercase leading-none">
-                <span className="text-white">Mèo</span>
-                <span className="text-[var(--pop-red)]">Nổ</span>
+              <div className="relative w-9 h-9 md:w-10 md:h-10 rounded-xl border-2 border-white bg-gradient-to-b from-[#2a1b18] via-[#1a1c1c] to-[#120d0c] p-0.5 shadow-[2.5px_2.5px_0_var(--pop-amber)] group-hover:scale-105 transition-all overflow-hidden flex items-center justify-center shrink-0">
+                <PixelCatBombIcon size={30} className="drop-shadow-[0_0_8px_rgba(255,42,59,0.75)]" />
+              </div>
+              <span className="font-pop-display text-[28px] tracking-tight uppercase leading-none flex items-center">
+                <span className="text-white font-black">Mèo</span>
+                <span className="text-[var(--pop-amber)] font-black ml-1 group-hover:text-[var(--pop-red)] transition-colors">Nổ</span>
               </span>
             </div>
             <span className="font-pop-body text-xs text-[#444] font-bold uppercase tracking-wider md:mt-1.5">

@@ -35,11 +35,11 @@ function getTokenIdentity() {
 
 function WardrobeSkeleton({ label }) {
   return (
-    <div className="wardrobe-shell" aria-busy="true" aria-label={label}>
-      <div className="mb-6 h-20 animate-pulse border-3 border-[var(--pop-black)] bg-white/60" />
+    <div className="wardrobe-shell max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6" aria-busy="true" aria-label={label}>
+      <div className="mb-6 h-20 animate-pulse border-3 border-[var(--pop-black)] bg-white/60 rounded-2xl" />
       <div className="grid gap-5 lg:grid-cols-[minmax(22rem,38fr)_minmax(0,62fr)]">
-        <div className="h-[42rem] animate-pulse border-3 border-[var(--pop-black)] bg-white/60 shadow-[5px_5px_0_var(--pop-black)]" />
-        <div className="h-[42rem] animate-pulse border-3 border-[var(--pop-black)] bg-white/60 shadow-[5px_5px_0_var(--pop-black)]" />
+        <div className="h-[42rem] animate-pulse border-3 border-[var(--pop-black)] bg-white/60 shadow-[5px_5px_0_var(--pop-black)] rounded-2xl" />
+        <div className="h-[42rem] animate-pulse border-3 border-[var(--pop-black)] bg-white/60 shadow-[5px_5px_0_var(--pop-black)] rounded-2xl" />
       </div>
     </div>
   );
@@ -347,10 +347,10 @@ export default function Wardrobe({ setPage }) {
 
   if (loadError) {
     return (
-      <section className="mx-auto max-w-xl border-3 border-[var(--pop-black)] bg-white p-8 text-center shadow-[6px_6px_0_var(--pop-black)]" role="alert">
+      <section className="mx-auto max-w-xl border-3 border-[var(--pop-black)] bg-white p-8 text-center shadow-[6px_6px_0_var(--pop-black)] rounded-2xl" role="alert">
         <h1 className="font-pop-display text-3xl font-black uppercase text-[var(--pop-red)]">{t('wardrobe_title')}</h1>
-        <p className="mt-3 text-sm font-bold text-[var(--pop-black)]/65">{loadError}</p>
-        <button type="button" onClick={fetchWardrobe} className="wardrobe-primary-button mt-6">{t('wardrobe_retry')}</button>
+        <p className="mt-3 text-sm font-bold text-slate-800">{loadError}</p>
+        <button type="button" onClick={fetchWardrobe} className="wardrobe-primary-button mt-6 rounded-xl cursor-pointer">{t('wardrobe_retry')}</button>
       </section>
     );
   }
@@ -359,7 +359,7 @@ export default function Wardrobe({ setPage }) {
     <div ref={pageRef} className={`wardrobe-shell text-left font-pop-body max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 ${pinnedItem ? 'max-[479px]:pb-24' : ''}`}>
       <header className="mb-5 sm:mb-6">
         <h1 className="wardrobe-page-title font-pop-display font-black uppercase leading-none text-white text-stroke-black-3" style={{ textShadow: '3px 3px 0 var(--pop-orange)' }}>{t('wardrobe_title')}</h1>
-        <p className="mt-2 max-w-2xl text-sm font-bold text-[var(--pop-black)]/70">{t('wardrobe_desc')}</p>
+        <p className="mt-2 max-w-2xl text-sm font-bold text-slate-800 leading-relaxed">{t('wardrobe_desc')}</p>
       </header>
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(22rem,38fr)_minmax(0,62fr)]">

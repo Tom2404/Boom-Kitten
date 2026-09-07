@@ -14,11 +14,15 @@ export const VFX_PHASES = {
 
 /** Every card-flight duration lives here, named after the beat it plays. */
 export const CARD_TIMINGS = {
-  anticipation: 0.14,
-  deckRecoil: 0.1,
-  travel: 0.34,
+  anticipation: 0.18,
+  deckRecoil: 0.12,
+  travel: 0.42,
   flipOffset: 0.2,
-  settle: 0.14,
+  // A drawn card has to stop and get big enough to read, or the whole flight
+  // registers as "something moved" instead of "I drew Defuse".
+  revealHold: 0.55,
+  revealScale: 1.8,
+  settle: 0.2,
   playFlight: 0.3,
   nopeFlight: 0.4,
   discard: 0.35,

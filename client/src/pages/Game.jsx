@@ -157,21 +157,31 @@ function PlayModeCard({
   badgeText,
   imageClass = "w-28 h-28 object-contain",
   enableWiggle = true,
-  imageStyle
+  imageStyle,
+  compact = false
 }) {
+  const resolvedImageClass = compact && imageClass === "w-28 h-28 object-contain"
+    ? "w-full h-full object-contain p-1"
+    : imageClass;
+
   return (
     <div
-      className={`card-brutalist bg-[var(--surface-dim)] flex flex-col items-center justify-between p-6 rounded-2xl flex-1 max-w-[320px] group w-full relative transition-all duration-300
+      className={`card-brutalist bg-[#fffdfa] flex flex-col items-center justify-between rounded-2xl flex-1 group w-full relative transition-all duration-200 shadow-[4px_4px_0_var(--pop-black)] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[5px_5px_0_var(--pop-black)]
+        ${compact ? 'vf-mode-card min-h-0 lg:max-w-none max-w-[320px]' : 'p-6 max-w-[320px]'}
         ${isPrimary
-          ? 'md:scale-105 border-4 card-primary-glow border-[#1a1c1c] z-10'
+          ? `${compact ? '' : 'md:scale-105 '}border-4 card-primary-glow border-[#1a1c1c] z-10 ring-2 ring-amber-300/50`
           : 'border-3 border-[#1a1c1c]'
         }`}
     >
-      {/* Decorative Screws in 4 Corners */}
-      <div className="absolute top-2 left-2 w-2 h-2 rounded-full bg-slate-500/30 border border-[#1a1c1c]/40" />
-      <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-slate-500/30 border border-[#1a1c1c]/40" />
-      <div className="absolute bottom-2 left-2 w-2 h-2 rounded-full bg-slate-500/30 border border-[#1a1c1c]/40" />
-      <div className="absolute bottom-2 right-2 w-2 h-2 rounded-full bg-slate-500/30 border border-[#1a1c1c]/40" />
+      {/* Decorative Screws in 4 Corners (desktop non-compact only) */}
+      {!compact && (
+        <>
+          <div className="absolute top-2 left-2 w-2 h-2 rounded-full bg-slate-500/30 border border-[#1a1c1c]/40" />
+          <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-slate-500/30 border border-[#1a1c1c]/40" />
+          <div className="absolute bottom-2 left-2 w-2 h-2 rounded-full bg-slate-500/30 border border-[#1a1c1c]/40" />
+          <div className="absolute bottom-2 right-2 w-2 h-2 rounded-full bg-slate-500/30 border border-[#1a1c1c]/40" />
+        </>
+      )}
 
       {/* Decorative Ribbon if any */}
       {badgeText && (
@@ -181,7 +191,7 @@ function PlayModeCard({
       )}
 
       {/* Header Illustration Container */}
-      <div className="h-40 w-full rounded-xl border-3 border-[var(--pop-black)] overflow-hidden relative flex items-center justify-center mb-4">
+      <div className={`w-full rounded-xl border-3 border-[var(--pop-black)] overflow-hidden relative flex items-center justify-center ${compact ? 'vf-mode-card__art shrink-0 mb-1.5' : 'h-40 mb-4'}`}>
         {/* Background Pattern Layer */}
         <div className={`absolute inset-0 opacity-90 transition-transform duration-1000 ${bgClass}`} />
 
@@ -194,7 +204,7 @@ function PlayModeCard({
         <img
           src={illustrationSrc}
           style={imageStyle}
-          className={`z-10 transition-transform duration-300 ${imageClass}
+          className={`z-10 transition-transform duration-300 ${resolvedImageClass}
             ${enableWiggle ? 'group-hover-wiggle' : ''}
             ${isDisabled && buttonText !== 'Vào bằng mã' && buttonText !== 'VÀO PHÒNG' ? 'opacity-30' : ''}`}
           alt={title}
@@ -205,16 +215,16 @@ function PlayModeCard({
       </div>
 
       {/* Title & Subtitle */}
-      <div className="text-center flex-grow flex flex-col justify-between mb-4">
+      <div className={`text-center flex flex-col justify-center min-h-0 ${compact ? 'shrink-0 mb-1.5' : 'flex-grow justify-between mb-4'}`}>
         <div>
-          <h3 className="font-pop-display font-black text-xl text-[var(--pop-black)] uppercase tracking-tight leading-none mb-1">
+          <h3 className={`font-pop-display font-black text-[var(--pop-black)] uppercase tracking-tight leading-none ${compact ? 'text-lg sm:text-xl mb-0.5' : 'text-xl mb-1'}`}>
             {title}
           </h3>
-          <p className="font-pop-accent font-bold text-[10px] text-[var(--pop-red)] uppercase tracking-wider mb-2">
+          <p className={`font-pop-accent font-bold text-[10px] text-[var(--pop-red)] uppercase tracking-wider ${compact ? 'mb-0.5' : 'mb-2'}`}>
             {subtitle}
           </p>
         </div>
-        <p className="font-pop-body text-xs text-[var(--pop-black)]/70 font-semibold px-2">
+        <p className={`font-pop-body text-xs text-[var(--pop-black)]/70 font-semibold px-2 ${compact ? 'vf-mode-card__desc' : ''}`}>
           {description}
         </p>
       </div>
@@ -223,10 +233,10 @@ function PlayModeCard({
       <button
         onClick={onClick}
         disabled={isDisabled}
-        className={`btn-retro-pixel btn-shine-container w-full py-2.5 rounded-xl text-center transition-colors
-          ${buttonBgClass} disabled:opacity-50 disabled:cursor-not-allowed`}
+        className={`btn-retro-pixel btn-shine-container w-full rounded-xl text-center transition-colors shrink-0
+          ${compact ? 'py-1.5' : 'py-2.5'} ${buttonBgClass} disabled:opacity-50 disabled:cursor-not-allowed`}
       >
-        <span className="font-headline font-black text-lg text-[var(--pop-black)] uppercase tracking-wider">
+        <span className={`font-headline font-black text-[var(--pop-black)] uppercase tracking-wider ${compact ? 'text-sm sm:text-base' : 'text-lg'}`}>
           {buttonText}
         </span>
       </button>
@@ -1332,7 +1342,7 @@ export default function Game({ setPage, initialRoom = null }) {
 
       if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
         window.requestAnimationFrame(queueDrawEffect);
-} else {
+      } else {
         setTimeout(queueDrawEffect, 50);
       }
     };

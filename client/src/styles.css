@@ -6857,3 +6857,154 @@ body.lang-vi .font-pixel-body {
   box-shadow: 0 0 35px rgba(168, 85, 247, 0.45);
   border-color: rgba(192, 132, 252, 1);
 }
+
+/* ==========================================================================
+   VIEWPORT-FIT PAGES (Leaderboard / Tournament / Arena lobby)
+   Opt-in only: the shell adds .viewport-fit-shell for those pages.
+   ========================================================================== */
+.viewport-fit-shell {
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.viewport-fit-shell>main {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.vf-page {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: clamp(0.5rem, 1.5dvh, 1.25rem);
+  height: 100%;
+  min-height: 0;
+}
+
+.vf-page>* {
+  min-height: 0;
+}
+
+.vf-body {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.vf-title {
+  font-size: clamp(1.5rem, 4.5dvh, 3rem);
+  line-height: 1.05;
+}
+
+/* Arena: mode rail sits beside the room table, so the table owns the leftover
+   height instead of being pushed out by the fixed-height mode cards. */
+.vf-arena-body {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: clamp(0.5rem, 1.5dvh, 1rem);
+  padding-bottom: 6px;
+  padding-right: 6px;
+}
+
+.vf-mode-rail {
+  display: grid;
+  gap: clamp(0.35rem, 1dvh, 0.75rem);
+  min-height: 0;
+}
+
+.vf-mode-card {
+  padding: clamp(0.35rem, 0.8dvh, 0.75rem);
+}
+
+.vf-mode-card__art {
+  height: clamp(44px, 6.5dvh, 72px);
+}
+
+.vf-mode-card__art img {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  aspect-ratio: 2.1 / 1;
+}
+
+.vf-sticky-head th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+@media (min-width: 1024px) {
+  .vf-arena-body {
+    grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .vf-mode-rail {
+    grid-template-rows: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Not enough height for the rail copy: title + action survive, prose goes. */
+@media (min-width: 1024px) and (max-height: 960px) {
+  .vf-mode-card__desc {
+    display: none;
+  }
+}
+
+.vf-row {
+  padding-block: clamp(0.35rem, 1.1dvh, 0.9rem);
+}
+
+.vf-pager-button {
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+}
+
+/* Short viewports: allow exactly one internal scroll area, page still fixed. */
+@media (max-height: 639px) {
+  .vf-body {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Mobile: stacked content cannot fit one screen, so let the page scroll. */
+@media (max-width: 767px) {
+  .viewport-fit-shell {
+    height: auto;
+    overflow: visible;
+  }
+
+  .viewport-fit-shell>main {
+    overflow: visible;
+  }
+
+  .vf-page {
+    height: auto;
+  }
+
+  .vf-body {
+    overflow: visible;
+    grid-template-rows: none;
+  }
+}
+
+/* Very short viewports: drop the contract, natural flow beats clipped content. */
+@media (max-height: 479px) {
+  .viewport-fit-shell {
+    height: auto;
+    overflow: visible;
+  }
+
+  .viewport-fit-shell>main {
+    overflow: visible;
+  }
+
+  .vf-page {
+    height: auto;
+  }
+
+  .vf-body {
+    overflow: visible;
+  }
+}

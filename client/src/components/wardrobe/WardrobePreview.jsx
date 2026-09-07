@@ -20,7 +20,7 @@ function PlayerPortrait({ profile, frame }) {
   return (
     <div className="relative z-20 h-36 w-36 sm:h-40 sm:w-40 transition-transform duration-200 hover:scale-105">
       {/* Dynamic Rarity Aura behind portrait */}
-      <div className={`absolute inset-2 flex items-center justify-center overflow-hidden border-3 border-[var(--pop-black)] bg-[var(--pop-cream)] shadow-[4px_4px_0_var(--pop-black)] ${auraGlow}`}>
+      <div className={`absolute inset-2 flex items-center justify-center overflow-hidden border-3 border-[var(--pop-black)] bg-[var(--pop-cream)] shadow-[4px_4px_0_var(--pop-black)] rounded-2xl ${auraGlow}`}>
         {avatar && PRESET_AVATARS[avatar] ? (
           <span className="text-5xl sm:text-6xl" aria-hidden="true">{PRESET_AVATARS[avatar]}</span>
         ) : avatar ? (
@@ -44,7 +44,7 @@ function ProtectorStack({ protector }) {
       {[0, 1, 2].map((index) => (
         <div
           key={index}
-          className="absolute bottom-0 left-1/2 aspect-[5/7] h-20 origin-bottom -translate-x-1/2 border-2 border-[var(--pop-black)] bg-[var(--pop-cream)] shadow-[3px_3px_0_var(--pop-black)] transition-transform duration-200 group-hover:scale-110 sm:h-24"
+          className="absolute bottom-0 left-1/2 aspect-[5/7] h-20 origin-bottom -translate-x-1/2 border-2 border-[var(--pop-black)] bg-[var(--pop-cream)] shadow-[3px_3px_0_var(--pop-black)] rounded-lg transition-transform duration-200 group-hover:scale-110 sm:h-24 overflow-hidden"
           style={{
             transform: `translateX(-50%) rotate(${(index - 1) * 9}deg) translateX(${(index - 1) * 14}px)`,
           }}
@@ -90,7 +90,7 @@ export default function WardrobePreview({
   };
 
   return (
-    <aside className="wardrobe-panel overflow-hidden lg:sticky lg:top-[76px]" aria-labelledby="wardrobe-preview-heading">
+    <aside className="wardrobe-panel overflow-hidden rounded-2xl lg:sticky lg:top-[76px]" aria-labelledby="wardrobe-preview-heading">
       {/* Header Bar */}
       <div className="flex items-center justify-between border-b-3 border-[var(--pop-black)] bg-[var(--pop-red)] px-4 py-3 text-white">
         <h2 id="wardrobe-preview-heading" className="flex items-center gap-2 font-pixel text-sm font-black uppercase tracking-wide">
@@ -102,7 +102,7 @@ export default function WardrobePreview({
             <button
               type="button"
               onClick={onRandomize}
-              className="border-2 border-white bg-amber-400 px-2 py-0.5 font-pixel text-[11px] font-black uppercase text-[var(--pop-black)] shadow-[1px_1px_0_var(--pop-black)] transition-transform hover:scale-105 active:translate-x-0.5 active:translate-y-0.5"
+              className="border-2 border-[var(--pop-black)] bg-amber-400 px-3 py-1 font-pixel text-xs font-black uppercase text-[var(--pop-black)] shadow-[2px_2px_0_var(--pop-black)] rounded-lg transition-all hover:scale-105 active:translate-x-0.5 active:translate-y-0.5 cursor-pointer min-h-[32px]"
               title={t('wardrobe_randomize')}
             >
               🎲 {t('wardrobe_randomize')}
@@ -111,7 +111,7 @@ export default function WardrobePreview({
           <button
             type="button"
             onClick={() => setExpanded((value) => !value)}
-            className="border-2 border-white/80 px-2 py-1 font-pixel text-[10px] font-black uppercase lg:hidden"
+            className="border-2 border-white/80 px-2.5 py-1 font-pixel text-xs font-black uppercase rounded-lg lg:hidden cursor-pointer"
             aria-expanded={expanded}
             aria-controls="wardrobe-preview-content"
           >
@@ -140,10 +140,10 @@ export default function WardrobePreview({
             <PlayerPortrait profile={profile} frame={previewLoadout.avatarFrame} />
 
             <div className="mt-2.5 flex w-full max-w-sm items-center justify-center gap-2 px-3">
-              <p className="min-w-0 flex-1 truncate border-2 border-[var(--pop-black)] bg-[var(--pop-cream)] px-3 py-1.5 text-center font-pixel text-sm font-black text-[var(--pop-black)] shadow-[3px_3px_0_var(--pop-black)]">
+              <p className="min-w-0 flex-1 truncate border-2 border-[var(--pop-black)] bg-[var(--pop-cream)] px-3 py-1.5 text-center font-pixel text-sm font-black text-[var(--pop-black)] shadow-[3px_3px_0_var(--pop-black)] rounded-lg">
                 {profile.username}
               </p>
-              <span className={`wardrobe-preview-status wardrobe-status-badge ${previewItem ? 'bg-cyan-500 text-white' : 'bg-[var(--pop-green)] text-white'}`}>
+              <span className={`wardrobe-preview-status wardrobe-status-badge rounded-md font-pixel ${previewItem ? 'bg-cyan-600 text-white ring-2 ring-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.8)]' : 'bg-[var(--pop-green)] text-white'}`}>
                 {previewItem ? t('wardrobe_previewing') : t('wardrobe_equipped_label')}
               </span>
             </div>
@@ -153,33 +153,33 @@ export default function WardrobePreview({
         {/* Loadout Slots List */}
         <div className="space-y-2.5 p-3.5 sm:p-4">
           <div className="flex items-center justify-between">
-            <h3 className="font-pixel text-xs font-black uppercase text-[var(--pop-black)]/70">{t('wardrobe_loadout_title')}</h3>
+            <h3 className="font-pixel text-xs sm:text-sm font-black uppercase text-slate-800">{t('wardrobe_loadout_title')}</h3>
             <button
               type="button"
               onClick={() => setShowPresetModal((val) => !val)}
-              className="flex items-center gap-1 border-2 border-[var(--pop-black)] bg-white px-2 py-0.5 font-pixel text-[10px] font-black uppercase shadow-[1px_1px_0_var(--pop-black)] hover:bg-[#fbe1d8]"
+              className="flex items-center gap-1.5 border-2 border-[var(--pop-black)] bg-white px-3 py-1 font-pixel text-xs font-black uppercase shadow-[2px_2px_0_var(--pop-black)] rounded-lg hover:bg-[#fbe1d8] transition-all cursor-pointer min-h-[32px]"
             >
-              <PixelStarIcon size={10} className="text-amber-500" />
+              <PixelStarIcon size={12} className="text-amber-500" />
               {t('wardrobe_presets_title')}
             </button>
           </div>
 
           {/* Preset Management Drawer / Section */}
           {showPresetModal && (
-            <div className="border-2 border-[var(--pop-black)] bg-[var(--pop-cream)] p-3 shadow-[2px_2px_0_var(--pop-black)]">
+            <div className="border-2 border-[var(--pop-black)] bg-[var(--pop-cream)] p-3 shadow-[3px_3px_0_var(--pop-black)] rounded-xl">
               <form onSubmit={handleSavePresetSubmit} className="flex gap-2">
                 <input
                   type="text"
                   value={newPresetName}
                   onChange={(e) => setNewPresetName(e.target.value)}
                   placeholder={t('wardrobe_preset_name_placeholder')}
-                  className="h-8 flex-1 border-2 border-[var(--pop-black)] bg-white px-2 text-xs font-bold outline-none"
+                  className="h-9 flex-1 border-2 border-[var(--pop-black)] bg-white px-3 text-xs font-bold outline-none rounded-lg shadow-inner"
                   maxLength={24}
                 />
                 <button
                   type="submit"
                   disabled={!newPresetName.trim()}
-                  className="border-2 border-[var(--pop-black)] bg-[var(--pop-red)] px-2.5 font-pixel text-[10px] font-black uppercase text-white shadow-[1px_1px_0_var(--pop-black)] disabled:opacity-50"
+                  className="border-2 border-[var(--pop-black)] bg-[var(--pop-red)] px-3 font-pixel text-xs font-black uppercase text-white shadow-[2px_2px_0_var(--pop-black)] rounded-lg disabled:opacity-50 cursor-pointer min-h-[36px]"
                 >
                   {t('wardrobe_preset_save')}
                 </button>
@@ -188,20 +188,20 @@ export default function WardrobePreview({
               {presets.length > 0 ? (
                 <div className="mt-2.5 max-h-36 space-y-1.5 overflow-y-auto">
                   {presets.map((preset) => (
-                    <div key={preset.id} className="flex items-center justify-between border border-[var(--pop-black)] bg-white p-1.5 text-xs">
-                      <span className="truncate font-pixel font-bold">{preset.name}</span>
-                      <div className="flex items-center gap-1">
+                    <div key={preset.id} className="flex items-center justify-between border-2 border-[var(--pop-black)] bg-white p-2 text-xs rounded-lg shadow-[1px_1px_0_var(--pop-black)]">
+                      <span className="truncate font-pixel font-bold text-slate-800">{preset.name}</span>
+                      <div className="flex items-center gap-1.5">
                         <button
                           type="button"
                           onClick={() => onApplyPreset && onApplyPreset(preset)}
-                          className="border border-[var(--pop-black)] bg-[var(--pop-green)] px-1.5 py-0.5 font-pixel text-[9px] font-black uppercase text-white"
+                          className="border border-[var(--pop-black)] bg-[var(--pop-green)] px-2 py-1 font-pixel text-xs font-black uppercase text-white rounded cursor-pointer"
                         >
                           {t('wardrobe_preset_apply')}
                         </button>
                         <button
                           type="button"
                           onClick={() => onDeletePreset && onDeletePreset(preset.id)}
-                          className="border border-[var(--pop-black)] bg-stone-100 px-1 py-0.5 font-pixel text-[9px] font-black text-rose-600 hover:bg-rose-100"
+                          className="border border-[var(--pop-black)] bg-stone-100 px-2 py-1 font-pixel text-xs font-black text-rose-600 hover:bg-rose-100 rounded cursor-pointer"
                           title={t('wardrobe_preset_delete')}
                         >
                           ✕
@@ -211,7 +211,7 @@ export default function WardrobePreview({
                   ))}
                 </div>
               ) : (
-                <p className="mt-2 font-pixel text-[11px] text-[var(--pop-black)]/60 text-center">
+                <p className="mt-2 font-pixel text-xs text-slate-700 font-bold text-center">
                   {t('wardrobe_preset_empty')}
                 </p>
               )}
@@ -225,23 +225,28 @@ export default function WardrobePreview({
             const meta = WARDROBE_ITEM_META[type];
             const isPreviewSlot = previewItem?.type === type && getId(previewItem) === getId(item);
             return (
-              <article key={slot} className="wardrobe-loadout-slot grid grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-3 border-2 border-[var(--pop-black)] bg-white p-2.5 shadow-[3px_3px_0_var(--pop-black)]">
-                <div className="h-14 w-14 overflow-hidden border-2 border-[var(--pop-black)] bg-[var(--pop-cream)]">
+              <article 
+                key={slot} 
+                className={`wardrobe-loadout-slot grid grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-3 border-2 border-[var(--pop-black)] bg-white p-2.5 shadow-[3px_3px_0_var(--pop-black)] rounded-xl transition-all ${
+                  isPreviewSlot ? 'ring-2 ring-cyan-400 bg-cyan-50/40 border-cyan-500' : ''
+                }`}
+              >
+                <div className="h-14 w-14 overflow-hidden border-2 border-[var(--pop-black)] bg-[var(--pop-cream)] rounded-lg">
                   <WardrobeAsset item={item} type={type} decorative />
                 </div>
                 <div className="min-w-0">
-                  <h4 className="font-pixel text-xs font-black uppercase text-[var(--pop-black)]/60">{t(meta.labelKey)}</h4>
-                  <p className="truncate text-sm font-black text-[var(--pop-black)]">{item?.name || t('shop_default')}</p>
-                  <p className="font-pixel text-[10px] font-black uppercase text-[var(--pop-black)]/60">
+                  <h4 className="font-pixel text-xs font-black uppercase text-slate-700">{t(meta.labelKey)}</h4>
+                  <p className="truncate text-sm sm:text-base font-black text-[var(--pop-black)]">{item?.name || t('shop_default')}</p>
+                  <p className="font-pixel text-[11px] font-black uppercase text-slate-700">
                     {isPreviewSlot ? t('wardrobe_previewing') : item ? t(`wardrobe_rarity_${item.rarity || 'common'}`) : t('shop_default')}
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <button type="button" onClick={() => onChangeType(type)} className="wardrobe-slot-button hover:bg-[#fbe1d8]">
+                  <button type="button" onClick={() => onChangeType(type)} className="wardrobe-slot-button hover:bg-[#fbe1d8] rounded-lg cursor-pointer min-h-[34px]">
                     {t('wardrobe_change')}
                   </button>
                   {canonicalItem && (
-                    <button type="button" disabled={Boolean(pendingItemId)} onClick={() => onUnequip(slot, canonicalItem)} className="wardrobe-slot-button wardrobe-slot-button--muted disabled:opacity-50">
+                    <button type="button" disabled={Boolean(pendingItemId)} onClick={() => onUnequip(slot, canonicalItem)} className="wardrobe-slot-button wardrobe-slot-button--muted disabled:opacity-50 rounded-lg cursor-pointer min-h-[34px]">
                       {pendingItemId === `unequip:${slot}` ? t('shop_unequipping') : t('shop_unequip')}
                     </button>
                   )}
@@ -253,20 +258,20 @@ export default function WardrobePreview({
 
         {/* Pinned / Preview Action Dock */}
         {pinnedItem && (
-          <div className="wardrobe-action-dock flex gap-2 border-t-3 border-[var(--pop-black)] bg-[var(--pop-cream)] p-3 sm:p-4">
-            <button type="button" onClick={onCancelPreview} className="wardrobe-secondary-button flex-1">
+          <div className="wardrobe-action-dock flex gap-2.5 border-t-3 border-[var(--pop-black)] bg-[var(--pop-cream)] p-3.5 sm:p-4">
+            <button type="button" onClick={onCancelPreview} className="wardrobe-secondary-button flex-1 rounded-xl min-h-[40px] cursor-pointer">
               {t('wardrobe_preview_cancel')}
             </button>
             {pinnedItem.isLocked ? (
-              <button type="button" onClick={onShop} className="wardrobe-primary-button flex-[1.4]">
+              <button type="button" onClick={onShop} className="wardrobe-primary-button flex-[1.4] rounded-xl min-h-[40px] cursor-pointer">
                 {t('wardrobe_shop_cta')}
               </button>
             ) : pinnedIsEquipped ? (
-              <button type="button" disabled={Boolean(pendingItemId)} onClick={() => onUnequip(pinnedSlot, pinnedItem)} className="wardrobe-primary-button flex-[1.4] disabled:opacity-50">
+              <button type="button" disabled={Boolean(pendingItemId)} onClick={() => onUnequip(pinnedSlot, pinnedItem)} className="wardrobe-primary-button flex-[1.4] rounded-xl min-h-[40px] cursor-pointer disabled:opacity-50">
                 {pendingItemId ? t('shop_unequipping') : t('shop_unequip')}
               </button>
             ) : (
-              <button type="button" disabled={Boolean(pendingItemId)} onClick={() => onApply(pinnedItem)} className="wardrobe-primary-button flex-[1.4] disabled:opacity-50">
+              <button type="button" disabled={Boolean(pendingItemId)} onClick={() => onApply(pinnedItem)} className="wardrobe-primary-button flex-[1.4] rounded-xl min-h-[40px] cursor-pointer disabled:opacity-50">
                 {pendingItemId ? t('shop_equipping') : t('wardrobe_preview_apply')}
               </button>
             )}

@@ -1,3 +1,5 @@
+import { CARD_TIMINGS } from '../../vfx/config/vfxTimings.js';
+
 export const getGameMotionTransition = (reducedMotion = false) => (
   reducedMotion
     ? { duration: 0.01 }
@@ -89,7 +91,11 @@ export function getDrawRevealMotion(reducedMotion = false) {
   const transition = getGameMotionTransition(reducedMotion);
 
   return {
-    holdMs: reducedMotion ? 1000 : 1200,
+    // Shares CARD_TIMINGS with the GSAP flight so the two never drift apart.
+    // Hold = fly-in + revealHold (the actual reading time) + fly-out.
+    holdMs: reducedMotion
+      ? 1000
+      : Math.round((CARD_TIMINGS.travel + CARD_TIMINGS.revealHold + CARD_TIMINGS.travel) * 1000),
     backdrop: {
       initial: { opacity: 0 },
       animate: { opacity: 1 },
@@ -102,7 +108,7 @@ export function getDrawRevealMotion(reducedMotion = false) {
         rotate: reducedMotion ? 0 : -12,
         scale: reducedMotion ? 0.96 : 0.55,
       },
-      animate: { opacity: 1, y: 0, rotate: -2, scale: 1.16 },
+      animate: { opacity: 1, y: 0, rotate: -2, scale: CARD_TIMINGS.revealScale },
       exit: {
         opacity: 0,
         y: reducedMotion ? 0 : 260,
@@ -126,15 +132,15 @@ export function getEndgameSequence(isWin, reducedMotion = false) {
 
   return isWin
     ? {
-        tone: 'victory',
-        title: { opacity: 1, y: 0, rotate: -2.5, scale: 1.08 },
-        contentDelay: 0.28,
-        itemDelay: 0.12,
-      }
+      tone: 'victory',
+      title: { opacity: 1, y: 0, rotate: -2.5, scale: 1.08 },
+      contentDelay: 0.28,
+      itemDelay: 0.12,
+    }
     : {
-        tone: 'defeat',
-        title: { opacity: 1, y: 0, rotate: -2.5, scale: 1 },
-        contentDelay: 0.42,
-        itemDelay: 0.16,
-      };
+      tone: 'defeat',
+      title: { opacity: 1, y: 0, rotate: -2.5, scale: 1 },
+      contentDelay: 0.42,
+      itemDelay: 0.16,
+    };
 }
