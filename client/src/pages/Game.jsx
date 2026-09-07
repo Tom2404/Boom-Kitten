@@ -1297,6 +1297,8 @@ export default function Game({ setPage, initialRoom = null }) {
       : `player-avatar-${recipientId}`;
     animationManager.enqueue({
       animKey: 'DRAW_CARD',
+      // Seasoning, not signal: never let it block a real card animation.
+      priority: VFX_PRIORITY.LOW,
       targetId,
       metadata: { recipientId, targetId },
     });

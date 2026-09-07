@@ -6,6 +6,9 @@ import {
   isReducedMotion,
 } from './PrimitiveEffects';
 import { VFX_ASSETS } from './config/vfxAssets';
+import { createCardGhost, flyCardTo } from './cardMover.js';
+import { CARD_TIMINGS, motionDuration } from './config/vfxTimings.js';
+import { soundManager } from './SoundManager.js';
 
 const COLORS = {
   white: 0xffffff,
@@ -138,7 +141,8 @@ export const VFXFactory = {
   },
 
   createDrawCard(vfxManager, metadata = {}) {
-    const timeline = gsap.timeline();
+    const timeline = gsap.timeline({ defaults: { ease: 'power2.out' } });
+    const targetElement = metadata.targetId ? document.getElementById(metadata.targetId) : null;
     const target = getElementCenter(metadata.targetId) || {
       x: window.innerWidth / 2,
       y: window.innerHeight - 120,
@@ -152,40 +156,57 @@ export const VFXFactory = {
     const scale = getFxScale();
 
     if (deckElement && deckRect) {
-      const cardBack = deckElement.cloneNode(true);
-      cardBack.removeAttribute('id');
-      cardBack.setAttribute('aria-hidden', 'true');
-      cardBack.style.cssText += `
-        position: fixed;
-        left: ${deckRect.left}px;
-        top: ${deckRect.top}px;
-        width: ${deckRect.width}px;
-        height: ${deckRect.height}px;
-        margin: 0;
-        pointer-events: none;
-        z-index: 9998;
-        transform-origin: center;
-      `;
-      document.body.appendChild(cardBack);
-      timeline.eventCallback('onInterrupt', () => cardBack.remove());
+      // Only our own draw has a face to reveal; opponents' cards stay face down.
+      const revealUrl = metadata.imageUrl || null;
+      const ghost = createCardGhost('deck-pile-element', {
+        cardType: metadata.cardType || '',
+        skinIndex: metadata.skinIndex || 0,
+        faceDown: true,
+        imageUrl: revealUrl,
+      });
+      const { element } = ghost;
+      gsap.set(element, { rotationY: 180 });
+      timeline.eventCallback('onInterrupt', () => element.remove());
 
-      const destinationX = target.x - start.x;
-      const destinationY = target.y - start.y;
-      if (isReducedMotion()) {
-        gsap.set(cardBack, { x: destinationX, y: destinationY, scale: 0.92, opacity: 0 });
-        timeline.to(cardBack, { opacity: 0.85, scale: 1, duration: 0.12 }, 0);
-      } else {
-        timeline.to(cardBack, {
-          x: destinationX,
-          y: destinationY,
-          scale: 0.82,
-          rotation: 4,
-          duration: 0.3,
-          ease: 'power2.out',
-        }, 0);
+      const targetRect = targetElement?.getBoundingClientRect() || {
+        left: target.x - deckRect.width / 2,
+        top: target.y - deckRect.height / 2,
+        width: deckRect.width,
+        height: deckRect.height,
+      };
+
+      timeline
+        .call(() => soundManager.play('sfx_card_whoosh'))
+        // 1. anticipation — the card peels off the deck
+        .to(element, { y: -18, scale: 1.06, duration: motionDuration(CARD_TIMINGS.anticipation) })
+        // 2. deck recoil, in parallel with the lift
+        .to(deckElement, {
+          scale: 0.96,
+          duration: motionDuration(CARD_TIMINGS.deckRecoil),
+          yoyo: true,
+          repeat: 1,
+        }, '<')
+        // 3. travel
+        .add(flyCardTo(ghost, targetRect, {
+          duration: CARD_TIMINGS.travel,
+          scale: 0.86,
+        }), '>-0.04');
+
+      if (revealUrl) {
+        // 4. flip mid-flight, at ~60% of the travel
+        timeline.to(element, {
+          rotationY: 360,
+          duration: motionDuration(CARD_TIMINGS.travel * 0.7),
+          ease: 'power1.inOut',
+        }, `<${CARD_TIMINGS.flipOffset}`);
       }
-      timeline.to(cardBack, { opacity: 0, scale: 0.72, duration: 0.12 }, 0.32);
-      timeline.call(() => cardBack.remove(), [], 0.45);
+
+      // 5. settle
+      timeline
+        .to(element, { scale: 0.78, rotation: -4, duration: motionDuration(CARD_TIMINGS.settle) }, '-=0.1')
+        .call(() => soundManager.play('sfx_card_drop'))
+        .to(element, { opacity: 0, duration: motionDuration(0.12) })
+        .call(() => element.remove());
     }
 
     timeline.add(PrimitiveEffects.createPixelTrail(vfxManager, start, target, {

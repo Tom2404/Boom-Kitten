@@ -2,7 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-const styles = fs.readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8');
+// Prettier may write `a>b` or `a > b`; the selector, not its spacing, is the contract.
+const styles = fs
+  .readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8')
+  .replace(/\s*>\s*/g, ' > ');
 
 test('retro UI loads one Vietnamese-capable display font without Pixelify fallbacks', () => {
   assert.match(styles, /family=Chakra\+Petch:wght@500;600;700/);

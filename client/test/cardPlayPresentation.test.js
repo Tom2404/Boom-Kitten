@@ -119,10 +119,8 @@ test('combo presentation preserves every played card image instead of one displa
 });
 
 test('card presentation copy stays compact enough to avoid covering the hand', () => {
-  const source = fs.readFileSync(
-    new URL('../src/vfx/CardPlayPresentationController.js', import.meta.url),
-    'utf8',
-  );
+  // Sizes live in the stylesheet now; only computed rects stay inline.
+  const source = fs.readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8');
 
   assert.match(source, /font-size: clamp\(15px, 3vw, 22px\)/);
   assert.match(source, /font-size: clamp\(11px, 2vw, 14px\)/);
@@ -159,4 +157,30 @@ test('card flights animate compositor-friendly transforms instead of layout prop
   assert.match(source, /\bx:/);
   assert.match(source, /\by:/);
   assert.match(source, /\bscale:/);
+});
+
+test('every card timeline is tracked so skip and reconnect leave nothing behind', () => {
+  const source = fs.readFileSync(
+    new URL('../src/vfx/CardPlayPresentationController.js', import.meta.url),
+    'utf8',
+  );
+
+  assert.match(source, /action\.timelines\.push\(timeline\)/);
+  assert.match(source, /\(action\.timelines \|\| \[\]\)\.forEach\(\(timeline\) => timeline\.kill\(\)\)/);
+  assert.match(source, /snapActive\(\)[\s\S]{0,700}this\._cleanup\(actionId\)/);
+  // Hold is a scrubbable tween, not a wall-clock timer.
+  assert.doesNotMatch(source, /exitTimer/);
+  assert.match(source, /\.to\(\{\}, \{ duration: hold \}\)/);
+});
+
+test('play rhythm guarantees a center hold and arcs the discard flight', () => {
+  const source = fs.readFileSync(
+    new URL('../src/vfx/CardPlayPresentationController.js', import.meta.url),
+    'utf8',
+  );
+
+  assert.match(source, /pendingStartedAt/);
+  assert.match(source, /CARD_TIMINGS\.minHoldNoped/);
+  assert.match(source, /'<0\.08'/);
+  assert.match(source, /arc: \d+/);
 });

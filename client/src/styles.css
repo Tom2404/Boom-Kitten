@@ -320,14 +320,12 @@ body {
   border-radius: inherit;
   opacity: 0;
   transition: opacity 200ms ease;
-  background: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.4) 0%,
-    rgba(255, 182, 255, 0.25) 25%,
-    rgba(180, 255, 255, 0.3) 50%,
-    rgba(255, 240, 180, 0.35) 75%,
-    rgba(255, 255, 255, 0.4) 100%
-  );
+  background: linear-gradient(135deg,
+      rgba(255, 255, 255, 0.4) 0%,
+      rgba(255, 182, 255, 0.25) 25%,
+      rgba(180, 255, 255, 0.3) 50%,
+      rgba(255, 240, 180, 0.35) 75%,
+      rgba(255, 255, 255, 0.4) 100%);
   mix-blend-mode: color-dodge;
 }
 
@@ -4385,7 +4383,7 @@ body.lang-vi .font-pixel-body {
   gap: .45rem;
 }
 
-.game-hand__summary > span:first-child {
+.game-hand__summary>span:first-child {
   font-family: 'Chakra Petch', monospace;
   font-size: .82rem;
   font-weight: 700;
@@ -5891,6 +5889,94 @@ body.lang-vi .font-pixel-body {
 }
 
 /* ==========================================
+ * CARD FLIGHT OVERLAY (cardMover ghosts + presentation chrome)
+ * Only computed geometry (left/top/width/height) stays inline.
+ * ========================================== */
+.card-play-clone {
+  position: fixed;
+  pointer-events: none;
+  z-index: 10000;
+  transform-origin: center center;
+  transform-style: preserve-3d;
+}
+
+.card-play-clone__face {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  backface-visibility: hidden;
+}
+
+.card-play-clone__face--back {
+  background: repeating-linear-gradient(45deg, #1f2937 0 8px, #111827 8px 16px);
+  border: 3px solid #0e1211;
+  transform: rotateY(180deg);
+}
+
+.card-play-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0;
+}
+
+.card-play-copy {
+  position: absolute;
+  left: 50%;
+  bottom: -76px;
+  width: min(84vw, 320px);
+  transform: translateX(-50%);
+  color: #fff;
+  text-align: center;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
+  opacity: 0;
+}
+
+.card-play-copy__title {
+  display: block;
+  font-family: var(--font-headline), sans-serif;
+  font-size: clamp(15px, 3vw, 22px);
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.card-play-copy__summary {
+  display: block;
+  margin-top: 6px;
+  font-family: var(--font-body), sans-serif;
+  font-size: clamp(11px, 2vw, 14px);
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.card-play-nope-stamp {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-6deg);
+  color: #fff;
+  padding: 8px 16px;
+  border: 3px solid #0e1211;
+  box-shadow: 4px 4px 0 0 #0e1211;
+  font-family: var(--font-headline), 'Space Mono', monospace;
+  font-weight: 900;
+  font-size: clamp(16px, 3vw, 24px);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  opacity: 0;
+  z-index: 10001;
+}
+
+/* ==========================================
  * NOPE RETRO PIXEL SCREEN WARNING FLASH
  * ========================================== */
 .nope-screen-flash {
@@ -6719,8 +6805,15 @@ body.lang-vi .font-pixel-body {
 
 /* --- Dark Pixel Explosive Cyber Lobby Theme Utilities --- */
 @keyframes fadeIn {
-  from { opacity: 0; transform: scale(0.97); }
-  to { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .animate-fadeIn {
@@ -6739,6 +6832,7 @@ body.lang-vi .font-pixel-body {
   box-shadow: 0 0 20px rgba(245, 158, 11, 0.25);
   border-color: rgba(245, 158, 11, 0.8);
 }
+
 .glow-orange-card:hover {
   box-shadow: 0 0 35px rgba(245, 158, 11, 0.45);
   border-color: rgba(251, 191, 36, 1);
@@ -6748,6 +6842,7 @@ body.lang-vi .font-pixel-body {
   box-shadow: 0 0 20px rgba(16, 185, 129, 0.25);
   border-color: rgba(16, 185, 129, 0.8);
 }
+
 .glow-green-card:hover {
   box-shadow: 0 0 35px rgba(16, 185, 129, 0.45);
   border-color: rgba(52, 211, 153, 1);
@@ -6757,6 +6852,7 @@ body.lang-vi .font-pixel-body {
   box-shadow: 0 0 20px rgba(168, 85, 247, 0.25);
   border-color: rgba(168, 85, 247, 0.8);
 }
+
 .glow-purple-card:hover {
   box-shadow: 0 0 35px rgba(168, 85, 247, 0.45);
   border-color: rgba(192, 132, 252, 1);

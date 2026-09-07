@@ -52,7 +52,10 @@ export function fromGameSocketEvent(eventName, payload = {}, context = {}) {
   }
 
   if (eventName === 'game:cardDrawn') {
-    metadata.targetId = payload.playerId;
+    // A player id is not an element id — resolve it like game:exploded does.
+    metadata.targetId = payload.playerId === context.myUserId
+      ? 'player-hand-container'
+      : `player-avatar-${payload.playerId}`;
   }
 
   if (eventName === 'game:exploded') {
